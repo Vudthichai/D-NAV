@@ -208,7 +208,7 @@ function compute(){
  document.getElementById('scoreTag').textContent=scoreTagText(composite);
  badge(document.getElementById('retPill'),Math.sign(ret),'Positive','Neutral','Negative');
  badge(document.getElementById('stabPill'),Math.sign(stab),'Stable','Neutral','Fragile');
- badge(document.getElementById('pressPill'),Math.sign(press),'Pressured','Balanced','Calm');
+ badge(document.getElementById('pressPill'),Math.sign(press),'Calm','Balanced','Pressured');
  const key=[sign3(press),sign3(stab),sign3(ret)].join('|');
  const name=names[key]||'Unclassified';
  document.getElementById('arch').textContent=name;
