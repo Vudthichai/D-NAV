@@ -32,6 +32,7 @@ h3{margin:0 0 6px;font-size:12px;color:#9fb1c7;text-transform:uppercase;letter-s
 .amber{background:rgba(243,180,49,.18);color:var(--amber);border:1px solid rgba(243,180,49,.35)}
 .red{background:rgba(255,107,107,.18);color:var(--red);border:1px solid rgba(255,107,107,.4)}
 .small{font-size:12px;color:#9fb1c7}
+.tiny{font-size:12px;color:#aab8cc}
 .hr{height:1px;background:rgba(255,255,255,.08);margin:8px 0}
 .nav{display:flex;gap:10px;flex-wrap:wrap}
 .badges{display:flex;gap:8px;flex-wrap:wrap;margin-top:6px}
@@ -40,6 +41,22 @@ h3{margin:0 0 6px;font-size:12px;color:#9fb1c7;text-transform:uppercase;letter-s
 .arch .name{font-weight:800}
 .arch .desc{color:#c9d4e6;margin-top:4px;font-size:13px;line-height:1.4}
 .section{scroll-margin-top:14px}
+
+/* Derived signals row: tighter, one-line, with subtle rules */
+.signals{display:grid;grid-template-columns:repeat(3,1fr);gap:12px}
+.sig{border-bottom:1px solid rgba(255,255,255,.08);padding-bottom:8px}
+.sig .line{margin-top:4px}
+.sig .line .pill{transform:translateY(-1px)}
+.sig .def{margin-top:4px;font-size:12px;color:#aab8cc}
+
+/* Core ingredients: 3×2 grid w/ a spacer to align U/C under I/C/R */
+.ingredients-grid{
+  display:grid;gap:12px;grid-template-columns:repeat(3,1fr)
+}
+@media (max-width:900px){
+  .ingredients-grid{grid-template-columns:1fr}
+}
+.spacer{min-height:1px}
 </style>
 </head>
 <body>
@@ -54,7 +71,7 @@ h3{margin:0 0 6px;font-size:12px;color:#9fb1c7;text-transform:uppercase;letter-s
       <a href="/index.html" class="small">← Back to D-NAV</a>
       <a href="#ingredients" class="small">Core ingredients</a>
       <a href="#signals" class="small">Derived signals</a>
-      <a href="#merit-attention" class="small">Merit & Attention</a>
+      <a href="#merit-drive" class="small">Merit & Drive</a>
       <a href="#composite" class="small">Composite (D-NAV)</a>
       <a href="#archetypes" class="small">Archetypes</a>
     </div>
@@ -63,7 +80,9 @@ h3{margin:0 0 6px;font-size:12px;color:#9fb1c7;text-transform:uppercase;letter-s
   <!-- Core Ingredients -->
   <div id="ingredients" class="card section">
     <h2>Core ingredients (1–10 each)</h2>
-    <div class="grid-3">
+
+    <!-- 3×2 layout: I / C / R on row 1, U / Cnf / (spacer) on row 2 -->
+    <div class="ingredients-grid">
       <div>
         <h3>Impact</h3>
         <p class="p">The value at stake if this goes right. Higher = bigger upside/importance.</p>
@@ -76,8 +95,7 @@ h3{margin:0 0 6px;font-size:12px;color:#9fb1c7;text-transform:uppercase;letter-s
         <h3>Risk</h3>
         <p class="p">Downside uncertainty: likelihood × magnitude of harm or failure.</p>
       </div>
-    </div>
-    <div class="grid-2" style="margin-top:6px;">
+
       <div>
         <h3>Urgency</h3>
         <p class="p">Time pressure to act. High urgency compresses decision windows.</p>
@@ -86,44 +104,68 @@ h3{margin:0 0 6px;font-size:12px;color:#9fb1c7;text-transform:uppercase;letter-s
         <h3>Confidence</h3>
         <p class="p">Evidence and readiness to execute (proof, reps, clarity, resources).</p>
       </div>
+      <div class="spacer"></div>
     </div>
   </div>
 
   <!-- Derived Signals -->
   <div id="signals" class="card section">
     <h2>Derived signals</h2>
-    <div class="grid-3">
-      <div>
+
+    <div class="signals">
+      <div class="sig">
         <h3>Return</h3>
-        <div class="kv"><div class="k">Formula</div><div class="v"><span class="code">Impact − Cost</span></div></div>
-        <p class="p">Value creation after cost. <span class="pill green">Positive</span> / <span class="pill amber">Neutral</span> / <span class="pill red">Negative</span>.</p>
+        <div class="line tiny"><span class="code">Impact − Cost</span></div>
+        <div class="def">
+          Value creation after cost:
+          <span class="pill green">Positive</span>
+          <span class="pill amber">Neutral</span>
+          <span class="pill red">Negative</span>.
+        </div>
       </div>
-      <div>
+
+      <div class="sig">
         <h3>Stability</h3>
-        <div class="kv"><div class="k">Formula</div><div class="v"><span class="code">Confidence − Risk</span></div></div>
-        <p class="p">How survivable the move is. <span class="pill green">Stable</span> vs <span class="pill red">Fragile</span>.</p>
+        <div class="line tiny"><span class="code">Confidence − Risk</span></div>
+        <div class="def">
+          How survivable the move is:
+          <span class="pill green">Stable</span>
+          <span class="pill red">Fragile</span>.
+        </div>
       </div>
-      <div>
+
+      <div class="sig">
         <h3>Pressure</h3>
-        <div class="kv"><div class="k">Formula</div><div class="v"><span class="code">Urgency − Confidence</span></div></div>
-        <p class="p">Execution stress. <span class="pill red">Pressured</span>, <span class="pill amber">Balanced</span>, or <span class="pill green">Calm</span>.</p>
+        <div class="line tiny"><span class="code">Urgency − Confidence</span></div>
+        <div class="def">
+          Execution stress:
+          <span class="pill red">Pressured</span>
+          <span class="pill amber">Balanced</span>
+          <span class="pill green">Calm</span>.
+        </div>
       </div>
+    </div>
+
+    <div class="tiny" style="margin-top:8px;">
+      Order doesn’t change the math; we group them to highlight different risks:
+      <b>Return</b> (unit economics), <b>Stability</b> (survivability), <b>Pressure</b> (execution risk).
+      Short-term negative return can be strategic — keep stability positive and pressure managed.
     </div>
   </div>
 
-  <!-- Merit & Attention -->
-  <div id="merit-attention" class="card section">
-    <h2>Merit & Attention</h2>
+  <!-- Merit & Drive -->
+  <div id="merit-drive" class="card section">
+    <h2>Merit & Drive</h2>
     <div class="grid-2">
       <div>
         <h3>Merit</h3>
         <div class="kv"><div class="k">Formula</div><div class="v"><span class="code">Impact − Cost − Risk</span></div></div>
-        <p class="p">The underlying quality of the bet (unit economics + risk drag). Think “is this inherently good?”</p>
+        <p class="p">The underlying quality of the bet (unit economics minus risk drag). “Is this inherently good?”</p>
       </div>
       <div>
-        <h3>Attention</h3>
+        <h3>Drive</h3>
         <div class="kv"><div class="k">Formula</div><div class="v"><span class="code">Urgency × Confidence</span></div></div>
-        <p class="p">Your applied drive—how hard and how ready you’ll push right now.</p>
+        <p class="p">Your applied energy — how hard and how ready you’ll push right now.</p>
       </div>
     </div>
   </div>
@@ -133,7 +175,7 @@ h3{margin:0 0 6px;font-size:12px;color:#9fb1c7;text-transform:uppercase;letter-s
     <h2>Composite (D-NAV)</h2>
     <div class="kv"><div class="k">Formula</div><div class="v"><span class="code">D-NAV = (Impact − Cost − Risk) + (Urgency × Confidence)</span></div></div>
     <div class="hr"></div>
-    <p class="p">D-NAV combines <b>Merit</b> (quality of the opportunity) with <b>Attention</b> (your applied energy). High D-NAV = strong bet and/or strong push.</p>
+    <p class="p">D-NAV combines <b>Merit</b> (quality of the opportunity) with <b>Drive</b> (your applied energy). High D-NAV = strong bet and/or strong push — but always read Return/Stability/Pressure to avoid hidden traps and slow bleeds.</p>
   </div>
 
   <!-- Archetypes -->
