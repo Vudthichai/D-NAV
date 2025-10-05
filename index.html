@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en"><head><meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>D-NAV Mini — Sliders Demo (v3.6)</title>
+<title>D-NAV Mini — Sliders Demo (v3.8)</title>
 <style>
 :root{--bg:#0b0f14;--card:#121821;--muted:#8fa1b7;--text:#e9eef5;--green:#3ecf8e;--red:#ff6b6b;--amber:#f3b431;--blue:#69a9ff}
 *{box-sizing:border-box;font-family:Inter,ui-sans-serif,system-ui,-apple-system,Segoe UI,Roboto,Arial}
@@ -49,13 +49,21 @@ tr+tr{border-top:1px solid #1e1e1e}
 tbody tr:nth-child(even){ background: rgba(255,255,255,.02); }
 
 /* === Stats HUD tiles === */
-.kpis{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-top:10px}
+.kpis{display:grid;grid-template-columns:repeat(5,1fr);gap:12px;margin-top:10px}
 .kpi{background:rgba(255,255,255,.04);border-radius:12px;padding:12px 14px;position:relative}
 .kpi h4{margin:0;font-size:12px;color:#9fb1c7;letter-spacing:.3px;text-transform:uppercase}
 .kpi .big{font-size:28px;font-weight:900;margin-top:6px}
 .mini{font-size:12px;color:#a7b4c7;margin-top:4px}
 .progress{height:8px;border-radius:999px;background:rgba(255,255,255,.08);overflow:hidden;margin-top:8px}
 .progress>span{display:block;height:100%;transition:width .45s ease}
+
+/* Energy allocation list */
+.alloc{margin-top:12px}
+.alloc .row{display:grid;grid-template-columns:160px 1fr 260px;gap:12px;align-items:center;padding:6px 0;border-bottom:1px solid rgba(255,255,255,.06)}
+.alloc .row:last-child{border-bottom:none}
+.alloc .bar{height:8px;border-radius:999px;background:rgba(255,255,255,.08);overflow:hidden}
+.alloc .bar>span{display:block;height:100%;background:var(--blue);transition:width .45s ease}
+.alloc .meta{font-size:12px;color:#a7b4c7;text-align:right}
 
 /* pulse highlight when numbers update */
 @keyframes pulse-kpi{0%{box-shadow:0 0 0 0 rgba(105,169,255,.35)}100%{box-shadow:0 0 0 14px rgba(105,169,255,0)}}
@@ -70,6 +78,8 @@ tbody tr:nth-child(even){ background: rgba(255,255,255,.02); }
   .comp .big{font-size:38px}
   input[type=range]{height:36px}
   .kpis{grid-template-columns:1fr 1fr}
+  .alloc .row{grid-template-columns:1fr}
+  .alloc .meta{text-align:left}
 }
 </style></head>
 <body>
@@ -113,22 +123,34 @@ tbody tr:nth-child(even){ background: rgba(255,255,255,.02); }
 <!-- STATS HUD -->
 <div class="wrap" style="grid-template-columns:1fr;">
   <div class="card">
-    <h2 style="margin:0;">Your Decision Stats</h2>
+    <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;">
+      <h2 style="margin:0;">Your Decision Stats</h2>
+      <select id="rangeSelect" class="input" style="width:160px;padding:8px 10px;">
+        <option value="0">All time</option>
+        <option value="7">Last 7 days</option>
+        <option value="30">Last 30 days</option>
+      </select>
+    </div>
     <div class="kpis">
       <div class="kpi" id="tile_total">
         <h4>Decisions</h4>
         <div class="big" id="k_total" data-val="0">0</div>
-        <div class="mini" id="k_recent">(0 in last 7 days)</div>
+        <div class="mini" id="k_recent">(0 in range)</div>
       </div>
       <div class="kpi" id="tile_avg">
         <h4>Avg D-NAV</h4>
         <div class="big" id="k_avgdnav" data-val="0">0</div>
-        <div class="mini">Composite energy</div>
+        <div class="mini">Composite (Merit + Drive)</div>
       </div>
       <div class="kpi" id="tile_pos">
         <h4>Positive Return</h4>
         <div class="big" id="k_posret" data-val="0">0%</div>
         <div class="progress"><span id="bar_posret" style="width:0%;background:var(--green)"></span></div>
+      </div>
+      <div class="kpi" id="tile_stable">
+        <h4>Stable</h4>
+        <div class="big" id="k_stable" data-val="0">0%</div>
+        <div class="progress"><span id="bar_stable" style="width:0%;background:var(--green)"></span></div>
       </div>
       <div class="kpi" id="tile_press">
         <h4>Pressured</h4>
@@ -136,7 +158,11 @@ tbody tr:nth-child(even){ background: rgba(255,255,255,.02); }
         <div class="progress"><span id="bar_press" style="width:0%;background:var(--red)"></span></div>
       </div>
     </div>
-    <div class="mini" id="k_misc" style="margin-top:10px;">Top category: — • Top archetype: —</div>
+
+    <h3 id="allocTitle" style="margin:14px 0 6px;">Attention (U×C) by category</h3>
+    <div class="alloc" id="allocList"></div>
+
+    <div class="mini" id="k_misc" style="margin-top:8px;">Top category: — • Top archetype: —</div>
   </div>
 </div>
 
@@ -193,6 +219,7 @@ tbody tr:nth-child(even){ background: rgba(255,255,255,.02); }
 </div>
 
 <script>
+/* --- Archetypes and descriptions --- */
 const names={
 "1|1|1":"Urgent Jackpot","1|1|0":"Stable Grind","1|1|-1":"Overconfident Burn",
 "1|0|1":"Calculated Sprint","1|0|0":"Fire Drill","1|0|-1":"Stress Spiral",
@@ -280,14 +307,10 @@ function compute(){
  badge(document.getElementById('retPill'),Math.sign(ret),'Positive','Neutral','Negative');
  badge(document.getElementById('stabPill'),Math.sign(stab),'Stable','Neutral','Fragile');
 
- // Pressure badge colors
  const pressPill = document.getElementById('pressPill');
  pressPill.textContent = press > 0 ? 'Pressured' : (press < 0 ? 'Calm' : 'Balanced');
  pressPill.className = 'pill ' + (press > 0 ? 'red' : (press < 0 ? 'green' : 'amber'));
-
- // Color the big Pressure number to match
- const pressValEl = document.getElementById('press');
- pressValEl.style.color = press > 0 ? 'var(--red)' : (press < 0 ? 'var(--green)' : 'var(--amber)');
+ document.getElementById('press').style.color = press > 0 ? 'var(--red)' : (press < 0 ? 'var(--green)' : 'var(--amber)');
 
  const key=[sign3(press),sign3(stab),sign3(ret)].join('|');
  const name=names[key]||'Unclassified';
@@ -344,25 +367,63 @@ function animateNumber(el, to, {suffix='', duration=500}={}){
   requestAnimationFrame(step);
 }
 function pulse(tile){
-  tile.classList.remove('pulse');
-  void tile.offsetWidth; // reflow
-  tile.classList.add('pulse');
+  tile.classList.remove('pulse'); void tile.offsetWidth; tile.classList.add('pulse');
+}
+function filterRows(rows){
+  const days = Number($('#rangeSelect').value || 0);
+  if(!days) return rows;
+  const cutoff = Date.now() - days*24*60*60*1000;
+  return rows.filter(r=>r.ts >= cutoff);
+}
+function renderAlloc(rows){
+  const list = $('#allocList');
+  if(!rows.length){ list.innerHTML = '<div class="mini">No data in range.</div>'; return; }
+
+  // Attention energy = Urgency × Confidence
+  const totals = new Map(); // cat => {energy,count,sumD,press,stable}
+  let energyAll = 0;
+  rows.forEach(r=>{
+    const cat=(r.category||'').trim()||'Uncategorized';
+    const e = (r.urgency||0)*(r.confidence||0);
+    energyAll += e;
+    if(!totals.has(cat)) totals.set(cat,{energy:0,count:0,sumD:0,press:0,stable:0});
+    const t=totals.get(cat);
+    t.energy += e;
+    t.count += 1;
+    t.sumD += (Number(r.dnav)||0);
+    if((r.pressure||0) > 0) t.press += 1;
+    if((r.stability||0) > 0) t.stable += 1;
+  });
+
+  const rowsData = Array.from(totals.entries()).map(([cat,t])=>{
+    const share = energyAll? Math.round(t.energy*100/energyAll) : 0;
+    const avgD = Math.round(t.sumD / t.count);
+    const pr = Math.round(t.press*100/t.count);
+    const st = Math.round(t.stable*100/t.count);
+    return {cat, share, avgD, count:t.count, pr, st};
+  }).sort((a,b)=>b.share-a.share).slice(0,8);
+
+  list.innerHTML = rowsData.map(r=>`
+    <div class="row">
+      <div><strong>${escapeHtml(r.cat)}</strong></div>
+      <div class="bar"><span style="width:${r.share}%"></span></div>
+      <div class="meta">${r.share}% of attention • ${r.count} decisions • avg D-NAV ${r.avgD} • stable ${r.st}% • pressured ${r.pr}%</div>
+    </div>
+  `).join('');
 }
 
-function renderStats(rows){
+function renderStats(allRows){
+  const rows = filterRows(allRows);
   const total = rows.length;
-  const now = Date.now();
-  const recent = rows.filter(r => r.ts >= now - 7*24*60*60*1000).length;
+
   const avg = total ? Math.round(rows.reduce((a,r)=>a + (Number(r.dnav)||0),0)/total) : 0;
   const posRet = total ? Math.round(rows.filter(r=>r.return>0).length*100/total) : 0;
   const pressured = total ? Math.round(rows.filter(r=>r.pressure>0).length*100/total) : 0;
+  const stable = total ? Math.round(rows.filter(r=>r.stability>0).length*100/total) : 0;
 
   // top category
   const counts = new Map();
-  rows.forEach(r=>{
-    const c=(r.category||'').trim();
-    if(!c) return; counts.set(c,(counts.get(c)||0)+1);
-  });
+  rows.forEach(r=>{ const c=(r.category||'').trim(); if(!c) return; counts.set(c,(counts.get(c)||0)+1); });
   let topCat='—', topCatCount=0;
   counts.forEach((v,k)=>{ if(v>topCatCount){ topCat=k; topCatCount=v; } });
 
@@ -376,21 +437,20 @@ function renderStats(rows){
   let topArch='—', topArchCount=0;
   aCounts.forEach((v,k)=>{ if(v>topArchCount){ topArch=k; topArchCount=v; } });
 
-  // animate numbers
+  // numbers + bars
   animateNumber($('#k_total'), total);
-  $('#k_recent').textContent = `(${recent} in last 7 days)`;
+  $('#k_recent').textContent = `(${total} in range)`;
   animateNumber($('#k_avgdnav'), avg);
-  animateNumber($('#k_posret'), posRet, {suffix:'%'});
-  animateNumber($('#k_pressured'), pressured, {suffix:'%'});
-  // animated bars (CSS transition)
-  $('#bar_posret').style.width = posRet + '%';
-  $('#bar_press').style.width = pressured + '%';
-  // pulse tiles
-  pulse($('#tile_total')); pulse($('#tile_avg')); pulse($('#tile_pos')); pulse($('#tile_press'));
-  // misc line
+  animateNumber($('#k_posret'), posRet, {suffix:'%'});   $('#bar_posret').style.width = posRet + '%';
+  animateNumber($('#k_stable'),  stable,  {suffix:'%'});   $('#bar_stable').style.width = stable + '%';
+  animateNumber($('#k_pressured'), pressured, {suffix:'%'}); $('#bar_press').style.width = pressured + '%';
+
+  pulse($('#tile_total')); pulse($('#tile_avg')); pulse($('#tile_pos')); pulse($('#tile_stable')); pulse($('#tile_press'));
+
   $('#k_misc').textContent = `Top category: ${topCat} • Top archetype: ${topArch}`;
+
+  renderAlloc(rows);
 }
-/* ----------------------------------- */
 
 function renderLog(){
   const rows=loadLog();
@@ -422,7 +482,7 @@ function renderLog(){
     });
   });
 
-  renderStats(rows); // <— updates HUD on every render
+  renderStats(rows); // updates HUD on every render
 }
 
 function resetForm(){
@@ -459,7 +519,7 @@ function enterDecision(){
   const arr=loadLog();
   arr.unshift(row);
   saveLog(arr);
-  renderLog();   // <— triggers animated HUD refresh
+  renderLog();   // triggers animated HUD refresh
   resetForm();
 }
 
@@ -500,13 +560,10 @@ $('#clearLogBtn')?.addEventListener('click', ()=>{
     localStorage.removeItem('dnav_log_v1'); renderLog();
   }
 });
+$('#rangeSelect').addEventListener('change', ()=>renderLog());
 
 // boot
 compute();
-renderLog();
-checkFormValid();
-</script>
-</body></html>
 renderLog();
 checkFormValid();
 </script>
