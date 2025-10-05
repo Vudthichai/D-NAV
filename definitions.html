@@ -19,44 +19,56 @@ a{color:#cfe1ff;text-decoration:none}
 .card{background:var(--card);border-radius:16px;padding:18px;box-shadow:0 10px 24px rgba(0,0,0,.35)}
 .grid-2{display:grid;gap:12px;grid-template-columns:1fr 1fr}
 .grid-3{display:grid;gap:12px;grid-template-columns:repeat(3,1fr)}
-.grid-4{display:grid;gap:12px;grid-template-columns:repeat(4,1fr)}
-@media (max-width:900px){.grid-2,.grid-3,.grid-4{grid-template-columns:1fr}}
+@media (max-width:900px){.grid-2,.grid-3{grid-template-columns:1fr}}
 h2{margin:0 0 8px;font-size:18px}
 h3{margin:0 0 6px;font-size:12px;color:#9fb1c7;text-transform:uppercase;letter-spacing:.3px}
 .p{margin:6px 0 0;line-height:1.55;color:#d7e2ef}
 .kv{display:flex;align-items:flex-start;gap:10px}
 .kv .k{min-width:118px;color:#a7b4c7}
 .code{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;background:rgba(255,255,255,.06);padding:2px 6px;border-radius:6px}
-.pill{display:inline-block;padding:6px 10px;border-radius:999px;font-weight:800;font-size:12px}
+
+/* Pills (smaller) */
+.pill{display:inline-block;padding:4px 8px;border-radius:999px;font-weight:800;font-size:11px}
 .green{background:rgba(62,207,142,.18);color:var(--green);border:1px solid rgba(62,207,142,.4)}
 .amber{background:rgba(243,180,49,.18);color:var(--amber);border:1px solid rgba(243,180,49,.35)}
 .red{background:rgba(255,107,107,.18);color:var(--red);border:1px solid rgba(255,107,107,.4)}
+
 .small{font-size:12px;color:#9fb1c7}
 .tiny{font-size:12px;color:#aab8cc}
 .hr{height:1px;background:rgba(255,255,255,.08);margin:8px 0}
 .nav{display:flex;gap:10px;flex-wrap:wrap}
-.badges{display:flex;gap:8px;flex-wrap:wrap;margin-top:6px}
-.archgrid{display:grid;gap:10px;grid-template-columns:repeat(3,1fr)}
-.arch{background:rgba(255,255,255,.04);border-radius:12px;padding:12px}
-.arch .name{font-weight:800}
-.arch .desc{color:#c9d4e6;margin-top:4px;font-size:13px;line-height:1.4}
-.section{scroll-margin-top:14px}
 
-/* Derived signals row: tighter, one-line, with subtle rules */
+/* Derived signals row (single-line) */
 .signals{display:grid;grid-template-columns:repeat(3,1fr);gap:12px}
 .sig{border-bottom:1px solid rgba(255,255,255,.08);padding-bottom:8px}
 .sig .line{margin-top:4px}
-.sig .line .pill{transform:translateY(-1px)}
 .sig .def{margin-top:4px;font-size:12px;color:#aab8cc}
 
-/* Core ingredients: 3×2 grid w/ a spacer to align U/C under I/C/R */
-.ingredients-grid{
-  display:grid;gap:12px;grid-template-columns:repeat(3,1fr)
-}
-@media (max-width:900px){
-  .ingredients-grid{grid-template-columns:1fr}
-}
+/* Core ingredients: 3×2 with spacer to align U/C */
+.ingredients-grid{display:grid;gap:12px;grid-template-columns:repeat(3,1fr)}
+@media (max-width:900px){.ingredients-grid{grid-template-columns:1fr}}
 .spacer{min-height:1px}
+
+/* Archetypes grid */
+.archgrid{display:grid;gap:10px;grid-template-columns:repeat(3,1fr)}
+@media (max-width:900px){.archgrid{grid-template-columns:1fr}}
+.arch{background:rgba(255,255,255,.04);border-radius:12px;padding:12px}
+.arch .name{font-weight:800}
+.arch .alias{color:#9fb1c7;font-weight:600;margin-left:6px;font-size:12px}
+.arch .meta{margin-top:6px;display:flex;gap:6px;align-items:center}
+.arch .desc{color:#c9d4e6;margin-top:6px;font-size:13px;line-height:1.4}
+
+/* micro chips for P/S/R signs */
+.chip{display:inline-block;padding:2px 6px;border-radius:999px;font-weight:800;font-size:10px;letter-spacing:.3px;border:1px solid transparent}
+.chip.pPlus{background:rgba(255,107,107,.18);border-color:rgba(255,107,107,.35);color:var(--red)}
+.chip.pZero{background:rgba(243,180,49,.18);border-color:rgba(243,180,49,.35);color:var(--amber)}
+.chip.pMinus{background:rgba(62,207,142,.18);border-color:rgba(62,207,142,.35);color:var(--green)}
+.chip.sPlus{background:rgba(62,207,142,.18);border-color:rgba(62,207,142,.35);color:var(--green)}
+.chip.sZero{background:rgba(243,180,49,.18);border-color:rgba(243,180,49,.35);color:var(--amber)}
+.chip.sMinus{background:rgba(255,107,107,.18);border-color:rgba(255,107,107,.35);color:var(--red)}
+.chip.rPlus{background:rgba(62,207,142,.18);border-color:rgba(62,207,142,.35);color:var(--green)}
+.chip.rZero{background:rgba(243,180,49,.18);border-color:rgba(243,180,49,.35);color:var(--amber)}
+.chip.rMinus{background:rgba(255,107,107,.18);border-color:rgba(255,107,107,.35);color:var(--red)}
 </style>
 </head>
 <body>
@@ -80,8 +92,6 @@ h3{margin:0 0 6px;font-size:12px;color:#9fb1c7;text-transform:uppercase;letter-s
   <!-- Core Ingredients -->
   <div id="ingredients" class="card section">
     <h2>Core ingredients (1–10 each)</h2>
-
-    <!-- 3×2 layout: I / C / R on row 1, U / Cnf / (spacer) on row 2 -->
     <div class="ingredients-grid">
       <div>
         <h3>Impact</h3>
@@ -95,7 +105,6 @@ h3{margin:0 0 6px;font-size:12px;color:#9fb1c7;text-transform:uppercase;letter-s
         <h3>Risk</h3>
         <p class="p">Downside uncertainty: likelihood × magnitude of harm or failure.</p>
       </div>
-
       <div>
         <h3>Urgency</h3>
         <p class="p">Time pressure to act. High urgency compresses decision windows.</p>
@@ -111,7 +120,6 @@ h3{margin:0 0 6px;font-size:12px;color:#9fb1c7;text-transform:uppercase;letter-s
   <!-- Derived Signals -->
   <div id="signals" class="card section">
     <h2>Derived signals</h2>
-
     <div class="signals">
       <div class="sig">
         <h3>Return</h3>
@@ -123,17 +131,16 @@ h3{margin:0 0 6px;font-size:12px;color:#9fb1c7;text-transform:uppercase;letter-s
           <span class="pill red">Negative</span>.
         </div>
       </div>
-
       <div class="sig">
         <h3>Stability</h3>
         <div class="line tiny"><span class="code">Confidence − Risk</span></div>
         <div class="def">
           How survivable the move is:
           <span class="pill green">Stable</span>
+          <span class="pill amber">Uncertain</span>
           <span class="pill red">Fragile</span>.
         </div>
       </div>
-
       <div class="sig">
         <h3>Pressure</h3>
         <div class="line tiny"><span class="code">Urgency − Confidence</span></div>
@@ -145,11 +152,10 @@ h3{margin:0 0 6px;font-size:12px;color:#9fb1c7;text-transform:uppercase;letter-s
         </div>
       </div>
     </div>
-
     <div class="tiny" style="margin-top:8px;">
       Order doesn’t change the math; we group them to highlight different risks:
       <b>Return</b> (unit economics), <b>Stability</b> (survivability), <b>Pressure</b> (execution risk).
-      Short-term negative return can be strategic — keep stability positive and pressure managed.
+      Short-term negative return can be strategic — keep stability ≥ 0 and pressure managed.
     </div>
   </div>
 
@@ -175,30 +181,24 @@ h3{margin:0 0 6px;font-size:12px;color:#9fb1c7;text-transform:uppercase;letter-s
     <h2>Composite (D-NAV)</h2>
     <div class="kv"><div class="k">Formula</div><div class="v"><span class="code">D-NAV = (Impact − Cost − Risk) + (Urgency × Confidence)</span></div></div>
     <div class="hr"></div>
-    <p class="p">D-NAV combines <b>Merit</b> (quality of the opportunity) with <b>Drive</b> (your applied energy). High D-NAV = strong bet and/or strong push — but always read Return/Stability/Pressure to avoid hidden traps and slow bleeds.</p>
+    <p class="p">
+      D-NAV blends <b>Merit</b> (quality of the bet) with <b>Drive</b> (your execution momentum). High D-NAV = strong bet and/or strong push.
+      Short-term negative Return can still be strategic if it buys capability, share, or time — as long as <b>Stability</b> stays positive and <b>Pressure</b> is managed.
+    </p>
   </div>
 
   <!-- Archetypes -->
   <div id="archetypes" class="card section">
-    <h2>Archetypes (by Return / Stability / Pressure)</h2>
-    <p class="small">Each outcome is classified by the sign of <span class="code">Pressure</span>, <span class="code">Stability</span>, and <span class="code">Return</span> (in that order) into one of 27 archetypes.</p>
-    <div class="badges">
-      <span class="pill red">Pressured</span>
-      <span class="pill amber">Balanced</span>
-      <span class="pill green">Calm</span>
-      <span class="pill green">Stable</span>
-      <span class="pill red">Fragile</span>
-      <span class="pill green">Positive return</span>
-      <span class="pill red">Negative return</span>
-    </div>
+    <h2>Archetypes (Pressure • Stability • Return)</h2>
+    <p class="small">Each outcome is defined by the signs of <span class="code">Pressure</span>, <span class="code">Stability</span>, and <span class="code">Return</span> → e.g., <b>Pressured Stable Gain</b> (P+, S+, R+).</p>
     <div class="archgrid" id="archGrid"></div>
   </div>
 
 </div>
 
 <script>
-/* Archetype mapping (same as app) */
-const names={
+/* Old fun names for continuity (key = "P|S|R") */
+const oldNames={
 "1|1|1":"Urgent Jackpot","1|1|0":"Stable Grind","1|1|-1":"Overconfident Burn",
 "1|0|1":"Calculated Sprint","1|0|0":"Fire Drill","1|0|-1":"Stress Spiral",
 "1|-1|1":"Chaos Bet","1|-1|0":"Tenuous Push","1|-1|-1":"Chaos Burn",
@@ -239,18 +239,42 @@ const desc={
 "Fragile Collapse":"Fragile and negative-return — avoid or radically change conditions."
 };
 
-/* Render archetype cards */
+/* Helpers to build the new, composable names */
+const Pword = s => s>0?'Pressured':(s<0?'Calm':'Balanced');
+const Sword = s => s>0?'Stable':(s<0?'Fragile':'Uncertain');
+const Rword = s => s>0?'Gain':(s<0?'Loss':'Flat');
+
+const chipClassP = s => s>0?'pPlus':(s<0?'pMinus':'pZero');
+const chipClassS = s => s>0?'sPlus':(s<0?'sMinus':'sZero');
+const chipClassR = s => s>0?'rPlus':(s<0?'rMinus':'rZero');
+
+function makeCard(p,s,r){
+  const key = [p,s,r].join('|');
+  const title = `${Pword(p)} ${Sword(s)} ${Rword(r)}`;
+  const alias = oldNames[key] ? ` · old: ${oldNames[key]}` : '';
+  const aliasDesc = oldNames[key] ? (desc[oldNames[key]]||'') : '';
+  return `
+    <div class="arch">
+      <div class="name">${title}<span class="alias">${alias}</span></div>
+      <div class="meta">
+        <span class="chip ${chipClassP(p)}">P${p>0?'+':(p<0?'-':'0')}</span>
+        <span class="chip ${chipClassS(s)}">S${s>0?'+':(s<0?'-':'0')}</span>
+        <span class="chip ${chipClassR(r)}">R${r>0?'+':(r<0?'-':'0')}</span>
+      </div>
+      <div class="desc">${aliasDesc}</div>
+    </div>
+  `;
+}
+
+/* Render the 27 archetypes (grouped by Return: Gain, Flat, Loss) */
 (function renderArchetypes(){
   const grid = document.getElementById('archGrid');
-  const order = Object.keys(names)
-    .map(key=>({key, name:names[key], desc:desc[names[key]]}))
-    .sort((a,b)=>a.name.localeCompare(b.name));
-  grid.innerHTML = order.map(o=>`
-    <div class="arch">
-      <div class="name">${o.name}</div>
-      <div class="desc">${o.desc||''}</div>
-    </div>
-  `).join('');
+  const combos = [];
+  [-1,0,1].forEach(p=>[-1,0,1].forEach(s=>[-1,0,1].forEach(r=>combos.push({p,s,r}))));
+  // Sort by Return group (Gain, Flat, Loss), then Stability, then Pressure
+  const orderKey = ({p,s,r}) => `${r===1?0:r===0?1:2}-${s===1?0:s===0?1:2}-${p===1?0:p===0?1:2}`;
+  combos.sort((a,b)=>orderKey(a).localeCompare(orderKey(b)));
+  grid.innerHTML = combos.map(o=>makeCard(o.p,o.s,o.r)).join('');
 })();
 </script>
 </body>
