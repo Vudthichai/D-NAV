@@ -150,7 +150,7 @@ const names={
 "-1|0|1":"Solid Harvest","-1|0|0":"Passive Drift","-1|0|-1":"Slow Bleed",
 "-1|-1|1":"Latent Goldmine","-1|-1|0":"Shaky Prospect","-1|-1|-1":"Fragile Collapse"
 };
-const desc={/* …same as before… */  // keeping for brevity
+const desc={
 "Urgent Jackpot":"Breakthrough under fire — stable system allows urgent, high-return execution.",
 "Stable Grind":"Working hard under stress, but payoff is minimal — effort keeps the system afloat.",
 "Overconfident Burn":"Confidence cushions risk, but value is destroyed — strong push in the wrong direction.",
@@ -179,6 +179,7 @@ const desc={/* …same as before… */  // keeping for brevity
 "Shaky Prospect":"Weak stability, unclear payoff — consider re-scoping or pausing.",
 "Fragile Collapse":"Fragile and negative-return — avoid or radically change conditions."
 };
+
 function sign3(x){return x>0?1:x<0?-1:0;}
 function badge(el,state,pw,nw,gw){el.className="pill "+(state>0?"green":(state<0?"red":"amber"));el.textContent=state>0?pw:(state<0?gw:nw);}
 function scoreTagText(n){return n>=80?"Very high energy":n>=50?"High energy":n>=25?"Moderate energy":"Low energy";}
@@ -232,20 +233,13 @@ function compute(){
 
  // Color the big Pressure number to match
  const pressValEl = document.getElementById('press');
- pressValEl.style.color = press > 0 ? 'var(--red)' : (press < 0 ? 'var(--green)' : 'var(--amber)');
-
- const key=[sign3(press),sign3(stab),sign3(ret)].join('|');
- const name=names[key]||'Unclassified';
- document.getElementById('arch').textContent=name;
- document.getElementById('archDesc').textContent=desc[name]||'—';
- document.getElementById('coach').textContent=coachHint(ret,stab,press,urgency,confidence);
-
- // update button enabled/disabled based on inputs
-checkFormValid();
+ pressValEl.style.color = press > 0 ? 'var(--red)' : (press < 0 ? 'var(--green)' : 'var(--amber)';
 }
 
-['impact','cost','risk','urgency','confidence'].forEach(id=>document.getElementById(id).addEventListener('input',compute));
-compute();
+// Recompute when sliders move
+['impact','cost','risk','urgency','confidence'].forEach(id =>
+  document.getElementById(id).addEventListener('input', compute)
+);
 
 /* —— Entry & Log logic —— */
 const $ = (sel) => document.querySelector(sel);
@@ -319,29 +313,26 @@ function resetForm(){
   $('#enterBtn').disabled = true;
 }
 
+// ✅ Simple: enable if name & category both have text
 function checkFormValid(){
   const nameOk = $('#decisionName').value.trim().length>0;
   const catOk  = $('#decisionCategory').value.trim().length>0;
-  // sliders are guaranteed 1–10, but keep a quick check
-  const slidersOk = SLIDER_IDS.every(id=>{
-    const v=Number($('#'+id).value);
-    return v>=1 && v<=10;
-  });
-  $('#enterBtn').disabled = !(nameOk && catOk && slidersOk);
+  $('#enterBtn').disabled = !(nameOk && catOk);
 }
 
 function enterDecision(){
   const btn=$('#enterBtn');
-  if(btn.disabled) return;         // guard
+  if(btn.disabled) return;
   btn.disabled = true;             // prevent rapid double-clicks
 
+  // Sliders are already constrained to 1–10 in the UI, but keep a guard:
   for(const id of SLIDER_IDS){
     const v=Number($('#'+id).value);
     if(!(v>=1 && v<=10)){ alert(`Please set ${id} between 1–10.`); btn.disabled=false; return; }
   }
   const name=$('#decisionName').value.trim();
   const category=$('#decisionCategory').value.trim();
-  if(!name || !category){ alert('Please enter both a decision name and category.'); btn.disabled=false; return; }
+  if(!name || !category){ btn.disabled=false; return; }
 
   const vals=readCurrent();
   const m=computeMetrics(vals);
@@ -382,8 +373,15 @@ function downloadCsv(){
   URL.revokeObjectURL(a.href);
 }
 
+// Enable/disable as user types, and allow Enter key to submit
 $('#decisionName').addEventListener('input', checkFormValid);
 $('#decisionCategory').addEventListener('input', checkFormValid);
+['decisionName','decisionCategory'].forEach(id=>{
+  $('#'+id).addEventListener('keydown', e => {
+    if (e.key === 'Enter' && !$('#enterBtn').disabled) enterDecision();
+  });
+});
+
 $('#enterBtn')?.addEventListener('click', enterDecision);
 $('#downloadCsvBtn')?.addEventListener('click', downloadCsv);
 $('#clearLogBtn')?.addEventListener('click', ()=>{
@@ -391,6 +389,10 @@ $('#clearLogBtn')?.addEventListener('click', ()=>{
     localStorage.removeItem('dnav_log_v1'); renderLog();
   }
 });
+
+// initial draw + initial button state
+compute();
 renderLog();
+checkFormValid();
 </script>
 </body></html>
