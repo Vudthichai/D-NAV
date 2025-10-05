@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en"><head><meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>D-NAV Mini — Sliders Demo (v3.2)</title>
+<title>D-NAV Mini — Sliders Demo (v3.3)</title>
 <style>
 :root{--bg:#0b0f14;--card:#121821;--muted:#8fa1b7;--text:#e9eef5;--green:#3ecf8e;--red:#ff6b6b;--amber:#f3b431;--blue:#69a9ff}
 *{box-sizing:border-box;font-family:Inter,ui-sans-serif,system-ui,-apple-system,Segoe UI,Roboto,Arial}
@@ -32,6 +32,7 @@ output{text-align:right;display:inline-block;min-width:40px;font-weight:800;font
 .grid{display:grid;gap:12px}
 .input{padding:10px;border:1px solid #333;border-radius:10px;background:#0f141b;color:var(--text)}
 .btn{padding:12px 16px;border-radius:12px;border:0;background:#111;color:#fff;font-weight:700;cursor:pointer}
+.btn[disabled]{opacity:.5;cursor:not-allowed}
 .btn.secondary{background:#0f141b;border:1px solid #444}
 .table-wrap{overflow:auto;border:1px solid #222;border-radius:12px}
 table{width:100%;border-collapse:collapse;font-size:14px}
@@ -54,24 +55,25 @@ tbody tr:nth-child(even){ background: rgba(255,255,255,.02); }
   <div class="card">
     <h1>D-NAV Mini — Sliders Demo</h1>
     <div class="muted">Move the 5 sliders (1–10). Right side updates live with Return, Stability, Pressure → Archetype → Composite → Coach readout.</div>
-    <div class="row"><label>Impact</label><input id="impact" type="range" min="1" max="10" value="10" /><output id="o_impact">10</output></div>
+    <!-- Default all sliders to 1 -->
+    <div class="row"><label>Impact</label><input id="impact" type="range" min="1" max="10" value="1" /><output id="o_impact">1</output></div>
     <div class="row"><label>Cost</label><input id="cost" type="range" min="1" max="10" value="1" /><output id="o_cost">1</output></div>
     <div class="row"><label>Risk</label><input id="risk" type="range" min="1" max="10" value="1" /><output id="o_risk">1</output></div>
     <div class="row"><label>Urgency</label><input id="urgency" type="range" min="1" max="10" value="1" /><output id="o_urgency">1</output></div>
-    <div class="row"><label>Confidence</label><input id="confidence" type="range" min="1" max="10" value="10" /><output id="o_confidence">10</output></div>
+    <div class="row"><label>Confidence</label><input id="confidence" type="range" min="1" max="10" value="1" /><output id="o_confidence">1</output></div>
     <div class="muted">Formula: <span class="mono">(Impact − Cost − Risk) + (Urgency × Confidence)</span></div>
   </div>
 
   <div class="card stats">
-    <div class="stat"><h3>Return</h3><div class="val" id="ret">+9</div><span id="retPill" class="pill green">Positive</span></div>
-    <div class="stat"><h3>Stability</h3><div class="val" id="stab">+9</div><span id="stabPill" class="pill green">Stable</span></div>
-    <div class="stat"><h3>Pressure</h3><div class="val" id="press">-9</div><span id="pressPill" class="pill amber">Calm</span></div>
+    <div class="stat"><h3>Return</h3><div class="val" id="ret">0</div><span id="retPill" class="pill amber">Neutral</span></div>
+    <div class="stat"><h3>Stability</h3><div class="val" id="stab">0</div><span id="stabPill" class="pill amber">Neutral</span></div>
+    <div class="stat"><h3>Pressure</h3><div class="val" id="press">0</div><span id="pressPill" class="pill amber">Balanced</span></div>
   </div>
 
   <div class="card summary">
-    <div class="arch"><h3>Archetype</h3><div id="arch" class="name">Calm Jackpot</div><div id="archDesc" class="desc">Obvious, safe win — strong footing and big upside with no rush.</div></div>
-    <div class="comp"><h3>Composite (Energy)</h3><div id="score" class="big">18</div><div id="scoreTag" class="tag">Low energy</div></div>
-    <div class="coach"><h3>Coach Readout</h3><div id="coach" class="txt">Survivable and value-creating. Pressure is low — move when convenient.</div></div>
+    <div class="arch"><h3>Archetype</h3><div id="arch" class="name">Routine Play</div><div id="archDesc" class="desc">Everyday operation — safe, predictable, not transformative.</div></div>
+    <div class="comp"><h3>Composite (Energy)</h3><div id="score" class="big">0</div><div id="scoreTag" class="tag">Low energy</div></div>
+    <div class="coach"><h3>Coach Readout</h3><div id="coach" class="txt">Greenlight profile — execute with discipline.</div></div>
   </div>
 </div>
 
@@ -81,8 +83,9 @@ tbody tr:nth-child(even){ background: rgba(255,255,255,.02); }
     <h2 style="margin:0;">Quick Entry</h2>
     <input id="decisionName" class="input" type="text" placeholder="Decision name (e.g., ‘Investor meetup solo’)" />
     <input id="decisionCategory" class="input" type="text" placeholder="Category (e.g., Career, Health, Relationships)" />
-    <button id="enterBtn" class="btn">Enter decision</button>
-    <div class="muted">Tweak sliders → click <b>Enter decision</b> to lock it in. Stored on this device.</div>
+    <!-- disabled until valid -->
+    <button id="enterBtn" class="btn" disabled>Enter decision</button>
+    <div class="muted">Fill name & category, set sliders → click <b>Enter decision</b>. Stored on this device.</div>
   </div>
 
   <div class="card grid">
@@ -147,7 +150,7 @@ const names={
 "-1|0|1":"Solid Harvest","-1|0|0":"Passive Drift","-1|0|-1":"Slow Bleed",
 "-1|-1|1":"Latent Goldmine","-1|-1|0":"Shaky Prospect","-1|-1|-1":"Fragile Collapse"
 };
-const desc={
+const desc={/* …same as before… */  // keeping for brevity
 "Urgent Jackpot":"Breakthrough under fire — stable system allows urgent, high-return execution.",
 "Stable Grind":"Working hard under stress, but payoff is minimal — effort keeps the system afloat.",
 "Overconfident Burn":"Confidence cushions risk, but value is destroyed — strong push in the wrong direction.",
@@ -195,25 +198,30 @@ function coachHint(ret,stab,press,urg,conf){
  if(press<0)return"Survivable and value-creating — pressure is calm; proceed methodically.";
  return"Greenlight profile — execute with discipline.";
 }
+
 function compute(){
  const impact=+document.getElementById('impact').value;
  const cost=+document.getElementById('cost').value;
  const risk=+document.getElementById('risk').value;
  const urgency=+document.getElementById('urgency').value;
  const confidence=+document.getElementById('confidence').value;
+
  document.getElementById('o_impact').textContent=impact;
  document.getElementById('o_cost').textContent=cost;
  document.getElementById('o_risk').textContent=risk;
  document.getElementById('o_urgency').textContent=urgency;
  document.getElementById('o_confidence').textContent=confidence;
+
  const ret=impact-cost, stab=confidence-risk, press=urgency-confidence;
  const composite=(impact-cost-risk)+(urgency*confidence);
  const s=x=>x>0?('+'+x):(x<0?x.toString():'0');
+
  document.getElementById('ret').textContent=s(ret);
  document.getElementById('stab').textContent=s(stab);
  document.getElementById('press').textContent=s(press);
  document.getElementById('score').textContent=composite;
  document.getElementById('scoreTag').textContent=scoreTagText(composite);
+
  badge(document.getElementById('retPill'),Math.sign(ret),'Positive','Neutral','Negative');
  badge(document.getElementById('stabPill'),Math.sign(stab),'Stable','Neutral','Fragile');
 
@@ -222,7 +230,7 @@ function compute(){
  pressPill.textContent = press > 0 ? 'Pressured' : (press < 0 ? 'Calm' : 'Balanced');
  pressPill.className = 'pill ' + (press > 0 ? 'red' : (press < 0 ? 'green' : 'amber'));
 
- // Optional: color the big Pressure number to match
+ // Color the big Pressure number to match
  const pressValEl = document.getElementById('press');
  pressValEl.style.color = press > 0 ? 'var(--red)' : (press < 0 ? 'var(--green)' : 'var(--amber)');
 
@@ -231,6 +239,9 @@ function compute(){
  document.getElementById('arch').textContent=name;
  document.getElementById('archDesc').textContent=desc[name]||'—';
  document.getElementById('coach').textContent=coachHint(ret,stab,press,urgency,confidence);
+
+ // update button enabled/disabled based on inputs
+checkFormValid();
 }
 
 ['impact','cost','risk','urgency','confidence'].forEach(id=>document.getElementById(id).addEventListener('input',compute));
@@ -240,6 +251,13 @@ compute();
 const $ = (sel) => document.querySelector(sel);
 const SLIDER_IDS = ["impact","cost","risk","urgency","confidence"];
 const fmt0 = (n) => Number(n).toFixed(0);
+
+// simple yyyy-mm-dd hh:mm:ss local
+function fmtLocal(ts){
+  const d = new Date(ts);
+  const z = n=>String(n).padStart(2,'0');
+  return `${d.getFullYear()}-${z(d.getMonth()+1)}-${z(d.getDate())} ${z(d.getHours())}:${z(d.getMinutes())}:${z(d.getSeconds())}`;
+}
 
 function readCurrent(){
   const out={};
@@ -291,14 +309,39 @@ function renderLog(){
   });
 }
 
+function resetForm(){
+  // reset sliders to 1, outputs update via compute()
+  SLIDER_IDS.forEach(id=>{ const el=$('#'+id); el.value=1; });
+  $('#decisionName').value='';
+  $('#decisionCategory').value='';
+  compute();
+  // disable button until fields filled again
+  $('#enterBtn').disabled = true;
+}
+
+function checkFormValid(){
+  const nameOk = $('#decisionName').value.trim().length>0;
+  const catOk  = $('#decisionCategory').value.trim().length>0;
+  // sliders are guaranteed 1–10, but keep a quick check
+  const slidersOk = SLIDER_IDS.every(id=>{
+    const v=Number($('#'+id).value);
+    return v>=1 && v<=10;
+  });
+  $('#enterBtn').disabled = !(nameOk && catOk && slidersOk);
+}
+
 function enterDecision(){
+  const btn=$('#enterBtn');
+  if(btn.disabled) return;         // guard
+  btn.disabled = true;             // prevent rapid double-clicks
+
   for(const id of SLIDER_IDS){
     const v=Number($('#'+id).value);
-    if(!(v>=1 && v<=10)){ alert(`Please set ${id} between 1–10.`); return; }
+    if(!(v>=1 && v<=10)){ alert(`Please set ${id} between 1–10.`); btn.disabled=false; return; }
   }
   const name=$('#decisionName').value.trim();
-  if(!name){ alert('Please enter a decision name.'); return; }
   const category=$('#decisionCategory').value.trim();
+  if(!name || !category){ alert('Please enter both a decision name and category.'); btn.disabled=false; return; }
 
   const vals=readCurrent();
   const m=computeMetrics(vals);
@@ -314,11 +357,13 @@ function enterDecision(){
   arr.unshift(row);
   saveLog(arr);
   renderLog();
+  resetForm();                     // wipe after save
 }
 
 function toCsv(rows){
-  const header=['timestamp','name','category','impact','cost','risk','urgency','confidence','return','pressure','stability','dnav'];
+  const header=['timestamp_local','timestamp_iso','name','category','impact','cost','risk','urgency','confidence','return','pressure','stability','dnav'];
   const body=rows.map(r=>[
+    fmtLocal(r.ts),
     new Date(r.ts).toISOString(),
     `"${(r.name||'').replace(/"/g,'""')}"`,
     `"${(r.category||'').replace(/"/g,'""')}"`,
@@ -337,6 +382,8 @@ function downloadCsv(){
   URL.revokeObjectURL(a.href);
 }
 
+$('#decisionName').addEventListener('input', checkFormValid);
+$('#decisionCategory').addEventListener('input', checkFormValid);
 $('#enterBtn')?.addEventListener('click', enterDecision);
 $('#downloadCsvBtn')?.addEventListener('click', downloadCsv);
 $('#clearLogBtn')?.addEventListener('click', ()=>{
