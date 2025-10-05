@@ -11,7 +11,7 @@
 }
 *{box-sizing:border-box;font-family:Inter,ui-sans-serif,system-ui,-apple-system,Segoe UI,Roboto,Arial}
 body{background:var(--bg);color:var(--text);margin:0;padding:24px}
-a{color:#cfe1ff;text-decoration:none}
+a{color:#cfe1ff;text-decoration:underline;text-underline-offset:3px}
 .wrap{max-width:1100px;margin:0 auto;display:grid;gap:16px}
 .header{display:flex;align-items:flex-end;justify-content:space-between;gap:12px}
 .h1{font-weight:900;font-size:28px;margin:0}
@@ -27,8 +27,8 @@ h3{margin:0 0 6px;font-size:12px;color:#9fb1c7;text-transform:uppercase;letter-s
 .kv .k{min-width:118px;color:#a7b4c7}
 .code{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;background:rgba(255,255,255,.06);padding:2px 6px;border-radius:6px}
 
-/* Pills (smaller) */
-.pill{display:inline-block;padding:4px 8px;border-radius:999px;font-weight:800;font-size:11px}
+/* Pills — smaller & tighter */
+.pill{display:inline-block;padding:3px 7px;border-radius:999px;font-weight:800;font-size:10.5px;line-height:1;white-space:nowrap}
 .green{background:rgba(62,207,142,.18);color:var(--green);border:1px solid rgba(62,207,142,.4)}
 .amber{background:rgba(243,180,49,.18);color:var(--amber);border:1px solid rgba(243,180,49,.35)}
 .red{background:rgba(255,107,107,.18);color:var(--red);border:1px solid rgba(255,107,107,.4)}
@@ -36,7 +36,7 @@ h3{margin:0 0 6px;font-size:12px;color:#9fb1c7;text-transform:uppercase;letter-s
 .small{font-size:12px;color:#9fb1c7}
 .tiny{font-size:12px;color:#aab8cc}
 .hr{height:1px;background:rgba(255,255,255,.08);margin:8px 0}
-.nav{display:flex;gap:10px;flex-wrap:wrap}
+.nav{display:flex;gap:12px;flex-wrap:wrap}
 
 /* Derived signals row (single-line) */
 .signals{display:grid;grid-template-columns:repeat(3,1fr);gap:12px}
@@ -54,7 +54,6 @@ h3{margin:0 0 6px;font-size:12px;color:#9fb1c7;text-transform:uppercase;letter-s
 @media (max-width:900px){.archgrid{grid-template-columns:1fr}}
 .arch{background:rgba(255,255,255,.04);border-radius:12px;padding:12px}
 .arch .name{font-weight:800}
-.arch .alias{color:#9fb1c7;font-weight:600;margin-left:6px;font-size:12px}
 .arch .meta{margin-top:6px;display:flex;gap:6px;align-items:center}
 .arch .desc{color:#c9d4e6;margin-top:6px;font-size:13px;line-height:1.4}
 
@@ -95,23 +94,23 @@ h3{margin:0 0 6px;font-size:12px;color:#9fb1c7;text-transform:uppercase;letter-s
     <div class="ingredients-grid">
       <div>
         <h3>Impact</h3>
-        <p class="p">The value at stake if this goes right. Higher = bigger upside/importance.</p>
+        <p class="p">Upside/importance if it works.</p>
       </div>
       <div>
         <h3>Cost</h3>
-        <p class="p">Resources you must spend: time, cash, attention, opportunity cost.</p>
+        <p class="p">Time • money • effort • focus.</p>
       </div>
       <div>
         <h3>Risk</h3>
-        <p class="p">Downside uncertainty: likelihood × magnitude of harm or failure.</p>
+        <p class="p">Downside = likelihood × size of harm.</p>
       </div>
       <div>
         <h3>Urgency</h3>
-        <p class="p">Time pressure to act. High urgency compresses decision windows.</p>
+        <p class="p">How soon action is needed.</p>
       </div>
       <div>
         <h3>Confidence</h3>
-        <p class="p">Evidence and readiness to execute (proof, reps, clarity, resources).</p>
+        <p class="p">Evidence & readiness to execute.</p>
       </div>
       <div class="spacer"></div>
     </div>
@@ -125,7 +124,7 @@ h3{margin:0 0 6px;font-size:12px;color:#9fb1c7;text-transform:uppercase;letter-s
         <h3>Return</h3>
         <div class="line tiny"><span class="code">Impact − Cost</span></div>
         <div class="def">
-          Value creation after cost:
+          Value after cost:
           <span class="pill green">Positive</span>
           <span class="pill amber">Neutral</span>
           <span class="pill red">Negative</span>.
@@ -135,7 +134,7 @@ h3{margin:0 0 6px;font-size:12px;color:#9fb1c7;text-transform:uppercase;letter-s
         <h3>Stability</h3>
         <div class="line tiny"><span class="code">Confidence − Risk</span></div>
         <div class="def">
-          How survivable the move is:
+          Survivability:
           <span class="pill green">Stable</span>
           <span class="pill amber">Uncertain</span>
           <span class="pill red">Fragile</span>.
@@ -166,12 +165,12 @@ h3{margin:0 0 6px;font-size:12px;color:#9fb1c7;text-transform:uppercase;letter-s
       <div>
         <h3>Merit</h3>
         <div class="kv"><div class="k">Formula</div><div class="v"><span class="code">Impact − Cost − Risk</span></div></div>
-        <p class="p">The underlying quality of the bet (unit economics minus risk drag). “Is this inherently good?”</p>
+        <p class="p">Inherent quality of the bet (unit economics minus risk drag).</p>
       </div>
       <div>
         <h3>Drive</h3>
         <div class="kv"><div class="k">Formula</div><div class="v"><span class="code">Urgency × Confidence</span></div></div>
-        <p class="p">Your applied energy — how hard and how ready you’ll push right now.</p>
+        <p class="p">Applied energy — how hard & how ready you’ll push now.</p>
       </div>
     </div>
   </div>
@@ -182,64 +181,37 @@ h3{margin:0 0 6px;font-size:12px;color:#9fb1c7;text-transform:uppercase;letter-s
     <div class="kv"><div class="k">Formula</div><div class="v"><span class="code">D-NAV = (Impact − Cost − Risk) + (Urgency × Confidence)</span></div></div>
     <div class="hr"></div>
     <p class="p">
-      D-NAV blends <b>Merit</b> (quality of the bet) with <b>Drive</b> (your execution momentum). High D-NAV = strong bet and/or strong push.
-      Short-term negative Return can still be strategic if it buys capability, share, or time — as long as <b>Stability</b> stays positive and <b>Pressure</b> is managed.
+      D-NAV blends <b>Merit</b> (quality of the bet) with <b>Drive</b> (execution momentum).
+      High D-NAV = a strong bet and/or a strong push — but always read
+      <b>Return</b>, <b>Stability</b>, and <b>Pressure</b> to avoid hidden traps and slow bleeds.
     </p>
   </div>
 
   <!-- Archetypes -->
   <div id="archetypes" class="card section">
     <h2>Archetypes (Pressure • Stability • Return)</h2>
-    <p class="small">Each outcome is defined by the signs of <span class="code">Pressure</span>, <span class="code">Stability</span>, and <span class="code">Return</span> → e.g., <b>Pressured Stable Gain</b> (P+, S+, R+).</p>
+    <p class="small">Each outcome is defined by the signs of <span class="code">Pressure</span>, <span class="code">Stability</span>, and <span class="code">Return</span> → e.g., P+, S+, R+.</p>
     <div class="archgrid" id="archGrid"></div>
   </div>
 
 </div>
 
 <script>
-/* Old fun names for continuity (key = "P|S|R") */
-const oldNames={
-"1|1|1":"Urgent Jackpot","1|1|0":"Stable Grind","1|1|-1":"Overconfident Burn",
-"1|0|1":"Calculated Sprint","1|0|0":"Fire Drill","1|0|-1":"Stress Spiral",
-"1|-1|1":"Chaos Bet","1|-1|0":"Tenuous Push","1|-1|-1":"Chaos Burn",
-"0|1|1":"Strategic Patience","0|1|0":"Maintenance Mode","0|1|-1":"Comfortable Decline",
-"0|0|1":"Balanced Growth","0|0|0":"Routine Play","0|0|-1":"Stagnant Drift",
-"0|-1|1":"Fragile Moonshot","0|-1|0":"Wobbly Venture","0|-1|-1":"Dead End",
-"-1|1|1":"Calm Jackpot","-1|1|0":"Comfort Zone","-1|1|-1":"Complacency Trap",
-"-1|0|1":"Solid Harvest","-1|0|0":"Passive Drift","-1|0|-1":"Slow Bleed",
-"-1|-1|1":"Latent Goldmine","-1|-1|0":"Shaky Prospect","-1|-1|-1":"Fragile Collapse"
-};
-const desc={
-"Urgent Jackpot":"Breakthrough under fire — stable system allows urgent, high-return execution.",
-"Stable Grind":"Working hard under stress, but payoff is minimal — effort keeps the system afloat.",
-"Overconfident Burn":"Confidence cushions risk, but value is destroyed — strong push in the wrong direction.",
-"Calculated Sprint":"Pushing fast with decent footing — risk manageable, upside strong.",
-"Fire Drill":"Stressful but low-value — energy expended without major upside.",
-"Stress Spiral":"Under strain, footing erodes — costs outweigh gains.",
-"Chaos Bet":"Moonshot under fire — potential breakthrough, system may collapse.",
-"Tenuous Push":"Forcing fragile resources into stressful, low-value territory.",
-"Chaos Burn":"Explosive failure under stress — fragile and value-negative.",
-"Strategic Patience":"Confident, steady progress toward high value — execute without panic.",
-"Maintenance Mode":"Stable but stagnant — effort maintains, doesn’t grow.",
-"Comfortable Decline":"Feels secure, but value erodes — complacency in disguise.",
-"Balanced Growth":"Moderate effort, moderate footing — sustainable value creation.",
-"Routine Play":"Everyday operation — safe, predictable, not transformative.",
-"Stagnant Drift":"No strong risks or urgency, but slow erosion continues.",
-"Fragile Moonshot":"High upside, shaky foundation — could succeed or collapse.",
-"Wobbly Venture":"Unclear payoff, fragile base — outcome uncertain at best.",
-"Dead End":"Fragile, no return — stuck without clear upside.",
-"Calm Jackpot":"Obvious, safe win — strong footing and big upside with no rush.",
-"Comfort Zone":"Safe, low-stress, but stagnant — survives without growing.",
-"Complacency Trap":"Feels safe but value erodes — comfort blinds decline.",
-"Solid Harvest":"Safe returns over time — not urgent, but worthwhile.",
-"Passive Drift":"Minimal urgency, minimal value — just coasting.",
-"Slow Bleed":"Quiet erosion over time — no stress, but value trickles away.",
-"Latent Goldmine":"High potential, fragile base — increase stability before committing.",
-"Shaky Prospect":"Weak stability, unclear payoff — consider re-scoping or pausing.",
-"Fragile Collapse":"Fragile and negative-return — avoid or radically change conditions."
+/* One-word names for every P|S|R combo */
+const oneWord={
+  /* R+ / S+ */  "1|1|1":"Breakthrough","0|1|1":"Advance","-1|1|1":"Harvest",
+  /* R+ / S0 */  "1|0|1":"Sprint","0|0|1":"Build","-1|0|1":"Coast",
+  /* R+ / S- */  "1|-1|1":"Gamble","0|-1|1":"Moonshot","-1|-1|1":"Prospect",
+
+  /* R0 / S+ */  "1|1|0":"Grind","0|1|0":"Maintain","-1|1|0":"Idle",
+  /* R0 / S0 */  "1|0|0":"Firefight","0|0|0":"Routine","-1|0|0":"Drift",
+  /* R0 / S- */  "1|-1|0":"Strain","0|-1|0":"Wobble","-1|-1|0":"Teeter",
+
+  /* R- / S+ */  "1|1|-1":"Overreach","0|1|-1":"Erode","-1|1|-1":"Complacency",
+  /* R- / S0 */  "1|0|-1":"Burn","0|0|-1":"Waste","-1|0|-1":"Leak",
+  /* R- / S- */  "1|-1|-1":"Meltdown","0|-1|-1":"Collapse","-1|-1|-1":"Decay"
 };
 
-/* Helpers to build the new, composable names */
 const Pword = s => s>0?'Pressured':(s<0?'Calm':'Balanced');
 const Sword = s => s>0?'Stable':(s<0?'Fragile':'Uncertain');
 const Rword = s => s>0?'Gain':(s<0?'Loss':'Flat');
@@ -249,31 +221,29 @@ const chipClassS = s => s>0?'sPlus':(s<0?'sMinus':'sZero');
 const chipClassR = s => s>0?'rPlus':(s<0?'rMinus':'rZero');
 
 function makeCard(p,s,r){
-  const key = [p,s,r].join('|');
-  const title = `${Pword(p)} ${Sword(s)} ${Rword(r)}`;
-  const alias = oldNames[key] ? ` · old: ${oldNames[key]}` : '';
-  const aliasDesc = oldNames[key] ? (desc[oldNames[key]]||'') : '';
+  const key=[p,s,r].join('|');
+  const title = oneWord[key] || `${Pword(p)} ${Sword(s)} ${Rword(r)}`;
+  const line  = `${Rword(r)} with ${Sword(s).toLowerCase()} footing; ${Pword(p).toLowerCase()} execution.`;
   return `
     <div class="arch">
-      <div class="name">${title}<span class="alias">${alias}</span></div>
+      <div class="name">${title}</div>
       <div class="meta">
         <span class="chip ${chipClassP(p)}">P${p>0?'+':(p<0?'-':'0')}</span>
         <span class="chip ${chipClassS(s)}">S${s>0?'+':(s<0?'-':'0')}</span>
         <span class="chip ${chipClassR(r)}">R${r>0?'+':(r<0?'-':'0')}</span>
       </div>
-      <div class="desc">${aliasDesc}</div>
+      <div class="desc">${line}</div>
     </div>
   `;
 }
 
-/* Render the 27 archetypes (grouped by Return: Gain, Flat, Loss) */
+/* Render the 27 archetypes (group by Return: Gain, Flat, Loss) */
 (function renderArchetypes(){
   const grid = document.getElementById('archGrid');
-  const combos = [];
+  const combos=[];
   [-1,0,1].forEach(p=>[-1,0,1].forEach(s=>[-1,0,1].forEach(r=>combos.push({p,s,r}))));
-  // Sort by Return group (Gain, Flat, Loss), then Stability, then Pressure
-  const orderKey = ({p,s,r}) => `${r===1?0:r===0?1:2}-${s===1?0:s===0?1:2}-${p===1?0:p===0?1:2}`;
-  combos.sort((a,b)=>orderKey(a).localeCompare(orderKey(b)));
+  const key = ({p,s,r})=>`${r===1?0:r===0?1:2}-${s===1?0:s===0?1:2}-${p===1?0:p===0?1:2}`;
+  combos.sort((a,b)=>key(a).localeCompare(key(b)));
   grid.innerHTML = combos.map(o=>makeCard(o.p,o.s,o.r)).join('');
 })();
 </script>
