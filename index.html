@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en"><head><meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>D-NAV Mini — Sliders Demo (v3.4)</title>
+<title>D-NAV Mini — Sliders Demo (v3.6)</title>
 <style>
 :root{--bg:#0b0f14;--card:#121821;--muted:#8fa1b7;--text:#e9eef5;--green:#3ecf8e;--red:#ff6b6b;--amber:#f3b431;--blue:#69a9ff}
 *{box-sizing:border-box;font-family:Inter,ui-sans-serif,system-ui,-apple-system,Segoe UI,Roboto,Arial}
@@ -48,7 +48,29 @@ tr+tr{border-top:1px solid #1e1e1e}
 }
 tbody tr:nth-child(even){ background: rgba(255,255,255,.02); }
 
-@media (max-width:900px){body{padding:14px}.wrap{grid-template-columns:1fr}.row{grid-template-columns:90px 1fr 46px}h1{font-size:20px}.val{font-size:32px}.comp .big{font-size:38px}input[type=range]{height:36px}}
+/* === Stats HUD tiles === */
+.kpis{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-top:10px}
+.kpi{background:rgba(255,255,255,.04);border-radius:12px;padding:12px 14px;position:relative}
+.kpi h4{margin:0;font-size:12px;color:#9fb1c7;letter-spacing:.3px;text-transform:uppercase}
+.kpi .big{font-size:28px;font-weight:900;margin-top:6px}
+.mini{font-size:12px;color:#a7b4c7;margin-top:4px}
+.progress{height:8px;border-radius:999px;background:rgba(255,255,255,.08);overflow:hidden;margin-top:8px}
+.progress>span{display:block;height:100%;transition:width .45s ease}
+
+/* pulse highlight when numbers update */
+@keyframes pulse-kpi{0%{box-shadow:0 0 0 0 rgba(105,169,255,.35)}100%{box-shadow:0 0 0 14px rgba(105,169,255,0)}}
+.kpi.pulse{animation:pulse-kpi .6s ease}
+
+@media (max-width:900px){
+  body{padding:14px}
+  .wrap{grid-template-columns:1fr}
+  .row{grid-template-columns:90px 1fr 46px}
+  h1{font-size:20px}
+  .val{font-size:32px}
+  .comp .big{font-size:38px}
+  input[type=range]{height:36px}
+  .kpis{grid-template-columns:1fr 1fr}
+}
 </style></head>
 <body>
 <div class="wrap">
@@ -77,7 +99,7 @@ tbody tr:nth-child(even){ background: rgba(255,255,255,.02); }
   </div>
 </div>
 
-<!-- ENTRY + LOG -->
+<!-- ENTRY -->
 <div class="wrap" style="grid-template-columns:1fr;">
   <div class="card grid">
     <h2 style="margin:0;">Quick Entry</h2>
@@ -86,7 +108,40 @@ tbody tr:nth-child(even){ background: rgba(255,255,255,.02); }
     <button id="enterBtn" class="btn" disabled>Enter decision</button>
     <div class="muted">Fill name & category, set sliders → click <b>Enter decision</b>. Stored on this device.</div>
   </div>
+</div>
 
+<!-- STATS HUD -->
+<div class="wrap" style="grid-template-columns:1fr;">
+  <div class="card">
+    <h2 style="margin:0;">Your Decision Stats</h2>
+    <div class="kpis">
+      <div class="kpi" id="tile_total">
+        <h4>Decisions</h4>
+        <div class="big" id="k_total" data-val="0">0</div>
+        <div class="mini" id="k_recent">(0 in last 7 days)</div>
+      </div>
+      <div class="kpi" id="tile_avg">
+        <h4>Avg D-NAV</h4>
+        <div class="big" id="k_avgdnav" data-val="0">0</div>
+        <div class="mini">Composite energy</div>
+      </div>
+      <div class="kpi" id="tile_pos">
+        <h4>Positive Return</h4>
+        <div class="big" id="k_posret" data-val="0">0%</div>
+        <div class="progress"><span id="bar_posret" style="width:0%;background:var(--green)"></span></div>
+      </div>
+      <div class="kpi" id="tile_press">
+        <h4>Pressured</h4>
+        <div class="big" id="k_pressured" data-val="0">0%</div>
+        <div class="progress"><span id="bar_press" style="width:0%;background:var(--red)"></span></div>
+      </div>
+    </div>
+    <div class="mini" id="k_misc" style="margin-top:10px;">Top category: — • Top archetype: —</div>
+  </div>
+</div>
+
+<!-- LOG -->
+<div class="wrap" style="grid-template-columns:1fr;">
   <div class="card grid">
     <div style="display:flex;gap:10px;align-items:center;justify-content:space-between;">
       <h2 style="margin:0;">Decision Log</h2>
@@ -225,7 +280,7 @@ function compute(){
  badge(document.getElementById('retPill'),Math.sign(ret),'Positive','Neutral','Negative');
  badge(document.getElementById('stabPill'),Math.sign(stab),'Stable','Neutral','Fragile');
 
- // Pressure badge: high pressure = red, calm = green, balanced = amber
+ // Pressure badge colors
  const pressPill = document.getElementById('pressPill');
  pressPill.textContent = press > 0 ? 'Pressured' : (press < 0 ? 'Calm' : 'Balanced');
  pressPill.className = 'pill ' + (press > 0 ? 'red' : (press < 0 ? 'green' : 'amber'));
@@ -233,7 +288,7 @@ function compute(){
  // Color the big Pressure number to match
  const pressValEl = document.getElementById('press');
  pressValEl.style.color = press > 0 ? 'var(--red)' : (press < 0 ? 'var(--green)' : 'var(--amber)');
- 
+
  const key=[sign3(press),sign3(stab),sign3(ret)].join('|');
  const name=names[key]||'Unclassified';
  document.getElementById('arch').textContent=name;
@@ -241,7 +296,7 @@ function compute(){
  document.getElementById('coach').textContent=coachHint(ret,stab,press,urgency,confidence);
 }
 
-// Recompute when sliders move
+// Recompute on slider move
 ['impact','cost','risk','urgency','confidence'].forEach(id =>
   document.getElementById(id).addEventListener('input', compute)
 );
@@ -251,7 +306,7 @@ const $ = (sel) => document.querySelector(sel);
 const SLIDER_IDS = ["impact","cost","risk","urgency","confidence"];
 const fmt0 = (n) => Number(n).toFixed(0);
 
-// simple yyyy-mm-dd hh:mm:ss local
+// Simple local timestamp
 function fmtLocal(ts){
   const d = new Date(ts);
   const z = n=>String(n).padStart(2,'0');
@@ -274,8 +329,68 @@ function loadLog(){
   try{ return JSON.parse(localStorage.getItem('dnav_log_v1')||'[]'); }catch{ return []; }
 }
 function saveLog(arr){ localStorage.setItem('dnav_log_v1', JSON.stringify(arr)); }
-
 function escapeHtml(s=''){ return s.replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m])); }
+
+/* ---------- Animated Stats ---------- */
+function animateNumber(el, to, {suffix='', duration=500}={}){
+  const from = Number(el.dataset.val || 0);
+  const start = performance.now();
+  function step(t){
+    const p = Math.min(1, (t - start)/duration);
+    const v = Math.round(from + (to - from)*p);
+    el.textContent = v + suffix;
+    if(p < 1){ requestAnimationFrame(step); } else { el.dataset.val = to; }
+  }
+  requestAnimationFrame(step);
+}
+function pulse(tile){
+  tile.classList.remove('pulse');
+  void tile.offsetWidth; // reflow
+  tile.classList.add('pulse');
+}
+
+function renderStats(rows){
+  const total = rows.length;
+  const now = Date.now();
+  const recent = rows.filter(r => r.ts >= now - 7*24*60*60*1000).length;
+  const avg = total ? Math.round(rows.reduce((a,r)=>a + (Number(r.dnav)||0),0)/total) : 0;
+  const posRet = total ? Math.round(rows.filter(r=>r.return>0).length*100/total) : 0;
+  const pressured = total ? Math.round(rows.filter(r=>r.pressure>0).length*100/total) : 0;
+
+  // top category
+  const counts = new Map();
+  rows.forEach(r=>{
+    const c=(r.category||'').trim();
+    if(!c) return; counts.set(c,(counts.get(c)||0)+1);
+  });
+  let topCat='—', topCatCount=0;
+  counts.forEach((v,k)=>{ if(v>topCatCount){ topCat=k; topCatCount=v; } });
+
+  // top archetype
+  const aCounts = new Map();
+  rows.forEach(r=>{
+    const key=[sign3(r.pressure),sign3(r.stability),sign3(r.return)].join('|');
+    const n=names[key]; if(!n) return;
+    aCounts.set(n,(aCounts.get(n)||0)+1);
+  });
+  let topArch='—', topArchCount=0;
+  aCounts.forEach((v,k)=>{ if(v>topArchCount){ topArch=k; topArchCount=v; } });
+
+  // animate numbers
+  animateNumber($('#k_total'), total);
+  $('#k_recent').textContent = `(${recent} in last 7 days)`;
+  animateNumber($('#k_avgdnav'), avg);
+  animateNumber($('#k_posret'), posRet, {suffix:'%'});
+  animateNumber($('#k_pressured'), pressured, {suffix:'%'});
+  // animated bars (CSS transition)
+  $('#bar_posret').style.width = posRet + '%';
+  $('#bar_press').style.width = pressured + '%';
+  // pulse tiles
+  pulse($('#tile_total')); pulse($('#tile_avg')); pulse($('#tile_pos')); pulse($('#tile_press'));
+  // misc line
+  $('#k_misc').textContent = `Top category: ${topCat} • Top archetype: ${topArch}`;
+}
+/* ----------------------------------- */
 
 function renderLog(){
   const rows=loadLog();
@@ -306,34 +421,27 @@ function renderLog(){
       const arr=loadLog(); arr.splice(idx,1); saveLog(arr); renderLog();
     });
   });
+
+  renderStats(rows); // <— updates HUD on every render
 }
 
 function resetForm(){
-  // reset sliders to 1, outputs update via compute()
   SLIDER_IDS.forEach(id=>{ const el=$('#'+id); el.value=1; });
   $('#decisionName').value='';
   $('#decisionCategory').value='';
   compute();
-  $('#enterBtn').disabled = true;  // disable until fields filled again
+  $('#enterBtn').disabled = true;
 }
-
-// Simple: enable if name & category both have text
 function checkFormValid(){
   const nameOk = $('#decisionName').value.trim().length>0;
   const catOk  = $('#decisionCategory').value.trim().length>0;
   $('#enterBtn').disabled = !(nameOk && catOk);
 }
-
 function enterDecision(){
   const btn=$('#enterBtn');
   if(btn.disabled) return;
-  btn.disabled = true;             // prevent rapid double-clicks
+  btn.disabled = true;
 
-  // Guard (sliders are 1–10 in UI)
-  for(const id of SLIDER_IDS){
-    const v=Number($('#'+id).value);
-    if(!(v>=1 && v<=10)){ alert(`Please set ${id} between 1–10.`); btn.disabled=false; return; }
-  }
   const name=$('#decisionName').value.trim();
   const category=$('#decisionCategory').value.trim();
   if(!name || !category){ btn.disabled=false; return; }
@@ -351,8 +459,8 @@ function enterDecision(){
   const arr=loadLog();
   arr.unshift(row);
   saveLog(arr);
-  renderLog();
-  resetForm();                     // wipe after save
+  renderLog();   // <— triggers animated HUD refresh
+  resetForm();
 }
 
 function toCsv(rows){
@@ -377,7 +485,7 @@ function downloadCsv(){
   URL.revokeObjectURL(a.href);
 }
 
-// Enable/disable as user types + Enter-to-submit
+// Listeners
 $('#decisionName').addEventListener('input', checkFormValid);
 $('#decisionCategory').addEventListener('input', checkFormValid);
 ['decisionName','decisionCategory'].forEach(id=>{
@@ -385,7 +493,6 @@ $('#decisionCategory').addEventListener('input', checkFormValid);
     if (e.key === 'Enter' && !$('#enterBtn').disabled) enterDecision();
   });
 });
-
 $('#enterBtn')?.addEventListener('click', enterDecision);
 $('#downloadCsvBtn')?.addEventListener('click', downloadCsv);
 $('#clearLogBtn')?.addEventListener('click', ()=>{
@@ -394,8 +501,12 @@ $('#clearLogBtn')?.addEventListener('click', ()=>{
   }
 });
 
-// initial render
+// boot
 compute();
+renderLog();
+checkFormValid();
+</script>
+</body></html>
 renderLog();
 checkFormValid();
 </script>
