@@ -1,177 +1,215 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Archetypes Reference</title>
-  <style>
-    :root {
-      --bg: #0b0f14;
-      --card: #121821;
-      --muted: #8fa1b7;
-      --text: #e9eef5;
-      --green: #3ecf8e;
-      --red: #ff6b6b;
-      --amber: #f3b431;
-      --blue: #69a9ff;
-    }
-    * {
-      box-sizing: border-box;
-      font-family: Inter, ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Arial;
-    }
-    body {
-      background: var(--bg);
-      color: var(--text);
-      margin: 0;
-      padding: 24px;
-    }
-    h1 {
-      text-align: center;
-      font-size: 28px;
-      font-weight: 900;
-      margin-bottom: 24px;
-    }
-    .grid {
-      display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
-      gap: 16px;
-    }
-    .card {
-      background: var(--card);
-      padding: 16px;
-      border-radius: 16px;
-      box-shadow: 0 10px 24px rgba(0, 0, 0, 0.35);
-    }
-    .card h2 {
-      font-size: 18px;
-      font-weight: 800;
-      margin: 0 0 8px;
-      color: var(--green);
-    }
-    .desc {
-      color: #c9d4e6;
-      font-size: 14px;
-      line-height: 1.5;
-    }
-  </style>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>D-NAV Definitions</title>
+<style>
+:root{
+  --bg:#0b0f14;--card:#121821;--muted:#8fa1b7;--text:#e9eef5;
+  --green:#3ecf8e;--red:#ff6b6b;--amber:#f3b431;--blue:#69a9ff
+}
+*{box-sizing:border-box;font-family:Inter,ui-sans-serif,system-ui,-apple-system,Segoe UI,Roboto,Arial}
+body{background:var(--bg);color:var(--text);margin:0;padding:24px}
+a{color:#cfe1ff;text-decoration:none}
+.wrap{max-width:1100px;margin:0 auto;display:grid;gap:16px}
+.header{display:flex;align-items:flex-end;justify-content:space-between;gap:12px}
+.h1{font-weight:900;font-size:28px;margin:0}
+.muted{color:var(--muted)}
+.card{background:var(--card);border-radius:16px;padding:18px;box-shadow:0 10px 24px rgba(0,0,0,.35)}
+.grid-2{display:grid;gap:12px;grid-template-columns:1fr 1fr}
+.grid-3{display:grid;gap:12px;grid-template-columns:repeat(3,1fr)}
+.grid-4{display:grid;gap:12px;grid-template-columns:repeat(4,1fr)}
+@media (max-width:900px){.grid-2,.grid-3,.grid-4{grid-template-columns:1fr}}
+h2{margin:0 0 8px;font-size:18px}
+h3{margin:0 0 6px;font-size:12px;color:#9fb1c7;text-transform:uppercase;letter-spacing:.3px}
+.p{margin:6px 0 0;line-height:1.55;color:#d7e2ef}
+.kv{display:flex;align-items:flex-start;gap:10px}
+.kv .k{min-width:118px;color:#a7b4c7}
+.code{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;background:rgba(255,255,255,.06);padding:2px 6px;border-radius:6px}
+.pill{display:inline-block;padding:6px 10px;border-radius:999px;font-weight:800;font-size:12px}
+.green{background:rgba(62,207,142,.18);color:var(--green);border:1px solid rgba(62,207,142,.4)}
+.amber{background:rgba(243,180,49,.18);color:var(--amber);border:1px solid rgba(243,180,49,.35)}
+.red{background:rgba(255,107,107,.18);color:var(--red);border:1px solid rgba(255,107,107,.4)}
+.small{font-size:12px;color:#9fb1c7}
+.hr{height:1px;background:rgba(255,255,255,.08);margin:8px 0}
+.nav{display:flex;gap:10px;flex-wrap:wrap}
+.badges{display:flex;gap:8px;flex-wrap:wrap;margin-top:6px}
+.archgrid{display:grid;gap:10px;grid-template-columns:repeat(3,1fr)}
+.arch{background:rgba(255,255,255,.04);border-radius:12px;padding:12px}
+.arch .name{font-weight:800}
+.arch .desc{color:#c9d4e6;margin-top:4px;font-size:13px;line-height:1.4}
+.section{scroll-margin-top:14px}
+</style>
 </head>
 <body>
-  <h1>Archetype Definitions</h1>
- <a style="cursor: pointer; height: full; text-align: center; display: flex; align-items: center; color: white; margin-left: 16px; margin-top: 16px; margin-bottom: 16px;" href="/index.html">
-        Back to D-NAV
-    </a>
-  
-  <div class="grid">
-      
+<div class="wrap">
 
-    <div class="card">
-      <h2>Urgent Jackpot</h2>
-      <div class="desc">Breakthrough under fire — stable system allows urgent, high-return execution.</div>
+  <div class="header">
+    <div>
+      <h1 class="h1">D-NAV Definitions</h1>
+      <div class="muted">The language and signals behind faster, clearer decisions.</div>
     </div>
-    <div class="card">
-      <h2>Stable Grind</h2>
-      <div class="desc">Working hard under stress, but payoff is minimal — effort keeps the system afloat.</div>
-    </div>
-    <div class="card">
-      <h2>Overconfident Burn</h2>
-      <div class="desc">Confidence cushions risk, but value is destroyed — strong push in the wrong direction.</div>
-    </div>
-    <div class="card">
-      <h2>Calculated Sprint</h2>
-      <div class="desc">Pushing fast with decent footing — risk manageable, upside strong.</div>
-    </div>
-    <div class="card">
-      <h2>Fire Drill</h2>
-      <div class="desc">Stressful but low-value — energy expended without major upside.</div>
-    </div>
-    <div class="card">
-      <h2>Stress Spiral</h2>
-      <div class="desc">Under strain, footing erodes — costs outweigh gains.</div>
-    </div>
-    <div class="card">
-      <h2>Chaos Bet</h2>
-      <div class="desc">Moonshot under fire — potential breakthrough, system may collapse.</div>
-    </div>
-    <div class="card">
-      <h2>Tenuous Push</h2>
-      <div class="desc">Forcing fragile resources into stressful, low-value territory.</div>
-    </div>
-    <div class="card">
-      <h2>Chaos Burn</h2>
-      <div class="desc">Explosive failure under stress — fragile and value-negative.</div>
-    </div>
-    <div class="card">
-      <h2>Strategic Patience</h2>
-      <div class="desc">Confident, steady progress toward high value — execute without panic.</div>
-    </div>
-    <div class="card">
-      <h2>Maintenance Mode</h2>
-      <div class="desc">Stable but stagnant — effort maintains, doesn’t grow.</div>
-    </div>
-    <div class="card">
-      <h2>Comfortable Decline</h2>
-      <div class="desc">Feels secure, but value erodes — complacency in disguise.</div>
-    </div>
-    <div class="card">
-      <h2>Balanced Growth</h2>
-      <div class="desc">Moderate effort, moderate footing — sustainable value creation.</div>
-    </div>
-    <div class="card">
-      <h2>Routine Play</h2>
-      <div class="desc">Everyday operation — safe, predictable, not transformative.</div>
-    </div>
-    <div class="card">
-      <h2>Stagnant Drift</h2>
-      <div class="desc">No strong risks or urgency, but slow erosion continues.</div>
-    </div>
-    <div class="card">
-      <h2>Fragile Moonshot</h2>
-      <div class="desc">High upside, shaky foundation — could succeed or collapse.</div>
-    </div>
-    <div class="card">
-      <h2>Wobbly Venture</h2>
-      <div class="desc">Unclear payoff, fragile base — outcome uncertain at best.</div>
-    </div>
-    <div class="card">
-      <h2>Dead End</h2>
-      <div class="desc">Fragile, no return — stuck without clear upside.</div>
-    </div>
-    <div class="card">
-      <h2>Calm Jackpot</h2>
-      <div class="desc">Obvious, safe win — strong footing and big upside with no rush.</div>
-    </div>
-    <div class="card">
-      <h2>Comfort Zone</h2>
-      <div class="desc">Safe, low-stress, but stagnant — survives without growing.</div>
-    </div>
-    <div class="card">
-      <h2>Complacency Trap</h2>
-      <div class="desc">Feels safe but value erodes — comfort blinds decline.</div>
-    </div>
-    <div class="card">
-      <h2>Solid Harvest</h2>
-      <div class="desc">Safe returns over time — not urgent, but worthwhile.</div>
-    </div>
-    <div class="card">
-      <h2>Passive Drift</h2>
-      <div class="desc">Minimal urgency, minimal value — just coasting.</div>
-    </div>
-    <div class="card">
-      <h2>Slow Bleed</h2>
-      <div class="desc">Quiet erosion over time — no stress, but value trickles away.</div>
-    </div>
-    <div class="card">
-      <h2>Latent Goldmine</h2>
-      <div class="desc">High potential, fragile base — increase stability before committing.</div>
-    </div>
-    <div class="card">
-      <h2>Shaky Prospect</h2>
-      <div class="desc">Weak stability, unclear payoff — consider re-scoping or pausing.</div>
-    </div>
-    <div class="card">
-      <h2>Fragile Collapse</h2>
-      <div class="desc">Fragile and negative-return — avoid or radically change conditions.</div>
+    <div class="nav">
+      <a href="/index.html" class="small">← Back to D-NAV</a>
+      <a href="#ingredients" class="small">Core ingredients</a>
+      <a href="#signals" class="small">Derived signals</a>
+      <a href="#merit-attention" class="small">Merit & Attention</a>
+      <a href="#composite" class="small">Composite (D-NAV)</a>
+      <a href="#archetypes" class="small">Archetypes</a>
     </div>
   </div>
+
+  <!-- Core Ingredients -->
+  <div id="ingredients" class="card section">
+    <h2>Core ingredients (1–10 each)</h2>
+    <div class="grid-3">
+      <div>
+        <h3>Impact</h3>
+        <p class="p">The value at stake if this goes right. Higher = bigger upside/importance.</p>
+      </div>
+      <div>
+        <h3>Cost</h3>
+        <p class="p">Resources you must spend: time, cash, attention, opportunity cost.</p>
+      </div>
+      <div>
+        <h3>Risk</h3>
+        <p class="p">Downside uncertainty: likelihood × magnitude of harm or failure.</p>
+      </div>
+    </div>
+    <div class="grid-2" style="margin-top:6px;">
+      <div>
+        <h3>Urgency</h3>
+        <p class="p">Time pressure to act. High urgency compresses decision windows.</p>
+      </div>
+      <div>
+        <h3>Confidence</h3>
+        <p class="p">Evidence and readiness to execute (proof, reps, clarity, resources).</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- Derived Signals -->
+  <div id="signals" class="card section">
+    <h2>Derived signals</h2>
+    <div class="grid-3">
+      <div>
+        <h3>Return</h3>
+        <div class="kv"><div class="k">Formula</div><div class="v"><span class="code">Impact − Cost</span></div></div>
+        <p class="p">Value creation after cost. <span class="pill green">Positive</span> / <span class="pill amber">Neutral</span> / <span class="pill red">Negative</span>.</p>
+      </div>
+      <div>
+        <h3>Stability</h3>
+        <div class="kv"><div class="k">Formula</div><div class="v"><span class="code">Confidence − Risk</span></div></div>
+        <p class="p">How survivable the move is. <span class="pill green">Stable</span> vs <span class="pill red">Fragile</span>.</p>
+      </div>
+      <div>
+        <h3>Pressure</h3>
+        <div class="kv"><div class="k">Formula</div><div class="v"><span class="code">Urgency − Confidence</span></div></div>
+        <p class="p">Execution stress. <span class="pill red">Pressured</span>, <span class="pill amber">Balanced</span>, or <span class="pill green">Calm</span>.</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- Merit & Attention -->
+  <div id="merit-attention" class="card section">
+    <h2>Merit & Attention</h2>
+    <div class="grid-2">
+      <div>
+        <h3>Merit</h3>
+        <div class="kv"><div class="k">Formula</div><div class="v"><span class="code">Impact − Cost − Risk</span></div></div>
+        <p class="p">The underlying quality of the bet (unit economics + risk drag). Think “is this inherently good?”</p>
+      </div>
+      <div>
+        <h3>Attention</h3>
+        <div class="kv"><div class="k">Formula</div><div class="v"><span class="code">Urgency × Confidence</span></div></div>
+        <p class="p">Your applied drive—how hard and how ready you’ll push right now.</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- Composite -->
+  <div id="composite" class="card section">
+    <h2>Composite (D-NAV)</h2>
+    <div class="kv"><div class="k">Formula</div><div class="v"><span class="code">D-NAV = (Impact − Cost − Risk) + (Urgency × Confidence)</span></div></div>
+    <div class="hr"></div>
+    <p class="p">D-NAV combines <b>Merit</b> (quality of the opportunity) with <b>Attention</b> (your applied energy). High D-NAV = strong bet and/or strong push.</p>
+  </div>
+
+  <!-- Archetypes -->
+  <div id="archetypes" class="card section">
+    <h2>Archetypes (by Return / Stability / Pressure)</h2>
+    <p class="small">Each outcome is classified by the sign of <span class="code">Pressure</span>, <span class="code">Stability</span>, and <span class="code">Return</span> (in that order) into one of 27 archetypes.</p>
+    <div class="badges">
+      <span class="pill red">Pressured</span>
+      <span class="pill amber">Balanced</span>
+      <span class="pill green">Calm</span>
+      <span class="pill green">Stable</span>
+      <span class="pill red">Fragile</span>
+      <span class="pill green">Positive return</span>
+      <span class="pill red">Negative return</span>
+    </div>
+    <div class="archgrid" id="archGrid"></div>
+  </div>
+
+</div>
+
+<script>
+/* Archetype mapping (same as app) */
+const names={
+"1|1|1":"Urgent Jackpot","1|1|0":"Stable Grind","1|1|-1":"Overconfident Burn",
+"1|0|1":"Calculated Sprint","1|0|0":"Fire Drill","1|0|-1":"Stress Spiral",
+"1|-1|1":"Chaos Bet","1|-1|0":"Tenuous Push","1|-1|-1":"Chaos Burn",
+"0|1|1":"Strategic Patience","0|1|0":"Maintenance Mode","0|1|-1":"Comfortable Decline",
+"0|0|1":"Balanced Growth","0|0|0":"Routine Play","0|0|-1":"Stagnant Drift",
+"0|-1|1":"Fragile Moonshot","0|-1|0":"Wobbly Venture","0|-1|-1":"Dead End",
+"-1|1|1":"Calm Jackpot","-1|1|0":"Comfort Zone","-1|1|-1":"Complacency Trap",
+"-1|0|1":"Solid Harvest","-1|0|0":"Passive Drift","-1|0|-1":"Slow Bleed",
+"-1|-1|1":"Latent Goldmine","-1|-1|0":"Shaky Prospect","-1|-1|-1":"Fragile Collapse"
+};
+const desc={
+"Urgent Jackpot":"Breakthrough under fire — stable system allows urgent, high-return execution.",
+"Stable Grind":"Working hard under stress, but payoff is minimal — effort keeps the system afloat.",
+"Overconfident Burn":"Confidence cushions risk, but value is destroyed — strong push in the wrong direction.",
+"Calculated Sprint":"Pushing fast with decent footing — risk manageable, upside strong.",
+"Fire Drill":"Stressful but low-value — energy expended without major upside.",
+"Stress Spiral":"Under strain, footing erodes — costs outweigh gains.",
+"Chaos Bet":"Moonshot under fire — potential breakthrough, system may collapse.",
+"Tenuous Push":"Forcing fragile resources into stressful, low-value territory.",
+"Chaos Burn":"Explosive failure under stress — fragile and value-negative.",
+"Strategic Patience":"Confident, steady progress toward high value — execute without panic.",
+"Maintenance Mode":"Stable but stagnant — effort maintains, doesn’t grow.",
+"Comfortable Decline":"Feels secure, but value erodes — complacency in disguise.",
+"Balanced Growth":"Moderate effort, moderate footing — sustainable value creation.",
+"Routine Play":"Everyday operation — safe, predictable, not transformative.",
+"Stagnant Drift":"No strong risks or urgency, but slow erosion continues.",
+"Fragile Moonshot":"High upside, shaky foundation — could succeed or collapse.",
+"Wobbly Venture":"Unclear payoff, fragile base — outcome uncertain at best.",
+"Dead End":"Fragile, no return — stuck without clear upside.",
+"Calm Jackpot":"Obvious, safe win — strong footing and big upside with no rush.",
+"Comfort Zone":"Safe, low-stress, but stagnant — survives without growing.",
+"Complacency Trap":"Feels safe but value erodes — comfort blinds decline.",
+"Solid Harvest":"Safe returns over time — not urgent, but worthwhile.",
+"Passive Drift":"Minimal urgency, minimal value — just coasting.",
+"Slow Bleed":"Quiet erosion over time — no stress, but value trickles away.",
+"Latent Goldmine":"High potential, fragile base — increase stability before committing.",
+"Shaky Prospect":"Weak stability, unclear payoff — consider re-scoping or pausing.",
+"Fragile Collapse":"Fragile and negative-return — avoid or radically change conditions."
+};
+
+/* Render archetype cards */
+(function renderArchetypes(){
+  const grid = document.getElementById('archGrid');
+  const order = Object.keys(names)
+    .map(key=>({key, name:names[key], desc:desc[names[key]]}))
+    .sort((a,b)=>a.name.localeCompare(b.name));
+  grid.innerHTML = order.map(o=>`
+    <div class="arch">
+      <div class="name">${o.name}</div>
+      <div class="desc">${o.desc||''}</div>
+    </div>
+  `).join('');
+})();
+</script>
 </body>
 </html>
