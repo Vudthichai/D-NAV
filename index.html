@@ -39,6 +39,14 @@ th,td{padding:10px}
 thead{background:#0d0d0d;color:#fff}
 tr+tr{border-top:1px solid #1e1e1e}
 
+/* numeric alignment for table */
+.num{
+  text-align:right;
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: "tnum" 1, "lnum" 1;
+}
+tbody tr:nth-child(even){ background: rgba(255,255,255,.02); }
+
 @media (max-width:900px){body{padding:14px}.wrap{grid-template-columns:1fr}.row{grid-template-columns:90px 1fr 46px}h1{font-size:20px}.val{font-size:32px}.comp .big{font-size:38px}input[type=range]{height:36px}}
 </style></head>
 <body>
@@ -208,7 +216,16 @@ function compute(){
  document.getElementById('scoreTag').textContent=scoreTagText(composite);
  badge(document.getElementById('retPill'),Math.sign(ret),'Positive','Neutral','Negative');
  badge(document.getElementById('stabPill'),Math.sign(stab),'Stable','Neutral','Fragile');
- badge(document.getElementById('pressPill'),Math.sign(press),'Calm','Balanced','Pressured');
+
+ // Pressure badge: high pressure = red, calm = green, balanced = amber (labels unchanged)
+ const pressPill = document.getElementById('pressPill');
+ pressPill.textContent = press > 0 ? 'Pressured' : (press < 0 ? 'Calm' : 'Balanced');
+ pressPill.className = 'pill ' + (press > 0 ? 'red' : (press < 0 ? 'green' : 'amber'));
+
+ // Optional: color the big Pressure number to match
+ const pressValEl = document.getElementById('press');
+ pressValEl.style.color = press > 0 ? 'var(--red)' : (press < 0 ? 'var(--green)' : 'var(--amber)');
+
  const key=[sign3(press),sign3(stab),sign3(ret)].join('|');
  const name=names[key]||'Unclassified';
  document.getElementById('arch').textContent=name;
@@ -251,15 +268,15 @@ function renderLog(){
       <td>${new Date(r.ts).toLocaleString()}</td>
       <td>${escapeHtml(r.name)}</td>
       <td>${escapeHtml(r.category||'')}</td>
-      <td style="text-align:right;">${fmt0(r.impact)}</td>
-      <td style="text-align:right;">${fmt0(r.cost)}</td>
-      <td style="text-align:right;">${fmt0(r.risk)}</td>
-      <td style="text-align:right;">${fmt0(r.urgency)}</td>
-      <td style="text-align:right;">${fmt0(r.confidence)}</td>
-      <td style="text-align:right;">${fmt0(r.return)}</td>
-      <td style="text-align:right;">${fmt0(r.pressure)}</td>
-      <td style="text-align:right;">${fmt0(r.stability)}</td>
-      <td style="text-align:right;font-weight:700;">${fmt0(r.dnav)}</td>
+      <td class="num">${fmt0(r.impact)}</td>
+      <td class="num">${fmt0(r.cost)}</td>
+      <td class="num">${fmt0(r.risk)}</td>
+      <td class="num">${fmt0(r.urgency)}</td>
+      <td class="num">${fmt0(r.confidence)}</td>
+      <td class="num">${fmt0(r.return)}</td>
+      <td class="num">${fmt0(r.pressure)}</td>
+      <td class="num">${fmt0(r.stability)}</td>
+      <td class="num" style="font-weight:700;">${fmt0(r.dnav)}</td>
       <td style="text-align:center;">
         <button data-idx="${i}" class="del" style="border:0;background:transparent;color:#fff;cursor:pointer;">✕</button>
       </td>
@@ -275,7 +292,6 @@ function renderLog(){
 }
 
 function enterDecision(){
-  // simple validation
   for(const id of SLIDER_IDS){
     const v=Number($('#'+id).value);
     if(!(v>=1 && v<=10)){ alert(`Please set ${id} between 1–10.`); return; }
