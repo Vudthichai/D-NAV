@@ -468,7 +468,7 @@ function openPdfReport(){
   // HUD stats
   const avg = total ? Math.round(rows.reduce((a,r)=>a + (Number(r.dnav)||0),0)/total) : 0;
   const posRet = total ? Math.round(rows.filter(r=>r.return>0).length*100/total) : 0;
-  const pressured = total ? Math.round(rows.filter(r=>r.pressure>0).length*100/total) : 0;
+  const pressuredPct = total ? Math.round(rows.filter(r=>r.pressure>0).length*100/total) : 0;
   const stablePct = total ? Math.round(rows.filter(r=>r.stability>0).length*100/total) : 0;
 
   // Distribution bars
@@ -485,7 +485,7 @@ function openPdfReport(){
   const prBal   = rows.filter(r=>r.pressure===0).length;
   const prCalm  = rows.filter(r=>r.pressure<0).length;
 
-  // Category breakdown (share of drive, counts, avg D-NAV, %stable, %pressured)
+  // Category breakdown
   const totals = new Map(); let energyAll = 0;
   rows.forEach(r=>{
     const cat=(r.category||'').trim()||'Uncategorized';
@@ -515,20 +515,20 @@ function openPdfReport(){
       :root{--bg:#0b0f14;--card:#121821;--text:#e9eef5;--muted:#9fb1c7;--green:#3ecf8e;--red:#ff6b6b;--amber:#f3b431;--blue:#69a9ff}
       body{font-family:Inter,system-ui,-apple-system,Segoe UI,Roboto,Arial;background:var(--bg);color:var(--text);margin:0;padding:24px}
       h1{margin:0 0 10px;font-size:22px;font-weight:900}
-      h2{margin:18px 0 10px;font-size:16px}
-      .card{background:var(--card);border-radius:12px;padding:16px;margin-bottom:12px}
-      .grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}
-      .kpis{display:grid;grid-template-columns:repeat(4,1fr);gap:10px}
+      h2{margin:0 0 10px;font-size:16px}
+      .card{background:var(--card);border-radius:12px;padding:16px;margin:12px 0}
+      .kpis{display:grid;grid-template-columns:repeat(5,1fr);gap:10px;margin:12px 0}
       .kpi{background:rgba(255,255,255,.05);border-radius:10px;padding:12px}
       .kpi h4{margin:0;font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.3px}
-      .big{font-weight:900;font-size:28px;margin-top:6px}
+      .kpi .big{font-weight:900;font-size:28px;margin-top:6px}
+      .kpi.sm .big{font-size:22px}
       .mini{font-size:12px;color:#a7b4c7;margin-top:2px}
-      .stack{height:10px;border-radius:999px;background:rgba(255,255,255,.08);overflow:hidden;display:flex}
+      .stack{height:12px;border-radius:999px;background:rgba(255,255,255,.08);overflow:hidden;display:flex}
       .seg{height:100%}
       .seg.g{background:rgba(62,207,142,.75)}
       .seg.a{background:rgba(243,180,49,.75)}
       .seg.r{background:rgba(255,107,107,.75)}
-      .legend{display:flex;gap:10px;font-size:12px;color:#a7b4c7;margin-top:6px;flex-wrap:wrap}
+      .legend{display:flex;gap:12px;font-size:12px;color:#a7b4c7;margin-top:8px;flex-wrap:wrap}
       .row{display:grid;grid-template-columns:160px 1fr 260px;gap:12px;align-items:center;padding:6px 0;border-bottom:1px solid rgba(255,255,255,.06)}
       .row:last-child{border-bottom:none}
       .bar{height:8px;border-radius:999px;background:rgba(255,255,255,.08);overflow:hidden}
@@ -537,49 +537,53 @@ function openPdfReport(){
       th,td{padding:8px;border-bottom:1px solid rgba(255,255,255,.08)}
       .right{text-align:right}
       .muted{color:var(--muted)}
-      .cta{display:block;margin-top:4px;text-align:center}
+      .cta{text-align:center;margin:6px 0 0}
       .cta a{color:#cfe1ff;text-decoration:underline;text-underline-offset:4px;font-size:16px}
-      @media print { body{padding:0;background:#fff;color:#000} .card{background:#fff;border:1px solid #ddd} .print-hide{display:none} }
+      .toplink{margin-bottom:8px}
+      .toplink a{color:#cfe1ff;text-decoration:underline;text-underline-offset:4px}
+      @media print { body{padding:0;background:#fff;color:#000} .card{background:#fff;border:1px solid #ddd} .toplink{display:none} }
     </style>
   </head>
   <body>
-    <div class="print-hide" style="margin-bottom:8px;"><a href="#" onclick="window.print();return false;" style="color:#cfe1ff;text-decoration:underline;">Print / Save as PDF</a></div>
+    <div class="toplink"><a href="#" onclick="window.print();return false;">Print / Save as PDF</a></div>
     <h1>D-NAV Insights</h1>
     <div class="card"><div><b>Generated:</b> ${dt}</div><div class="mini">Based on your saved decisions.</div></div>
 
+    <!-- KPI HUD: first two visually smaller -->
     <div class="kpis">
-      <div class="kpi"><h4>Decisions</h4><div class="big">${total}</div></div>
-      <div class="kpi"><h4>Avg D-NAV</h4><div class="big">${avg}</div><div class="mini">Composite (Merit + Drive)</div></div>
+      <div class="kpi sm"><h4>Decisions</h4><div class="big">${total}</div></div>
+      <div class="kpi sm"><h4>Avg D-NAV</h4><div class="big">${avg}</div><div class="mini">Composite (Merit + Drive)</div></div>
       <div class="kpi"><h4>Positive Return</h4><div class="big">${posRet}%</div><div class="stack"><span class="seg g" style="width:${posRet}%"></span></div></div>
       <div class="kpi"><h4>Stable</h4><div class="big">${stablePct}%</div><div class="stack"><span class="seg g" style="width:${stablePct}%"></span></div></div>
+      <div class="kpi"><h4>Pressured</h4><div class="big">${pressuredPct}%</div><div class="stack"><span class="seg r" style="width:${pressuredPct}%"></span></div></div>
     </div>
 
-    <div class="grid">
-      <div class="card">
-        <h2>Return distribution</h2>
-        <div class="stack">
-          <span class="seg g" style="width:${pct(retPos,total)}%"></span>
-          <span class="seg a" style="width:${pct(retNeu,total)}%"></span>
-          <span class="seg r" style="width:${pct(retNeg,total)}%"></span>
-        </div>
-        <div class="legend">
-          <span>Positive: ${pct(retPos,total)}%</span>
-          <span>Neutral: ${pct(retNeu,total)}%</span>
-          <span>Negative: ${pct(retNeg,total)}%</span>
-        </div>
+    <!-- Distributions (all full width for consistent size) -->
+    <div class="card">
+      <h2>Return distribution</h2>
+      <div class="stack">
+        <span class="seg g" style="width:${pct(retPos,total)}%"></span>
+        <span class="seg a" style="width:${pct(retNeu,total)}%"></span>
+        <span class="seg r" style="width:${pct(retNeg,total)}%"></span>
       </div>
-      <div class="card">
-        <h2>Stability distribution</h2>
-        <div class="stack">
-          <span class="seg g" style="width:${pct(stabSt,total)}%"></span>
-          <span class="seg a" style="width:${pct(stabUn,total)}%"></span>
-          <span class="seg r" style="width:${pct(stabFr,total)}%"></span>
-        </div>
-        <div class="legend">
-          <span>Stable: ${pct(stabSt,total)}%</span>
-          <span>Uncertain: ${pct(stabUn,total)}%</span>
-          <span>Fragile: ${pct(stabFr,total)}%</span>
-        </div>
+      <div class="legend">
+        <span>Positive: ${pct(retPos,total)}%</span>
+        <span>Neutral: ${pct(retNeu,total)}%</span>
+        <span>Negative: ${pct(retNeg,total)}%</span>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>Stability distribution</h2>
+      <div class="stack">
+        <span class="seg g" style="width:${pct(stabSt,total)}%"></span>
+        <span class="seg a" style="width:${pct(stabUn,total)}%"></span>
+        <span class="seg r" style="width:${pct(stabFr,total)}%"></span>
+      </div>
+      <div class="legend">
+        <span>Stable: ${pct(stabSt,total)}%</span>
+        <span>Uncertain: ${pct(stabUn,total)}%</span>
+        <span>Fragile: ${pct(stabFr,total)}%</span>
       </div>
     </div>
 
