@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>The Decision NAVigator — D-NAV Mini (v3.19)</title>
+<title>The Decision NAVigator — D-NAV Mini (v3.20)</title>
 <style>
 :root{--bg:#0b0f14;--card:#121821;--muted:#8fa1b7;--text:#e9eef5;--green:#3ecf8e;--red:#ff6b6b;--amber:#f3b431;--blue:#69a9ff}
 *{box-sizing:border-box;font-family:Inter,ui-sans-serif,system-ui,-apple-system,Segoe UI,Roboto,Arial}
@@ -183,13 +183,32 @@ tbody tr:nth-child(even){background:rgba(255,255,255,.02)}
 </div>
 
 <!-- ENTRY -->
-<div class="wrap" style="grid-template-columns:1fr;">
+<div class="wrap" style="grid-template-columns:1fr 1fr;">
   <div class="card grid">
     <h2 style="margin:0;">Quick Entry</h2>
     <input id="decisionName" class="input" type="text" placeholder="Decision name (e.g., ‘Investor meetup solo’)" />
     <input id="decisionCategory" class="input" type="text" placeholder="Category (e.g., Career, Health, Relationships)" />
     <button id="enterBtn" class="btn" disabled>Enter decision</button>
     <div class="muted">Fill name & category, set sliders → click <b>Enter decision</b>. Stored on this device.</div>
+  </div>
+
+  <!-- IMPORT / TEMPLATES -->
+  <div class="card grid">
+    <h2 style="margin:0;">Import / Templates</h2>
+    <input id="csvInput" type="file" accept=".csv,text/csv" class="input" />
+    <div style="display:flex;gap:8px;flex-wrap:wrap;">
+      <button id="uploadBtn" class="btn" disabled>Upload CSV</button>
+      <button id="tmplBlank" class="btn secondary">Blank Template</button>
+      <button id="tmplPersonal" class="btn secondary">Personal Template</button>
+      <button id="tmplBusiness" class="btn secondary">Business Template</button>
+      <button id="tmplInvestor" class="btn secondary">Investor Template</button>
+    </div>
+    <div id="uploadMsg" class="muted"></div>
+    <div class="muted" style="margin-top:6px;">
+      Don’t have a template? Use one of ours.<br/>
+      Personal: “100 Life Decisions That Shape You” • Business: “50 Strategic Decisions Every Founder Makes” • Investor: “Quarterly Capital Allocation Model”.<br/>
+      <span style="opacity:.9">Tip: you can include <b>prompt</b> and leave scores blank to fill later.</span>
+    </div>
   </div>
 </div>
 
@@ -216,7 +235,7 @@ tbody tr:nth-child(even){background:rgba(255,255,255,.02)}
         <div class="mini">Composite (Merit + Drive)</div>
       </div>
       <div class="kpi" id="tile_pos">
-        <h4>Positive Return</h4>
+        <h4>Return</h4>
         <div class="big" id="k_posret" data-val="0">0%</div>
         <div class="progress"><span id="bar_posret" style="width:0%;background:var(--green)"></span></div>
       </div>
@@ -391,7 +410,7 @@ function compute(){
 
   document.getElementById('ret').textContent=s(ret);
   document.getElementById('stab').textContent=s(stab);
-  document.getElementById('press').textContent=s(press); // stays white
+  document.getElementById('press').textContent=s(press);
 
   badge(document.getElementById('retPill'),Math.sign(ret),'Positive','Neutral','Negative');
   badge(document.getElementById('stabPill'),Math.sign(stab),'Stable','Uncertain','Fragile');
@@ -439,6 +458,179 @@ function loadLog(){ try{ return JSON.parse(localStorage.getItem('dnav_log_v1')||
 function saveLog(arr){ localStorage.setItem('dnav_log_v1', JSON.stringify(arr)); }
 function escapeHtml(s=''){ return s.replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m])); }
 
+/* CSV utilities */
+function parseCSV(text){
+  const rows=[]; let i=0, cur=[], val='', inQ=false;
+  while(i<text.length){
+    const c=text[i];
+    if(inQ){
+      if(c==='"' && text[i+1]==='"'){ val+='"'; i+=2; continue; }
+      if(c==='"' ){ inQ=false; i++; continue; }
+      val+=c; i++; continue;
+    }else{
+      if(c==='"' ){ inQ=true; i++; continue; }
+      if(c===','){ cur.push(val); val=''; i++; continue; }
+      if(c==='\n'){ cur.push(val); rows.push(cur); cur=[]; val=''; i++; continue; }
+      if(c==='\r'){ // handle CRLF
+        if(text[i+1]==='\n'){ i+=2; cur.push(val); rows.push(cur); cur=[]; val=''; continue; }
+        cur.push(val); rows.push(cur); cur=[]; val=''; i++; continue;
+      }
+      val+=c; i++; continue;
+    }
+  }
+  cur.push(val); rows.push(cur);
+  // trim trailing empty lines
+  while(rows.length && rows[rows.length-1].every(x=>x==='')) rows.pop();
+  return rows;
+}
+const headerAliases = {
+  name:['name','decision','title','decision_name'],
+  category:['category','cat'],
+  impact:['impact','i'],
+  cost:['cost','c'],
+  risk:['risk','r'],
+  urgency:['urgency','u'],
+  confidence:['confidence','conf'],
+  // optional
+  timestamp:['timestamp','when','date','time','timestamp_iso','timestamp_local','ts'],
+  prompt:['prompt','question']
+};
+function findHeaderIndex(headers, key){
+  const lowers=headers.map(h=>String(h||'').trim().toLowerCase());
+  const cands=headerAliases[key]||[key];
+  for(const cand of cands){
+    const idx=lowers.indexOf(cand);
+    if(idx>-1) return idx;
+  }
+  return -1;
+}
+function toNumberOrNull(x){
+  if(x===undefined || x===null) return null;
+  const n=Number(String(x).trim());
+  return Number.isFinite(n) ? n : null;
+}
+
+/* Templates (CSV blobs) */
+function downloadCSV(filename, csv){
+  const blob=new Blob([csv],{type:'text/csv;charset=utf-8;'});
+  const a=document.createElement('a');
+  a.href=URL.createObjectURL(blob);
+  a.download=filename;
+  a.click();
+  URL.revokeObjectURL(a.href);
+}
+function universalHeader(){
+  return ['prompt','name','category','impact','cost','risk','urgency','confidence'].join(',');
+}
+function blankTemplate(){
+  const csv = universalHeader() + '\n';
+  downloadCSV('dnav_template_blank.csv', csv);
+}
+function personalTemplate(){
+  const rows = [
+    ['Choose a primary career direction for the next 12 months','','Career','','','','',''],
+    ['Establish a daily training routine (run/lift)','','Health & Fitness','','','','',''],
+    ['Move to a new city or stay put?','','Lifestyle','','','','',''],
+    ['Start a newsletter about my expertise','','Career','','','','',''],
+    ['Prioritize sleep: set a strict bedtime','','Health & Fitness','','','','','']
+  ].map(r=>r.map(x=>typeof x==="string" ? `"${x.replace(/"/g,'""')}"` : x).join(','));
+  const csv = [universalHeader(), ...rows].join('\n');
+  downloadCSV('dnav_template_personal.csv', csv);
+}
+function businessTemplate(){
+  const rows = [
+    ['Define ICP and core offer','','Business','','','','',''],
+    ['Ship v1 landing page with lead magnet','','Business','','','','',''],
+    ['Choose pricing tier and guarantee','','Business','','','','',''],
+    ['Hire first contractor (design/dev)','','Team','','','','',''],
+    ['Launch weekly content cadence','','Marketing','','','','','']
+  ].map(r=>r.map(x=>typeof x==="string" ? `"${x.replace(/"/g,'""')}"` : x).join(','));
+  const csv = [universalHeader(), ...rows].join('\n');
+  downloadCSV('dnav_template_business.csv', csv);
+}
+function investorTemplate(){
+  const rows = [
+    ['Rebalance: shift 5–10% into cash?','','Portfolio','','','','',''],
+    ['Allocate to data-center REITs this quarter','','Equities','','','','',''],
+    ['Add a private deal (check IRR & risk)','','Private Markets','','','','',''],
+    ['Exit underperformer before Q4?','','Portfolio','','','','',''],
+    ['Hedge tail risk (puts/vol)','','Risk Mgmt','','','','','']
+  ].map(r=>r.map(x=>typeof x==="string" ? `"${x.replace(/"/g,'""')}"` : x).join(','));
+  const csv = [universalHeader(), ...rows].join('\n');
+  downloadCSV('dnav_template_investor.csv', csv);
+}
+
+/* Import pipeline */
+function importCSV(text){
+  const rows=parseCSV(text);
+  if(!rows.length) throw new Error('CSV appears empty.');
+  const headers=rows[0]; const data=rows.slice(1);
+
+  const idx={
+    name: findHeaderIndex(headers,'name'),
+    category: findHeaderIndex(headers,'category'),
+    impact: findHeaderIndex(headers,'impact'),
+    cost: findHeaderIndex(headers,'cost'),
+    risk: findHeaderIndex(headers,'risk'),
+    urgency: findHeaderIndex(headers,'urgency'),
+    confidence: findHeaderIndex(headers,'confidence'),
+    timestamp: findHeaderIndex(headers,'timestamp'),
+    prompt: findHeaderIndex(headers,'prompt')
+  };
+
+  if(idx.name===-1 && idx.prompt===-1)
+    throw new Error('Missing a "name" or "prompt" column.');
+  if(idx.category===-1)
+    throw new Error('Missing a "category" column.');
+  // scores can be blank; users can fill later
+
+  const imported=[];
+  for(const row of data){
+    const nameRaw = idx.name>-1 ? row[idx.name] : '';
+    const promptRaw = idx.prompt>-1 ? row[idx.prompt] : '';
+    const name = String((nameRaw||'').trim() || (promptRaw||'').trim());
+    const category = String((row[idx.category]||'').trim());
+    if(!name && !category) continue; // skip empty lines
+    if(!category) throw new Error('Some rows are missing Category.');
+
+    const vals = {
+      impact: toNumberOrNull(idx.impact>-1 ? row[idx.impact] : null) ?? 0,
+      cost: toNumberOrNull(idx.cost>-1 ? row[idx.cost] : null) ?? 0,
+      risk: toNumberOrNull(idx.risk>-1 ? row[idx.risk] : null) ?? 0,
+      urgency: toNumberOrNull(idx.urgency>-1 ? row[idx.urgency] : null) ?? 0,
+      confidence: toNumberOrNull(idx.confidence>-1 ? row[idx.confidence] : null) ?? 0
+    };
+
+    // if scores are all zero (blank template), we still import for backlog
+    const m = computeMetrics(vals);
+
+    // timestamp (optional)
+    let ts = Date.now();
+    if(idx.timestamp>-1){
+      const tRaw = row[idx.timestamp];
+      const tms = Date.parse(tRaw);
+      if(Number.isFinite(tms)) ts = tms;
+    }
+
+    imported.push({
+      ts,
+      name,
+      category,
+      ...vals,
+      return:m.ret, pressure:m.pressure, stability:m.stability, merit:m.merit, energy:m.energy, dnav:m.dnav
+    });
+  }
+
+  if(!imported.length) throw new Error('No usable rows were found.');
+
+  const current = loadLog();
+  // newest first: put imported at the top, preserving their ts order (descending)
+  imported.sort((a,b)=>b.ts-a.ts);
+  const merged = [...imported, ...current];
+  saveLog(merged);
+  return {count: imported.length};
+}
+
 function toCsv(rows){
   const header=['timestamp_local','timestamp_iso','name','category','impact','cost','risk','urgency','confidence','return','pressure','stability','merit','energy','dnav'];
   const body=rows.map(r=>[
@@ -460,7 +652,7 @@ function downloadCsv(){
   URL.revokeObjectURL(a.href);
 }
 
-/* ----------- Simple, compact PDF report (doesn't affect page spacing) ----------- */
+/* ----------- Compact PDF report ----------- */
 function openPdfReport(){
   const rows = loadLog();
   const total = rows.length;
@@ -483,7 +675,7 @@ function openPdfReport(){
   const prBal   = rows.filter(r=>r.pressure===0).length;
   const prCalm  = rows.filter(r=>r.pressure<0).length;
 
-  // Category breakdown (compact)
+  // Category breakdown
   const totals = new Map(); let energyAll = 0;
   rows.forEach(r=>{
     const cat=(r.category||'').trim()||'Uncategorized';
@@ -556,7 +748,7 @@ function openPdfReport(){
       <div class="kpis">
         <div class="kpi"><h4>Decisions</h4><div class="big">${total}</div></div>
         <div class="kpi"><h4>Avg D-NAV</h4><div class="big">${avg}</div></div>
-        <div class="kpi"><h4>Positive Return</h4><div class="big">${posRet}%</div><div class="stack"><span class="seg g" style="width:${posRet}%"></span></div></div>
+        <div class="kpi"><h4>Return</h4><div class="big">${posRet}%</div><div class="stack"><span class="seg g" style="width:${posRet}%"></span></div></div>
         <div class="kpi"><h4>Stable</h4><div class="big">${stablePct}%</div><div class="stack"><span class="seg g" style="width:${stablePct}%"></span></div></div>
         <div class="kpi"><h4>Pressured</h4><div class="big">${pressuredPct}%</div><div class="stack"><span class="seg r" style="width:${pressuredPct}%"></span></div></div>
       </div>
@@ -650,7 +842,6 @@ function openPdfReport(){
       </div>
     </div>
   </body></html>`;
-
   const w = window.open('', '_blank');
   if(!w){ alert('Please allow pop-ups to view the PDF.'); return; }
   w.document.open(); w.document.write(html); w.document.close();
@@ -812,13 +1003,45 @@ function enterDecision(){
   resetForm();
 }
 
-// keep sliders live
+/* ---- Upload UI wiring ---- */
+const csvInput = document.getElementById('csvInput');
+const uploadBtn = document.getElementById('uploadBtn');
+const uploadMsg = document.getElementById('uploadMsg');
+
+csvInput.addEventListener('change', ()=>{
+  uploadBtn.disabled = !csvInput.files || !csvInput.files.length;
+  uploadMsg.textContent = csvInput.files && csvInput.files.length ? `Selected: ${csvInput.files[0].name}` : '';
+});
+uploadBtn.addEventListener('click', async ()=>{
+  if(!csvInput.files || !csvInput.files.length) return;
+  const file = csvInput.files[0];
+  try{
+    const text = await file.text();
+    const res = importCSV(text);
+    uploadMsg.textContent = `Imported ${res.count} rows.`;
+    uploadMsg.style.color = '#9fe7b6';
+    renderLog();
+    csvInput.value = '';
+    uploadBtn.disabled = true;
+  }catch(err){
+    uploadMsg.textContent = `Import failed: ${err.message||err}`;
+    uploadMsg.style.color = '#ffb3b3';
+  }
+});
+
+/* ---- Template buttons ---- */
+document.getElementById('tmplBlank').addEventListener('click', blankTemplate);
+document.getElementById('tmplPersonal').addEventListener('click', personalTemplate);
+document.getElementById('tmplBusiness').addEventListener('click', businessTemplate);
+document.getElementById('tmplInvestor').addEventListener('click', investorTemplate);
+
+/* keep sliders live */
 SLIDER_IDS.forEach(id=>{
   const el = document.getElementById(id);
   el.addEventListener('input', compute);
   el.addEventListener('change', compute);
 });
-// enable + click handlers for entry form and exports
+/* enable + click handlers for entry form and exports */
 document.getElementById('decisionName').addEventListener('input', checkFormValid);
 document.getElementById('decisionCategory').addEventListener('input', checkFormValid);
 document.getElementById('enterBtn').addEventListener('click', enterDecision);
@@ -828,7 +1051,7 @@ document.getElementById('clearLogBtn').addEventListener('click', ()=>{
   if(confirm('Clear all saved decisions?')){ saveLog([]); renderLog(); }
 });
 
-// boot
+/* boot */
 document.getElementById('allocTitle').textContent = 'Drive (U×C) by category';
 compute();
 renderLog();
