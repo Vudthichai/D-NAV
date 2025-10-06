@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en"><head><meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>D-NAV Mini — Sliders Demo (v3.9)</title>
+<title>D-NAV Mini — Sliders Demo (v3.10)</title>
 <style>
 :root{--bg:#0b0f14;--card:#121821;--muted:#8fa1b7;--text:#e9eef5;--green:#3ecf8e;--red:#ff6b6b;--amber:#f3b431;--blue:#69a9ff}
 *{box-sizing:border-box;font-family:Inter,ui-sans-serif,system-ui,-apple-system,Segoe UI,Roboto,Arial}
@@ -19,7 +19,7 @@ output{text-align:right;display:inline-block;min-width:40px;font-weight:800;font
 .stat h3{margin:0;font-size:12px;color:#9fb1c7;letter-spacing:.3px;text-transform:uppercase}
 .val{font-size:36px;font-weight:900;line-height:1.1}
 
-/* tighter pills to match Definitions page */
+/* compact pills */
 .pill{display:inline-block;padding:3px 7px;border-radius:999px;font-weight:800;font-size:10.5px;line-height:1;white-space:nowrap}
 .green{background:rgba(62,207,142,.18);color:var(--green);border:1px solid rgba(62,207,142,.4)}
 .amber{background:rgba(243,180,49,.18);color:var(--amber);border:1px solid rgba(243,180,49,.35)}
@@ -46,11 +46,7 @@ thead{background:#0d0d0d;color:#fff}
 tr+tr{border-top:1px solid #1e1e1e}
 
 /* numeric alignment for table */
-.num{
-  text-align:right;
-  font-variant-numeric: tabular-nums;
-  font-feature-settings: "tnum" 1, "lnum" 1;
-}
+.num{ text-align:right; font-variant-numeric: tabular-nums; font-feature-settings: "tnum" 1, "lnum" 1; }
 tbody tr:nth-child(even){ background: rgba(255,255,255,.02); }
 
 /* === Stats HUD tiles === */
@@ -62,7 +58,7 @@ tbody tr:nth-child(even){ background: rgba(255,255,255,.02); }
 .progress{height:8px;border-radius:999px;background:rgba(255,255,255,.08);overflow:hidden;margin-top:8px}
 .progress>span{display:block;height:100%;transition:width .45s ease}
 
-/* Energy/Drive allocation list */
+/* Drive allocation list */
 .alloc{margin-top:12px}
 .alloc .row{display:grid;grid-template-columns:160px 1fr 260px;gap:12px;align-items:center;padding:6px 0;border-bottom:1px solid rgba(255,255,255,.06)}
 .alloc .row:last-child{border-bottom:none}
@@ -70,7 +66,7 @@ tbody tr:nth-child(even){ background: rgba(255,255,255,.02); }
 .alloc .bar>span{display:block;height:100%;background:var(--blue);transition:width .45s ease}
 .alloc .meta{font-size:12px;color:#a7b4c7;text-align:right}
 
-/* pulse highlight when numbers update */
+/* pulse */
 @keyframes pulse-kpi{0%{box-shadow:0 0 0 0 rgba(105,169,255,.35)}100%{box-shadow:0 0 0 14px rgba(105,169,255,0)}}
 .kpi.pulse{animation:pulse-kpi .6s ease}
 
@@ -91,7 +87,7 @@ tbody tr:nth-child(even){ background: rgba(255,255,255,.02); }
 <div class="wrap">
   <div class="card">
     <h1>D-NAV Mini — Sliders Demo</h1>
-    <div class="muted">Move the 5 sliders (1–10). Right side updates live with Return, Stability, Pressure → Archetype (one-word) → Composite (D-NAV) → Coach.</div>
+    <div class="muted">Move the 5 sliders (1–10). Right side updates live with Return, Stability, Pressure → Archetype → D-NAV Composite → Coach.</div>
     <!-- Default all sliders to 1 -->
     <div class="row"><label>Impact</label><input id="impact" type="range" min="1" max="10" value="1" /><output id="o_impact">1</output></div>
     <div class="row"><label>Cost</label><input id="cost" type="range" min="1" max="10" value="1" /><output id="o_cost">1</output></div>
@@ -177,6 +173,7 @@ tbody tr:nth-child(even){ background: rgba(255,255,255,.02); }
     <div style="display:flex;gap:10px;align-items:center;justify-content:space-between;">
       <h2 style="margin:0;">Decision Log</h2>
       <div style="display:flex;gap:8px;">
+        <button id="downloadPdfBtn" class="btn secondary">Download PDF</button>
         <button id="downloadCsvBtn" class="btn secondary">Download CSV</button>
         <button id="clearLogBtn" class="btn secondary">Clear</button>
       </div>
@@ -224,22 +221,20 @@ tbody tr:nth-child(even){ background: rgba(255,255,255,.02); }
 </div>
 
 <script>
-/* ---- One-word archetypes (keyed by P|S|R signs) ---- */
+/* ---- One-word archetypes (keyed by P|S|R) ---- */
 const oneWord={
-  /* R+ / S+ */  "1|1|1":"Breakthrough","0|1|1":"Advance","-1|1|1":"Harvest",
-  /* R+ / S0 */  "1|0|1":"Sprint","0|0|1":"Build","-1|0|1":"Coast",
-  /* R+ / S- */  "1|-1|1":"Gamble","0|-1|1":"Moonshot","-1|-1|1":"Prospect",
-
-  /* R0 / S+ */  "1|1|0":"Grind","0|1|0":"Maintain","-1|1|0":"Idle",
-  /* R0 / S0 */  "1|0|0":"Firefight","0|0|0":"Routine","-1|0|0":"Drift",
-  /* R0 / S- */  "1|-1|0":"Strain","0|-1|0":"Wobble","-1|-1|0":"Teeter",
-
-  /* R- / S+ */  "1|1|-1":"Overreach","0|1|-1":"Erode","-1|1|-1":"Complacency",
-  /* R- / S0 */  "1|0|-1":"Burn","0|0|-1":"Waste","-1|0|-1":"Leak",
-  /* R- / S- */  "1|-1|-1":"Meltdown","0|-1|-1":"Collapse","-1|-1|-1":"Decay"
+  "1|1|1":"Breakthrough","0|1|1":"Advance","-1|1|1":"Harvest",
+  "1|0|1":"Sprint","0|0|1":"Build","-1|0|1":"Coast",
+  "1|-1|1":"Gamble","0|-1|1":"Moonshot","-1|-1|1":"Prospect",
+  "1|1|0":"Grind","0|1|0":"Maintain","-1|1|0":"Idle",
+  "1|0|0":"Firefight","0|0|0":"Routine","-1|0|0":"Drift",
+  "1|-1|0":"Strain","0|-1|0":"Wobble","-1|-1|0":"Teeter",
+  "1|1|-1":"Overreach","0|1|-1":"Erode","-1|1|-1":"Complacency",
+  "1|0|-1":"Burn","0|0|-1":"Waste","-1|0|-1":"Leak",
+  "1|-1|-1":"Meltdown","0|-1|-1":"Collapse","-1|-1|-1":"Decay"
 };
 
-/* short descriptor builder to match Definitions page */
+/* descriptor line to mirror Definitions page */
 const Pword = s => s>0?'Pressured':(s<0?'Calm':'Balanced');
 const Sword = s => s>0?'Stable':(s<0?'Fragile':'Uncertain');
 const Rword = s => s>0?'Gain':(s<0?'Loss':'Flat');
@@ -308,28 +303,16 @@ function compute(){
  document.getElementById('coach').textContent=coachHint(ret,stab,press,urgency,confidence);
 }
 
-// Recompute on slider move
-['impact','cost','risk','urgency','confidence'].forEach(id =>
-  document.getElementById(id).addEventListener('input', compute)
-);
-
-/* —— Entry & Log logic —— */
-const $ = (sel) => document.querySelector(sel);
-const SLIDER_IDS = ["impact","cost","risk","urgency","confidence"];
-const fmt0 = (n) => Number(n).toFixed(0);
-
-// Simple local timestamp
+// ---------- Export: CSV ----------
 function fmtLocal(ts){
   const d = new Date(ts);
   const z = n=>String(n).padStart(2,'0');
   return `${d.getFullYear()}-${z(d.getMonth()+1)}-${z(d.getDate())} ${z(d.getHours())}:${z(d.getMinutes())}:${z(d.getSeconds())}`;
 }
-
-function readCurrent(){
-  const out={};
-  SLIDER_IDS.forEach(id=>out[id]=Number($('#'+id).value||0));
-  return out;
-}
+const $ = (sel) => document.querySelector(sel);
+const SLIDER_IDS = ["impact","cost","risk","urgency","confidence"];
+const fmt0 = (n) => Number(n).toFixed(0);
+function readCurrent(){ const out={}; SLIDER_IDS.forEach(id=>out[id]=Number($('#'+id).value||0)); return out; }
 function computeMetrics(v){
   const ret=v.impact - v.cost;
   const pressure=v.urgency - v.confidence;
@@ -337,13 +320,155 @@ function computeMetrics(v){
   const dnav=(v.impact - v.cost - v.risk) + (v.urgency * v.confidence);
   return {ret,pressure,stability,dnav};
 }
-function loadLog(){
-  try{ return JSON.parse(localStorage.getItem('dnav_log_v1')||'[]'); }catch{ return []; }
-}
+function loadLog(){ try{ return JSON.parse(localStorage.getItem('dnav_log_v1')||'[]'); }catch{ return []; } }
 function saveLog(arr){ localStorage.setItem('dnav_log_v1', JSON.stringify(arr)); }
 function escapeHtml(s=''){ return s.replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m])); }
 
-/* ---------- Animated Stats ---------- */
+function toCsv(rows){
+  const header=['timestamp_local','timestamp_iso','name','category','impact','cost','risk','urgency','confidence','return','pressure','stability','dnav'];
+  const body=rows.map(r=>[
+    fmtLocal(r.ts),
+    new Date(r.ts).toISOString(),
+    `"${(r.name||'').replace(/"/g,'""')}"`,
+    `"${(r.category||'').replace(/"/g,'""')}"`,
+    r.impact,r.cost,r.risk,r.urgency,r.confidence,r.return,r.pressure,r.stability,r.dnav
+  ].join(','));
+  return [header.join(','),...body].join('\n');
+}
+function downloadCsv(){
+  const rows=loadLog();
+  if(!rows.length){ alert('No decisions logged yet.'); return; }
+  const blob=new Blob([toCsv(rows)],{type:'text/csv;charset=utf-8;'});
+  const a=document.createElement('a');
+  a.href=URL.createObjectURL(blob);
+  a.download='dnav_decisions.csv';
+  a.click();
+  URL.revokeObjectURL(a.href);
+}
+
+// ---------- Export: PDF (printable report) ----------
+function openPdfReport(){
+  // ensure latest compute values
+  compute();
+  const vals = readCurrent();
+  const {ret,pressure,stability,dnav} = computeMetrics(vals);
+
+  const pill = (txt, cls) => `<span style="display:inline-block;padding:3px 7px;border-radius:999px;font-weight:800;font-size:11px;border:1px solid rgba(255,255,255,.25);background:rgba(255,255,255,.06);color:${cls==='green'?'#3ecf8e':cls==='red'?'#ff6b6b':'#f3b431'}">${txt}</span>`;
+
+  const pS = pressure>0? 'Pressured' : pressure<0? 'Calm' : 'Balanced';
+  const sS = stability>0? 'Stable' : stability<0? 'Fragile' : 'Uncertain';
+  const rS = ret>0? 'Positive' : ret<0? 'Negative' : 'Neutral';
+
+  const pCls = pressure>0?'red':pressure<0?'green':'amber';
+  const sCls = stability>0?'green':stability<0?'red':'amber';
+  const rCls = ret>0?'green':ret<0?'red':'amber';
+
+  const pSign = pressure>0?'+':pressure<0?'-':'0';
+  const sSign = stability>0?'+':stability<0?'-':'0';
+  const rSign = ret>0?'+':ret<0?'-':'0';
+
+  const p3 = (pressure>0?1:pressure<0?-1:0);
+  const s3 = (stability>0?1:stability<0?-1:0);
+  const r3 = (ret>0?1:ret<0?-1:0);
+  const arche = (function(){ const key=[p3,s3,r3].join('|'); return oneWord[key]||'Unclassified'; })();
+  const desc = lineFor(p3,s3,r3);
+
+  const now = new Date();
+  const dt = now.toLocaleString();
+  const name = ($('#decisionName').value||'').trim()||'—';
+  const cat  = ($('#decisionCategory').value||'').trim()||'—';
+
+  const lastN = loadLog().slice(0,10);
+
+  const html = `
+  <html>
+  <head>
+    <meta charset="utf-8" />
+    <title>D-NAV Report</title>
+    <style>
+      body{font-family:Inter,system-ui,-apple-system,Segoe UI,Roboto,Arial;margin:0;padding:24px;background:#0b0f14;color:#e9eef5}
+      h1{margin:0 0 8px;font-size:22px;font-weight:900}
+      h2{margin:18px 0 8px;font-size:16px}
+      .card{background:#121821;border-radius:12px;padding:16px;margin-bottom:12px}
+      .grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+      .mono{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace}
+      table{width:100%;border-collapse:collapse;font-size:13px}
+      th,td{padding:8px;border-bottom:1px solid rgba(255,255,255,.08)}
+      .right{text-align:right}
+      .pill{display:inline-block;padding:3px 7px;border-radius:999px;font-weight:800;font-size:11px;border:1px solid rgba(255,255,255,.25);background:rgba(255,255,255,.06)}
+      @media print { body{padding:0;background:#fff;color:#000} .card{background:#fff;border:1px solid #ddd} a#printHint{display:none} }
+    </style>
+  </head>
+  <body>
+    <a id="printHint" href="#" onclick="window.print();return false;" style="display:inline-block;margin-bottom:8px;color:#cfe1ff;text-decoration:underline;">Print / Save as PDF</a>
+    <h1>D-NAV Report</h1>
+    <div class="card">
+      <div><b>Generated:</b> ${dt}</div>
+      <div><b>Name:</b> ${escapeHtml(name)} &nbsp; • &nbsp; <b>Category:</b> ${escapeHtml(cat)}</div>
+    </div>
+
+    <div class="grid">
+      <div class="card">
+        <h2>Inputs (1–10)</h2>
+        <table>
+          <tr><th>Impact</th><td class="right">${vals.impact}</td></tr>
+          <tr><th>Cost</th><td class="right">${vals.cost}</td></tr>
+          <tr><th>Risk</th><td class="right">${vals.risk}</td></tr>
+          <tr><th>Urgency</th><td class="right">${vals.urgency}</td></tr>
+          <tr><th>Confidence</th><td class="right">${vals.confidence}</td></tr>
+        </table>
+      </div>
+      <div class="card">
+        <h2>Signals & Composite</h2>
+        <table>
+          <tr><th>Return</th><td class="right">${ret>=0?'+':''}${ret} ${pill(rS,rCls)}</td></tr>
+          <tr><th>Stability</th><td class="right">${stability>=0?'+':''}${stability} ${pill(sS,sCls)}</td></tr>
+          <tr><th>Pressure</th><td class="right">${pressure>=0?'+':''}${pressure} ${pill(pS,pCls)}</td></tr>
+          <tr><th>D-NAV</th><td class="right"><b>${dnav}</b></td></tr>
+        </table>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>Archetype</h2>
+      <div style="font-size:18px;font-weight:900">${arche} <span class="pill">P${pSign}</span> <span class="pill">S${sSign}</span> <span class="pill">R${rSign}</span></div>
+      <div style="margin-top:6px;">${desc}</div>
+    </div>
+
+    <div class="card">
+      <h2>Coach Readout</h2>
+      <div>${escapeHtml(document.getElementById('coach').textContent||'')}</div>
+    </div>
+
+    <div class="card">
+      <h2>Recent decisions (last 10)</h2>
+      <table>
+        <thead><tr><th>When</th><th>Name</th><th>Cat</th><th class="right">R</th><th class="right">P</th><th class="right">S</th><th class="right">D-NAV</th></tr></thead>
+        <tbody>
+          ${lastN.map(r=>`<tr>
+            <td>${new Date(r.ts).toLocaleString()}</td>
+            <td>${escapeHtml(r.name||'')}</td>
+            <td>${escapeHtml(r.category||'')}</td>
+            <td class="right">${r.return>=0?'+':''}${r.return}</td>
+            <td class="right">${r.pressure>=0?'+':''}${r.pressure}</td>
+            <td class="right">${r.stability>=0?'+':''}${r.stability}</td>
+            <td class="right"><b>${r.dnav}</b></td>
+          </tr>`).join('')}
+        </tbody>
+      </table>
+    </div>
+  </body>
+  </html>`;
+
+  const w = window.open('', '_blank');
+  w.document.open();
+  w.document.write(html);
+  w.document.close();
+  try{ w.focus(); }catch{}
+  // Let users click the Print link; auto-print can be intrusive.
+}
+
+/* ---------- Animated Stats / rendering ---------- */
 function animateNumber(el, to, {suffix='', duration=500}={}){
   const from = Number(el.dataset.val || 0);
   const start = performance.now();
@@ -355,9 +480,7 @@ function animateNumber(el, to, {suffix='', duration=500}={}){
   }
   requestAnimationFrame(step);
 }
-function pulse(tile){
-  tile.classList.remove('pulse'); void tile.offsetWidth; tile.classList.add('pulse');
-}
+function pulse(tile){ tile.classList.remove('pulse'); void tile.offsetWidth; tile.classList.add('pulse'); }
 function filterRows(rows){
   const days = Number($('#rangeSelect').value || 0);
   if(!days) return rows;
@@ -367,23 +490,18 @@ function filterRows(rows){
 function renderAlloc(rows){
   const list = $('#allocList');
   if(!rows.length){ list.innerHTML = '<div class="mini">No data in range.</div>'; return; }
-
-  // Drive energy = Urgency × Confidence
-  const totals = new Map(); // cat => {energy,count,sumD,press,stable}
-  let energyAll = 0;
+  // Drive = Urgency × Confidence
+  const totals = new Map(); let energyAll = 0;
   rows.forEach(r=>{
     const cat=(r.category||'').trim()||'Uncategorized';
     const e = (r.urgency||0)*(r.confidence||0);
     energyAll += e;
     if(!totals.has(cat)) totals.set(cat,{energy:0,count:0,sumD:0,press:0,stable:0});
     const t=totals.get(cat);
-    t.energy += e;
-    t.count += 1;
-    t.sumD += (Number(r.dnav)||0);
+    t.energy += e; t.count += 1; t.sumD += (Number(r.dnav)||0);
     if((r.pressure||0) > 0) t.press += 1;
     if((r.stability||0) > 0) t.stable += 1;
   });
-
   const rowsData = Array.from(totals.entries()).map(([cat,t])=>{
     const share = energyAll? Math.round(t.energy*100/energyAll) : 0;
     const avgD = Math.round(t.sumD / t.count);
@@ -400,7 +518,6 @@ function renderAlloc(rows){
     </div>
   `).join('');
 }
-
 function renderStats(allRows){
   const rows = filterRows(allRows);
   const total = rows.length;
@@ -416,7 +533,7 @@ function renderStats(allRows){
   let topCat='—', topCatCount=0;
   counts.forEach((v,k)=>{ if(v>topCatCount){ topCat=k; topCatCount=v; } });
 
-  // top archetype (one-word)
+  // top archetype
   const aCounts = new Map();
   rows.forEach(r=>{
     const key=[sign3(r.pressure),sign3(r.stability),sign3(r.return)].join('|');
@@ -471,7 +588,7 @@ function renderLog(){
     });
   });
 
-  renderStats(rows); // updates HUD on every render
+  renderStats(rows);
 }
 
 function resetForm(){
@@ -487,10 +604,7 @@ function checkFormValid(){
   $('#enterBtn').disabled = !(nameOk && catOk);
 }
 function enterDecision(){
-  const btn=$('#enterBtn');
-  if(btn.disabled) return;
-  btn.disabled = true;
-
+  const btn=$('#enterBtn'); if(btn.disabled) return; btn.disabled = true;
   const name=$('#decisionName').value.trim();
   const category=$('#decisionCategory').value.trim();
   if(!name || !category){ btn.disabled=false; return; }
@@ -508,30 +622,8 @@ function enterDecision(){
   const arr=loadLog();
   arr.unshift(row);
   saveLog(arr);
-  renderLog();   // triggers animated HUD refresh
+  renderLog();
   resetForm();
-}
-
-function toCsv(rows){
-  const header=['timestamp_local','timestamp_iso','name','category','impact','cost','risk','urgency','confidence','return','pressure','stability','dnav'];
-  const body=rows.map(r=>[
-    fmtLocal(r.ts),
-    new Date(r.ts).toISOString(),
-    `"${(r.name||'').replace(/"/g,'""')}"`,
-    `"${(r.category||'').replace(/"/g,'""')}"`,
-    r.impact,r.cost,r.risk,r.urgency,r.confidence,r.return,r.pressure,r.stability,r.dnav
-  ].join(','));
-  return [header.join(','),...body].join('\n');
-}
-function downloadCsv(){
-  const rows=loadLog();
-  if(!rows.length){ alert('No decisions logged yet.'); return; }
-  const blob=new Blob([toCsv(rows)],{type:'text/csv;charset=utf-8;'});
-  const a=document.createElement('a');
-  a.href=URL.createObjectURL(blob);
-  a.download='dnav_decisions.csv';
-  a.click();
-  URL.revokeObjectURL(a.href);
 }
 
 // Listeners
@@ -544,6 +636,7 @@ $('#decisionCategory').addEventListener('input', checkFormValid);
 });
 $('#enterBtn')?.addEventListener('click', enterDecision);
 $('#downloadCsvBtn')?.addEventListener('click', downloadCsv);
+$('#downloadPdfBtn')?.addEventListener('click', openPdfReport);
 $('#clearLogBtn')?.addEventListener('click', ()=>{
   if(confirm('Clear all logged decisions on this device?')){
     localStorage.removeItem('dnav_log_v1'); renderLog();
