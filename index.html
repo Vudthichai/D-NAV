@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>The Decision NAVigator — D-NAV Mini (v3.13)</title>
+<title>The Decision NAVigator — D-NAV Mini (v3.14)</title>
 <style>
 :root{--bg:#0b0f14;--card:#121821;--muted:#8fa1b7;--text:#e9eef5;--green:#3ecf8e;--red:#ff6b6b;--amber:#f3b431;--blue:#69a9ff}
 *{box-sizing:border-box;font-family:Inter,ui-sans-serif,system-ui,-apple-system,Segoe UI,Roboto,Arial}
@@ -15,18 +15,43 @@ body{background:var(--bg);color:var(--text);margin:0;padding:24px}
 .site-title .sub{color:var(--muted);font-size:13px;margin-top:6px}
 
 /* Layout */
-.wrap{max-width:1200px;margin:0 auto;display:grid;gap:16px;grid-template-columns:1fr 1fr 1fr}
-.card{background:var(--card);border-radius:16px;padding:16px;box-shadow:0 10px 24px rgba(0,0,0,.35);height:100%} /* stretch to remove vertical gap */
+.wrap{
+  max-width:1200px;
+  margin:0 auto;
+  display:grid;
+  gap:16px;
+  grid-template-columns:1fr 1fr 1fr;
+  align-items:stretch;           /* <= makes items match the tallest card */
+}
+.wrap + .wrap{ margin-top:16px } /* consistent section spacing */
+
+.card{
+  background:var(--card);
+  border-radius:16px;
+  padding:16px;
+  box-shadow:0 10px 24px rgba(0,0,0,.35);
+  height:100%;                   /* <= fill grid track height */
+  display:flex;                  /* <= allow inner flow without extra gaps */
+  flex-direction:column;
+}
 h1{margin:0 0 8px;font-weight:800;font-size:22px;letter-spacing:.2px}
 
 /* Slider rows */
-.row{display:grid;grid-template-columns:180px 1fr 52px;gap:12px;align-items:center;margin:10px 0 16px} /* consistent spacing */
+.row{
+  display:grid;
+  grid-template-columns:180px 1fr 52px;
+  gap:12px;
+  align-items:center;
+  margin:10px 0 12px;            /* consistent row rhythm */
+}
+.row:last-of-type{ margin-bottom:8px }
 .row label{font-weight:700;color:#d7e2ef;font-size:16px;display:flex;flex-direction:column;gap:4px}
 .label-main{line-height:1}
 .hint{font-weight:600;color:var(--muted);font-size:12px;line-height:1.2}
 input[type=range]{width:100%;height:32px}
 output{text-align:right;display:inline-block;min-width:40px;font-weight:800;font-size:16px}
-.muted{color:var(--muted);font-size:13px}.mono{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace}
+.muted{color:var(--muted);font-size:13px}
+.mono{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace}
 
 /* Stats */
 .stats{display:grid;grid-template-rows:repeat(3,1fr);gap:12px}
@@ -62,8 +87,8 @@ thead{background:#0d0d0d;color:#fff}
 tr+tr{border-top:1px solid #1e1e1e}
 
 /* numeric alignment for table */
-.num{ text-align:right; font-variant-numeric: tabular-nums; font-feature-settings: "tnum" 1, "lnum" 1; }
-tbody tr:nth-child(even){ background: rgba(255,255,255,.02); }
+.num{text-align:right;font-variant-numeric:tabular-nums;font-feature-settings:"tnum" 1,"lnum" 1}
+tbody tr:nth-child(even){background:rgba(255,255,255,.02)}
 
 /* === Stats HUD tiles === */
 .kpis{display:grid;grid-template-columns:repeat(5,1fr);gap:12px;margin-top:10px}
