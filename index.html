@@ -97,6 +97,11 @@ tbody tr:nth-child(even){background:rgba(255,255,255,.02)}
 .footer-links{max-width:1200px;margin:20px auto 10px;text-align:right}
 .footer-links a{font-size:18px;color:#cfe1ff;text-decoration:underline;text-underline-offset:4px;margin-left:22px}
 
+/* print color preservation if you ever print the live page */
+@media print{
+  html,body{-webkit-print-color-adjust:exact;print-color-adjust:exact}
+}
+
 /* pulse */
 @keyframes pulse-kpi{0%{box-shadow:0 0 0 0 rgba(105,169,255,.35)}100%{box-shadow:0 0 0 14px rgba(105,169,255,0)}}
 .kpi.pulse{animation:pulse-kpi .6s ease}
@@ -461,7 +466,9 @@ function downloadCsv(){
 }
 
 function openPdfReport(){
-  // Build a printable insights report (HUD + charts + categories + log + CTA)
+  // Use page CSS so the export matches the live layout
+  const pageStyles = Array.from(document.querySelectorAll('style')).map(s=>s.innerHTML).join('\n');
+
   const rows = loadLog();
   const total = rows.length;
 
@@ -508,134 +515,137 @@ function openPdfReport(){
 
   const dt = new Date().toLocaleString();
 
+  const extras = `
+  <style>
+    /* ensure colors print and hide the print link when printing */
+    @media print{ html,body{-webkit-print-color-adjust:exact; print-color-adjust:exact} .print-hide{display:none !important} @page{margin:12mm} }
+    /* small helpers used only in the export */
+    .insights-wrap{max-width:1200px;margin:0 auto}
+    .stack{height:12px;border-radius:999px;background:rgba(255,255,255,.08);overflow:hidden;display:flex}
+    .seg{height:100%}
+    .seg.g{background:rgba(62,207,142,.75)}
+    .seg.a{background:rgba(243,180,49,.75)}
+    .seg.r{background:rgba(255,107,107,.75)}
+    .legend{display:flex;gap:12px;font-size:12px;color:#a7b4c7;margin-top:8px;flex-wrap:wrap}
+    .kpi.sm .big{font-size:22px}
+    .topcard{background:var(--card);border-radius:12px;padding:16px;margin-bottom:12px}
+    .print-link{color:#cfe1ff;text-decoration:underline;text-underline-offset:4px}
+  </style>`;
+
   const html = `
-  <html><head><meta charset="utf-8" />
+  <html>
+  <head>
+    <meta charset="utf-8" />
     <title>D-NAV Insights</title>
-    <style>
-      :root{--bg:#0b0f14;--card:#121821;--text:#e9eef5;--muted:#9fb1c7;--green:#3ecf8e;--red:#ff6b6b;--amber:#f3b431;--blue:#69a9ff}
-      body{font-family:Inter,system-ui,-apple-system,Segoe UI,Roboto,Arial;background:var(--bg);color:var(--text);margin:0;padding:24px}
-      h1{margin:0 0 10px;font-size:22px;font-weight:900}
-      h2{margin:0 0 10px;font-size:16px}
-      .card{background:var(--card);border-radius:12px;padding:16px;margin:12px 0}
-      .kpis{display:grid;grid-template-columns:repeat(5,1fr);gap:10px;margin:12px 0}
-      .kpi{background:rgba(255,255,255,.05);border-radius:10px;padding:12px}
-      .kpi h4{margin:0;font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.3px}
-      .kpi .big{font-weight:900;font-size:28px;margin-top:6px}
-      .kpi.sm .big{font-size:22px}
-      .mini{font-size:12px;color:#a7b4c7;margin-top:2px}
-      .stack{height:12px;border-radius:999px;background:rgba(255,255,255,.08);overflow:hidden;display:flex}
-      .seg{height:100%}
-      .seg.g{background:rgba(62,207,142,.75)}
-      .seg.a{background:rgba(243,180,49,.75)}
-      .seg.r{background:rgba(255,107,107,.75)}
-      .legend{display:flex;gap:12px;font-size:12px;color:#a7b4c7;margin-top:8px;flex-wrap:wrap}
-      .row{display:grid;grid-template-columns:160px 1fr 260px;gap:12px;align-items:center;padding:6px 0;border-bottom:1px solid rgba(255,255,255,.06)}
-      .row:last-child{border-bottom:none}
-      .bar{height:8px;border-radius:999px;background:rgba(255,255,255,.08);overflow:hidden}
-      .bar>span{display:block;height:100%;background:var(--blue)}
-      table{width:100%;border-collapse:collapse;font-size:13px}
-      th,td{padding:8px;border-bottom:1px solid rgba(255,255,255,.08)}
-      .right{text-align:right}
-      .muted{color:var(--muted)}
-      .cta{text-align:center;margin:6px 0 0}
-      .cta a{color:#cfe1ff;text-decoration:underline;text-underline-offset:4px;font-size:16px}
-      .toplink{margin-bottom:8px}
-      .toplink a{color:#cfe1ff;text-decoration:underline;text-underline-offset:4px}
-      @media print { body{padding:0;background:#fff;color:#000} .card{background:#fff;border:1px solid #ddd} .toplink{display:none} }
-    </style>
+    <style>${pageStyles}</style>
+    ${extras}
   </head>
   <body>
-    <div class="toplink"><a href="#" onclick="window.print();return false;">Print / Save as PDF</a></div>
-    <h1>D-NAV Insights</h1>
-    <div class="card"><div><b>Generated:</b> ${dt}</div><div class="mini">Based on your saved decisions.</div></div>
-
-    <!-- KPI HUD: first two visually smaller -->
-    <div class="kpis">
-      <div class="kpi sm"><h4>Decisions</h4><div class="big">${total}</div></div>
-      <div class="kpi sm"><h4>Avg D-NAV</h4><div class="big">${avg}</div><div class="mini">Composite (Merit + Drive)</div></div>
-      <div class="kpi"><h4>Positive Return</h4><div class="big">${posRet}%</div><div class="stack"><span class="seg g" style="width:${posRet}%"></span></div></div>
-      <div class="kpi"><h4>Stable</h4><div class="big">${stablePct}%</div><div class="stack"><span class="seg g" style="width:${stablePct}%"></span></div></div>
-      <div class="kpi"><h4>Pressured</h4><div class="big">${pressuredPct}%</div><div class="stack"><span class="seg r" style="width:${pressuredPct}%"></span></div></div>
-    </div>
-
-    <!-- Distributions (all full width for consistent size) -->
-    <div class="card">
-      <h2>Return distribution</h2>
-      <div class="stack">
-        <span class="seg g" style="width:${pct(retPos,total)}%"></span>
-        <span class="seg a" style="width:${pct(retNeu,total)}%"></span>
-        <span class="seg r" style="width:${pct(retNeg,total)}%"></span>
+    <div class="insights-wrap">
+      <div class="print-hide" style="margin-bottom:8px;">
+        <a href="#" class="print-link" onclick="window.print();return false;">Print / Save as PDF</a>
       </div>
-      <div class="legend">
-        <span>Positive: ${pct(retPos,total)}%</span>
-        <span>Neutral: ${pct(retNeu,total)}%</span>
-        <span>Negative: ${pct(retNeg,total)}%</span>
+
+      <h1 class="site-title" style="padding:0;"><h0>D-NAV Insights</h0></h1>
+      <div class="topcard">
+        <div style="font-weight:700">Generated: ${dt}</div>
+        <div class="mini">Based on your saved decisions.</div>
+      </div>
+
+      <!-- KPI row: Decisions/Avg smaller, plus Return/Stable/Pressured -->
+      <div class="kpis">
+        <div class="kpi sm"><h4>Decisions</h4><div class="big">${total}</div></div>
+        <div class="kpi sm"><h4>Avg D-NAV</h4><div class="big">${avg}</div><div class="mini">Composite (Merit + Drive)</div></div>
+        <div class="kpi"><h4>Positive Return</h4><div class="big">${posRet}%</div><div class="progress"><span style="width:${posRet}%;background:var(--green)"></span></div></div>
+        <div class="kpi"><h4>Stable</h4><div class="big">${stablePct}%</div><div class="progress"><span style="width:${stablePct}%;background:var(--green)"></span></div></div>
+        <div class="kpi"><h4>Pressured</h4><div class="big">${pressuredPct}%</div><div class="progress"><span style="width:${pressuredPct}%;background:var(--red)"></span></div></div>
+      </div>
+
+      <!-- Full-width distributions -->
+      <div class="card" style="margin-top:12px;">
+        <h2>Return distribution</h2>
+        <div class="stack">
+          <span class="seg g" style="width:${pct(retPos,total)}%"></span>
+          <span class="seg a" style="width:${pct(retNeu,total)}%"></span>
+          <span class="seg r" style="width:${pct(retNeg,total)}%"></span>
+        </div>
+        <div class="legend">
+          <span>Positive: ${pct(retPos,total)}%</span>
+          <span>Neutral: ${pct(retNeu,total)}%</span>
+          <span>Negative: ${pct(retNeg,total)}%</span>
+        </div>
+      </div>
+
+      <div class="card">
+        <h2>Stability distribution</h2>
+        <div class="stack">
+          <span class="seg g" style="width:${pct(stabSt,total)}%"></span>
+          <span class="seg a" style="width:${pct(stabUn,total)}%"></span>
+          <span class="seg r" style="width:${pct(stabFr,total)}%"></span>
+        </div>
+        <div class="legend">
+          <span>Stable: ${pct(stabSt,total)}%</span>
+          <span>Uncertain: ${pct(stabUn,total)}%</span>
+          <span>Fragile: ${pct(stabFr,total)}%</span>
+        </div>
+      </div>
+
+      <div class="card">
+        <h2>Pressure distribution</h2>
+        <div class="stack">
+          <span class="seg r" style="width:${pct(prPress,total)}%"></span>
+          <span class="seg a" style="width:${pct(prBal,total)}%"></span>
+          <span class="seg g" style="width:${pct(prCalm,total)}%"></span>
+        </div>
+        <div class="legend">
+          <span>Pressured: ${pct(prPress,total)}%</span>
+          <span>Balanced: ${pct(prBal,total)}%</span>
+          <span>Calm: ${pct(prCalm,total)}%</span>
+        </div>
+      </div>
+
+      <!-- Categories -->
+      <div class="card">
+        <h2>Drive (U×C) by category</h2>
+        ${catRows.length ? catRows.map(r=>`
+          <div class="row">
+            <div><strong>${escapeHtml(r.cat)}</strong></div>
+            <div class="bar"><span style="width:${r.share}%"></span></div>
+            <div class="muted right">${r.share}% of drive • ${r.count} decisions • avg D-NAV ${r.avgD} • stable ${r.st}% • pressured ${r.pr}%</div>
+          </div>`).join('') : `<div class="mini">No data.</div>`}
+      </div>
+
+      <!-- Decision log -->
+      <div class="card">
+        <h2>Decision log</h2>
+        ${rows.length ? `
+        <div class="table-wrap" style="border:1px solid #222;border-radius:12px;">
+          <table>
+            <thead><tr><th>When</th><th>Name</th><th>Category</th><th class="right">R</th><th class="right">P</th><th class="right">S</th><th class="right">D-NAV</th></tr></thead>
+            <tbody>
+              ${rows.slice(0,100).map(r=>`<tr>
+                <td>${new Date(r.ts).toLocaleString()}</td>
+                <td>${escapeHtml(r.name||'')}</td>
+                <td>${escapeHtml(r.category||'')}</td>
+                <td class="right">${r.return>=0?'+':''}${r.return}</td>
+                <td class="right">${r.pressure>=0?'+':''}${r.pressure}</td>
+                <td class="right">${r.stability>=0?'+':''}${r.stability}</td>
+                <td class="right"><b>${r.dnav}</b></td>
+              </tr>`).join('')}
+            </tbody>
+          </table>
+        </div>` : `<div class="mini">No decisions saved yet.</div>`}
+      </div>
+
+      <!-- CTA -->
+      <div class="card" style="text-align:center">
+        <a target="_blank" rel="noopener noreferrer" href="https://decisionnavigator.gumroad.com/" style="color:#cfe1ff;text-decoration:underline;text-underline-offset:4px;font-size:16px;">
+          Want deeper insights from your decisions? Download the D-NAV template and see the story in all your decisions.
+        </a>
       </div>
     </div>
-
-    <div class="card">
-      <h2>Stability distribution</h2>
-      <div class="stack">
-        <span class="seg g" style="width:${pct(stabSt,total)}%"></span>
-        <span class="seg a" style="width:${pct(stabUn,total)}%"></span>
-        <span class="seg r" style="width:${pct(stabFr,total)}%"></span>
-      </div>
-      <div class="legend">
-        <span>Stable: ${pct(stabSt,total)}%</span>
-        <span>Uncertain: ${pct(stabUn,total)}%</span>
-        <span>Fragile: ${pct(stabFr,total)}%</span>
-      </div>
-    </div>
-
-    <div class="card">
-      <h2>Pressure distribution</h2>
-      <div class="stack">
-        <span class="seg r" style="width:${pct(prPress,total)}%"></span>
-        <span class="seg a" style="width:${pct(prBal,total)}%"></span>
-        <span class="seg g" style="width:${pct(prCalm,total)}%"></span>
-      </div>
-      <div class="legend">
-        <span>Pressured: ${pct(prPress,total)}%</span>
-        <span>Balanced: ${pct(prBal,total)}%</span>
-        <span>Calm: ${pct(prCalm,total)}%</span>
-      </div>
-    </div>
-
-    <div class="card">
-      <h2>Drive (U×C) by category</h2>
-      ${catRows.length ? catRows.map(r=>`
-        <div class="row">
-          <div><strong>${escapeHtml(r.cat)}</strong></div>
-          <div class="bar"><span style="width:${r.share}%"></span></div>
-          <div class="muted right">${r.share}% of drive • ${r.count} decisions • avg D-NAV ${r.avgD} • stable ${r.st}% • pressured ${r.pr}%</div>
-        </div>`).join('') : `<div class="mini">No data.</div>`}
-    </div>
-
-    <div class="card">
-      <h2>Decision log</h2>
-      ${rows.length ? `
-      <table>
-        <thead><tr><th>When</th><th>Name</th><th>Category</th><th class="right">R</th><th class="right">P</th><th class="right">S</th><th class="right">D-NAV</th></tr></thead>
-        <tbody>
-          ${rows.slice(0,100).map(r=>`<tr>
-            <td>${new Date(r.ts).toLocaleString()}</td>
-            <td>${escapeHtml(r.name||'')}</td>
-            <td>${escapeHtml(r.category||'')}</td>
-            <td class="right">${r.return>=0?'+':''}${r.return}</td>
-            <td class="right">${r.pressure>=0?'+':''}${r.pressure}</td>
-            <td class="right">${r.stability>=0?'+':''}${r.stability}</td>
-            <td class="right"><b>${r.dnav}</b></td>
-          </tr>`).join('')}
-        </tbody>
-      </table>` : `<div class="mini">No decisions saved yet.</div>`}
-    </div>
-
-    <div class="card cta">
-      <a target="_blank" rel="noopener noreferrer" href="https://decisionnavigator.gumroad.com/">
-        Want deeper insights from your decisions? Download the D-NAV template and see the story in all your decisions.
-      </a>
-    </div>
-  </body></html>`;
+  </body>
+  </html>`;
 
   const w = window.open('', '_blank');
   if(!w){ alert('Please allow pop-ups to view the PDF.'); return; }
