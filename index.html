@@ -321,61 +321,114 @@ const lineFor = (p,s,r) => `${Rword(r)} with ${Sword(s).toLowerCase()} footing �
 function sign3(x){return x>0?1:x<0?-1:0;}
 function badge(el,state,pw,nw,gw){el.className="pill "+(state>0?"green":(state<0?"red":"amber"));el.textContent=state>0?pw:(state<0?gw:nw);}
 function scoreTagText(n){return n>=80?"Very high D-NAV":n>=50?"High D-NAV":n>=25?"Moderate D-NAV":"Low D-NAV";}
-function energyLabel(e){return e>=81?"Overdrive energy":e>=51?"High energy":e>=21?"Moderate energy":"Low energy";}
 
-/* Coach (now energy-aware) */
-function coachHint(ret,stab,press,urg,conf,merit){
-  const energy = urg*conf; const eHigh=energy>=51, eOver=energy>=81, eLow=energy<=20;
-  const negRet=ret<=0, negStab=stab<=0, negMerit=merit<=0;
-  if(eOver && (negMerit || negRet || negStab)) return "Overdrive on weak footing — slow down. Validate unit economics and de-risk before committing.";
-  if(negRet && !negStab && eHigh) return "High energy chasing negative return — stop or pivot; refine pricing/scope.";
-  if(!negRet && negStab && eHigh) return "Energetic but fragile — raise confidence or reduce risk before scaling.";
-  if(!negRet && !negStab && eLow) return "Good profile but low energy — raise urgency or confidence to capture value.";
-  if(press>0 && eLow) return "Pressured with low confidence — narrow scope or add proof fast.";
-  if(press<0 && !negRet && !negStab) return "Calm and value-creating — proceed methodically.";
-  return "Greenlight profile — execute with discipline.";
+/* Energy tiers (low ≤15, moderate 16–40, high 41–70, overdrive ≥71) */
+function energyTier(u, c){
+  const e = (u||0) * (c||0);
+  if (e >= 71) return {e, name:"Overdrive energy", short:"overdrive"};
+  if (e >= 41) return {e, name:"High energy",      short:"high"};
+  if (e >= 16) return {e, name:"Moderate energy",  short:"moderate"};
+  return {e, name:"Low energy", short:"low"};
+}
+function energyLabel(e){
+  if (e >= 71) return "Overdrive energy";
+  if (e >= 41) return "High energy";
+  if (e >= 16) return "Moderate energy";
+  return "Low energy";
+}
+
+/* Coach — neutral vs negative handled, and lever suggestions */
+function coachHint({ret, stab, press, urg, conf, impact, cost, risk}){
+  const et = energyTier(urg, conf);
+  const retWord = ret>0 ? "positive" : ret<0 ? "negative" : "neutral";
+
+  // Suggest likely levers
+  const levers = [];
+  if (ret <= 0){
+    if (impact <= cost) levers.push("raise impact", "lower cost");
+    if (risk >= conf)   levers.push("reduce risk");
+  } else {
+    if (stab <= 0)      levers.push("add evidence or de-risk");
+    if (press > 0)      levers.push("narrow scope or add capacity");
+  }
+  const leverLine = levers.length ? " — " + [...new Set(levers)].slice(0,2).join("; ") + "." : ".";
+
+  if (ret < 0){
+    if (et.short === "high" || et.short === "overdrive"){
+      return `High energy chasing ${retWord} return — stop or pivot${leverLine}`;
+    }
+    return `${retWord[0].toUpperCase()+retWord.slice(1)} return — improve unit economics${leverLine}`;
+  }
+
+  if (ret === 0){
+    if (press > 0 && stab <= 0) return `Neutral return under pressure on fragile footing — de-risk or cut scope${leverLine}`;
+    if (press > 0)              return `Neutral return under pressure — lift impact or lower cost/risk quickly${leverLine}`;
+    if (stab <= 0)              return `Neutral return but fragile — add proof/resources before committing${leverLine}`;
+    return `Neutral return — raise impact or lower cost/risk before scaling${leverLine}`;
+  }
+
+  // ret > 0
+  if (stab <= 0){
+    return press > 0
+      ? `Upside with fragile footing and pressure — add proof or narrow scope fast${leverLine}`
+      : `Upside but fragile — add evidence/resources or de-risk before scaling${leverLine}`;
+  }
+
+  if (press > 0){
+    return et.short === "overdrive"
+      ? `Positive return with overdrive energy — ensure capacity and controls to avoid errors${leverLine}`
+      : `Good profile, but pressured — confirm readiness and protect quality${leverLine}`;
+  }
+
+  return et.short === "low"
+    ? `Positive return with low energy — plan methodically; move when timing is right${leverLine}`
+    : `Greenlight profile — execute with discipline${leverLine}`;
 }
 
 function compute(){
- const impact=+document.getElementById('impact').value;
- const cost=+document.getElementById('cost').value;
- const risk=+document.getElementById('risk').value;
- const urgency=+document.getElementById('urgency').value;
- const confidence=+document.getElementById('confidence').value;
+  const impact=+document.getElementById('impact').value;
+  const cost=+document.getElementById('cost').value;
+  const risk=+document.getElementById('risk').value;
+  const urgency=+document.getElementById('urgency').value;
+  const confidence=+document.getElementById('confidence').value;
 
- document.getElementById('o_impact').textContent=impact;
- document.getElementById('o_cost').textContent=cost;
- document.getElementById('o_risk').textContent=risk;
- document.getElementById('o_urgency').textContent=urgency;
- document.getElementById('o_confidence').textContent=confidence;
+  document.getElementById('o_impact').textContent=impact;
+  document.getElementById('o_cost').textContent=cost;
+  document.getElementById('o_risk').textContent=risk;
+  document.getElementById('o_urgency').textContent=urgency;
+  document.getElementById('o_confidence').textContent=confidence;
 
- const ret=impact-cost, stab=confidence-risk, press=urgency-confidence;
- const merit = impact - cost - risk;
- const energy = urgency * confidence;
- const composite = merit + energy;
- const s=x=>x>0?('+'+x):(x<0?x.toString():'0');
+  const ret = impact - cost;
+  const stab = confidence - risk;
+  const press = urgency - confidence;
+  const merit = impact - cost - risk;
+  const eInfo = energyTier(urgency, confidence);
+  const composite = merit + eInfo.e;
+  const s = x => x>0?('+'+x):(x<0?x.toString():'0');
 
- document.getElementById('ret').textContent=s(ret);
- document.getElementById('stab').textContent=s(stab);
- document.getElementById('press').textContent=s(press);
- document.getElementById('score').textContent=composite;
- document.getElementById('scoreTag').textContent = `${scoreTagText(composite)} — ${energyLabel(energy)}`;
+  document.getElementById('ret').textContent=s(ret);
+  document.getElementById('stab').textContent=s(stab);
+  document.getElementById('press').textContent=s(press);
 
- badge(document.getElementById('retPill'),Math.sign(ret),'Positive','Neutral','Negative');
- badge(document.getElementById('stabPill'),Math.sign(stab),'Stable','Uncertain','Fragile');
+  badge(document.getElementById('retPill'),Math.sign(ret),'Positive','Neutral','Negative');
+  badge(document.getElementById('stabPill'),Math.sign(stab),'Stable','Uncertain','Fragile');
 
- const pressPill = document.getElementById('pressPill');
- pressPill.textContent = press > 0 ? 'Pressured' : (press < 0 ? 'Calm' : 'Balanced');
- pressPill.className = 'pill ' + (press > 0 ? 'red' : (press < 0 ? 'green' : 'amber'));
- document.getElementById('press').style.color = press > 0 ? 'var(--red)' : (press < 0 ? 'var(--green)' : 'var(--amber)');
+  const pressPill = document.getElementById('pressPill');
+  pressPill.textContent = press > 0 ? 'Pressured' : (press < 0 ? 'Calm' : 'Balanced');
+  pressPill.className = 'pill ' + (press > 0 ? 'red' : (press < 0 ? 'green' : 'amber'));
+  document.getElementById('press').style.color = press > 0 ? 'var(--red)' : (press < 0 ? 'var(--green)' : 'var(--amber)');
 
- const pS=sign3(press), sS=sign3(stab), rS=sign3(ret);
- const key=[pS,sS,rS].join('|');
- const name=oneWord[key]||'Unclassified';
+  const pS=sign3(press), sS=sign3(stab), rS=sign3(ret);
+  const name=oneWord[[pS,sS,rS].join('|')]||'Unclassified';
+  document.getElementById('arch').textContent=name;
+  document.getElementById('archDesc').textContent=lineFor(pS,sS,rS);
 
- document.getElementById('arch').textContent=name;
- document.getElementById('archDesc').textContent=lineFor(pS,sS,rS);
- document.getElementById('coach').textContent=coachHint(ret,stab,press,urgency,confidence,merit);
+  document.getElementById('score').textContent=composite;
+  document.getElementById('scoreTag').textContent = `${scoreTagText(composite)} — ${eInfo.name}`;
+
+  document.getElementById('coach').textContent = coachHint({
+    ret, stab, press, urg: urgency, conf: confidence, impact, cost, risk
+  });
 }
 
 // ---------- Export: CSV ----------
@@ -393,9 +446,9 @@ function computeMetrics(v){
   const pressure=v.urgency - v.confidence;
   const stability=v.confidence - v.risk;
   const merit = v.impact - v.cost - v.risk;
-  const energy = v.urgency * v.confidence;
-  const dnav = merit + energy;
-  return {ret,pressure,stability,dnav,merit,energy};
+  const eInfo = energyTier(v.urgency, v.confidence);
+  const dnav = merit + eInfo.e;
+  return {ret,pressure,stability,dnav,merit,energy:eInfo.e};
 }
 function loadLog(){ try{ return JSON.parse(localStorage.getItem('dnav_log_v1')||'[]'); }catch{ return []; } }
 function saveLog(arr){ localStorage.setItem('dnav_log_v1', JSON.stringify(arr)); }
