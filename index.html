@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en"><head><meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>D-NAV Mini — Sliders Demo (v3.8)</title>
+<title>D-NAV Mini — Sliders Demo (v3.9)</title>
 <style>
 :root{--bg:#0b0f14;--card:#121821;--muted:#8fa1b7;--text:#e9eef5;--green:#3ecf8e;--red:#ff6b6b;--amber:#f3b431;--blue:#69a9ff}
 *{box-sizing:border-box;font-family:Inter,ui-sans-serif,system-ui,-apple-system,Segoe UI,Roboto,Arial}
@@ -18,14 +18,19 @@ output{text-align:right;display:inline-block;min-width:40px;font-weight:800;font
 .stat{background:rgba(255,255,255,.04);border-radius:12px;padding:14px;min-height:110px;display:flex;flex-direction:column;justify-content:space-between}
 .stat h3{margin:0;font-size:12px;color:#9fb1c7;letter-spacing:.3px;text-transform:uppercase}
 .val{font-size:36px;font-weight:900;line-height:1.1}
-.pill{display:inline-block;padding:6px 10px;border-radius:999px;font-weight:800;font-size:12px}
+
+/* tighter pills to match Definitions page */
+.pill{display:inline-block;padding:3px 7px;border-radius:999px;font-weight:800;font-size:10.5px;line-height:1;white-space:nowrap}
 .green{background:rgba(62,207,142,.18);color:var(--green);border:1px solid rgba(62,207,142,.4)}
 .amber{background:rgba(243,180,49,.18);color:var(--amber);border:1px solid rgba(243,180,49,.35)}
 .red{background:rgba(255,107,107,.18);color:var(--red);border:1px solid rgba(255,107,107,.4)}
+
 .summary{display:grid;grid-template-rows:auto auto 1fr;gap:12px}
 .arch h3,.comp h3,.coach h3{margin:0;font-size:12px;color:#9fb1c7;text-transform:uppercase;letter-spacing:.3px}
-.arch .name{font-size:26px;font-weight:900;margin-top:6px}.arch .desc{color:#c9d4e6;margin-top:6px}
-.comp .big{font-size:44px;font-weight:900;margin-top:6px}.comp .tag{margin-top:4px;font-size:12px;color:#a7b4c7}
+.arch .name{font-size:26px;font-weight:900;margin-top:6px}
+.arch .desc{color:#c9d4e6;margin-top:6px}
+.comp .big{font-size:44px;font-weight:900;margin-top:6px}
+.comp .tag{margin-top:4px;font-size:12px;color:#a7b4c7}
 .coach .txt{margin-top:6px;color:#c9d4e6;line-height:1.55}
 
 /* Entry & Log */
@@ -57,7 +62,7 @@ tbody tr:nth-child(even){ background: rgba(255,255,255,.02); }
 .progress{height:8px;border-radius:999px;background:rgba(255,255,255,.08);overflow:hidden;margin-top:8px}
 .progress>span{display:block;height:100%;transition:width .45s ease}
 
-/* Energy allocation list */
+/* Energy/Drive allocation list */
 .alloc{margin-top:12px}
 .alloc .row{display:grid;grid-template-columns:160px 1fr 260px;gap:12px;align-items:center;padding:6px 0;border-bottom:1px solid rgba(255,255,255,.06)}
 .alloc .row:last-child{border-bottom:none}
@@ -86,7 +91,7 @@ tbody tr:nth-child(even){ background: rgba(255,255,255,.02); }
 <div class="wrap">
   <div class="card">
     <h1>D-NAV Mini — Sliders Demo</h1>
-    <div class="muted">Move the 5 sliders (1–10). Right side updates live with Return, Stability, Pressure → Archetype → Composite → Coach readout.</div>
+    <div class="muted">Move the 5 sliders (1–10). Right side updates live with Return, Stability, Pressure → Archetype (one-word) → Composite (D-NAV) → Coach.</div>
     <!-- Default all sliders to 1 -->
     <div class="row"><label>Impact</label><input id="impact" type="range" min="1" max="10" value="1" /><output id="o_impact">1</output></div>
     <div class="row"><label>Cost</label><input id="cost" type="range" min="1" max="10" value="1" /><output id="o_cost">1</output></div>
@@ -98,13 +103,13 @@ tbody tr:nth-child(even){ background: rgba(255,255,255,.02); }
 
   <div class="card stats">
     <div class="stat"><h3>Return</h3><div class="val" id="ret">0</div><span id="retPill" class="pill amber">Neutral</span></div>
-    <div class="stat"><h3>Stability</h3><div class="val" id="stab">0</div><span id="stabPill" class="pill amber">Neutral</span></div>
+    <div class="stat"><h3>Stability</h3><div class="val" id="stab">0</div><span id="stabPill" class="pill amber">Uncertain</span></div>
     <div class="stat"><h3>Pressure</h3><div class="val" id="press">0</div><span id="pressPill" class="pill amber">Balanced</span></div>
   </div>
 
   <div class="card summary">
-    <div class="arch"><h3>Archetype</h3><div id="arch" class="name">Routine Play</div><div id="archDesc" class="desc">Everyday operation — safe, predictable, not transformative.</div></div>
-    <div class="comp"><h3>Composite (Energy)</h3><div id="score" class="big">0</div><div id="scoreTag" class="tag">Low energy</div></div>
+    <div class="arch"><h3>Archetype</h3><div id="arch" class="name">Routine</div><div id="archDesc" class="desc">Flat with uncertain footing — balanced execution.</div></div>
+    <div class="comp"><h3>Composite (D-NAV)</h3><div id="score" class="big">0</div><div id="scoreTag" class="tag">Low D-NAV</div></div>
     <div class="coach"><h3>Coach Readout</h3><div id="coach" class="txt">Greenlight profile — execute with discipline.</div></div>
   </div>
 </div>
@@ -159,7 +164,7 @@ tbody tr:nth-child(even){ background: rgba(255,255,255,.02); }
       </div>
     </div>
 
-    <h3 id="allocTitle" style="margin:14px 0 6px;">Attention (U×C) by category</h3>
+    <h3 id="allocTitle" style="margin:14px 0 6px;">Drive (U×C) by category</h3>
     <div class="alloc" id="allocList"></div>
 
     <div class="mini" id="k_misc" style="margin-top:8px;">Top category: — • Top archetype: —</div>
@@ -209,8 +214,8 @@ tbody tr:nth-child(even){ background: rgba(255,255,255,.02); }
 </div>
 
 <div style="width:100%;height:80px;margin-top:16px;display:flex;align-items:center;" class="card wrap">
-  <a href="/definitions.html" style="cursor:pointer;height:full;text-align:center;display:flex;align-items:center;color:white">
-    View Archetype definitions here
+  <a href="/definitions.html" style="cursor:pointer;height:full;text-align:center;display:flex;align-items:center;color:white;text-decoration:underline;text-underline-offset:3px">
+    View definitions & archetypes
   </a>
 </div>
 
@@ -219,51 +224,33 @@ tbody tr:nth-child(even){ background: rgba(255,255,255,.02); }
 </div>
 
 <script>
-/* --- Archetypes and descriptions --- */
-const names={
-"1|1|1":"Urgent Jackpot","1|1|0":"Stable Grind","1|1|-1":"Overconfident Burn",
-"1|0|1":"Calculated Sprint","1|0|0":"Fire Drill","1|0|-1":"Stress Spiral",
-"1|-1|1":"Chaos Bet","1|-1|0":"Tenuous Push","1|-1|-1":"Chaos Burn",
-"0|1|1":"Strategic Patience","0|1|0":"Maintenance Mode","0|1|-1":"Comfortable Decline",
-"0|0|1":"Balanced Growth","0|0|0":"Routine Play","0|0|-1":"Stagnant Drift",
-"0|-1|1":"Fragile Moonshot","0|-1|0":"Wobbly Venture","0|-1|-1":"Dead End",
-"-1|1|1":"Calm Jackpot","-1|1|0":"Comfort Zone","-1|1|-1":"Complacency Trap",
-"-1|0|1":"Solid Harvest","-1|0|0":"Passive Drift","-1|0|-1":"Slow Bleed",
-"-1|-1|1":"Latent Goldmine","-1|-1|0":"Shaky Prospect","-1|-1|-1":"Fragile Collapse"
-};
-const desc={
-"Urgent Jackpot":"Breakthrough under fire — stable system allows urgent, high-return execution.",
-"Stable Grind":"Working hard under stress, but payoff is minimal — effort keeps the system afloat.",
-"Overconfident Burn":"Confidence cushions risk, but value is destroyed — strong push in the wrong direction.",
-"Calculated Sprint":"Pushing fast with decent footing — risk manageable, upside strong.",
-"Fire Drill":"Stressful but low-value — energy expended without major upside.",
-"Stress Spiral":"Under strain, footing erodes — costs outweigh gains.",
-"Chaos Bet":"Moonshot under fire — potential breakthrough, system may collapse.",
-"Tenuous Push":"Forcing fragile resources into stressful, low-value territory.",
-"Chaos Burn":"Explosive failure under stress — fragile and value-negative.",
-"Strategic Patience":"Confident, steady progress toward high value — execute without panic.",
-"Maintenance Mode":"Stable but stagnant — effort maintains, doesn’t grow.",
-"Comfortable Decline":"Feels secure, but value erodes — complacency in disguise.",
-"Balanced Growth":"Moderate effort, moderate footing — sustainable value creation.",
-"Routine Play":"Everyday operation — safe, predictable, not transformative.",
-"Stagnant Drift":"No strong risks or urgency, but slow erosion continues.",
-"Fragile Moonshot":"High upside, shaky foundation — could succeed or collapse.",
-"Wobbly Venture":"Unclear payoff, fragile base — outcome uncertain at best.",
-"Dead End":"Fragile, no return — stuck without clear upside.",
-"Calm Jackpot":"Obvious, safe win — strong footing and big upside with no rush.",
-"Comfort Zone":"Safe, low-stress, but stagnant — survives without growing.",
-"Complacency Trap":"Feels safe but value erodes — comfort blinds decline.",
-"Solid Harvest":"Safe returns over time — not urgent, but worthwhile.",
-"Passive Drift":"Minimal urgency, minimal value — just coasting.",
-"Slow Bleed":"Quiet erosion over time — no stress, but value trickles away.",
-"Latent Goldmine":"High potential, fragile base — increase stability before committing.",
-"Shaky Prospect":"Weak stability, unclear payoff — consider re-scoping or pausing.",
-"Fragile Collapse":"Fragile and negative-return — avoid or radically change conditions."
+/* ---- One-word archetypes (keyed by P|S|R signs) ---- */
+const oneWord={
+  /* R+ / S+ */  "1|1|1":"Breakthrough","0|1|1":"Advance","-1|1|1":"Harvest",
+  /* R+ / S0 */  "1|0|1":"Sprint","0|0|1":"Build","-1|0|1":"Coast",
+  /* R+ / S- */  "1|-1|1":"Gamble","0|-1|1":"Moonshot","-1|-1|1":"Prospect",
+
+  /* R0 / S+ */  "1|1|0":"Grind","0|1|0":"Maintain","-1|1|0":"Idle",
+  /* R0 / S0 */  "1|0|0":"Firefight","0|0|0":"Routine","-1|0|0":"Drift",
+  /* R0 / S- */  "1|-1|0":"Strain","0|-1|0":"Wobble","-1|-1|0":"Teeter",
+
+  /* R- / S+ */  "1|1|-1":"Overreach","0|1|-1":"Erode","-1|1|-1":"Complacency",
+  /* R- / S0 */  "1|0|-1":"Burn","0|0|-1":"Waste","-1|0|-1":"Leak",
+  /* R- / S- */  "1|-1|-1":"Meltdown","0|-1|-1":"Collapse","-1|-1|-1":"Decay"
 };
 
+/* short descriptor builder to match Definitions page */
+const Pword = s => s>0?'Pressured':(s<0?'Calm':'Balanced');
+const Sword = s => s>0?'Stable':(s<0?'Fragile':'Uncertain');
+const Rword = s => s>0?'Gain':(s<0?'Loss':'Flat');
+const lineFor = (p,s,r) => `${Rword(r)} with ${Sword(s).toLowerCase()} footing — ${Pword(p).toLowerCase()} execution.`;
+
+/* Helpers */
 function sign3(x){return x>0?1:x<0?-1:0;}
 function badge(el,state,pw,nw,gw){el.className="pill "+(state>0?"green":(state<0?"red":"amber"));el.textContent=state>0?pw:(state<0?gw:nw);}
-function scoreTagText(n){return n>=80?"Very high energy":n>=50?"High energy":n>=25?"Moderate energy":"Low energy";}
+function scoreTagText(n){return n>=80?"Very high D-NAV":n>=50?"High D-NAV":n>=25?"Moderate D-NAV":"Low D-NAV";}
+
+/* Coach */
 function coachHint(ret,stab,press,urg,conf){
  const negRet=ret<=0,negStab=stab<=0,highUrg=urg>=8,lowUrg=urg<=3;
  if(negRet&&negStab)return"Value-negative and fragile — rethink or change conditions before proceeding.";
@@ -305,17 +292,19 @@ function compute(){
  document.getElementById('scoreTag').textContent=scoreTagText(composite);
 
  badge(document.getElementById('retPill'),Math.sign(ret),'Positive','Neutral','Negative');
- badge(document.getElementById('stabPill'),Math.sign(stab),'Stable','Neutral','Fragile');
+ badge(document.getElementById('stabPill'),Math.sign(stab),'Stable','Uncertain','Fragile');
 
  const pressPill = document.getElementById('pressPill');
  pressPill.textContent = press > 0 ? 'Pressured' : (press < 0 ? 'Calm' : 'Balanced');
  pressPill.className = 'pill ' + (press > 0 ? 'red' : (press < 0 ? 'green' : 'amber'));
  document.getElementById('press').style.color = press > 0 ? 'var(--red)' : (press < 0 ? 'var(--green)' : 'var(--amber)');
 
- const key=[sign3(press),sign3(stab),sign3(ret)].join('|');
- const name=names[key]||'Unclassified';
+ const pS=sign3(press), sS=sign3(stab), rS=sign3(ret);
+ const key=[pS,sS,rS].join('|');
+ const name=oneWord[key]||'Unclassified';
+
  document.getElementById('arch').textContent=name;
- document.getElementById('archDesc').textContent=desc[name]||'—';
+ document.getElementById('archDesc').textContent=lineFor(pS,sS,rS);
  document.getElementById('coach').textContent=coachHint(ret,stab,press,urgency,confidence);
 }
 
@@ -379,7 +368,7 @@ function renderAlloc(rows){
   const list = $('#allocList');
   if(!rows.length){ list.innerHTML = '<div class="mini">No data in range.</div>'; return; }
 
-  // Attention energy = Urgency × Confidence
+  // Drive energy = Urgency × Confidence
   const totals = new Map(); // cat => {energy,count,sumD,press,stable}
   let energyAll = 0;
   rows.forEach(r=>{
@@ -407,7 +396,7 @@ function renderAlloc(rows){
     <div class="row">
       <div><strong>${escapeHtml(r.cat)}</strong></div>
       <div class="bar"><span style="width:${r.share}%"></span></div>
-      <div class="meta">${r.share}% of attention • ${r.count} decisions • avg D-NAV ${r.avgD} • stable ${r.st}% • pressured ${r.pr}%</div>
+      <div class="meta">${r.share}% of drive • ${r.count} decisions • avg D-NAV ${r.avgD} • stable ${r.st}% • pressured ${r.pr}%</div>
     </div>
   `).join('');
 }
@@ -427,11 +416,11 @@ function renderStats(allRows){
   let topCat='—', topCatCount=0;
   counts.forEach((v,k)=>{ if(v>topCatCount){ topCat=k; topCatCount=v; } });
 
-  // top archetype
+  // top archetype (one-word)
   const aCounts = new Map();
   rows.forEach(r=>{
     const key=[sign3(r.pressure),sign3(r.stability),sign3(r.return)].join('|');
-    const n=names[key]; if(!n) return;
+    const n=oneWord[key]; if(!n) return;
     aCounts.set(n,(aCounts.get(n)||0)+1);
   });
   let topArch='—', topArchCount=0;
@@ -563,6 +552,7 @@ $('#clearLogBtn')?.addEventListener('click', ()=>{
 $('#rangeSelect').addEventListener('change', ()=>renderLog());
 
 // boot
+document.getElementById('allocTitle').textContent = 'Drive (U×C) by category';
 compute();
 renderLog();
 checkFormValid();
