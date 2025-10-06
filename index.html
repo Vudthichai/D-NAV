@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>The Decision NAVigator — D-NAV Mini (v3.12)</title>
+<title>The Decision NAVigator — D-NAV Mini (v3.13)</title>
 <style>
 :root{--bg:#0b0f14;--card:#121821;--muted:#8fa1b7;--text:#e9eef5;--green:#3ecf8e;--red:#ff6b6b;--amber:#f3b431;--blue:#69a9ff}
 *{box-sizing:border-box;font-family:Inter,ui-sans-serif,system-ui,-apple-system,Segoe UI,Roboto,Arial}
@@ -14,16 +14,21 @@ body{background:var(--bg);color:var(--text);margin:0;padding:24px}
 .site-title h0{display:block;font-size:28px;font-weight:900;line-height:1;margin:0}
 .site-title .sub{color:var(--muted);font-size:13px;margin-top:6px}
 
+/* Layout */
 .wrap{max-width:1200px;margin:0 auto;display:grid;gap:16px;grid-template-columns:1fr 1fr 1fr}
-.card{background:var(--card);border-radius:16px;padding:16px;box-shadow:0 10px 24px rgba(0,0,0,.35)}
+.card{background:var(--card);border-radius:16px;padding:16px;box-shadow:0 10px 24px rgba(0,0,0,.35);height:100%} /* stretch to remove vertical gap */
 h1{margin:0 0 8px;font-weight:800;font-size:22px;letter-spacing:.2px}
-.row{display:grid;grid-template-columns:170px 1fr 52px;gap:10px;align-items:center;margin:8px 0 14px}
+
+/* Slider rows */
+.row{display:grid;grid-template-columns:180px 1fr 52px;gap:12px;align-items:center;margin:10px 0 16px} /* consistent spacing */
 .row label{font-weight:700;color:#d7e2ef;font-size:16px;display:flex;flex-direction:column;gap:4px}
 .label-main{line-height:1}
 .hint{font-weight:600;color:var(--muted);font-size:12px;line-height:1.2}
 input[type=range]{width:100%;height:32px}
 output{text-align:right;display:inline-block;min-width:40px;font-weight:800;font-size:16px}
 .muted{color:var(--muted);font-size:13px}.mono{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace}
+
+/* Stats */
 .stats{display:grid;grid-template-rows:repeat(3,1fr);gap:12px}
 .stat{background:rgba(255,255,255,.04);border-radius:12px;padding:14px;min-height:110px;display:flex;flex-direction:column;justify-content:space-between}
 .stat h3{margin:0;font-size:12px;color:#9fb1c7;letter-spacing:.3px;text-transform:uppercase}
@@ -35,6 +40,7 @@ output{text-align:right;display:inline-block;min-width:40px;font-weight:800;font
 .amber{background:rgba(243,180,49,.18);color:var(--amber);border:1px solid rgba(243,180,49,.35)}
 .red{background:rgba(255,107,107,.18);color:var(--red);border:1px solid rgba(255,107,107,.4)}
 
+/* Summary */
 .summary{display:grid;grid-template-rows:auto auto 1fr;gap:12px}
 .arch h3,.comp h3,.coach h3{margin:0;font-size:12px;color:#9fb1c7;text-transform:uppercase;letter-spacing:.3px}
 .arch .name{font-size:26px;font-weight:900;margin-top:6px}
@@ -80,6 +86,7 @@ tbody tr:nth-child(even){ background: rgba(255,255,255,.02); }
 @keyframes pulse-kpi{0%{box-shadow:0 0 0 0 rgba(105,169,255,.35)}100%{box-shadow:0 0 0 14px rgba(105,169,255,0)}}
 .kpi.pulse{animation:pulse-kpi .6s ease}
 
+/* Mobile */
 @media (max-width:900px){
   body{padding:14px}
   .site-title h0{font-size:24px}
@@ -106,7 +113,7 @@ tbody tr:nth-child(even){ background: rgba(255,255,255,.02); }
 <div class="wrap">
   <div class="card">
     <h1>D-NAV Mini — D-NAV Variables</h1>
-    <div class="muted">Adjust each slider (1–10). Outputs update live → Return, Stability, Pressure → Archetype → Composite (D-NAV) → Coach.</div>
+    <div class="muted">Adjust each slider (1–10) and see the outputs update in real time → Return, Stability, Pressure → Archetype → Composite (D-NAV) → Coach.</div>
 
     <!-- Sliders with micro-explainers -->
     <div class="row">
@@ -504,4 +511,194 @@ function openPdfReport(){
   </body>
   </html>`;
   const w = window.open('', '_blank');
-  w.document.open(); w
+  w.document.open(); w.document.write(html); w.document.close();
+  try{ w.focus(); }catch{}
+}
+
+/* ---------- Animated Stats / rendering ---------- */
+function animateNumber(el, to, {suffix='', duration=500}={}){
+  const from = Number(el.dataset.val || 0);
+  const start = performance.now();
+  function step(t){
+    const p = Math.min(1, (t - start)/duration);
+    const v = Math.round(from + (to - from)*p);
+    el.textContent = v + suffix;
+    if(p < 1){ requestAnimationFrame(step); } else { el.dataset.val = to; }
+  }
+  requestAnimationFrame(step);
+}
+function pulse(tile){ tile.classList.remove('pulse'); void tile.offsetWidth; tile.classList.add('pulse'); }
+function filterRows(rows){
+  const days = Number($('#rangeSelect').value || 0);
+  if(!days) return rows;
+  const cutoff = Date.now() - days*24*60*60*1000;
+  return rows.filter(r=>r.ts >= cutoff);
+}
+function renderAlloc(rows){
+  const list = $('#allocList');
+  if(!rows.length){ list.innerHTML = '<div class="mini">No data in range.</div>'; return; }
+  const totals = new Map(); let energyAll = 0;
+  rows.forEach(r=>{
+    const cat=(r.category||'').trim()||'Uncategorized';
+    const e = (r.urgency||0)*(r.confidence||0);
+    energyAll += e;
+    if(!totals.has(cat)) totals.set(cat,{energy:0,count:0,sumD:0,press:0,stable:0});
+    const t=totals.get(cat);
+    t.energy += e; t.count += 1; t.sumD += (Number(r.dnav)||0);
+    if((r.pressure||0) > 0) t.press += 1;
+    if((r.stability||0) > 0) t.stable += 1;
+  });
+  const rowsData = Array.from(totals.entries()).map(([cat,t])=>{
+    const share = energyAll? Math.round(t.energy*100/energyAll) : 0;
+    const avgD = Math.round(t.sumD / t.count);
+    const pr = Math.round(t.press*100/t.count);
+    const st = Math.round(t.stable*100/t.count);
+    return {cat, share, avgD, count:t.count, pr, st};
+  }).sort((a,b)=>b.share-a.share).slice(0,8);
+
+  list.innerHTML = rowsData.map(r=>`
+    <div class="row">
+      <div><strong>${escapeHtml(r.cat)}</strong></div>
+      <div class="bar"><span style="width:${r.share}%"></span></div>
+      <div class="meta">${r.share}% of drive • ${r.count} decisions • avg D-NAV ${r.avgD} • stable ${r.st}% • pressured ${r.pr}%</div>
+    </div>
+  `).join('');
+}
+function renderStats(allRows){
+  const rows = filterRows(allRows);
+  const total = rows.length;
+
+  const avg = total ? Math.round(rows.reduce((a,r)=>a + (Number(r.dnav)||0),0)/total) : 0;
+  const posRet = total ? Math.round(rows.filter(r=>r.return>0).length*100/total) : 0;
+  const pressured = total ? Math.round(rows.filter(r=>r.pressure>0).length*100/total) : 0;
+  const stable = total ? Math.round(rows.filter(r=>r.stability>0).length*100/total) : 0;
+
+  const counts = new Map();
+  rows.forEach(r=>{ const c=(r.category||'').trim(); if(!c) return; counts.set(c,(counts.get(c)||0)+1); });
+  let topCat='—', topCatCount=0;
+  counts.forEach((v,k)=>{ if(v>topCatCount){ topCat=k; topCatCount=v; } });
+
+  const aCounts = new Map();
+  rows.forEach(r=>{
+    const key=[sign3(r.pressure),sign3(r.stability),sign3(r.return)].join('|');
+    const n=oneWord[key]; if(!n) return;
+    aCounts.set(n,(aCounts.get(n)||0)+1);
+  });
+  let topArch='—', topArchCount=0;
+  aCounts.forEach((v,k)=>{ if(v>topArchCount){ topArch=k; topArchCount=v; } });
+
+  animateNumber($('#k_total'), total);
+  $('#k_recent').textContent = `(${total} in range)`;
+  animateNumber($('#k_avgdnav'), avg);
+  animateNumber($('#k_posret'), posRet, {suffix:'%'});   $('#bar_posret').style.width = posRet + '%';
+  animateNumber($('#k_stable'),  stable,  {suffix:'%'});   $('#bar_stable').style.width = stable + '%';
+  animateNumber($('#k_pressured'), pressured, {suffix:'%'}); $('#bar_press').style.width = pressured + '%';
+
+  pulse($('#tile_total')); pulse($('#tile_avg')); pulse($('#tile_pos')); pulse($('#tile_stable')); pulse($('#tile_press'));
+
+  $('#k_misc').textContent = `Top category: ${topCat} • Top archetype: ${topArch}`;
+
+  renderAlloc(rows);
+}
+
+function renderLog(){
+  const rows=loadLog();
+  const tbody=$('#logBody');
+  tbody.innerHTML = rows.map((r,i)=>`
+    <tr>
+      <td>${new Date(r.ts).toLocaleString()}</td>
+      <td>${escapeHtml(r.name)}</td>
+      <td>${escapeHtml(r.category||'')}</td>
+      <td class="num">${fmt0(r.impact)}</td>
+      <td class="num">${fmt0(r.cost)}</td>
+      <td class="num">${fmt0(r.risk)}</td>
+      <td class="num">${fmt0(r.urgency)}</td>
+      <td class="num">${fmt0(r.confidence)}</td>
+      <td class="num">${fmt0(r.return)}</td>
+      <td class="num">${fmt0(r.pressure)}</td>
+      <td class="num">${fmt0(r.stability)}</td>
+      <td class="num" style="font-weight:700;">${fmt0(r.dnav)}</td>
+      <td style="text-align:center;">
+        <button data-idx="${i}" class="del" style="border:0;background:transparent;color:#fff;cursor:pointer;">✕</button>
+      </td>
+    </tr>
+  `).join('');
+
+  tbody.querySelectorAll('button.del').forEach(btn=>{
+    btn.addEventListener('click',()=>{
+      const idx=Number(btn.getAttribute('data-idx'));
+      const arr=loadLog(); arr.splice(idx,1); saveLog(arr); renderLog();
+    });
+  });
+
+  renderStats(rows);
+}
+
+function resetForm(){
+  SLIDER_IDS.forEach(id=>{ const el=$('#'+id); el.value=1; });
+  $('#decisionName').value='';
+  $('#decisionCategory').value='';
+  compute();
+  $('#enterBtn').disabled = true;
+}
+function checkFormValid(){
+  const nameOk = $('#decisionName').value.trim().length>0;
+  const catOk  = $('#decisionCategory').value.trim().length>0;
+  $('#enterBtn').disabled = !(nameOk && catOk);
+}
+function enterDecision(){
+  const btn=$('#enterBtn'); if(btn.disabled) return; btn.disabled = true;
+  const name=$('#decisionName').value.trim();
+  const category=$('#decisionCategory').value.trim();
+  if(!name || !category){ btn.disabled=false; return; }
+
+  const vals=readCurrent();
+  const m=computeMetrics(vals);
+
+  const row={
+    ts:Date.now(),
+    name, category,
+    ...vals,
+    return:m.ret, pressure:m.pressure, stability:m.stability, dnav:m.dnav
+  };
+
+  const arr=loadLog();
+  arr.unshift(row);
+  saveLog(arr);
+  renderLog();
+  resetForm();
+}
+
+// keep sliders live
+SLIDER_IDS.forEach(id=>{
+  const el = document.getElementById(id);
+  el.addEventListener('input', compute);
+  el.addEventListener('change', compute);
+});
+
+// Listeners
+$('#decisionName').addEventListener('input', checkFormValid);
+$('#decisionCategory').addEventListener('input', checkFormValid);
+['decisionName','decisionCategory'].forEach(id=>{
+  $('#'+id).addEventListener('keydown', e => {
+    if (e.key === 'Enter' && !$('#enterBtn').disabled) enterDecision();
+  });
+});
+$('#enterBtn')?.addEventListener('click', enterDecision);
+$('#downloadCsvBtn')?.addEventListener('click', downloadCsv);
+$('#downloadPdfBtn')?.addEventListener('click', openPdfReport);
+$('#clearLogBtn')?.addEventListener('click', ()=>{
+  if(confirm('Clear all logged decisions on this device?')){
+    localStorage.removeItem('dnav_log_v1'); renderLog();
+  }
+});
+$('#rangeSelect').addEventListener('change', ()=>renderLog());
+
+// boot
+document.getElementById('allocTitle').textContent = 'Drive (U×C) by category';
+compute();
+renderLog();
+checkFormValid();
+</script>
+</body>
+</html>
