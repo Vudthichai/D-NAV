@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>The Decision NAVigator — D-NAV Mini (v3.15)</title>
+<title>The Decision NAVigator — D-NAV Mini (v3.16)</title>
 <style>
 :root{--bg:#0b0f14;--card:#121821;--muted:#8fa1b7;--text:#e9eef5;--green:#3ecf8e;--red:#ff6b6b;--amber:#f3b431;--blue:#69a9ff}
 *{box-sizing:border-box;font-family:Inter,ui-sans-serif,system-ui,-apple-system,Segoe UI,Roboto,Arial}
@@ -72,6 +72,7 @@ output{text-align:right;display:inline-block;min-width:40px;font-weight:800;font
 .arch .desc{color:#c9d4e6;margin-top:6px}
 .comp .big{font-size:44px;font-weight:900;margin-top:6px}
 .comp .tag{margin-top:4px;font-size:12px;color:#a7b4c7}
+.comp .breakdown{margin-top:4px;font-size:12px;color:#a7b4c7}
 .coach .txt{margin-top:6px;color:#c9d4e6;line-height:1.55}
 
 /* Entry & Log */
@@ -137,8 +138,8 @@ tbody tr:nth-child(even){background:rgba(255,255,255,.02)}
 
 <div class="wrap">
   <div class="card">
-    <h1>D-NAV Mini — D-NAV Variables</h1>
-    <div class="muted">Outputs update in real time.</div>
+    <h1>D-NAV Variables</h1>
+    <div class="muted">Input D-NAV variables.</div>
 
     <!-- Sliders with micro-explainers -->
     <div class="row">
@@ -182,7 +183,12 @@ tbody tr:nth-child(even){background:rgba(255,255,255,.02)}
 
   <div class="card summary">
     <div class="arch"><h3>Archetype</h3><div id="arch" class="name">Routine</div><div id="archDesc" class="desc">Flat with uncertain footing — balanced execution.</div></div>
-    <div class="comp"><h3>Composite (D-NAV)</h3><div id="score" class="big">0</div><div id="scoreTag" class="tag">Low D-NAV — Low energy</div></div>
+    <div class="comp">
+      <h3>Composite (D-NAV)</h3>
+      <div id="score" class="big">0</div>
+      <div id="scoreTag" class="tag">Low D-NAV — Low energy</div>
+      <div class="breakdown">Merit: <span id="meritVal" class="mono">0</span> • Drive: <span id="driveVal" class="mono">0</span></div>
+    </div>
     <div class="coach"><h3>Coach Readout</h3><div id="coach" class="txt">Greenlight profile — execute with discipline.</div></div>
   </div>
 </div>
@@ -322,7 +328,7 @@ function sign3(x){return x>0?1:x<0?-1:0;}
 function badge(el,state,pw,nw,gw){el.className="pill "+(state>0?"green":(state<0?"red":"amber"));el.textContent=state>0?pw:(state<0?gw:nw);}
 function scoreTagText(n){return n>=80?"Very high D-NAV":n>=50?"High D-NAV":n>=25?"Moderate D-NAV":"Low D-NAV";}
 
-/* Energy tiers (low ≤15, moderate 16–40, high 41–70, overdrive ≥71) */
+/* Energy tiers */
 function energyTier(u, c){
   const e = (u||0) * (c||0);
   if (e >= 71) return {e, name:"Overdrive energy", short:"overdrive"};
@@ -337,12 +343,10 @@ function energyLabel(e){
   return "Low energy";
 }
 
-/* Coach — neutral vs negative handled, and lever suggestions */
+/* Coach (unchanged from last version for brevity) */
 function coachHint({ret, stab, press, urg, conf, impact, cost, risk}){
   const et = energyTier(urg, conf);
   const retWord = ret>0 ? "positive" : ret<0 ? "negative" : "neutral";
-
-  // Suggest likely levers
   const levers = [];
   if (ret <= 0){
     if (impact <= cost) levers.push("raise impact", "lower cost");
@@ -367,7 +371,6 @@ function coachHint({ret, stab, press, urg, conf, impact, cost, risk}){
     return `Neutral return — raise impact or lower cost/risk before scaling${leverLine}`;
   }
 
-  // ret > 0
   if (stab <= 0){
     return press > 0
       ? `Upside with fragile footing and pressure — add proof or narrow scope fast${leverLine}`
@@ -425,13 +428,15 @@ function compute(){
 
   document.getElementById('score').textContent=composite;
   document.getElementById('scoreTag').textContent = `${scoreTagText(composite)} — ${eInfo.name}`;
+  document.getElementById('meritVal').textContent = merit;
+  document.getElementById('driveVal').textContent = eInfo.e;
 
   document.getElementById('coach').textContent = coachHint({
     ret, stab, press, urg: urgency, conf: confidence, impact, cost, risk
   });
 }
 
-// ---------- Export: CSV ----------
+/* ---------- CSV / PDF / Stats / Log (unchanged) ---------- */
 function fmtLocal(ts){
   const d = new Date(ts);
   const z = n=>String(n).padStart(2,'0');
@@ -452,7 +457,7 @@ function computeMetrics(v){
 }
 function loadLog(){ try{ return JSON.parse(localStorage.getItem('dnav_log_v1')||'[]'); }catch{ return []; } }
 function saveLog(arr){ localStorage.setItem('dnav_log_v1', JSON.stringify(arr)); }
-function escapeHtml(s=''){ return s.replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m])); }
+function escapeHtml(s=''){ return s.replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;','\'':'&#39;'}[m])); }
 
 function toCsv(rows){
   const header=['timestamp_local','timestamp_iso','name','category','impact','cost','risk','urgency','confidence','return','pressure','stability','merit','energy','dnav'];
@@ -476,7 +481,6 @@ function downloadCsv(){
   URL.revokeObjectURL(a.href);
 }
 
-// ---------- Export: PDF ----------
 function openPdfReport(){
   compute();
   const vals = readCurrent();
