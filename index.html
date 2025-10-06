@@ -1,11 +1,19 @@
 <!DOCTYPE html>
-<html lang="en"><head><meta charset="UTF-8" />
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>D-NAV Mini — Sliders Demo (v3.10)</title>
+<title>The Decision NAVigator — D-NAV Mini (v3.11)</title>
 <style>
 :root{--bg:#0b0f14;--card:#121821;--muted:#8fa1b7;--text:#e9eef5;--green:#3ecf8e;--red:#ff6b6b;--amber:#f3b431;--blue:#69a9ff}
 *{box-sizing:border-box;font-family:Inter,ui-sans-serif,system-ui,-apple-system,Segoe UI,Roboto,Arial}
 body{background:var(--bg);color:var(--text);margin:0;padding:24px}
+
+/* Page banner */
+.site-title{max-width:1200px;margin:0 auto 12px auto;padding:8px 2px;font-weight:900;letter-spacing:.2px}
+.site-title h0{display:block;font-size:28px;font-weight:900;line-height:1;margin:0}
+.site-title .sub{color:var(--muted);font-size:13px;margin-top:6px}
+
 .wrap{max-width:1200px;margin:0 auto;display:grid;gap:16px;grid-template-columns:1fr 1fr 1fr}
 .card{background:var(--card);border-radius:16px;padding:16px;box-shadow:0 10px 24px rgba(0,0,0,.35)}
 h1{margin:0 0 8px;font-weight:800;font-size:22px;letter-spacing:.2px}
@@ -72,6 +80,7 @@ tbody tr:nth-child(even){ background: rgba(255,255,255,.02); }
 
 @media (max-width:900px){
   body{padding:14px}
+  .site-title h0{font-size:24px}
   .wrap{grid-template-columns:1fr}
   .row{grid-template-columns:90px 1fr 46px}
   h1{font-size:20px}
@@ -82,12 +91,20 @@ tbody tr:nth-child(even){ background: rgba(255,255,255,.02); }
   .alloc .row{grid-template-columns:1fr}
   .alloc .meta{text-align:left}
 }
-</style></head>
+</style>
+</head>
 <body>
+
+<!-- Page banner -->
+<div class="site-title">
+  <h0>The Decision NAVigator</h0>
+  <div class="sub">Track decisions with the five D-NAV variables and get instant signals, archetype, and coaching.</div>
+</div>
+
 <div class="wrap">
   <div class="card">
-    <h1>D-NAV Mini — Sliders Demo</h1>
-    <div class="muted">Move the 5 sliders (1–10). Right side updates live with Return, Stability, Pressure → Archetype → D-NAV Composite → Coach.</div>
+    <h1>D-NAV Mini — D-NAV Variables</h1>
+    <div class="muted">Move the 5 D-NAV variables (1–10). Right side updates live with Return, Stability, Pressure → Archetype → D-NAV Composite → Coach.</div>
     <!-- Default all sliders to 1 -->
     <div class="row"><label>Impact</label><input id="impact" type="range" min="1" max="10" value="1" /><output id="o_impact">1</output></div>
     <div class="row"><label>Cost</label><input id="cost" type="range" min="1" max="10" value="1" /><output id="o_cost">1</output></div>
@@ -348,7 +365,6 @@ function downloadCsv(){
 
 // ---------- Export: PDF (printable report) ----------
 function openPdfReport(){
-  // ensure latest compute values
   compute();
   const vals = readCurrent();
   const {ret,pressure,stability,dnav} = computeMetrics(vals);
@@ -459,13 +475,9 @@ function openPdfReport(){
     </div>
   </body>
   </html>`;
-
   const w = window.open('', '_blank');
-  w.document.open();
-  w.document.write(html);
-  w.document.close();
+  w.document.open(); w.document.write(html); w.document.close();
   try{ w.focus(); }catch{}
-  // Let users click the Print link; auto-print can be intrusive.
 }
 
 /* ---------- Animated Stats / rendering ---------- */
@@ -490,7 +502,6 @@ function filterRows(rows){
 function renderAlloc(rows){
   const list = $('#allocList');
   if(!rows.length){ list.innerHTML = '<div class="mini">No data in range.</div>'; return; }
-  // Drive = Urgency × Confidence
   const totals = new Map(); let energyAll = 0;
   rows.forEach(r=>{
     const cat=(r.category||'').trim()||'Uncategorized';
@@ -527,13 +538,11 @@ function renderStats(allRows){
   const pressured = total ? Math.round(rows.filter(r=>r.pressure>0).length*100/total) : 0;
   const stable = total ? Math.round(rows.filter(r=>r.stability>0).length*100/total) : 0;
 
-  // top category
   const counts = new Map();
   rows.forEach(r=>{ const c=(r.category||'').trim(); if(!c) return; counts.set(c,(counts.get(c)||0)+1); });
   let topCat='—', topCatCount=0;
   counts.forEach((v,k)=>{ if(v>topCatCount){ topCat=k; topCatCount=v; } });
 
-  // top archetype
   const aCounts = new Map();
   rows.forEach(r=>{
     const key=[sign3(r.pressure),sign3(r.stability),sign3(r.return)].join('|');
@@ -543,7 +552,6 @@ function renderStats(allRows){
   let topArch='—', topArchCount=0;
   aCounts.forEach((v,k)=>{ if(v>topArchCount){ topArch=k; topArchCount=v; } });
 
-  // numbers + bars
   animateNumber($('#k_total'), total);
   $('#k_recent').textContent = `(${total} in range)`;
   animateNumber($('#k_avgdnav'), avg);
@@ -626,6 +634,13 @@ function enterDecision(){
   resetForm();
 }
 
+// ——— FIX: keep sliders live ———
+SLIDER_IDS.forEach(id=>{
+  const el = document.getElementById(id);
+  el.addEventListener('input', compute);
+  el.addEventListener('change', compute);
+});
+
 // Listeners
 $('#decisionName').addEventListener('input', checkFormValid);
 $('#decisionCategory').addEventListener('input', checkFormValid);
@@ -650,4 +665,5 @@ compute();
 renderLog();
 checkFormValid();
 </script>
-</body></html>
+</body>
+</html>
