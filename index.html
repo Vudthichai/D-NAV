@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>The Decision NAVigator — D-NAV Mini (v3.14)</title>
+<title>The Decision NAVigator — D-NAV Mini (v3.15)</title>
 <style>
 :root{--bg:#0b0f14;--card:#121821;--muted:#8fa1b7;--text:#e9eef5;--green:#3ecf8e;--red:#ff6b6b;--amber:#f3b431;--blue:#69a9ff}
 *{box-sizing:border-box;font-family:Inter,ui-sans-serif,system-ui,-apple-system,Segoe UI,Roboto,Arial}
@@ -21,17 +21,17 @@ body{background:var(--bg);color:var(--text);margin:0;padding:24px}
   display:grid;
   gap:16px;
   grid-template-columns:1fr 1fr 1fr;
-  align-items:stretch;           /* <= makes items match the tallest card */
+  align-items:stretch;
 }
-.wrap + .wrap{ margin-top:16px } /* consistent section spacing */
+.wrap + .wrap{ margin-top:16px }
 
 .card{
   background:var(--card);
   border-radius:16px;
   padding:16px;
   box-shadow:0 10px 24px rgba(0,0,0,.35);
-  height:100%;                   /* <= fill grid track height */
-  display:flex;                  /* <= allow inner flow without extra gaps */
+  height:100%;
+  display:flex;
   flex-direction:column;
 }
 h1{margin:0 0 8px;font-weight:800;font-size:22px;letter-spacing:.2px}
@@ -42,7 +42,7 @@ h1{margin:0 0 8px;font-weight:800;font-size:22px;letter-spacing:.2px}
   grid-template-columns:180px 1fr 52px;
   gap:12px;
   align-items:center;
-  margin:10px 0 12px;            /* consistent row rhythm */
+  margin:10px 0 12px;
 }
 .row:last-of-type{ margin-bottom:8px }
 .row label{font-weight:700;color:#d7e2ef;font-size:16px;display:flex;flex-direction:column;gap:4px}
@@ -138,7 +138,7 @@ tbody tr:nth-child(even){background:rgba(255,255,255,.02)}
 <div class="wrap">
   <div class="card">
     <h1>D-NAV Mini — D-NAV Variables</h1>
-    <div class="muted">Adjust each slider (1–10) and see the outputs update in real time → Return, Stability, Pressure → Archetype → Composite (D-NAV) → Coach.</div>
+    <div class="muted">Outputs update in real time.</div>
 
     <!-- Sliders with micro-explainers -->
     <div class="row">
@@ -182,7 +182,7 @@ tbody tr:nth-child(even){background:rgba(255,255,255,.02)}
 
   <div class="card summary">
     <div class="arch"><h3>Archetype</h3><div id="arch" class="name">Routine</div><div id="archDesc" class="desc">Flat with uncertain footing — balanced execution.</div></div>
-    <div class="comp"><h3>Composite (D-NAV)</h3><div id="score" class="big">0</div><div id="scoreTag" class="tag">Low D-NAV</div></div>
+    <div class="comp"><h3>Composite (D-NAV)</h3><div id="score" class="big">0</div><div id="scoreTag" class="tag">Low D-NAV — Low energy</div></div>
     <div class="coach"><h3>Coach Readout</h3><div id="coach" class="txt">Greenlight profile — execute with discipline.</div></div>
   </div>
 </div>
@@ -282,7 +282,7 @@ tbody tr:nth-child(even){background:rgba(255,255,255,.02)}
 
 <!-- CTA cards -->
 <div style="width:100%;height:80px;margin-top:16px;display:flex;align-items:center;" class="card wrap">
-  <a target="_blank" rel="noopener noferrer" href="https://decisionnavigator.gumroad.com/?_gl=1*p1viyp*_ga*MTc5ODg3MDQ3MC4xNzU5MjYxMjk3*_ga_6LJN6D94N6*czE3NTk0MjQ5MDEkbzMkZzAkdDE3NTk0MjQ5MDEkajYwJGwwJGgw">
+  <a target="_blank" rel="noopener noferrer" href="https://decisionnavigator.gumroad.com/">
     Start tracking all of your decisions here
   </a>
 </div>
@@ -311,7 +311,7 @@ const oneWord={
   "1|-1|-1":"Meltdown","0|-1|-1":"Collapse","-1|-1|-1":"Decay"
 };
 
-/* descriptor line to mirror Definitions page */
+/* descriptor line */
 const Pword = s => s>0?'Pressured':(s<0?'Calm':'Balanced');
 const Sword = s => s>0?'Stable':(s<0?'Fragile':'Uncertain');
 const Rword = s => s>0?'Gain':(s<0?'Loss':'Flat');
@@ -321,23 +321,19 @@ const lineFor = (p,s,r) => `${Rword(r)} with ${Sword(s).toLowerCase()} footing �
 function sign3(x){return x>0?1:x<0?-1:0;}
 function badge(el,state,pw,nw,gw){el.className="pill "+(state>0?"green":(state<0?"red":"amber"));el.textContent=state>0?pw:(state<0?gw:nw);}
 function scoreTagText(n){return n>=80?"Very high D-NAV":n>=50?"High D-NAV":n>=25?"Moderate D-NAV":"Low D-NAV";}
+function energyLabel(e){return e>=81?"Overdrive energy":e>=51?"High energy":e>=21?"Moderate energy":"Low energy";}
 
-/* Coach */
-function coachHint(ret,stab,press,urg,conf){
- const negRet=ret<=0,negStab=stab<=0,highUrg=urg>=8,lowUrg=urg<=3;
- if(negRet&&negStab)return"Value-negative and fragile — rethink or change conditions before proceeding.";
- if(negRet&&!negStab)return highUrg?"Urgent but value-negative — stop or pivot quickly; confidence won’t fix unit economics."
-                                   : lowUrg?"Low urgency yet value-negative — sunset, re-price, or re-scope."
-                                           :"On-schedule but value-negative — challenge the business case; pivot or prune.";
- if(!negRet&&negStab)return highUrg?"Urgent and fragile — raise confidence or reduce risk immediately before full commit."
-                                   : lowUrg?"Low urgency but fragile — stabilize first to unlock the upside."
-                                           :"Fragile upside — add evidence/resources or de-risk before scaling.";
- if(highUrg&&conf>=urg)return"High urgency, high confidence — execute promptly with control; align ops capacity.";
- if(highUrg&&conf<urg)return"High urgency with pressure — either raise confidence quickly or narrow scope.";
- if(lowUrg)return"Low urgency, solid profile — plan clean execution; move when it’s optimal.";
- if(press>0)return"Good profile, but pressured — confirm readiness and guard against rushed errors.";
- if(press<0)return"Survivable and value-creating — pressure is calm; proceed methodically.";
- return"Greenlight profile — execute with discipline.";
+/* Coach (now energy-aware) */
+function coachHint(ret,stab,press,urg,conf,merit){
+  const energy = urg*conf; const eHigh=energy>=51, eOver=energy>=81, eLow=energy<=20;
+  const negRet=ret<=0, negStab=stab<=0, negMerit=merit<=0;
+  if(eOver && (negMerit || negRet || negStab)) return "Overdrive on weak footing — slow down. Validate unit economics and de-risk before committing.";
+  if(negRet && !negStab && eHigh) return "High energy chasing negative return — stop or pivot; refine pricing/scope.";
+  if(!negRet && negStab && eHigh) return "Energetic but fragile — raise confidence or reduce risk before scaling.";
+  if(!negRet && !negStab && eLow) return "Good profile but low energy — raise urgency or confidence to capture value.";
+  if(press>0 && eLow) return "Pressured with low confidence — narrow scope or add proof fast.";
+  if(press<0 && !negRet && !negStab) return "Calm and value-creating — proceed methodically.";
+  return "Greenlight profile — execute with discipline.";
 }
 
 function compute(){
@@ -354,14 +350,16 @@ function compute(){
  document.getElementById('o_confidence').textContent=confidence;
 
  const ret=impact-cost, stab=confidence-risk, press=urgency-confidence;
- const composite=(impact-cost-risk)+(urgency*confidence);
+ const merit = impact - cost - risk;
+ const energy = urgency * confidence;
+ const composite = merit + energy;
  const s=x=>x>0?('+'+x):(x<0?x.toString():'0');
 
  document.getElementById('ret').textContent=s(ret);
  document.getElementById('stab').textContent=s(stab);
  document.getElementById('press').textContent=s(press);
  document.getElementById('score').textContent=composite;
- document.getElementById('scoreTag').textContent=scoreTagText(composite);
+ document.getElementById('scoreTag').textContent = `${scoreTagText(composite)} — ${energyLabel(energy)}`;
 
  badge(document.getElementById('retPill'),Math.sign(ret),'Positive','Neutral','Negative');
  badge(document.getElementById('stabPill'),Math.sign(stab),'Stable','Uncertain','Fragile');
@@ -377,7 +375,7 @@ function compute(){
 
  document.getElementById('arch').textContent=name;
  document.getElementById('archDesc').textContent=lineFor(pS,sS,rS);
- document.getElementById('coach').textContent=coachHint(ret,stab,press,urgency,confidence);
+ document.getElementById('coach').textContent=coachHint(ret,stab,press,urgency,confidence,merit);
 }
 
 // ---------- Export: CSV ----------
@@ -394,21 +392,23 @@ function computeMetrics(v){
   const ret=v.impact - v.cost;
   const pressure=v.urgency - v.confidence;
   const stability=v.confidence - v.risk;
-  const dnav=(v.impact - v.cost - v.risk) + (v.urgency * v.confidence);
-  return {ret,pressure,stability,dnav};
+  const merit = v.impact - v.cost - v.risk;
+  const energy = v.urgency * v.confidence;
+  const dnav = merit + energy;
+  return {ret,pressure,stability,dnav,merit,energy};
 }
 function loadLog(){ try{ return JSON.parse(localStorage.getItem('dnav_log_v1')||'[]'); }catch{ return []; } }
 function saveLog(arr){ localStorage.setItem('dnav_log_v1', JSON.stringify(arr)); }
 function escapeHtml(s=''){ return s.replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m])); }
 
 function toCsv(rows){
-  const header=['timestamp_local','timestamp_iso','name','category','impact','cost','risk','urgency','confidence','return','pressure','stability','dnav'];
+  const header=['timestamp_local','timestamp_iso','name','category','impact','cost','risk','urgency','confidence','return','pressure','stability','merit','energy','dnav'];
   const body=rows.map(r=>[
     fmtLocal(r.ts),
     new Date(r.ts).toISOString(),
     `"${(r.name||'').replace(/"/g,'""')}"`,
     `"${(r.category||'').replace(/"/g,'""')}"`,
-    r.impact,r.cost,r.risk,r.urgency,r.confidence,r.return,r.pressure,r.stability,r.dnav
+    r.impact,r.cost,r.risk,r.urgency,r.confidence,r.return,r.pressure,r.stability,r.merit,r.energy,r.dnav
   ].join(','));
   return [header.join(','),...body].join('\n');
 }
@@ -423,11 +423,11 @@ function downloadCsv(){
   URL.revokeObjectURL(a.href);
 }
 
-// ---------- Export: PDF (printable report) ----------
+// ---------- Export: PDF ----------
 function openPdfReport(){
   compute();
   const vals = readCurrent();
-  const {ret,pressure,stability,dnav} = computeMetrics(vals);
+  const {ret,pressure,stability,dnav,merit,energy} = computeMetrics(vals);
 
   const pill = (txt, cls) => `<span style="display:inline-block;padding:3px 7px;border-radius:999px;font-weight:800;font-size:11px;border:1px solid rgba(255,255,255,.25);background:rgba(255,255,255,.06);color:${cls==='green'?'#3ecf8e':cls==='red'?'#ff6b6b':'#f3b431'}">${txt}</span>`;
 
@@ -500,7 +500,9 @@ function openPdfReport(){
           <tr><th>Return</th><td class="right">${ret>=0?'+':''}${ret} ${pill(rS,rCls)}</td></tr>
           <tr><th>Stability</th><td class="right">${stability>=0?'+':''}${stability} ${pill(sS,sCls)}</td></tr>
           <tr><th>Pressure</th><td class="right">${pressure>=0?'+':''}${pressure} ${pill(pS,pCls)}</td></tr>
-          <tr><th>D-NAV</th><td class="right"><b>${dnav}</b></td></tr>
+          <tr><th>D-NAV</th><td class="right"><b>${dnav}</b> — ${energyLabel(energy)}</td></tr>
+          <tr><th>Merit</th><td class="right">${merit}</td></tr>
+          <tr><th>Energy</th><td class="right">${energy}</td></tr>
         </table>
       </div>
     </div>
@@ -605,7 +607,7 @@ function renderStats(allRows){
 
   const aCounts = new Map();
   rows.forEach(r=>{
-    const key=[sign3(r.pressure),sign3(r.stability),sign3(r.return)].join('|');
+    const key=[Math.sign(r.pressure),Math.sign(r.stability),Math.sign(r.return)].join('|');
     const n=oneWord[key]; if(!n) return;
     aCounts.set(n,(aCounts.get(n)||0)+1);
   });
@@ -684,7 +686,7 @@ function enterDecision(){
     ts:Date.now(),
     name, category,
     ...vals,
-    return:m.ret, pressure:m.pressure, stability:m.stability, dnav:m.dnav
+    return:m.ret, pressure:m.pressure, stability:m.stability, merit:m.merit, energy:m.energy, dnav:m.dnav
   };
 
   const arr=loadLog();
@@ -701,31 +703,10 @@ SLIDER_IDS.forEach(id=>{
   el.addEventListener('change', compute);
 });
 
-// Listeners
-$('#decisionName').addEventListener('input', checkFormValid);
-$('#decisionCategory').addEventListener('input', checkFormValid);
-['decisionName','decisionCategory'].forEach(id=>{
-  $('#'+id).addEventListener('keydown', e => {
-    if (e.key === 'Enter' && !$('#enterBtn').disabled) enterDecision();
-  });
-});
-$('#enterBtn')?.addEventListener('click', enterDecision);
-$('#downloadCsvBtn')?.addEventListener('click', downloadCsv);
-$('#downloadPdfBtn')?.addEventListener('click', openPdfReport);
-$('#clearLogBtn')?.addEventListener('click', ()=>{
-  if(confirm('Clear all logged decisions on this device?')){
-    localStorage.removeItem('dnav_log_v1'); renderLog();
-  }
-});
-$('#rangeSelect').addEventListener('change', ()=>renderLog());
-
 // boot
 document.getElementById('allocTitle').textContent = 'Drive (U×C) by category';
 compute();
 renderLog();
-checkFormValid();
 </script>
 </body>
 </html>
-
-
