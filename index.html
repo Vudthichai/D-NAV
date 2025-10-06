@@ -369,7 +369,6 @@ function coachHint({ret, stab, press, urg, conf, impact, cost, risk}){
   sugs = [...new Set(sugs)].slice(0,2);
   const leverLine = sugs.length ? " — " + sugs.join("; ") + "." : ".";
 
-  // Base messages without duplicated suggestions
   if (ret < 0){
     const base = (et.short==="high"||et.short==="overdrive")
       ? "High energy chasing negative return — stop or pivot"
@@ -461,7 +460,7 @@ function computeMetrics(v){
 }
 function loadLog(){ try{ return JSON.parse(localStorage.getItem('dnav_log_v1')||'[]'); }catch{ return []; } }
 function saveLog(arr){ localStorage.setItem('dnav_log_v1', JSON.stringify(arr)); }
-function escapeHtml(s=''){ return s.replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m])); }
+function escapeHtml(s=''){ return s.replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;','\'':'&#39;'}[m])); }
 
 function toCsv(rows){
   const header=['timestamp_local','timestamp_iso','name','category','impact','cost','risk','urgency','confidence','return','pressure','stability','merit','energy','dnav'];
@@ -481,7 +480,9 @@ function downloadCsv(){
   const a=document.createElement('a');
   a.href=URL.createObjectURL(blob);
   a.download='dnav_decisions.csv';
+  document.body.appendChild(a);   // Safari/iOS needs it in the DOM
   a.click();
+  document.body.removeChild(a);
   URL.revokeObjectURL(a.href);
 }
 
@@ -768,6 +769,13 @@ SLIDER_IDS.forEach(id=>{
 document.getElementById('decisionName').addEventListener('input', checkFormValid);
 document.getElementById('decisionCategory').addEventListener('input', checkFormValid);
 document.getElementById('enterBtn').addEventListener('click', enterDecision);
+
+// ---- wire up export & clear buttons ----
+document.getElementById('downloadCsvBtn').addEventListener('click', downloadCsv);
+document.getElementById('downloadPdfBtn').addEventListener('click', openPdfReport);
+document.getElementById('clearLogBtn').addEventListener('click', () => {
+  if (confirm('Clear all saved decisions?')) { saveLog([]); renderLog(); }
+});
 
 // boot
 document.getElementById('allocTitle').textContent = 'Drive (U×C) by category';
