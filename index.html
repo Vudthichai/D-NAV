@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>The Decision NAVigator — D-NAV Mini (v3.17)</title>
+<title>The Decision NAVigator — D-NAV Mini (v3.18)</title>
 <style>
 :root{--bg:#0b0f14;--card:#121821;--muted:#8fa1b7;--text:#e9eef5;--green:#3ecf8e;--red:#ff6b6b;--amber:#f3b431;--blue:#69a9ff}
 *{box-sizing:border-box;font-family:Inter,ui-sans-serif,system-ui,-apple-system,Segoe UI,Roboto,Arial}
@@ -25,26 +25,12 @@ body{background:var(--bg);color:var(--text);margin:0;padding:24px}
 }
 .wrap + .wrap{ margin-top:16px }
 
-.card{
-  background:var(--card);
-  border-radius:16px;
-  padding:16px;
-  box-shadow:0 10px 24px rgba(0,0,0,.35);
-  height:100%;
-  display:flex;
-  flex-direction:column;
-}
+.card{background:var(--card);border-radius:16px;padding:16px;box-shadow:0 10px 24px rgba(0,0,0,.35);height:100%;display:flex;flex-direction:column}
 h1{margin:0 0 8px;font-weight:800;font-size:22px;letter-spacing:.2px}
 
 /* Slider rows */
-.row{
-  display:grid;
-  grid-template-columns:180px 1fr 52px;
-  gap:12px;
-  align-items:center;
-  margin:10px 0 12px;
-}
-.row:last-of-type{ margin-bottom:8px }
+.row{display:grid;grid-template-columns:180px 1fr 52px;gap:12px;align-items:center;margin:10px 0 12px}
+.row:last-of-type{margin-bottom:8px}
 .row label{font-weight:700;color:#d7e2ef;font-size:16px;display:flex;flex-direction:column;gap:4px}
 .label-main{line-height:1}
 .hint{font-weight:600;color:var(--muted);font-size:12px;line-height:1.2}
@@ -71,8 +57,7 @@ output{text-align:right;display:inline-block;min-width:40px;font-weight:800;font
 .arch .name{font-size:26px;font-weight:900;margin-top:6px}
 .arch .desc{color:#c9d4e6;margin-top:6px}
 .comp .big{font-size:44px;font-weight:900;margin-top:6px}
-.comp .tag{margin-top:4px;font-size:12px;color:#a7b4c7}
-.comp .breakdown{margin-top:4px;font-size:12px;color:#a7b4c7}
+.comp .tag,.comp .breakdown{margin-top:4px;font-size:12px;color:#a7b4c7}
 .coach .txt{margin-top:6px;color:#c9d4e6;line-height:1.55}
 
 /* Entry & Log */
@@ -100,13 +85,17 @@ tbody tr:nth-child(even){background:rgba(255,255,255,.02)}
 .progress{height:8px;border-radius:999px;background:rgba(255,255,255,.08);overflow:hidden;margin-top:8px}
 .progress>span{display:block;height:100%;transition:width .45s ease}
 
-/* Drive allocation list */
+/* Category list */
 .alloc{margin-top:12px}
 .alloc .row{display:grid;grid-template-columns:160px 1fr 260px;gap:12px;align-items:center;padding:6px 0;border-bottom:1px solid rgba(255,255,255,.06)}
 .alloc .row:last-child{border-bottom:none}
 .alloc .bar{height:8px;border-radius:999px;background:rgba(255,255,255,.08);overflow:hidden}
 .alloc .bar>span{display:block;height:100%;background:var(--blue);transition:width .45s ease}
 .alloc .meta{font-size:12px;color:#a7b4c7;text-align:right}
+
+/* Footer links (no boxes) */
+.footer-links{max-width:1200px;margin:20px auto 10px;text-align:right}
+.footer-links a{font-size:18px;color:#cfe1ff;text-decoration:underline;text-underline-offset:4px;margin-left:22px}
 
 /* pulse */
 @keyframes pulse-kpi{0%{box-shadow:0 0 0 0 rgba(105,169,255,.35)}100%{box-shadow:0 0 0 14px rgba(105,169,255,0)}}
@@ -286,21 +275,14 @@ tbody tr:nth-child(even){background:rgba(255,255,255,.02)}
   </div>
 </div>
 
-<!-- CTA cards -->
-<div style="width:100%;height:80px;margin-top:16px;display:flex;align-items:center;" class="card wrap">
-  <a target="_blank" rel="noopener noferrer" href="https://decisionnavigator.gumroad.com/">
-    Start tracking all of your decisions here
-  </a>
+<!-- FOOTER LINKS (no boxes) -->
+<div class="footer-links">
+  <a href="/definitions.html">View definitions & archetypes</a>
+  <a target="_blank" rel="noopener noreferrer" href="https://decisionnavigator.gumroad.com/">Start tracking all of your decisions</a>
 </div>
 
-<div style="width:100%;height:80px;margin-top:16px;display:flex;align-items:center;" class="card wrap">
-  <a href="/definitions.html" style="cursor:pointer;height:full;text-align:center;display:flex;align-items:center;color:white;text-decoration:underline;text-underline-offset:3px">
-    View definitions & archetypes
-  </a>
-</div>
-
-<div style="display:flex;flex:1;justify-content:center;align-items:center;margin-top:16px;">
-  <img src="./logo.PNG" style="background-color:#c9d4e6;width:100px;height:100px;border-radius:8px;" />
+<div style="display:flex;flex:1;justify-content:center;align-items:center;margin-top:4px;">
+  <img src="./logo.PNG" style="background-color:#c9d4e6;width:100px;height:100px;border-radius:8px;" alt="D-NAV logo"/>
 </div>
 
 <script>
@@ -337,11 +319,9 @@ function energyTier(u, c){
   return {e, name:"Low energy", short:"low"};
 }
 
-/* Coach — deduped suggestions, no repeated phrasing */
+/* Coach — deduped suggestions */
 function coachHint({ret, stab, press, urg, conf, impact, cost, risk}){
   const et = energyTier(urg, conf);
-
-  // Build suggestions
   let sugs = [];
   const needRaiseImpact = (impact <= cost) && (ret <= 0);
   const needLowerCosts  = (impact <= cost) && (ret <= 0);
@@ -357,7 +337,6 @@ function coachHint({ret, stab, press, urg, conf, impact, cost, risk}){
   if (needNarrowScope) sugs.push("narrow scope");
   if (needAddCapacity) sugs.push("add capacity");
 
-  // Combine costs/risks into one phrase if both apply
   const hasCosts = sugs.includes("lower costs");
   const hasRisks = sugs.includes("lower risks");
   if (hasCosts || hasRisks){
@@ -365,7 +344,6 @@ function coachHint({ret, stab, press, urg, conf, impact, cost, risk}){
     sugs.push(hasCosts && hasRisks ? "lower costs and/or risks" : (hasCosts ? "lower costs" : "lower risks"));
   }
 
-  // Dedup and cap to two most actionable
   sugs = [...new Set(sugs)].slice(0,2);
   const leverLine = sugs.length ? " — " + sugs.join("; ") + "." : ".";
 
@@ -384,7 +362,6 @@ function coachHint({ret, stab, press, urg, conf, impact, cost, risk}){
     return base + leverLine;
   }
 
-  // ret > 0
   if (stab <= 0 && press > 0) return "Upside with fragile footing and pressure" + leverLine;
   if (stab <= 0)              return "Upside but fragile — shore up footing before scaling" + leverLine;
   if (press > 0)              return "Good profile, but pressured" + leverLine;
@@ -414,7 +391,7 @@ function compute(){
 
   document.getElementById('ret').textContent=s(ret);
   document.getElementById('stab').textContent=s(stab);
-  document.getElementById('press').textContent=s(press);             // kept white
+  document.getElementById('press').textContent=s(press); // stays white
 
   badge(document.getElementById('retPill'),Math.sign(ret),'Positive','Neutral','Negative');
   badge(document.getElementById('stabPill'),Math.sign(stab),'Stable','Uncertain','Fragile');
@@ -447,8 +424,8 @@ function fmtLocal(ts){
 const $ = (sel) => document.querySelector(sel);
 const SLIDER_IDS = ["impact","cost","risk","urgency","confidence"];
 const fmt0 = (n) => Number(n).toFixed(0);
-function readCurrent(){ const out={}; SLIDER_IDS.forEach(id=>out[id]=Number($('#'+id).value||0)); return out; }
 function energyLabel(e){ if (e>=71) return "Overdrive energy"; if (e>=41) return "High energy"; if (e>=16) return "Moderate energy"; return "Low energy"; }
+function readCurrent(){ const out={}; SLIDER_IDS.forEach(id=>out[id]=Number($('#'+id).value||0)); return out; }
 function computeMetrics(v){
   const ret=v.impact - v.cost;
   const pressure=v.urgency - v.confidence;
@@ -460,13 +437,12 @@ function computeMetrics(v){
 }
 function loadLog(){ try{ return JSON.parse(localStorage.getItem('dnav_log_v1')||'[]'); }catch{ return []; } }
 function saveLog(arr){ localStorage.setItem('dnav_log_v1', JSON.stringify(arr)); }
-function escapeHtml(s=''){ return s.replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;','\'':'&#39;'}[m])); }
+function escapeHtml(s=''){ return s.replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m])); }
 
 function toCsv(rows){
   const header=['timestamp_local','timestamp_iso','name','category','impact','cost','risk','urgency','confidence','return','pressure','stability','merit','energy','dnav'];
   const body=rows.map(r=>[
-    fmtLocal(r.ts),
-    new Date(r.ts).toISOString(),
+    fmtLocal(r.ts), new Date(r.ts).toISOString(),
     `"${(r.name||'').replace(/"/g,'""')}"`,
     `"${(r.category||'').replace(/"/g,'""')}"`,
     r.impact,r.cost,r.risk,r.urgency,r.confidence,r.return,r.pressure,r.stability,r.merit,r.energy,r.dnav
@@ -480,112 +456,164 @@ function downloadCsv(){
   const a=document.createElement('a');
   a.href=URL.createObjectURL(blob);
   a.download='dnav_decisions.csv';
-  document.body.appendChild(a);   // Safari/iOS needs it in the DOM
   a.click();
-  document.body.removeChild(a);
   URL.revokeObjectURL(a.href);
 }
 
 function openPdfReport(){
-  compute();
-  const vals = readCurrent();
-  const {ret,pressure,stability,dnav,merit,energy} = computeMetrics(vals);
+  // Build a printable insights report (HUD + charts + categories + log + CTA)
+  const rows = loadLog();
+  const total = rows.length;
 
-  const pill = (txt, cls) => `<span style="display:inline-block;padding:3px 7px;border-radius:999px;font-weight:800;font-size:11px;border:1px solid rgba(255,255,255,.25);background:rgba(255,255,255,.06);color:${cls==='green'?'#3ecf8e':cls==='red'?'#ff6b6b':'#f3b431'}">${txt}</span>`;
+  // HUD stats
+  const avg = total ? Math.round(rows.reduce((a,r)=>a + (Number(r.dnav)||0),0)/total) : 0;
+  const posRet = total ? Math.round(rows.filter(r=>r.return>0).length*100/total) : 0;
+  const pressured = total ? Math.round(rows.filter(r=>r.pressure>0).length*100/total) : 0;
+  const stablePct = total ? Math.round(rows.filter(r=>r.stability>0).length*100/total) : 0;
 
-  const pS = pressure>0? 'Pressured' : pressure<0? 'Calm' : 'Balanced';
-  const sS = stability>0? 'Stable' : stability<0? 'Fragile' : 'Uncertain';
-  const rS = ret>0? 'Positive' : ret<0? 'Negative' : 'Neutral';
+  // Distribution bars
+  const pct = (n,d)=> d ? Math.round(n*100/d) : 0;
+  const retPos = rows.filter(r=>r.return>0).length;
+  const retNeu = rows.filter(r=>r.return===0).length;
+  const retNeg = rows.filter(r=>r.return<0).length;
 
-  const pCls = pressure>0?'red':pressure<0?'green':'amber';
-  const sCls = stability>0?'green':stability<0?'red':'amber';
-  const rCls = ret>0?'green':ret<0?'red':'amber';
+  const stabSt = rows.filter(r=>r.stability>0).length;
+  const stabUn = rows.filter(r=>r.stability===0).length;
+  const stabFr = rows.filter(r=>r.stability<0).length;
 
-  const pSign = pressure>0?'+':pressure<0?'-':'0';
-  const sSign = stability>0?'+':stability<0?'-':'0';
-  const rSign = ret>0?'+':ret<0?'-':'0';
+  const prPress = rows.filter(r=>r.pressure>0).length;
+  const prBal   = rows.filter(r=>r.pressure===0).length;
+  const prCalm  = rows.filter(r=>r.pressure<0).length;
 
-  const p3 = (pressure>0?1:pressure<0?-1:0);
-  const s3 = (stability>0?1:stability<0?-1:0);
-  const r3 = (ret>0?1:ret<0?-1:0);
-  const arche = (function(){ const key=[p3,s3,r3].join('|'); return oneWord[key]||'Unclassified'; })();
-  const desc = lineFor(p3,s3,r3);
+  // Category breakdown (share of drive, counts, avg D-NAV, %stable, %pressured)
+  const totals = new Map(); let energyAll = 0;
+  rows.forEach(r=>{
+    const cat=(r.category||'').trim()||'Uncategorized';
+    const e=(r.urgency||0)*(r.confidence||0);
+    energyAll+=e;
+    if(!totals.has(cat)) totals.set(cat,{energy:0,count:0,sumD:0,press:0,stable:0});
+    const t=totals.get(cat);
+    t.energy+=e; t.count+=1; t.sumD+=(Number(r.dnav)||0);
+    if((r.pressure||0)>0) t.press+=1;
+    if((r.stability||0)>0) t.stable+=1;
+  });
+  const catRows = Array.from(totals.entries()).map(([cat,t])=>({
+    cat,
+    share: energyAll? Math.round(t.energy*100/energyAll) : 0,
+    avgD: Math.round(t.sumD / t.count),
+    count: t.count,
+    pr: Math.round(t.press*100/t.count),
+    st: Math.round(t.stable*100/t.count)
+  })).sort((a,b)=>b.share-a.share).slice(0,12);
 
-  const now = new Date();
-  const dt = now.toLocaleString();
-  const name = ($('#decisionName').value||'').trim()||'—';
-  const cat  = ($('#decisionCategory').value||'').trim()||'—';
-
-  const lastN = loadLog().slice(0,10);
+  const dt = new Date().toLocaleString();
 
   const html = `
-  <html>
-  <head>
-    <meta charset="utf-8" />
-    <title>D-NAV Report</title>
+  <html><head><meta charset="utf-8" />
+    <title>D-NAV Insights</title>
     <style>
-      body{font-family:Inter,system-ui,-apple-system,Segoe UI,Roboto,Arial;margin:0;padding:24px;background:#0b0f14;color:#e9eef5}
-      h1{margin:0 0 8px;font-size:22px;font-weight:900}
-      h2{margin:18px 0 8px;font-size:16px}
-      .card{background:#121821;border-radius:12px;padding:16px;margin-bottom:12px}
+      :root{--bg:#0b0f14;--card:#121821;--text:#e9eef5;--muted:#9fb1c7;--green:#3ecf8e;--red:#ff6b6b;--amber:#f3b431;--blue:#69a9ff}
+      body{font-family:Inter,system-ui,-apple-system,Segoe UI,Roboto,Arial;background:var(--bg);color:var(--text);margin:0;padding:24px}
+      h1{margin:0 0 10px;font-size:22px;font-weight:900}
+      h2{margin:18px 0 10px;font-size:16px}
+      .card{background:var(--card);border-radius:12px;padding:16px;margin-bottom:12px}
       .grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}
-      .mono{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace}
+      .kpis{display:grid;grid-template-columns:repeat(4,1fr);gap:10px}
+      .kpi{background:rgba(255,255,255,.05);border-radius:10px;padding:12px}
+      .kpi h4{margin:0;font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.3px}
+      .big{font-weight:900;font-size:28px;margin-top:6px}
+      .mini{font-size:12px;color:#a7b4c7;margin-top:2px}
+      .stack{height:10px;border-radius:999px;background:rgba(255,255,255,.08);overflow:hidden;display:flex}
+      .seg{height:100%}
+      .seg.g{background:rgba(62,207,142,.75)}
+      .seg.a{background:rgba(243,180,49,.75)}
+      .seg.r{background:rgba(255,107,107,.75)}
+      .legend{display:flex;gap:10px;font-size:12px;color:#a7b4c7;margin-top:6px;flex-wrap:wrap}
+      .row{display:grid;grid-template-columns:160px 1fr 260px;gap:12px;align-items:center;padding:6px 0;border-bottom:1px solid rgba(255,255,255,.06)}
+      .row:last-child{border-bottom:none}
+      .bar{height:8px;border-radius:999px;background:rgba(255,255,255,.08);overflow:hidden}
+      .bar>span{display:block;height:100%;background:var(--blue)}
       table{width:100%;border-collapse:collapse;font-size:13px}
       th,td{padding:8px;border-bottom:1px solid rgba(255,255,255,.08)}
       .right{text-align:right}
-      .pill{display:inline-block;padding:3px 7px;border-radius:999px;font-weight:800;font-size:11px;border:1px solid rgba(255,255,255,.25);background:rgba(255,255,255,.06)}
-      @media print { body{padding:0;background:#fff;color:#000} .card{background:#fff;border:1px solid #ddd} a#printHint{display:none} }
+      .muted{color:var(--muted)}
+      .cta{display:block;margin-top:4px;text-align:center}
+      .cta a{color:#cfe1ff;text-decoration:underline;text-underline-offset:4px;font-size:16px}
+      @media print { body{padding:0;background:#fff;color:#000} .card{background:#fff;border:1px solid #ddd} .print-hide{display:none} }
     </style>
   </head>
   <body>
-    <a id="printHint" href="#" onclick="window.print();return false;" style="display:inline-block;margin-bottom:8px;color:#cfe1ff;text-decoration:underline;">Print / Save as PDF</a>
-    <h1>D-NAV Report</h1>
-    <div class="card">
-      <div><b>Generated:</b> ${dt}</div>
-      <div><b>Name:</b> ${escapeHtml(name)} &nbsp; • &nbsp; <b>Category:</b> ${escapeHtml(cat)}</div>
+    <div class="print-hide" style="margin-bottom:8px;"><a href="#" onclick="window.print();return false;" style="color:#cfe1ff;text-decoration:underline;">Print / Save as PDF</a></div>
+    <h1>D-NAV Insights</h1>
+    <div class="card"><div><b>Generated:</b> ${dt}</div><div class="mini">Based on your saved decisions.</div></div>
+
+    <div class="kpis">
+      <div class="kpi"><h4>Decisions</h4><div class="big">${total}</div></div>
+      <div class="kpi"><h4>Avg D-NAV</h4><div class="big">${avg}</div><div class="mini">Composite (Merit + Drive)</div></div>
+      <div class="kpi"><h4>Positive Return</h4><div class="big">${posRet}%</div><div class="stack"><span class="seg g" style="width:${posRet}%"></span></div></div>
+      <div class="kpi"><h4>Stable</h4><div class="big">${stablePct}%</div><div class="stack"><span class="seg g" style="width:${stablePct}%"></span></div></div>
     </div>
 
     <div class="grid">
       <div class="card">
-        <h2>Inputs (1–10)</h2>
-        <table>
-          <tr><th>Impact</th><td class="right">${vals.impact}</td></tr>
-          <tr><th>Cost</th><td class="right">${vals.cost}</td></tr>
-          <tr><th>Risk</th><td class="right">${vals.risk}</td></tr>
-          <tr><th>Urgency</th><td class="right">${vals.urgency}</td></tr>
-          <tr><th>Confidence</th><td class="right">${vals.confidence}</td></tr>
-        </table>
+        <h2>Return distribution</h2>
+        <div class="stack">
+          <span class="seg g" style="width:${pct(retPos,total)}%"></span>
+          <span class="seg a" style="width:${pct(retNeu,total)}%"></span>
+          <span class="seg r" style="width:${pct(retNeg,total)}%"></span>
+        </div>
+        <div class="legend">
+          <span>Positive: ${pct(retPos,total)}%</span>
+          <span>Neutral: ${pct(retNeu,total)}%</span>
+          <span>Negative: ${pct(retNeg,total)}%</span>
+        </div>
       </div>
       <div class="card">
-        <h2>Signals & Composite</h2>
-        <table>
-          <tr><th>Return</th><td class="right">${ret>=0?'+':''}${ret} ${pill(rS,rCls)}</td></tr>
-          <tr><th>Stability</th><td class="right">${stability>=0?'+':''}${stability} ${pill(sS,sCls)}</td></tr>
-          <tr><th>Pressure</th><td class="right">${pressure>=0?'+':''}${pressure} ${pill(pS,pCls)}</td></tr>
-          <tr><th>D-NAV</th><td class="right"><b>${dnav}</b> — ${energyLabel(energy)}</td></tr>
-          <tr><th>Merit</th><td class="right">${merit}</td></tr>
-          <tr><th>Energy</th><td class="right">${energy}</td></tr>
-        </table>
+        <h2>Stability distribution</h2>
+        <div class="stack">
+          <span class="seg g" style="width:${pct(stabSt,total)}%"></span>
+          <span class="seg a" style="width:${pct(stabUn,total)}%"></span>
+          <span class="seg r" style="width:${pct(stabFr,total)}%"></span>
+        </div>
+        <div class="legend">
+          <span>Stable: ${pct(stabSt,total)}%</span>
+          <span>Uncertain: ${pct(stabUn,total)}%</span>
+          <span>Fragile: ${pct(stabFr,total)}%</span>
+        </div>
       </div>
     </div>
 
     <div class="card">
-      <h2>Archetype</h2>
-      <div style="font-size:18px;font-weight:900">${arche} <span class="pill">P${pSign}</span> <span class="pill">S${sSign}</span> <span class="pill">R${rSign}</span></div>
-      <div style="margin-top:6px;">${desc}</div>
+      <h2>Pressure distribution</h2>
+      <div class="stack">
+        <span class="seg r" style="width:${pct(prPress,total)}%"></span>
+        <span class="seg a" style="width:${pct(prBal,total)}%"></span>
+        <span class="seg g" style="width:${pct(prCalm,total)}%"></span>
+      </div>
+      <div class="legend">
+        <span>Pressured: ${pct(prPress,total)}%</span>
+        <span>Balanced: ${pct(prBal,total)}%</span>
+        <span>Calm: ${pct(prCalm,total)}%</span>
+      </div>
     </div>
 
     <div class="card">
-      <h2>Coach Readout</h2>
-      <div>${escapeHtml(document.getElementById('coach').textContent||'')}</div>
+      <h2>Drive (U×C) by category</h2>
+      ${catRows.length ? catRows.map(r=>`
+        <div class="row">
+          <div><strong>${escapeHtml(r.cat)}</strong></div>
+          <div class="bar"><span style="width:${r.share}%"></span></div>
+          <div class="muted right">${r.share}% of drive • ${r.count} decisions • avg D-NAV ${r.avgD} • stable ${r.st}% • pressured ${r.pr}%</div>
+        </div>`).join('') : `<div class="mini">No data.</div>`}
     </div>
 
     <div class="card">
-      <h2>Recent decisions (last 10)</h2>
+      <h2>Decision log</h2>
+      ${rows.length ? `
       <table>
-        <thead><tr><th>When</th><th>Name</th><th>Cat</th><th class="right">R</th><th class="right">P</th><th class="right">S</th><th class="right">D-NAV</th></tr></thead>
+        <thead><tr><th>When</th><th>Name</th><th>Category</th><th class="right">R</th><th class="right">P</th><th class="right">S</th><th class="right">D-NAV</th></tr></thead>
         <tbody>
-          ${lastN.map(r=>`<tr>
+          ${rows.slice(0,100).map(r=>`<tr>
             <td>${new Date(r.ts).toLocaleString()}</td>
             <td>${escapeHtml(r.name||'')}</td>
             <td>${escapeHtml(r.category||'')}</td>
@@ -595,11 +623,18 @@ function openPdfReport(){
             <td class="right"><b>${r.dnav}</b></td>
           </tr>`).join('')}
         </tbody>
-      </table>
+      </table>` : `<div class="mini">No decisions saved yet.</div>`}
     </div>
-  </body>
-  </html>`;
+
+    <div class="card cta">
+      <a target="_blank" rel="noopener noreferrer" href="https://decisionnavigator.gumroad.com/">
+        Want deeper insights from your decisions? Download the D-NAV template and see the story in all your decisions.
+      </a>
+    </div>
+  </body></html>`;
+
   const w = window.open('', '_blank');
+  if(!w){ alert('Please allow pop-ups to view the PDF.'); return; }
   w.document.open(); w.document.write(html); w.document.close();
   try{ w.focus(); }catch{}
 }
@@ -765,16 +800,14 @@ SLIDER_IDS.forEach(id=>{
   el.addEventListener('input', compute);
   el.addEventListener('change', compute);
 });
-// enable + click handlers for entry form
+// enable + click handlers for entry form and exports
 document.getElementById('decisionName').addEventListener('input', checkFormValid);
 document.getElementById('decisionCategory').addEventListener('input', checkFormValid);
 document.getElementById('enterBtn').addEventListener('click', enterDecision);
-
-// ---- wire up export & clear buttons ----
 document.getElementById('downloadCsvBtn').addEventListener('click', downloadCsv);
 document.getElementById('downloadPdfBtn').addEventListener('click', openPdfReport);
-document.getElementById('clearLogBtn').addEventListener('click', () => {
-  if (confirm('Clear all saved decisions?')) { saveLog([]); renderLog(); }
+document.getElementById('clearLogBtn').addEventListener('click', ()=>{
+  if(confirm('Clear all saved decisions?')){ saveLog([]); renderLog(); }
 });
 
 // boot
