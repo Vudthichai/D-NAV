@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>The Decision NAVigator — D-NAV Mini (v3.18)</title>
+<title>The Decision NAVigator — D-NAV Mini (v3.19)</title>
 <style>
 :root{--bg:#0b0f14;--card:#121821;--muted:#8fa1b7;--text:#e9eef5;--green:#3ecf8e;--red:#ff6b6b;--amber:#f3b431;--blue:#69a9ff}
 *{box-sizing:border-box;font-family:Inter,ui-sans-serif,system-ui,-apple-system,Segoe UI,Roboto,Arial}
@@ -96,11 +96,6 @@ tbody tr:nth-child(even){background:rgba(255,255,255,.02)}
 /* Footer links (no boxes) */
 .footer-links{max-width:1200px;margin:20px auto 10px;text-align:right}
 .footer-links a{font-size:18px;color:#cfe1ff;text-decoration:underline;text-underline-offset:4px;margin-left:22px}
-
-/* print color preservation if you ever print the live page */
-@media print{
-  html,body{-webkit-print-color-adjust:exact;print-color-adjust:exact}
-}
 
 /* pulse */
 @keyframes pulse-kpi{0%{box-shadow:0 0 0 0 rgba(105,169,255,.35)}100%{box-shadow:0 0 0 14px rgba(105,169,255,0)}}
@@ -465,20 +460,16 @@ function downloadCsv(){
   URL.revokeObjectURL(a.href);
 }
 
+/* ----------- Simple, compact PDF report (doesn't affect page spacing) ----------- */
 function openPdfReport(){
-  // Use page CSS so the export matches the live layout
-  const pageStyles = Array.from(document.querySelectorAll('style')).map(s=>s.innerHTML).join('\n');
-
   const rows = loadLog();
   const total = rows.length;
 
-  // HUD stats
   const avg = total ? Math.round(rows.reduce((a,r)=>a + (Number(r.dnav)||0),0)/total) : 0;
   const posRet = total ? Math.round(rows.filter(r=>r.return>0).length*100/total) : 0;
   const pressuredPct = total ? Math.round(rows.filter(r=>r.pressure>0).length*100/total) : 0;
   const stablePct = total ? Math.round(rows.filter(r=>r.stability>0).length*100/total) : 0;
 
-  // Distribution bars
   const pct = (n,d)=> d ? Math.round(n*100/d) : 0;
   const retPos = rows.filter(r=>r.return>0).length;
   const retNeu = rows.filter(r=>r.return===0).length;
@@ -492,7 +483,7 @@ function openPdfReport(){
   const prBal   = rows.filter(r=>r.pressure===0).length;
   const prCalm  = rows.filter(r=>r.pressure<0).length;
 
-  // Category breakdown
+  // Category breakdown (compact)
   const totals = new Map(); let energyAll = 0;
   rows.forEach(r=>{
     const cat=(r.category||'').trim()||'Uncategorized';
@@ -507,62 +498,70 @@ function openPdfReport(){
   const catRows = Array.from(totals.entries()).map(([cat,t])=>({
     cat,
     share: energyAll? Math.round(t.energy*100/energyAll) : 0,
-    avgD: Math.round(t.sumD / t.count),
+    avgD: t.count? Math.round(t.sumD / t.count) : 0,
     count: t.count,
-    pr: Math.round(t.press*100/t.count),
-    st: Math.round(t.stable*100/t.count)
-  })).sort((a,b)=>b.share-a.share).slice(0,12);
+    pr: t.count? Math.round(t.press*100/t.count) : 0,
+    st: t.count? Math.round(t.stable*100/t.count) : 0
+  })).sort((a,b)=>b.share-a.share).slice(0,10);
 
   const dt = new Date().toLocaleString();
 
-  const extras = `
-  <style>
-    /* ensure colors print and hide the print link when printing */
-    @media print{ html,body{-webkit-print-color-adjust:exact; print-color-adjust:exact} .print-hide{display:none !important} @page{margin:12mm} }
-    /* small helpers used only in the export */
-    .insights-wrap{max-width:1200px;margin:0 auto}
-    .stack{height:12px;border-radius:999px;background:rgba(255,255,255,.08);overflow:hidden;display:flex}
-    .seg{height:100%}
-    .seg.g{background:rgba(62,207,142,.75)}
-    .seg.a{background:rgba(243,180,49,.75)}
-    .seg.r{background:rgba(255,107,107,.75)}
-    .legend{display:flex;gap:12px;font-size:12px;color:#a7b4c7;margin-top:8px;flex-wrap:wrap}
-    .kpi.sm .big{font-size:22px}
-    .topcard{background:var(--card);border-radius:12px;padding:16px;margin-bottom:12px}
-    .print-link{color:#cfe1ff;text-decoration:underline;text-underline-offset:4px}
-  </style>`;
-
   const html = `
-  <html>
-  <head>
-    <meta charset="utf-8" />
+  <html><head><meta charset="utf-8" />
     <title>D-NAV Insights</title>
-    <style>${pageStyles}</style>
-    ${extras}
+    <style>
+      :root{--bg:#0b0f14;--card:#121821;--text:#e9eef5;--muted:#a7b4c7;--g:#3ecf8e;--r:#ff6b6b;--a:#f3b431;--blue:#69a9ff}
+      *{box-sizing:border-box} body{margin:0;background:var(--bg);color:var(--text);font:14px/1.35 Inter,system-ui,Segoe UI,Roboto,Arial}
+      .container{max-width:1200px;margin:0 auto;padding:24px}
+      h1{margin:0 0 12px;font-size:22px;font-weight:900}
+      h2{margin:14px 0 8px;font-size:16px}
+      .card{background:var(--card);border-radius:12px;padding:12px;margin:10px 0}
+      .kpis{display:grid;grid-template-columns:repeat(5,1fr);gap:10px}
+      .kpi{background:rgba(255,255,255,.05);border-radius:10px;padding:10px}
+      .kpi h4{margin:0;font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.3px}
+      .big{font-size:22px;font-weight:900;margin-top:4px}
+      .stack{height:10px;border-radius:999px;background:rgba(255,255,255,.09);display:flex;overflow:hidden;margin-top:6px}
+      .seg{height:100%}.g{background:rgba(62,207,142,.85)}.a{background:rgba(243,180,49,.85)}.r{background:rgba(255,107,107,.85)}
+      .legend{display:flex;gap:12px;flex-wrap:wrap;color:var(--muted);font-size:12px;margin-top:6px}
+      .rows{margin-top:6px}
+      .rows .row{display:grid;grid-template-columns:140px 1fr 240px;gap:10px;align-items:center;padding:4px 0;border-bottom:1px solid rgba(255,255,255,.06)}
+      .rows .row:last-child{border-bottom:0}
+      .bar{height:8px;border-radius:999px;background:rgba(255,255,255,.09);overflow:hidden}
+      .bar>span{display:block;height:100%;background:var(--blue)}
+      table{width:100%;border-collapse:collapse;font-size:12.5px}
+      th,td{padding:6px 8px;border-bottom:1px solid rgba(255,255,255,.08)} th{color:#cfe1ff;text-align:left}
+      td.right{text-align:right}
+      .top{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:10px}
+      .top a{color:#cfe1ff;text-decoration:underline;text-underline-offset:3px;font-size:13px}
+      .mini{color:var(--muted);font-size:12px}
+      .cta{margin-top:10px;text-align:center}
+      .cta a{color:#cfe1ff;text-decoration:underline;text-underline-offset:4px}
+      @media print{
+        body{background:#fff;color:#000}
+        .card{background:#fff;border:1px solid #ddd}
+        .kpi,.stack,.bar{background:#eee}
+        .g{background:#4caf50}.a{background:#ffb300}.r{background:#ef5350}
+        .top a{display:none}
+      }
+    </style>
   </head>
   <body>
-    <div class="insights-wrap">
-      <div class="print-hide" style="margin-bottom:8px;">
-        <a href="#" class="print-link" onclick="window.print();return false;">Print / Save as PDF</a>
+    <div class="container">
+      <div class="top">
+        <h1>D-NAV Insights</h1>
+        <a href="#" onclick="window.print();return false;">Print / Save as PDF</a>
       </div>
+      <div class="card"><b>Generated:</b> ${dt} <span class="mini">• Based on your saved decisions.</span></div>
 
-      <h1 class="site-title" style="padding:0;"><h0>D-NAV Insights</h0></h1>
-      <div class="topcard">
-        <div style="font-weight:700">Generated: ${dt}</div>
-        <div class="mini">Based on your saved decisions.</div>
-      </div>
-
-      <!-- KPI row: Decisions/Avg smaller, plus Return/Stable/Pressured -->
       <div class="kpis">
-        <div class="kpi sm"><h4>Decisions</h4><div class="big">${total}</div></div>
-        <div class="kpi sm"><h4>Avg D-NAV</h4><div class="big">${avg}</div><div class="mini">Composite (Merit + Drive)</div></div>
-        <div class="kpi"><h4>Positive Return</h4><div class="big">${posRet}%</div><div class="progress"><span style="width:${posRet}%;background:var(--green)"></span></div></div>
-        <div class="kpi"><h4>Stable</h4><div class="big">${stablePct}%</div><div class="progress"><span style="width:${stablePct}%;background:var(--green)"></span></div></div>
-        <div class="kpi"><h4>Pressured</h4><div class="big">${pressuredPct}%</div><div class="progress"><span style="width:${pressuredPct}%;background:var(--red)"></span></div></div>
+        <div class="kpi"><h4>Decisions</h4><div class="big">${total}</div></div>
+        <div class="kpi"><h4>Avg D-NAV</h4><div class="big">${avg}</div></div>
+        <div class="kpi"><h4>Positive Return</h4><div class="big">${posRet}%</div><div class="stack"><span class="seg g" style="width:${posRet}%"></span></div></div>
+        <div class="kpi"><h4>Stable</h4><div class="big">${stablePct}%</div><div class="stack"><span class="seg g" style="width:${stablePct}%"></span></div></div>
+        <div class="kpi"><h4>Pressured</h4><div class="big">${pressuredPct}%</div><div class="stack"><span class="seg r" style="width:${pressuredPct}%"></span></div></div>
       </div>
 
-      <!-- Full-width distributions -->
-      <div class="card" style="margin-top:12px;">
+      <div class="card">
         <h2>Return distribution</h2>
         <div class="stack">
           <span class="seg g" style="width:${pct(retPos,total)}%"></span>
@@ -604,48 +603,53 @@ function openPdfReport(){
         </div>
       </div>
 
-      <!-- Categories -->
       <div class="card">
         <h2>Drive (U×C) by category</h2>
-        ${catRows.length ? catRows.map(r=>`
-          <div class="row">
-            <div><strong>${escapeHtml(r.cat)}</strong></div>
-            <div class="bar"><span style="width:${r.share}%"></span></div>
-            <div class="muted right">${r.share}% of drive • ${r.count} decisions • avg D-NAV ${r.avgD} • stable ${r.st}% • pressured ${r.pr}%</div>
-          </div>`).join('') : `<div class="mini">No data.</div>`}
+        <div class="rows">
+          ${
+            catRows.length
+              ? catRows.map(r=>`
+                <div class="row">
+                  <div><strong>${escapeHtml(r.cat)}</strong></div>
+                  <div class="bar"><span style="width:${r.share}%"></span></div>
+                  <div class="mini" style="text-align:right;">
+                    ${r.share}% of drive • ${r.count} decisions • avg D-NAV ${r.avgD} • stable ${r.st}% • pressured ${r.pr}%
+                  </div>
+                </div>`).join('')
+              : '<div class="mini">No data.</div>'
+          }
+        </div>
       </div>
 
-      <!-- Decision log -->
       <div class="card">
         <h2>Decision log</h2>
-        ${rows.length ? `
-        <div class="table-wrap" style="border:1px solid #222;border-radius:12px;">
-          <table>
-            <thead><tr><th>When</th><th>Name</th><th>Category</th><th class="right">R</th><th class="right">P</th><th class="right">S</th><th class="right">D-NAV</th></tr></thead>
-            <tbody>
-              ${rows.slice(0,100).map(r=>`<tr>
-                <td>${new Date(r.ts).toLocaleString()}</td>
-                <td>${escapeHtml(r.name||'')}</td>
-                <td>${escapeHtml(r.category||'')}</td>
-                <td class="right">${r.return>=0?'+':''}${r.return}</td>
-                <td class="right">${r.pressure>=0?'+':''}${r.pressure}</td>
-                <td class="right">${r.stability>=0?'+':''}${r.stability}</td>
-                <td class="right"><b>${r.dnav}</b></td>
-              </tr>`).join('')}
-            </tbody>
-          </table>
-        </div>` : `<div class="mini">No decisions saved yet.</div>`}
+        ${
+          rows.length
+            ? `<table>
+                <thead><tr><th>When</th><th>Name</th><th>Category</th><th class="right">R</th><th class="right">P</th><th class="right">S</th><th class="right">D-NAV</th></tr></thead>
+                <tbody>
+                  ${rows.slice(0,40).map(r=>`<tr>
+                    <td>${new Date(r.ts).toLocaleString()}</td>
+                    <td>${escapeHtml(r.name||'')}</td>
+                    <td>${escapeHtml(r.category||'')}</td>
+                    <td class="right">${r.return>=0?'+':''}${r.return}</td>
+                    <td class="right">${r.pressure>=0?'+':''}${r.pressure}</td>
+                    <td class="right">${r.stability>=0?'+':''}${r.stability}</td>
+                    <td class="right"><b>${r.dnav}</b></td>
+                  </tr>`).join('')}
+                </tbody>
+              </table>`
+            : '<div class="mini">No decisions saved yet.</div>'
+        }
       </div>
 
-      <!-- CTA -->
-      <div class="card" style="text-align:center">
-        <a target="_blank" rel="noopener noreferrer" href="https://decisionnavigator.gumroad.com/" style="color:#cfe1ff;text-decoration:underline;text-underline-offset:4px;font-size:16px;">
+      <div class="cta">
+        <a target="_blank" rel="noopener noreferrer" href="https://decisionnavigator.gumroad.com/">
           Want deeper insights from your decisions? Download the D-NAV template and see the story in all your decisions.
         </a>
       </div>
     </div>
-  </body>
-  </html>`;
+  </body></html>`;
 
   const w = window.open('', '_blank');
   if(!w){ alert('Please allow pop-ups to view the PDF.'); return; }
