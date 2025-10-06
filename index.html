@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>The Decision NAVigator — D-NAV Mini (v3.16)</title>
+<title>The Decision NAVigator — D-NAV Mini (v3.17)</title>
 <style>
 :root{--bg:#0b0f14;--card:#121821;--muted:#8fa1b7;--text:#e9eef5;--green:#3ecf8e;--red:#ff6b6b;--amber:#f3b431;--blue:#69a9ff}
 *{box-sizing:border-box;font-family:Inter,ui-sans-serif,system-ui,-apple-system,Segoe UI,Roboto,Arial}
@@ -336,56 +336,60 @@ function energyTier(u, c){
   if (e >= 16) return {e, name:"Moderate energy",  short:"moderate"};
   return {e, name:"Low energy", short:"low"};
 }
-function energyLabel(e){
-  if (e >= 71) return "Overdrive energy";
-  if (e >= 41) return "High energy";
-  if (e >= 16) return "Moderate energy";
-  return "Low energy";
-}
 
-/* Coach (unchanged from last version for brevity) */
+/* Coach — deduped suggestions, no repeated phrasing */
 function coachHint({ret, stab, press, urg, conf, impact, cost, risk}){
   const et = energyTier(urg, conf);
-  const retWord = ret>0 ? "positive" : ret<0 ? "negative" : "neutral";
-  const levers = [];
-  if (ret <= 0){
-    if (impact <= cost) levers.push("raise impact", "lower cost");
-    if (risk >= conf)   levers.push("reduce risk");
-  } else {
-    if (stab <= 0)      levers.push("add evidence or de-risk");
-    if (press > 0)      levers.push("narrow scope or add capacity");
-  }
-  const leverLine = levers.length ? " — " + [...new Set(levers)].slice(0,2).join("; ") + "." : ".";
 
+  // Build suggestions
+  let sugs = [];
+  const needRaiseImpact = (impact <= cost) && (ret <= 0);
+  const needLowerCosts  = (impact <= cost) && (ret <= 0);
+  const needLowerRisks  = (risk >= conf);
+  const needAddEvidence = (stab <= 0);
+  const needNarrowScope = (press > 0);
+  const needAddCapacity = (press > 0 && (et.short === "overdrive" || et.short === "high"));
+
+  if (needRaiseImpact) sugs.push("raise impact");
+  if (needLowerCosts)  sugs.push("lower costs");
+  if (needLowerRisks)  sugs.push("lower risks");
+  if (needAddEvidence) sugs.push("add evidence");
+  if (needNarrowScope) sugs.push("narrow scope");
+  if (needAddCapacity) sugs.push("add capacity");
+
+  // Combine costs/risks into one phrase if both apply
+  const hasCosts = sugs.includes("lower costs");
+  const hasRisks = sugs.includes("lower risks");
+  if (hasCosts || hasRisks){
+    sugs = sugs.filter(s=>s!=="lower costs" && s!=="lower risks");
+    sugs.push(hasCosts && hasRisks ? "lower costs and/or risks" : (hasCosts ? "lower costs" : "lower risks"));
+  }
+
+  // Dedup and cap to two most actionable
+  sugs = [...new Set(sugs)].slice(0,2);
+  const leverLine = sugs.length ? " — " + sugs.join("; ") + "." : ".";
+
+  // Base messages without duplicated suggestions
   if (ret < 0){
-    if (et.short === "high" || et.short === "overdrive"){
-      return `High energy chasing ${retWord} return — stop or pivot${leverLine}`;
-    }
-    return `${retWord[0].toUpperCase()+retWord.slice(1)} return — improve unit economics${leverLine}`;
+    const base = (et.short==="high"||et.short==="overdrive")
+      ? "High energy chasing negative return — stop or pivot"
+      : "Negative return — improve unit economics";
+    return base + leverLine;
   }
 
   if (ret === 0){
-    if (press > 0 && stab <= 0) return `Neutral return under pressure on fragile footing — de-risk or cut scope${leverLine}`;
-    if (press > 0)              return `Neutral return under pressure — lift impact or lower cost/risk quickly${leverLine}`;
-    if (stab <= 0)              return `Neutral return but fragile — add proof/resources before committing${leverLine}`;
-    return `Neutral return — raise impact or lower cost/risk before scaling${leverLine}`;
+    let base = "Neutral return";
+    if (press > 0 && stab <= 0) base += " under pressure on fragile footing";
+    else if (press > 0)         base += " under pressure";
+    else if (stab <= 0)         base += " but fragile";
+    return base + leverLine;
   }
 
-  if (stab <= 0){
-    return press > 0
-      ? `Upside with fragile footing and pressure — add proof or narrow scope fast${leverLine}`
-      : `Upside but fragile — add evidence/resources or de-risk before scaling${leverLine}`;
-  }
-
-  if (press > 0){
-    return et.short === "overdrive"
-      ? `Positive return with overdrive energy — ensure capacity and controls to avoid errors${leverLine}`
-      : `Good profile, but pressured — confirm readiness and protect quality${leverLine}`;
-  }
-
-  return et.short === "low"
-    ? `Positive return with low energy — plan methodically; move when timing is right${leverLine}`
-    : `Greenlight profile — execute with discipline${leverLine}`;
+  // ret > 0
+  if (stab <= 0 && press > 0) return "Upside with fragile footing and pressure" + leverLine;
+  if (stab <= 0)              return "Upside but fragile — shore up footing before scaling" + leverLine;
+  if (press > 0)              return "Good profile, but pressured" + leverLine;
+  return sugs.length ? "Greenlight profile" + leverLine : "Greenlight profile — execute with discipline.";
 }
 
 function compute(){
@@ -411,7 +415,7 @@ function compute(){
 
   document.getElementById('ret').textContent=s(ret);
   document.getElementById('stab').textContent=s(stab);
-  document.getElementById('press').textContent=s(press);
+  document.getElementById('press').textContent=s(press);             // kept white
 
   badge(document.getElementById('retPill'),Math.sign(ret),'Positive','Neutral','Negative');
   badge(document.getElementById('stabPill'),Math.sign(stab),'Stable','Uncertain','Fragile');
@@ -419,7 +423,6 @@ function compute(){
   const pressPill = document.getElementById('pressPill');
   pressPill.textContent = press > 0 ? 'Pressured' : (press < 0 ? 'Calm' : 'Balanced');
   pressPill.className = 'pill ' + (press > 0 ? 'red' : (press < 0 ? 'green' : 'amber'));
-  document.getElementById('press').style.color = press > 0 ? 'var(--red)' : (press < 0 ? 'var(--green)' : 'var(--amber)');
 
   const pS=sign3(press), sS=sign3(stab), rS=sign3(ret);
   const name=oneWord[[pS,sS,rS].join('|')]||'Unclassified';
@@ -436,7 +439,7 @@ function compute(){
   });
 }
 
-/* ---------- CSV / PDF / Stats / Log (unchanged) ---------- */
+/* ---------- CSV / PDF / Stats / Log ---------- */
 function fmtLocal(ts){
   const d = new Date(ts);
   const z = n=>String(n).padStart(2,'0');
@@ -446,6 +449,7 @@ const $ = (sel) => document.querySelector(sel);
 const SLIDER_IDS = ["impact","cost","risk","urgency","confidence"];
 const fmt0 = (n) => Number(n).toFixed(0);
 function readCurrent(){ const out={}; SLIDER_IDS.forEach(id=>out[id]=Number($('#'+id).value||0)); return out; }
+function energyLabel(e){ if (e>=71) return "Overdrive energy"; if (e>=41) return "High energy"; if (e>=16) return "Moderate energy"; return "Low energy"; }
 function computeMetrics(v){
   const ret=v.impact - v.cost;
   const pressure=v.urgency - v.confidence;
@@ -457,7 +461,7 @@ function computeMetrics(v){
 }
 function loadLog(){ try{ return JSON.parse(localStorage.getItem('dnav_log_v1')||'[]'); }catch{ return []; } }
 function saveLog(arr){ localStorage.setItem('dnav_log_v1', JSON.stringify(arr)); }
-function escapeHtml(s=''){ return s.replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;','\'':'&#39;'}[m])); }
+function escapeHtml(s=''){ return s.replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m])); }
 
 function toCsv(rows){
   const header=['timestamp_local','timestamp_iso','name','category','impact','cost','risk','urgency','confidence','return','pressure','stability','merit','energy','dnav'];
@@ -731,7 +735,8 @@ function checkFormValid(){
   $('#enterBtn').disabled = !(nameOk && catOk);
 }
 function enterDecision(){
-  const btn=$('#enterBtn'); if(btn.disabled) return; btn.disabled = true;
+  const btn=$('#enterBtn'); if(btn.disabled) return;
+  btn.disabled = true;
   const name=$('#decisionName').value.trim();
   const category=$('#decisionCategory').value.trim();
   if(!name || !category){ btn.disabled=false; return; }
@@ -759,6 +764,10 @@ SLIDER_IDS.forEach(id=>{
   el.addEventListener('input', compute);
   el.addEventListener('change', compute);
 });
+// enable + click handlers for entry form
+document.getElementById('decisionName').addEventListener('input', checkFormValid);
+document.getElementById('decisionCategory').addEventListener('input', checkFormValid);
+document.getElementById('enterBtn').addEventListener('click', enterDecision);
 
 // boot
 document.getElementById('allocTitle').textContent = 'Drive (U×C) by category';
