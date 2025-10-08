@@ -97,7 +97,6 @@ tbody tr:nth-child(even){background:rgba(255,255,255,.02)}
 .footer-links{max-width:1200px;margin:20px auto 10px;text-align:left}
 .footer-links a{font-size:18px;color:#cfe1ff;text-decoration:underline;text-underline-offset:4px;margin-right:22px;margin-left:0}
 
-
 /* pulse */
 @keyframes pulse-kpi{0%{box-shadow:0 0 0 0 rgba(105,169,255,.35)}100%{box-shadow:0 0 0 14px rgba(105,169,255,0)}}
 .kpi.pulse{animation:pulse-kpi .6s ease}
@@ -183,7 +182,7 @@ tbody tr:nth-child(even){background:rgba(255,255,255,.02)}
   </div>
 </div>
 
-<!-- ENTRY -->
+<!-- ENTRY + IMPORT -->
 <div class="wrap" style="grid-template-columns:1fr 1fr;">
   <div class="card grid">
     <h2 style="margin:0;">Quick Entry</h2>
@@ -472,7 +471,7 @@ function parseCSV(text){
       if(c==='"' ){ inQ=true; i++; continue; }
       if(c===','){ cur.push(val); val=''; i++; continue; }
       if(c==='\n'){ cur.push(val); rows.push(cur); cur=[]; val=''; i++; continue; }
-      if(c==='\r'){ // handle CRLF
+      if(c==='\r'){
         if(text[i+1]==='\n'){ i+=2; cur.push(val); rows.push(cur); cur=[]; val=''; continue; }
         cur.push(val); rows.push(cur); cur=[]; val=''; i++; continue;
       }
@@ -480,7 +479,6 @@ function parseCSV(text){
     }
   }
   cur.push(val); rows.push(cur);
-  // trim trailing empty lines
   while(rows.length && rows[rows.length-1].every(x=>x==='')) rows.pop();
   return rows;
 }
@@ -492,7 +490,6 @@ const headerAliases = {
   risk:['risk','r'],
   urgency:['urgency','u'],
   confidence:['confidence','conf'],
-  // optional
   timestamp:['timestamp','when','date','time','timestamp_iso','timestamp_local','ts'],
   prompt:['prompt','question']
 };
@@ -561,6 +558,18 @@ function investorTemplate(){
   downloadCSV('dnav_template_investor.csv', csv);
 }
 
+/* Optional: de-dupe on import */
+function dedupeRows(rows){
+  const seen = new Set(), out = [];
+  for(const r of rows){
+    const key = [String(r.name||''), String(r.category||''), String(r.ts||'')].join('|');
+    if(seen.has(key)) continue;
+    seen.add(key);
+    out.push(r);
+  }
+  return out;
+}
+
 /* Import pipeline */
 function importCSV(text){
   const rows=parseCSV(text);
@@ -583,7 +592,6 @@ function importCSV(text){
     throw new Error('Missing a "name" or "prompt" column.');
   if(idx.category===-1)
     throw new Error('Missing a "category" column.');
-  // scores can be blank; users can fill later
 
   const imported=[];
   for(const row of data){
@@ -591,7 +599,7 @@ function importCSV(text){
     const promptRaw = idx.prompt>-1 ? row[idx.prompt] : '';
     const name = String((nameRaw||'').trim() || (promptRaw||'').trim());
     const category = String((row[idx.category]||'').trim());
-    if(!name && !category) continue; // skip empty lines
+    if(!name && !category) continue;
     if(!category) throw new Error('Some rows are missing Category.');
 
     const vals = {
@@ -602,21 +610,16 @@ function importCSV(text){
       confidence: toNumberOrNull(idx.confidence>-1 ? row[idx.confidence] : null) ?? 0
     };
 
-    // if scores are all zero (blank template), we still import for backlog
     const m = computeMetrics(vals);
 
-    // timestamp (optional)
     let ts = Date.now();
     if(idx.timestamp>-1){
-      const tRaw = row[idx.timestamp];
-      const tms = Date.parse(tRaw);
+      const tms = Date.parse(row[idx.timestamp]);
       if(Number.isFinite(tms)) ts = tms;
     }
 
     imported.push({
-      ts,
-      name,
-      category,
+      ts,name,category,
       ...vals,
       return:m.ret, pressure:m.pressure, stability:m.stability, merit:m.merit, energy:m.energy, dnav:m.dnav
     });
@@ -625,9 +628,8 @@ function importCSV(text){
   if(!imported.length) throw new Error('No usable rows were found.');
 
   const current = loadLog();
-  // newest first: put imported at the top, preserving their ts order (descending)
   imported.sort((a,b)=>b.ts-a.ts);
-  const merged = [...imported, ...current];
+  const merged = dedupeRows([...imported, ...current]);
   saveLog(merged);
   return {count: imported.length};
 }
@@ -676,7 +678,6 @@ function openPdfReport(){
   const prBal   = rows.filter(r=>r.pressure===0).length;
   const prCalm  = rows.filter(r=>r.pressure<0).length;
 
-  // Category breakdown
   const totals = new Map(); let energyAll = 0;
   rows.forEach(r=>{
     const cat=(r.category||'').trim()||'Uncategorized';
@@ -779,20 +780,6 @@ function openPdfReport(){
           <span>Stable: ${pct(stabSt,total)}%</span>
           <span>Uncertain: ${pct(stabUn,total)}%</span>
           <span>Fragile: ${pct(stabFr,total)}%</span>
-        </div>
-      </div>
-
-      <div class="card">
-        <h2>Pressure distribution</h2>
-        <div class="stack">
-          <span class="seg r" style="width:${pct(prPress,total)}%"></span>
-          <span class="seg a" style="width:${pct(prBal,total)}%"></span>
-          <span class="seg g" style="width:${pct(prCalm,total)}%"></span>
-        </div>
-        <div class="legend">
-          <span>Pressured: ${pct(prPress,total)}%</span>
-          <span>Balanced: ${pct(prBal,total)}%</span>
-          <span>Calm: ${pct(prCalm,total)}%</span>
         </div>
       </div>
 
@@ -1005,29 +992,46 @@ function enterDecision(){
 }
 
 /* ---- Upload UI wiring ---- */
-const csvInput = document.getElementById('csvInput');
+const csvInput  = document.getElementById('csvInput');
 const uploadBtn = document.getElementById('uploadBtn');
 const uploadMsg = document.getElementById('uploadMsg');
 
-csvInput.addEventListener('change', ()=>{
-  uploadBtn.disabled = !csvInput.files || !csvInput.files.length;
-  uploadMsg.textContent = csvInput.files && csvInput.files.length ? `Selected: ${csvInput.files[0].name}` : '';
-});
-uploadBtn.addEventListener('click', async ()=>{
-  if(!csvInput.files || !csvInput.files.length) return;
-  const file = csvInput.files[0];
-  try{
-    const text = await file.text();
-    const res = importCSV(text);
-    uploadMsg.textContent = `Imported ${res.count} rows.`;
-    uploadMsg.style.color = '#9fe7b6';
-    renderLog();
-    csvInput.value = '';
-    uploadBtn.disabled = true;
-  }catch(err){
-    uploadMsg.textContent = `Import failed: ${err.message||err}`;
-    uploadMsg.style.color = '#ffb3b3';
+function setUploadMsg(text, ok=false){
+  uploadMsg.textContent = text;
+  uploadMsg.style.color = ok ? '#9fe7b6' : '#ffb3b3';
+  if (ok){
+    uploadMsg.style.transition = 'opacity .25s';
+    uploadMsg.style.opacity = '1';
+    setTimeout(()=>{ uploadMsg.style.opacity = '.85'; }, 400);
   }
+}
+
+async function runImportFromFile(file){
+  const text = await file.text();
+  const res = importCSV(text);
+  setUploadMsg(`Imported ${res.count} row${res.count!==1?'s':''}.`, true);
+  renderLog();
+  csvInput.value = '';
+  uploadBtn.disabled = true;
+}
+
+csvInput.addEventListener('change', async ()=>{
+  const hasFile = csvInput.files && csvInput.files.length;
+  uploadBtn.disabled = !hasFile;
+  uploadMsg.textContent = hasFile ? `Selected: ${csvInput.files[0].name}` : '';
+  if (hasFile){
+    try { await runImportFromFile(csvInput.files[0]); }
+    catch(err){ setUploadMsg(`Import failed: ${err.message||err}`); }
+  }
+});
+
+uploadBtn.addEventListener('click', async ()=>{
+  if(!csvInput.files || !csvInput.files.length){
+    setUploadMsg('Please choose a CSV first.');
+    return;
+  }
+  try { await runImportFromFile(csvInput.files[0]); }
+  catch(err){ setUploadMsg(`Import failed: ${err.message||err}`); }
 });
 
 /* ---- Template buttons ---- */
