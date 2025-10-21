@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>The Decision NAVigator — D-NAV Mini (v3.30)</title>
+<title>The Decision NAVigator — D-NAV Mini (v3.31)</title>
 <style>
 :root{--bg:#0b0f14;--card:#121821;--muted:#8fa1b7;--text:#e9eef5;--green:#3ecf8e;--red:#ff6b6b;--amber:#f3b431;--blue:#69a9ff;--ink:#cfe1ff}
 *{box-sizing:border-box;font-family:Inter,ui-sans-serif,system-ui,-apple-system,Segoe UI,Roboto,Arial}
@@ -109,6 +109,14 @@ tbody tr:nth-child(even){background:rgba(255,255,255,.02)}
 .sheet header h2{margin:0;font-size:18px}
 .sheet .body{padding:14px 16px;overflow:auto}
 .dual{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+
+/* Blue/Green accents */
+.col-base{background:rgba(105,169,255,.06);border:1px solid rgba(105,169,255,.25);border-radius:12px}
+.col-scenario{background:rgba(62,207,142,.06);border:1px solid rgba(62,207,142,.25);border-radius:12px}
+.chip{display:inline-block;padding:3px 8px;border-radius:999px;font-size:10.5px;font-weight:900;letter-spacing:.3px;vertical-align:middle}
+.chip.blue{background:rgba(105,169,255,.18);color:#beddff;border:1px solid rgba(105,169,255,.5)}
+.chip.green{background:rgba(62,207,142,.18);color:#c8ffe6;border:1px solid rgba(62,207,142,.45)}
+
 .win{font-weight:800;padding:6px 10px;border-radius:10px;font-size:12px}
 .win.a{background:rgba(62,207,142,.18);color:var(--green);border:1px solid rgba(62,207,142,.4)}
 .win.b{background:rgba(255,107,107,.18);color:var(--red);border:1px solid rgba(255,107,107,.4)}
@@ -127,10 +135,16 @@ tbody tr:nth-child(even){background:rgba(255,255,255,.02)}
 .fab::after{content:'Compare';}
 .fab.pulse{animation:pulse-kpi 1.2s ease infinite}
 
-/* “Compare” under the score */
+/* Inline Compare button (under score) */
 .compare-inline{margin-top:8px}
 .compare-inline .btn{background:#0f62fe}
-.compare-inline .btn::after{content:'Compare (Scenario A)';}
+.compare-inline .btn::after{content:'Open Compare';}
+
+/* “More…” recent picker panel */
+.more-panel{display:none;position:absolute;right:16px;top:58px;width:min(680px,92vw);max-height:55vh;overflow:auto;background:#0f141b;border:1px solid #2a3443;border-radius:12px;padding:10px;z-index:10000;box-shadow:0 12px 34px rgba(0,0,0,.6)}
+.more-row{padding:8px 6px;border-bottom:1px solid rgba(255,255,255,.06);cursor:pointer}
+.more-row:hover{background:rgba(105,169,255,.08)}
+.more-close{float:right;background:#222;border:1px solid #444;color:#fff;border-radius:10px;padding:6px 8px;cursor:pointer;margin-bottom:6px}
 
 /* Mobile */
 @media (max-width:900px){
@@ -147,6 +161,7 @@ tbody tr:nth-child(even){background:rgba(255,255,255,.02)}
   .alloc .meta{text-align:left}
   .dual{grid-template-columns:1fr}
   .fab{right:12px;bottom:12px}
+  .more-panel{left:16px;right:16px;width:auto}
 }
 </style>
 </head>
@@ -161,7 +176,7 @@ tbody tr:nth-child(even){background:rgba(255,255,255,.02)}
 <div class="wrap">
   <div class="card">
     <h1>D-NAV Variables</h1>
-    <div class="muted">Input D-NAV variables.</div>
+    <div class="muted">Rate each variable <i>in the moment</i>. These scores are relative to your current context.</div>
 
     <div class="row">
       <label><span class="label-main">Impact</span><span class="hint">Expected benefit / upside.</span></label>
@@ -225,7 +240,6 @@ tbody tr:nth-child(even){background:rgba(255,255,255,.02)}
     <div class="muted">Fill name & category, set sliders → click <b>Enter decision</b>. Stored on this device.</div>
   </div>
 
-  <!-- IMPORT (simplified) -->
   <div class="card grid">
     <h2 style="margin:0;">Import</h2>
     <input id="csvInput" type="file" accept=".csv,text/csv" class="input" />
@@ -352,27 +366,38 @@ tbody tr:nth-child(even){background:rgba(255,255,255,.02)}
 <div id="compareModal" class="modal" aria-hidden="true">
   <div class="sheet">
     <header>
-      <h2>Compare — Base vs <b>Scenario A</b></h2>
-      <div class="actions">
+      <div>
+        <h2 style="display:flex;align-items:center;gap:8px;">
+          <span class="chip blue">BASE</span> vs <span class="chip green">SCENARIO&nbsp;A</span>
+        </h2>
+        <div class="muted" style="margin-top:4px;">Base = current sliders • Scenario A = hypothetical copy (tweaks here won’t change Base).</div>
+      </div>
+      <div class="actions" style="position:relative;">
         <select id="recentSelect" class="input" style="padding:8px 10px;">
           <option value="">Load from recent…</option>
         </select>
+        <button id="moreRecentBtn" class="closeX" title="Browse all">More…</button>
+        <div id="morePanel" class="more-panel" role="dialog" aria-modal="true" aria-label="All recent decisions">
+          <button id="moreClose" class="more-close">Close</button>
+          <div id="moreList"></div>
+        </div>
         <button id="copyBaseBtn" class="cta">Copy Base → A</button>
         <button id="resetABtn" class="closeX">Reset A</button>
         <button id="closeCompareBtn" class="closeX">Close</button>
       </div>
     </header>
+
     <div class="body">
       <div class="helper">
-        <b>How to use:</b> 1) Set <i>Scenario A</i> with the sliders. 2) Read the deltas and the winner strip. 
+        <b>How to use:</b> 1) Adjust <i>Scenario A</i>. 2) Read the deltas and the winner strip.
         3) Pick an <b>Objective</b> and I’ll suggest the smallest single nudge to hit it.
-        <div style="margin-top:6px;color:#a7b4c7">You’re aiming for high <b>Return</b>, low <b>Pressure</b>, stable footing (≥ target), and a strong overall <b>D-NAV</b>.</div>
+        <div style="margin-top:6px;color:#a7b4c7">Aim for positive <b>Return</b>, stable footing (Stability ≥ target), lower <b>Pressure</b>, and a strong <b>D-NAV</b>.</div>
       </div>
 
       <div class="dual" style="margin-top:12px;">
-        <!-- LEFT: Base summary (digestible, no sliders) -->
-        <div class="card">
-          <h1 style="margin-bottom:2px;">Base (Current)</h1>
+        <!-- LEFT: Base summary -->
+        <div class="card col-base">
+          <h1 style="margin-bottom:2px;">Base <span class="chip blue">CURRENT</span></h1>
           <div class="muted" id="B_meta">—</div>
           <div class="kpis" style="margin-top:10px;">
             <div class="kpi"><h4>Return</h4><div class="big" id="B_ret">0</div></div>
@@ -380,12 +405,13 @@ tbody tr:nth-child(even){background:rgba(255,255,255,.02)}
             <div class="kpi"><h4>Pressure</h4><div class="big" id="B_press">0</div></div>
           </div>
           <div class="kpi" style="margin-top:8px;"><h4>D-NAV</h4><div class="big" id="B_dnav">0</div></div>
+          <div class="muted" id="B_tldr" style="margin-top:10px;">—</div>
         </div>
 
         <!-- RIGHT: Scenario A interactive -->
-        <div class="card">
-          <h1 style="margin-bottom:2px;">Scenario A</h1>
-          <div class="muted">Tweak to explore outcomes. Uses the same formula.</div>
+        <div class="card col-scenario">
+          <h1 style="margin-bottom:2px;">Scenario A <span class="chip green">HYPOTHETICAL</span></h1>
+          <div class="muted">Tweak to explore outcomes. Base remains unchanged.</div>
 
           <div class="row"><label><span class="label-main">Impact</span><span class="hint">↑ Payoff potential</span></label><input id="A_impact" type="range" min="1" max="10" value="1"/><output id="A_o_impact">1</output></div>
           <div class="row"><label><span class="label-main">Cost</span><span class="hint">↓ Improves unit economics</span></label><input id="A_cost" type="range" min="1" max="10" value="1"/><output id="A_o_cost">1</output></div>
@@ -399,6 +425,7 @@ tbody tr:nth-child(even){background:rgba(255,255,255,.02)}
             <div class="kpi"><h4>Pressure</h4><div class="big" id="A_press">0</div></div>
           </div>
           <div class="kpi" style="margin-top:8px;"><h4>D-NAV</h4><div class="big" id="A_dnav">0</div></div>
+          <div class="muted" id="A_tldr" style="margin-top:10px;">—</div>
         </div>
       </div>
 
@@ -432,7 +459,7 @@ tbody tr:nth-child(even){background:rgba(255,255,255,.02)}
           </div>
           <button id="suggestBtn" class="cta">Suggest smallest nudge</button>
         </div>
-        <div class="knob" id="knobLine">Pick an objective to get a suggested nudge (e.g., “+8% Confidence”).</div>
+        <div class="knob" id="knobLine">Pick an objective to get a suggested nudge (e.g., “↑8% Confidence”).</div>
       </div>
     </div>
   </div>
@@ -565,6 +592,11 @@ function compute(){
   document.getElementById('coach').textContent = coachHint({
     ret, stab, press, urg: urgency, conf: confidence, impact, cost, risk
   });
+
+  // If compare sheet is open, keep Base live
+  if(document.getElementById('compareModal').getAttribute('aria-hidden')==='false'){
+    updateBaseInModal();
+  }
 }
 
 /* ---------- CSV / PDF / Stats / Log ---------- */
@@ -593,7 +625,7 @@ function loadLog(){ try{ return JSON.parse(localStorage.getItem('dnav_log_v1')||
 function saveLog(arr){ localStorage.setItem('dnav_log_v1', JSON.stringify(arr)); }
 function escapeHtml(s=''){ return s.replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m])); }
 
-/* CSV parsing helpers (unchanged) */
+/* CSV parsing helpers */
 function parseCSV(text){
   const rows=[]; let i=0, cur=[], val='', inQ=false;
   while(i<text.length){
@@ -1126,6 +1158,10 @@ const closeCompareBtn = document.getElementById('closeCompareBtn');
 const copyBaseBtn = document.getElementById('copyBaseBtn');
 const resetABtn = document.getElementById('resetABtn');
 const recentSelect = document.getElementById('recentSelect');
+const moreBtn = document.getElementById('moreRecentBtn');
+const morePanel = document.getElementById('morePanel');
+const moreClose = document.getElementById('moreClose');
+const moreList = document.getElementById('moreList');
 
 function populateRecent(){
   const rows = loadLog().slice(0,5);
@@ -1141,20 +1177,31 @@ function populateRecent(){
   recentSelect.value = prev && recentSelect.querySelector(`option[value="${prev}"]`) ? prev : '';
 }
 
+function populateMorePanel(){
+  const rows = loadLog();
+  if(!rows.length){ moreList.innerHTML = '<div class="muted">No saved decisions yet.</div>'; return; }
+  moreList.innerHTML = rows.map((r,idx)=>`
+    <div class="more-row" data-idx="${idx}">
+      <div><b>${escapeHtml(r.name||'—')}</b> <span class="muted">(${escapeHtml(r.category||'—')})</span></div>
+      <div class="muted" style="font-size:12px">${new Date(r.ts).toLocaleString()} • I:${r.impact} C:${r.cost} R:${r.risk} U:${r.urgency} Conf:${r.confidence}</div>
+    </div>
+  `).join('');
+  moreList.querySelectorAll('.more-row').forEach(row=>{
+    row.addEventListener('click', ()=>{
+      const r = loadLog()[Number(row.getAttribute('data-idx'))];
+      if(!r) return;
+      setScenarioA({impact:r.impact,cost:r.cost,risk:r.risk,urgency:r.urgency,confidence:r.confidence});
+      computeScenario();
+      morePanel.style.display='none';
+    });
+  });
+}
+
 function openCompare(){
   populateRecent();
-  const base = readCurrent();
-  const Mb = computeMetrics(base);
-  // Base meta line
-  document.getElementById('B_meta').textContent = `I:${base.impact}  C:${base.cost}  R:${base.risk}  U:${base.urgency}  Conf:${base.confidence}`;
-  // Base metrics
-  $('#B_ret').textContent = (Mb.ret>=0?'+':'')+Mb.ret;
-  $('#B_stab').textContent = (Mb.stability>=0?'+':'')+Mb.stability;
-  $('#B_press').textContent = (Mb.pressure>=0?'+':'')+Mb.pressure;
-  $('#B_dnav').textContent = Mb.dnav;
-
+  updateBaseInModal();
   // Initialize Scenario A = Base
-  setScenarioA(base);
+  setScenarioA(readCurrent());
   computeScenario();
   compareModal.style.display = 'flex';
   compareModal.setAttribute('aria-hidden','false');
@@ -1167,6 +1214,28 @@ openCompareFab.addEventListener('click', openCompare);
 openCompareBtnA.addEventListener('click', openCompare);
 closeCompareBtn.addEventListener('click', closeCompare);
 compareModal.addEventListener('click', (e)=>{ if(e.target===compareModal) closeCompare(); });
+
+moreBtn.addEventListener('click', ()=>{
+  populateMorePanel();
+  morePanel.style.display = (morePanel.style.display==='block' ? 'none' : 'block');
+});
+moreClose.addEventListener('click', ()=>{ morePanel.style.display='none'; });
+
+function updateBaseInModal(){
+  const base = readCurrent();
+  const Mb = computeMetrics(base);
+  document.getElementById('B_meta').textContent = `I:${base.impact}  C:${base.cost}  R:${base.risk}  U:${base.urgency}  Conf:${base.confidence}`;
+  $('#B_ret').textContent = (Mb.ret>=0?'+':'')+Mb.ret;
+  $('#B_stab').textContent = (Mb.stability>=0?'+':'')+Mb.stability;
+  $('#B_press').textContent = (Mb.pressure>=0?'+':'')+Mb.pressure;
+  $('#B_dnav').textContent = Mb.dnav;
+  // Base TL;DR
+  const baseCoach = coachHint({
+    ret:Mb.ret, stab:Mb.stability, press:Mb.pressure,
+    urg: base.urgency, conf: base.confidence, impact: base.impact, cost: base.cost, risk: base.risk
+  });
+  document.getElementById('B_tldr').textContent = `Base: ${baseCoach}`;
+}
 
 function getA(){ return {
   impact:Number($('#A_impact').value),
@@ -1234,6 +1303,13 @@ function computeScenario(){
   $('#A_press').textContent = (Ma.pressure>=0?'+':'')+Ma.pressure;
   $('#A_dnav').textContent = Ma.dnav;
 
+  // A TL;DR
+  const aCoach = coachHint({
+    ret:Ma.ret, stab:Ma.stability, press:Ma.pressure,
+    urg: A.urgency, conf: A.confidence, impact: A.impact, cost: A.cost, risk: A.risk
+  });
+  document.getElementById('A_tldr').textContent = `Scenario A: ${aCoach}`;
+
   // deltas
   const d = {
     ret: Ma.ret - Bm.ret,
@@ -1249,13 +1325,20 @@ function computeScenario(){
   // winner strip & summary
   const tag = document.getElementById('winnerTag');
   const line = document.getElementById('winnerLine');
-  if (Ma.dnav > Bm.dnav){ tag.textContent='Scenario A leads'; tag.className='win a'; line.textContent = `A is ahead by ${d.dnav>0?'+':''}${d.dnav} D-NAV with ΔReturn ${d.ret>=0?'+':''}${d.ret}, ΔStability ${d.stab>=0?'+':''}${d.stab}, ΔPressure ${d.press>=0?'+':''}${d.press}.`; }
-  else if (Ma.dnav < Bm.dnav){ tag.textContent='Base leads'; tag.className='win b'; line.textContent = `Base is ahead by ${(-d.dnav)} D-NAV. Increase A’s Confidence, reduce Risk/Cost, or adjust Urgency to close the gap.`; }
-  else { tag.textContent='Tie'; tag.className='win'; line.textContent='Both options are equivalent on D-NAV. Consider stability and pressure to break the tie.'; }
+  if (Ma.dnav > Bm.dnav){
+    tag.textContent='Scenario A leads'; tag.className='win a';
+    line.textContent = `A is ahead by ${d.dnav>0?'+':''}${d.dnav} D-NAV (ΔReturn ${d.ret>=0?'+':''}${d.ret}, ΔStability ${d.stab>=0?'+':''}${d.stab}, ΔPressure ${d.press>=0?'+':''}${d.press}).`;
+  } else if (Ma.dnav < Bm.dnav){
+    tag.textContent='Base leads'; tag.className='win b';
+    line.textContent = `Base ahead by ${(-d.dnav)} D-NAV. Raise A’s Confidence, reduce Risk/Cost, or tune Urgency to close the gap.`;
+  } else {
+    tag.textContent='Tie'; tag.className='win';
+    line.textContent='Both options equivalent on D-NAV. Use Stability and Pressure to break the tie.';
+  }
 
   // default knob guidance (when objective not clicked)
   const knobLine = document.getElementById('knobLine');
-  knobLine.textContent = 'Pick an objective to get a suggested nudge (e.g., “+8% Confidence”).';
+  knobLine.textContent = 'Pick an objective to get a suggested nudge (e.g., “↑8% Confidence”).';
 }
 
 /* Suggest smallest nudge for chosen objective (single-variable search up to ±50%) */
@@ -1305,7 +1388,7 @@ suggestBtn.addEventListener('click', ()=>{
   if(best){
     const pretty = (k)=>({impact:'Impact',cost:'Cost',risk:'Risk',urgency:'Urgency',confidence:'Confidence'}[k]||k);
     const arrow = best.key==='cost' || best.key==='risk' ? '↓' : '↑';
-    knobLine.textContent = `Smallest nudge for objective: ${arrow}${best.pct}% ${pretty(best.key)} → D-NAV ${best.Mt.dnav} • Return ${best.Mt.ret>=0?'+':''}${best.Mt.ret} • Stability ${best.Mt.stability>=0?'+':''}${best.Mt.stability} • Pressure ${best.Mt.pressure>=0?'+':''}${best.Mt.pressure}.`;
+    knobLine.textContent = `Smallest nudge: ${arrow}${best.pct}% ${pretty(best.key)} → D-NAV ${best.Mt.dnav} • Return ${best.Mt.ret>=0?'+':''}${best.Mt.ret} • Stability ${best.Mt.stability>=0?'+':''}${best.Mt.stability} • Pressure ${best.Mt.pressure>=0?'+':''}${best.Mt.pressure}.`;
   }else{
     knobLine.textContent = 'No single-variable nudge up to ±50% meets that objective — try a different lever or combine two.';
   }
@@ -1332,6 +1415,11 @@ document.getElementById('clearLogBtn').addEventListener('click', ()=>{
 document.getElementById('allocTitle').textContent = 'Drive (U×C) by category';
 compute();
 renderLog();
+
+/* Accessibility: close More panel on outside click */
+document.addEventListener('click',(e)=>{
+  if(!morePanel.contains(e.target) && e.target!==moreBtn){ morePanel.style.display='none'; }
+});
 </script>
 </body>
 </html>
