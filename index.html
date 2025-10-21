@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>The Decision NAVigator — D-NAV Mini (v3.21)</title>
+<title>The Decision NAVigator — D-NAV Mini (v3.22)</title>
 <style>
 :root{--bg:#0b0f14;--card:#121821;--muted:#8fa1b7;--text:#e9eef5;--green:#3ecf8e;--red:#ff6b6b;--amber:#f3b431;--blue:#69a9ff}
 *{box-sizing:border-box;font-family:Inter,ui-sans-serif,system-ui,-apple-system,Segoe UI,Roboto,Arial}
@@ -102,6 +102,25 @@ tbody tr:nth-child(even){background:rgba(255,255,255,.02)}
 @keyframes pulse-kpi{0%{box-shadow:0 0 0 0 rgba(105,169,255,.35)}100%{box-shadow:0 0 0 14px rgba(105,169,255,0)}}
 .kpi.pulse{animation:pulse-kpi .6s ease}
 
+/* Compare modal */
+.modal{position:fixed;inset:0;display:none;background:rgba(0,0,0,.6);z-index:9999;align-items:stretch;justify-content:flex-end}
+.sheet{width:min(1100px,95vw);height:100%;background:var(--card);box-shadow:0 0 0 1px rgba(255,255,255,.08),0 20px 60px rgba(0,0,0,.6);display:flex;flex-direction:column}
+.sheet header{display:flex;align-items:center;justify-content:space-between;padding:14px 16px;border-bottom:1px solid rgba(255,255,255,.08)}
+.sheet header h2{margin:0;font-size:18px}
+.sheet .body{padding:14px 16px;overflow:auto}
+.dual{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+.win{font-weight:800;padding:4px 8px;border-radius:999px;font-size:11px}
+.win.a{background:rgba(62,207,142,.18);color:var(--green);border:1px solid rgba(62,207,142,.4)}
+.win.b{background:rgba(255,107,107,.18);color:var(--red);border:1px solid rgba(255,107,107,.4)}
+.delta{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-top:10px}
+.delta .tile{background:rgba(255,255,255,.04);border-radius:10px;padding:10px}
+.delta .tile h4{margin:0 0 4px;font-size:11px;color:#9fb1c7;letter-spacing:.3px;text-transform:uppercase}
+.delta .big{font-weight:900;font-size:20px}
+.knob{margin-top:10px;font-size:13px;color:#cfe1ff}
+.actions{display:flex;gap:8px;align-items:center}
+.closeX{background:#222;border:1px solid #444;color:#fff;border-radius:10px;padding:8px 10px;cursor:pointer}
+.cta{background:#0f62fe;border:0;color:#fff;border-radius:10px;padding:8px 12px;font-weight:800;cursor:pointer}
+
 /* Mobile */
 @media (max-width:900px){
   body{padding:14px}
@@ -115,6 +134,7 @@ tbody tr:nth-child(even){background:rgba(255,255,255,.02)}
   .kpis{grid-template-columns:1fr 1fr}
   .alloc .row{grid-template-columns:1fr}
   .alloc .meta{text-align:left}
+  .dual{grid-template-columns:1fr}
 }
 </style>
 </head>
@@ -162,6 +182,11 @@ tbody tr:nth-child(even){background:rgba(255,255,255,.02)}
     </div>
 
     <div class="muted">Formula: <span class="mono">(Impact − Cost − Risk) + (Urgency × Confidence)</span></div>
+
+    <!-- Compare trigger -->
+    <div style="margin-top:10px;display:flex;gap:8px;flex-wrap:wrap;">
+      <button id="openCompareBtn" class="btn">Compare: Scenario A</button>
+    </div>
   </div>
 
   <div class="card stats">
@@ -228,7 +253,7 @@ tbody tr:nth-child(even){background:rgba(255,255,255,.02)}
       </div>
     </div>
 
-    <!-- Distributions (mirrors PDF structure) -->
+    <!-- Distributions -->
     <div class="dist-card" id="dist_return">
       <h3>Return distribution</h3>
       <div class="stack">
@@ -310,6 +335,88 @@ tbody tr:nth-child(even){background:rgba(255,255,255,.02)}
 
 <div style="display:flex;flex:1;justify-content:center;align-items:center;margin-top:4px;">
   <img src="./logo.PNG" style="background-color:#c9d4e6;width:100px;height:100px;border-radius:8px;" alt="D-NAV logo"/>
+</div>
+
+<!-- Compare Modal -->
+<div id="compareModal" class="modal" aria-hidden="true">
+  <div class="sheet">
+    <header>
+      <h2>Compare — Base vs <b>Scenario A</b></h2>
+      <div class="actions">
+        <button id="copyBaseBtn" class="cta">Copy Base → A</button>
+        <button id="loadLastBtn" class="cta">Load Last Logged → A</button>
+        <button id="closeCompareBtn" class="closeX">Close</button>
+      </div>
+    </header>
+    <div class="body">
+      <div class="dual">
+        <!-- LEFT: Base snapshot -->
+        <div class="card">
+          <h1 style="margin-bottom:2px;">Base (Current)</h1>
+          <div class="muted">Read-only snapshot of your current sliders.</div>
+
+          <div class="row"><label><span class="label-main">Impact</span></label><input disabled id="B_impact" type="range" min="1" max="10"/><output id="B_o_impact">0</output></div>
+          <div class="row"><label><span class="label-main">Cost</span></label><input disabled id="B_cost" type="range" min="1" max="10"/><output id="B_o_cost">0</output></div>
+          <div class="row"><label><span class="label-main">Risk</span></label><input disabled id="B_risk" type="range" min="1" max="10"/><output id="B_o_risk">0</output></div>
+          <div class="row"><label><span class="label-main">Urgency</span></label><input disabled id="B_urgency" type="range" min="1" max="10"/><output id="B_o_urgency">0</output></div>
+          <div class="row"><label><span class="label-main">Confidence</span></label><input disabled id="B_confidence" type="range" min="1" max="10"/><output id="B_o_confidence">0</output></div>
+
+          <div class="kpis" style="margin-top:8px;">
+            <div class="kpi"><h4>Return</h4><div class="big" id="B_ret">0</div></div>
+            <div class="kpi"><h4>Stability</h4><div class="big" id="B_stab">0</div></div>
+            <div class="kpi"><h4>Pressure</h4><div class="big" id="B_press">0</div></div>
+          </div>
+          <div class="kpi" style="margin-top:8px;"><h4>D-NAV</h4><div class="big" id="B_dnav">0</div></div>
+        </div>
+
+        <!-- RIGHT: Scenario A interactive -->
+        <div class="card">
+          <h1 style="margin-bottom:2px;">Scenario A</h1>
+          <div class="muted">Tweak to explore outcomes. Uses the same formula.</div>
+
+          <div class="row">
+            <label><span class="label-main">Impact</span><span class="hint">↑ Payoff potential</span></label>
+            <input id="A_impact" type="range" min="1" max="10" value="1"/><output id="A_o_impact">1</output>
+          </div>
+          <div class="row">
+            <label><span class="label-main">Cost</span><span class="hint">↓ Improves unit economics</span></label>
+            <input id="A_cost" type="range" min="1" max="10" value="1"/><output id="A_o_cost">1</output>
+          </div>
+          <div class="row">
+            <label><span class="label-main">Risk</span><span class="hint">↓ Reduces downside variance</span></label>
+            <input id="A_risk" type="range" min="1" max="10" value="1"/><output id="A_o_risk">1</output>
+          </div>
+          <div class="row">
+            <label><span class="label-main">Urgency</span><span class="hint">↑ Accelerates action</span></label>
+            <input id="A_urgency" type="range" min="1" max="10" value="1"/><output id="A_o_urgency">1</output>
+          </div>
+          <div class="row">
+            <label><span class="label-main">Confidence</span><span class="hint">↑ Evidence & readiness</span></label>
+            <input id="A_confidence" type="range" min="1" max="10" value="1"/><output id="A_o_confidence">1</output>
+          </div>
+
+          <div class="kpis" style="margin-top:8px;">
+            <div class="kpi"><h4>Return</h4><div class="big" id="A_ret">0</div></div>
+            <div class="kpi"><h4>Stability</h4><div class="big" id="A_stab">0</div></div>
+            <div class="kpi"><h4>Pressure</h4><div class="big" id="A_press">0</div></div>
+          </div>
+          <div class="kpi" style="margin-top:8px;"><h4>D-NAV</h4><div class="big" id="A_dnav">0</div></div>
+        </div>
+      </div>
+
+      <!-- Delta + Winner + Tipping knob -->
+      <div class="delta">
+        <div class="tile"><h4>Δ Return (A−B)</h4><div class="big" id="D_ret">0</div></div>
+        <div class="tile"><h4>Δ Stability</h4><div class="big" id="D_stab">0</div></div>
+        <div class="tile"><h4>Δ Pressure</h4><div class="big" id="D_press">0</div></div>
+        <div class="tile"><h4>Δ D-NAV</h4><div class="big" id="D_dnav">0</div></div>
+      </div>
+      <div style="margin-top:10px;">
+        <span id="winnerTag" class="win">—</span>
+      </div>
+      <div class="knob" id="knobLine">Smallest nudge to flip the choice will appear here.</div>
+    </div>
+  </div>
 </div>
 
 <script>
@@ -514,8 +621,6 @@ function toNumberOrNull(x){
   const n=Number(String(x).trim());
   return Number.isFinite(n) ? n : null;
 }
-
-/* Templates removed intentionally for enterprise flow */
 
 /* De-dupe on import */
 function dedupeRows(rows){
@@ -885,7 +990,6 @@ function renderDists(allRows){
 
   const pct = (n)=> Math.round(n*100/total);
 
-  // Update widths + labels
   document.getElementById('ret_pos').style.width = pct(retPos)+'%';
   document.getElementById('ret_neu').style.width = pct(retNeu)+'%';
   document.getElementById('ret_neg').style.width = pct(retNeg)+'%';
@@ -1038,6 +1142,156 @@ uploadBtn.addEventListener('click', async ()=>{
   }catch(err){
     setUploadMsg(`Import failed: ${err.message||err}`);
   }
+});
+
+/* ======== Compare modal logic (Scenario A) ======== */
+const compareModal = document.getElementById('compareModal');
+const openCompareBtn = document.getElementById('openCompareBtn');
+const closeCompareBtn = document.getElementById('closeCompareBtn');
+const copyBaseBtn = document.getElementById('copyBaseBtn');
+const loadLastBtn = document.getElementById('loadLastBtn');
+
+function openCompare(){
+  // populate Base snapshot from current sliders
+  const base = readCurrent();
+  for(const k of SLIDER_IDS){
+    const el = document.getElementById('B_'+k);
+    el.value = base[k]; // still disabled, used to show value bar
+    document.getElementById('B_o_'+k).textContent = base[k];
+  }
+  // compute base metrics
+  const Bm = computeMetrics(base);
+  $('#B_ret').textContent = (Bm.ret>=0?'+':'')+Bm.ret;
+  $('#B_stab').textContent = (Bm.stability>=0?'+':'')+Bm.stability;
+  $('#B_press').textContent = (Bm.pressure>=0?'+':'')+Bm.pressure;
+  $('#B_dnav').textContent = Bm.dnav;
+
+  // initialize Scenario A = Base by default
+  for(const k of SLIDER_IDS){
+    const a = document.getElementById('A_'+k);
+    a.value = base[k];
+    document.getElementById('A_o_'+k).textContent = base[k];
+  }
+  computeScenario();
+  compareModal.style.display = 'flex';
+  compareModal.setAttribute('aria-hidden','false');
+}
+function closeCompare(){
+  compareModal.style.display = 'none';
+  compareModal.setAttribute('aria-hidden','true');
+}
+openCompareBtn.addEventListener('click', openCompare);
+closeCompareBtn.addEventListener('click', closeCompare);
+compareModal.addEventListener('click', (e)=>{ if(e.target===compareModal) closeCompare(); });
+
+/* Scenario A controls */
+["A_impact","A_cost","A_risk","A_urgency","A_confidence"].forEach(id=>{
+  const el = document.getElementById(id);
+  el.addEventListener('input', ()=>{
+    document.getElementById(id.replace('A_','A_o_')).textContent = el.value;
+    computeScenario();
+  });
+  el.addEventListener('change', computeScenario);
+});
+
+/* helper to get Base (B) and Scenario (A) values */
+function getBase(){ const b={}; SLIDER_IDS.forEach(k=>b[k]=Number(document.getElementById('B_'+k).value)); return b; }
+function getA(){ const a={}; SLIDER_IDS.forEach(k=>a[k]=Number(document.getElementById('A_'+k).value)); return a; }
+
+/* Compute deltas + winner + tipping knob */
+function computeScenario(){
+  const B = getBase();
+  const A = getA();
+  const Mb = computeMetrics(B);
+  const Ma = computeMetrics(A);
+
+  // push A metrics to UI
+  $('#A_ret').textContent = (Ma.ret>=0?'+':'')+Ma.ret;
+  $('#A_stab').textContent = (Ma.stability>=0?'+':'')+Ma.stability;
+  $('#A_press').textContent = (Ma.pressure>=0?'+':'')+Ma.pressure;
+  $('#A_dnav').textContent = Ma.dnav;
+
+  // deltas
+  const d = {
+    ret: Ma.ret - Mb.ret,
+    stab: Ma.stability - Mb.stability,
+    press: Ma.pressure - Mb.pressure,
+    dnav: Ma.dnav - Mb.dnav
+  };
+  $('#D_ret').textContent = (d.ret>=0?'+':'')+d.ret;
+  $('#D_stab').textContent = (d.stab>=0?'+':'')+d.stab;
+  $('#D_press').textContent = (d.press>=0?'+':'')+d.press;
+  $('#D_dnav').textContent = (d.dnav>=0?'+':'')+d.dnav;
+
+  // winner
+  const tag = document.getElementById('winnerTag');
+  if (Ma.dnav > Mb.dnav){ tag.textContent='Scenario A leads'; tag.className='win a'; }
+  else if (Ma.dnav < Mb.dnav){ tag.textContent='Base leads'; tag.className='win b'; }
+  else { tag.textContent='Tie'; tag.className='win'; }
+
+  // tipping knob (smallest single-variable change for A to beat B)
+  const knobLine = document.getElementById('knobLine');
+  if (Ma.dnav >= Mb.dnav){
+    knobLine.textContent = 'Scenario A already leads — explore robustness by lowering pressure or raising stability.';
+    return;
+  }
+  const need = Mb.dnav - Ma.dnav;
+
+  // try nudges: impact ↑, cost ↓, risk ↓, urgency ↑, confidence ↑
+  const tries = [
+    {key:'impact', dir:+1, label:'+% Impact'},
+    {key:'cost', dir:-1, label:'-% Cost'},
+    {key:'risk', dir:-1, label:'-% Risk'},
+    {key:'urgency', dir:+1, label:'+% Urgency'},
+    {key:'confidence', dir:+1, label:'+% Confidence'},
+  ];
+
+  let best = null;
+  for(const t of tries){
+    const original = A[t.key];
+    // percent steps 1%..50%
+    for(let p=1;p<=50;p++){
+      let trial = {...A};
+      const delta = original * (p/100) * t.dir;
+      trial[t.key] = Math.min(10, Math.max(1, original + delta));
+      const Mt = computeMetrics(trial);
+      if (Mt.dnav >= Mb.dnav){
+        best = {key:t.key, pct:p, label:t.label};
+        break;
+      }
+    }
+    if(best) break;
+  }
+  if(best){
+    const nice = best.label.replace('%', `${best.pct}%`);
+    knobLine.textContent = `Smallest nudge to flip: ${nice}.`;
+  }else{
+    knobLine.textContent = 'No single-variable nudge up to ±50% flips the choice — consider multi-variable adjustment.';
+  }
+}
+
+/* copy & load buttons */
+copyBaseBtn.addEventListener('click', ()=>{
+  const B = getBase();
+  for(const k of SLIDER_IDS){
+    const el = document.getElementById('A_'+k);
+    el.value = B[k];
+    document.getElementById('A_o_'+k).textContent = B[k];
+  }
+  computeScenario();
+});
+loadLastBtn.addEventListener('click', ()=>{
+  const rows = loadLog();
+  if(!rows.length){ alert('No logged decisions yet.'); return; }
+  const r = rows[0]; // latest
+  const map = {impact:r.impact||1,cost:r.cost||1,risk:r.risk||1,urgency:r.urgency||1,confidence:r.confidence||1};
+  for(const k of SLIDER_IDS){
+    const v = Math.max(1, Math.min(10, Number(map[k]||1)));
+    const el = document.getElementById('A_'+k);
+    el.value = v;
+    document.getElementById('A_o_'+k).textContent = v;
+  }
+  computeScenario();
 });
 
 /* keep sliders live */
