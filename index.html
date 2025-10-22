@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>The Decision NAVigator — D-NAV Mini (v3.31)</title>
+<title>The Decision NAVigator — D-NAV Mini (v3.32)</title>
 <style>
 :root{--bg:#0b0f14;--card:#121821;--muted:#8fa1b7;--text:#e9eef5;--green:#3ecf8e;--red:#ff6b6b;--amber:#f3b431;--blue:#69a9ff;--ink:#cfe1ff}
 *{box-sizing:border-box;font-family:Inter,ui-sans-serif,system-ui,-apple-system,Segoe UI,Roboto,Arial}
@@ -53,7 +53,7 @@ output{text-align:right;display:inline-block;min-width:40px;font-weight:800;font
 .comp .tag,.comp .breakdown{margin-top:4px;font-size:12px;color:#a7b4c7}
 .coach .txt{margin-top:6px;color:#c9d4e6;line-height:1.55}
 
-/* Entry & Log */
+/* Inputs & Log */
 .grid{display:grid;gap:12px}
 .input{padding:10px;border:1px solid #333;border-radius:10px;background:#0f141b;color:var(--text)}
 .btn{padding:12px 16px;border-radius:12px;border:0;background:#111;color:#fff;font-weight:700;cursor:pointer}
@@ -69,14 +69,14 @@ tr+tr{border-top:1px solid #1e1e1e}
 .num{text-align:right;font-variant-numeric:tabular-nums;font-feature-settings:"tnum" 1,"lnum" 1}
 tbody tr:nth-child(even){background:rgba(255,255,255,.02)}
 
-/* Stats HUD tiles */
-.kpis{display:grid;grid-template-columns:repeat(2,1fr);gap:12px;margin-top:10px}
+/* KPI Grid */
+.kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px;margin-top:10px}
 .kpi{background:rgba(255,255,255,.04);border-radius:12px;padding:12px 14px;position:relative}
 .kpi h4{margin:0;font-size:12px;color:#9fb1c7;letter-spacing:.3px;text-transform:uppercase}
 .kpi .big{font-size:28px;font-weight:900;margin-top:6px}
 .mini{font-size:12px;color:#a7b4c7;margin-top:4px}
 
-/* Distributions (onscreen) */
+/* Distributions */
 .stack{height:10px;border-radius:999px;background:rgba(255,255,255,.08);display:flex;overflow:hidden}
 .seg{height:100%}
 .g{background:rgba(62,207,142,.85)}
@@ -135,7 +135,7 @@ tbody tr:nth-child(even){background:rgba(255,255,255,.02)}
 .fab::after{content:'Compare';}
 .fab.pulse{animation:pulse-kpi 1.2s ease infinite}
 
-/* Inline Compare button (under score) */
+/* Inline Compare button */
 .compare-inline{margin-top:8px}
 .compare-inline .btn{background:#0f62fe}
 .compare-inline .btn::after{content:'Open Compare';}
@@ -272,6 +272,28 @@ tbody tr:nth-child(even){background:rgba(255,255,255,.02)}
         <h4>Avg D-NAV</h4>
         <div class="big" id="k_avgdnav" data-val="0">0</div>
         <div class="mini">Composite (Merit + Drive)</div>
+      </div>
+
+      <!-- New learning-curve tiles -->
+      <div class="kpi" id="tile_mom">
+        <h4>Momentum</h4>
+        <div class="big" id="k_momentum" data-val="0">0</div>
+        <div class="mini">EMA7 − EMA30 (↑ better)</div>
+      </div>
+      <div class="kpi" id="tile_cons">
+        <h4>Consistency</h4>
+        <div class="big" id="k_consistency" data-val="0">0</div>
+        <div class="mini">σ of last 20 (↓ steadier)</div>
+      </div>
+      <div class="kpi" id="tile_cad">
+        <h4>Cadence</h4>
+        <div class="big" id="k_cadence" data-val="0">0</div>
+        <div class="mini">Decisions / week</div>
+      </div>
+      <div class="kpi" id="tile_last5">
+        <h4>Last-5 vs Prior-5</h4>
+        <div class="big" id="k_last5" data-val="0">0</div>
+        <div class="mini" id="k_last5mini">—</div>
       </div>
     </div>
 
@@ -585,7 +607,7 @@ function compute(){
   document.getElementById('archDesc').textContent=lineFor(pS,sS,rS);
 
   document.getElementById('score').textContent=composite;
-  document.getElementById('scoreTag').textContent = `${scoreTagText(composite)} — ${eInfo.name}`;
+  document.getElementById('scoreTag').textContent = `${scoreTagText(composite)} — ${energyTier(urgency, confidence).name}`;
   document.getElementById('meritVal').textContent = merit;
   document.getElementById('driveVal').textContent = eInfo.e;
 
@@ -593,7 +615,7 @@ function compute(){
     ret, stab, press, urg: urgency, conf: confidence, impact, cost, risk
   });
 
-  // If compare sheet is open, keep Base live
+  // Keep Base live in compare
   if(document.getElementById('compareModal').getAttribute('aria-hidden')==='false'){
     updateBaseInModal();
   }
@@ -610,7 +632,20 @@ const SLIDER_IDS = ["impact","cost","risk","urgency","confidence"];
 const fmt0 = (n) => Number(n).toFixed(0);
 function readCurrent(){ const out={}; SLIDER_IDS.forEach(id=>out[id]=Number($('#'+id).value||0)); return out; }
 
-function energyLabel(e){ if (e>=71) return "Overdrive energy"; if (e>=41) return "High energy"; if (e>=16) return "Moderate energy"; return "Low energy"; }
+/* Math helpers */
+function ema(arr, span){
+  if(!arr.length) return 0;
+  const alpha = 2/(span+1);
+  let e = arr[0];
+  for(let i=1;i<arr.length;i++){ e = alpha*arr[i] + (1-alpha)*e; }
+  return e;
+}
+function stdev(arr){
+  if(arr.length<2) return 0;
+  const m = arr.reduce((a,b)=>a+b,0)/arr.length;
+  const v = arr.reduce((a,b)=>a+(b-m)*(b-m),0)/(arr.length-1);
+  return Math.sqrt(v);
+}
 
 function computeMetrics(v){
   const ret=v.impact - v.cost;
@@ -625,7 +660,7 @@ function loadLog(){ try{ return JSON.parse(localStorage.getItem('dnav_log_v1')||
 function saveLog(arr){ localStorage.setItem('dnav_log_v1', JSON.stringify(arr)); }
 function escapeHtml(s=''){ return s.replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m])); }
 
-/* CSV parsing helpers */
+/* CSV parsing (unchanged) */
 function parseCSV(text){
   const rows=[]; let i=0, cur=[], val='', inQ=false;
   while(i<text.length){
@@ -773,7 +808,7 @@ function downloadCsv(){
   URL.revokeObjectURL(a.href);
 }
 
-/* ----------- Compact PDF report ----------- */
+/* ----------- Compact PDF report (unchanged for now) ----------- */
 function openPdfReport(){
   const rows = loadLog();
   const total = rows.length;
@@ -847,26 +882,12 @@ function openPdfReport(){
       .stack{height:10px;border-radius:999px;background:rgba(255,255,255,.09);display:flex;overflow:hidden;margin-top:6px}
       .seg{height:100%}.g{background:rgba(62,207,142,.85)}.a{background:rgba(243,180,49,.85)}.r{background:rgba(255,107,107,.85)}
       .legend{display:flex;gap:12px;flex-wrap:wrap;color:var(--muted);font-size:12px;margin-top:6px}
-      .rows{margin-top:6px}
-      .rows .row{display:grid;grid-template-columns:140px 1fr 240px;gap:10px;align-items:center;padding:4px 0;border-bottom:1px solid rgba(255,255,255,.06)}
-      .rows .row:last-child{border-bottom:0}
-      .bar{height:8px;border-radius:999px;background:rgba(255,255,255,.09);overflow:hidden}
-      .bar>span{display:block;height:100%;background:var(--blue)}
-      table{width:100%;border-collapse:collapse;font-size:12.5px}
-      th,td{padding:6px 8px;border-bottom:1px solid rgba(255,255,255,.08)} th{color:#cfe1ff;text-align:left}
-      .top{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:10px}
-      .summarybox{display:grid;gap:8px}
-      @media print{
-        body{background:#fff;color:#000}
-        .card{background:#fff;border:1px solid #ddd}
-        .kpi,.stack,.bar{background:#eee}
-        .g{background:#4caf50}.a{background:#ffb300}.r{background:#ef5350}
-      }
+      @media print{body{background:#fff;color:#000}.card{background:#fff;border:1px solid #ddd}.kpi,.stack{background:#eee}.g{background:#4caf50}.a{background:#ffb300}.r{background:#ef5350}}
     </style>
   </head>
   <body>
     <div class="container">
-      <div class="top">
+      <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:10px">
         <h1>D-NAV Insights</h1>
         <a href="#" style="color:#cfe1ff;text-decoration:underline;text-underline-offset:3px;font-size:13px" onclick="window.print();return false;">Print / Save as PDF</a>
       </div>
@@ -875,57 +896,22 @@ function openPdfReport(){
       <div class="kpis">
         <div class="kpi"><h4>Decisions</h4><div class="big">${total}</div></div>
         <div class="kpi"><h4>Avg D-NAV</h4><div class="big">${avg}</div></div>
-        <div class="kpi">
-          <h4>Archetype</h4>
-          <div class="big">${topArch || '—'}</div>
-          <div class="mini">Most energy: <b>${topCat}</b></div>
-        </div>
+        <div class="kpi"><h4>Archetype</h4><div class="big">${topArch || '—'}</div><div class="mini">Most energy: <b>${topCat}</b></div></div>
       </div>
 
-      <div class="card summarybox">
-        <div><b>Summary:</b> Most energy is in <b>${topCat}</b>, and the majority of decisions are <b>${majPress}</b> with <b>${majReturn}</b> on <b>${majStab}</b> footing.</div>
+      <div class="card"><h2>Return distribution</h2>
+        <div class="stack"><span class="seg g" style="width:${pct(retPos,total)}%"></span><span class="seg a" style="width:${pct(retNeu,total)}%"></span><span class="seg r" style="width:${pct(retNeg,total)}%"></span></div>
+        <div class="legend"><span>Positive: ${pct(retPos,total)}%</span><span>Neutral: ${pct(retNeu,total)}%</span><span>Negative: ${pct(retNeg,total)}%</span></div>
       </div>
 
-      <div class="card">
-        <h2>Return distribution</h2>
-        <div class="stack">
-          <span class="seg g" style="width:${pct(retPos,total)}%"></span>
-          <span class="seg a" style="width:${pct(retNeu,total)}%"></span>
-          <span class="seg r" style="width:${pct(retNeg,total)}%"></span>
-        </div>
-        <div class="legend">
-          <span>Positive: ${pct(retPos,total)}%</span>
-          <span>Neutral: ${pct(retNeu,total)}%</span>
-          <span>Negative: ${pct(retNeg,total)}%</span>
-        </div>
+      <div class="card"><h2>Stability distribution</h2>
+        <div class="stack"><span class="seg g" style="width:${pct(stabSt,total)}%"></span><span class="seg a" style="width:${pct(stabUn,total)}%"></span><span class="seg r" style="width:${pct(stabFr,total)}%"></span></div>
+        <div class="legend"><span>Stable: ${pct(stabSt,total)}%</span><span>Uncertain: ${pct(stabUn,total)}%</span><span>Fragile: ${pct(stabFr,total)}%</span></div>
       </div>
 
-      <div class="card">
-        <h2>Stability distribution</h2>
-        <div class="stack">
-          <span class="seg g" style="width:${pct(stabSt,total)}%"></span>
-          <span class="seg a" style="width:${pct(stabUn,total)}%"></span>
-          <span class="seg r" style="width:${pct(stabFr,total)}%"></span>
-        </div>
-        <div class="legend">
-          <span>Stable: ${pct(stabSt,total)}%</span>
-          <span>Uncertain: ${pct(stabUn,total)}%</span>
-          <span>Fragile: ${pct(stabFr,total)}%</span>
-        </div>
-      </div>
-
-      <div class="card">
-        <h2>Pressure distribution</h2>
-        <div class="stack">
-          <span class="seg r" style="width:${pct(prPress,total)}%"></span>
-          <span class="seg a" style="width:${pct(prBal,total)}%"></span>
-          <span class="seg g" style="width:${pct(prCalm,total)}%"></span>
-        </div>
-        <div class="legend">
-          <span>Pressured: ${pct(prPress,total)}%</span>
-          <span>Balanced: ${pct(prBal,total)}%</span>
-          <span>Calm: ${pct(prCalm,total)}%</span>
-        </div>
+      <div class="card"><h2>Pressure distribution</h2>
+        <div class="stack"><span class="seg r" style="width:${pct(prPress,total)}%"></span><span class="seg a" style="width:${pct(prBal,total)}%"></span><span class="seg g" style="width:${pct(prCalm,total)}%"></span></div>
+        <div class="legend"><span>Pressured: ${pct(prPress,total)}%</span><span>Balanced: ${pct(prBal,total)}%</span><span>Calm: ${pct(prCalm,total)}%</span></div>
       </div>
     </div>
   </body></html>`;
@@ -954,6 +940,8 @@ function filterRows(rows){
   const cutoff = Date.now() - days*24*60*60*1000;
   return rows.filter(r=>r.ts >= cutoff);
 }
+
+/* Alloc & distributions unchanged */
 function renderAlloc(rows){
   const list = $('#allocList');
   if(!rows.length){ list.innerHTML = '<div class="mini">No data in range.</div>'; return; }
@@ -1017,6 +1005,46 @@ function renderDists(allRows){
   document.getElementById('pr_calm_lbl').textContent = `Calm: ${pct(prCa)}%`;
 }
 
+/* NEW: learning-curve metrics + rendering */
+function renderLearningTiles(rows){
+  const total = rows.length;
+
+  // Sort by time ASC for EMAs; DESC for recent windows
+  const asc = [...rows].sort((a,b)=>a.ts-b.ts);
+  const dnavAsc = asc.map(r=>Number(r.dnav)||0);
+
+  const ema7 = dnavAsc.length ? Math.round(ema(dnavAsc,7)) : 0;
+  const ema30 = dnavAsc.length ? Math.round(ema(dnavAsc,30)) : 0;
+  const momentum = ema7 - ema30;
+
+  const last20 = dnavAsc.slice(-20);
+  const consistency = Math.round(stdev(last20));
+
+  // Cadence: per week in selected range
+  let cadence = 0;
+  if (asc.length){
+    const first = asc[0].ts, last = asc[asc.length-1].ts;
+    const days = Math.max(1, (last-first)/86400000);
+    cadence = Math.round((total / days) * 7); // per week
+  }
+
+  // Last-5 vs Prior-5 (RECENT first)
+  const desc = [...rows].sort((a,b)=>b.ts-a.ts);
+  const last5 = desc.slice(0,5).map(r=>r.dnav);
+  const prior5 = desc.slice(5,10).map(r=>r.dnav);
+  const avg = arr => arr.length? Math.round(arr.reduce((a,b)=>a+(Number(b)||0),0)/arr.length) : 0;
+  const last5Avg = avg(last5), prior5Avg = avg(prior5);
+  const delta5 = last5Avg - prior5Avg;
+
+  animateNumber($('#k_momentum'), momentum);
+  animateNumber($('#k_consistency'), consistency);
+  animateNumber($('#k_cadence'), cadence);
+  $('#k_last5').textContent = (delta5>=0?'+':'') + delta5;
+  $('#k_last5mini').textContent = `Last-5: ${last5Avg} • Prior-5: ${prior5Avg}`;
+
+  pulse($('#tile_mom')); pulse($('#tile_cons')); pulse($('#tile_cad')); pulse($('#tile_last5'));
+}
+
 function renderStats(allRows){
   const rows = filterRows(allRows);
   const total = rows.length;
@@ -1047,6 +1075,7 @@ function renderStats(allRows){
 
   renderAlloc(rows);
   renderDists(rows);
+  renderLearningTiles(rows);
 }
 
 function renderLog(){
@@ -1200,7 +1229,6 @@ function populateMorePanel(){
 function openCompare(){
   populateRecent();
   updateBaseInModal();
-  // Initialize Scenario A = Base
   setScenarioA(readCurrent());
   computeScenario();
   compareModal.style.display = 'flex';
@@ -1229,11 +1257,7 @@ function updateBaseInModal(){
   $('#B_stab').textContent = (Mb.stability>=0?'+':'')+Mb.stability;
   $('#B_press').textContent = (Mb.pressure>=0?'+':'')+Mb.pressure;
   $('#B_dnav').textContent = Mb.dnav;
-  // Base TL;DR
-  const baseCoach = coachHint({
-    ret:Mb.ret, stab:Mb.stability, press:Mb.pressure,
-    urg: base.urgency, conf: base.confidence, impact: base.impact, cost: base.cost, risk: base.risk
-  });
+  const baseCoach = coachHint({ret:Mb.ret, stab:Mb.stability, press:Mb.pressure, urg: base.urgency, conf: base.confidence, impact: base.impact, cost: base.cost, risk: base.risk});
   document.getElementById('B_tldr').textContent = `Base: ${baseCoach}`;
 }
 
@@ -1304,10 +1328,7 @@ function computeScenario(){
   $('#A_dnav').textContent = Ma.dnav;
 
   // A TL;DR
-  const aCoach = coachHint({
-    ret:Ma.ret, stab:Ma.stability, press:Ma.pressure,
-    urg: A.urgency, conf: A.confidence, impact: A.impact, cost: A.cost, risk: A.risk
-  });
+  const aCoach = coachHint({ret:Ma.ret, stab:Ma.stability, press:Ma.pressure, urg: A.urgency, conf: A.confidence, impact: A.impact, cost: A.cost, risk: A.risk});
   document.getElementById('A_tldr').textContent = `Scenario A: ${aCoach}`;
 
   // deltas
@@ -1336,7 +1357,7 @@ function computeScenario(){
     line.textContent='Both options equivalent on D-NAV. Use Stability and Pressure to break the tie.';
   }
 
-  // default knob guidance (when objective not clicked)
+  // default knob guidance
   const knobLine = document.getElementById('knobLine');
   knobLine.textContent = 'Pick an objective to get a suggested nudge (e.g., “↑8% Confidence”).';
 }
@@ -1352,11 +1373,11 @@ suggestBtn.addEventListener('click', ()=>{
   const targetStab = Number(stabTarget.value);
 
   const tries = [
-    {key:'impact', dir:+1, label:'+% Impact'},
-    {key:'cost', dir:-1, label:'-% Cost'},
-    {key:'risk', dir:-1, label:'-% Risk'},
-    {key:'urgency', dir:+1, label:'+% Urgency'},
-    {key:'confidence', dir:+1, label:'+% Confidence'},
+    {key:'impact', dir:+1},
+    {key:'cost', dir:-1},
+    {key:'risk', dir:-1},
+    {key:'urgency', dir:+1},
+    {key:'confidence', dir:+1},
   ];
 
   let best = null;
@@ -1376,10 +1397,7 @@ suggestBtn.addEventListener('click', ()=>{
       const delta = original * (p/100) * t.dir;
       trial[t.key] = Math.min(10, Math.max(1, original + delta));
       const Mt = computeMetrics(trial);
-      if(meetsObjective(Mt)){
-        best = {key:t.key, pct:p, Mt};
-        break;
-      }
+      if(meetsObjective(Mt)){ best = {key:t.key, pct:p, Mt}; break; }
     }
     if(best) break;
   }
@@ -1418,7 +1436,8 @@ renderLog();
 
 /* Accessibility: close More panel on outside click */
 document.addEventListener('click',(e)=>{
-  if(!morePanel.contains(e.target) && e.target!==moreBtn){ morePanel.style.display='none'; }
+  const within = morePanel.contains(e.target) || e.target===moreBtn;
+  if(!within){ morePanel.style.display='none'; }
 });
 </script>
 </body>
