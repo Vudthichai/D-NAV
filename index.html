@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>The Decision NAVigator — D-NAV Mini (v3.40)</title>
+<title>The Decision NAVigator — D-NAV Mini (v3.33)</title>
 <style>
 :root{--bg:#0b0f14;--card:#121821;--muted:#8fa1b7;--text:#e9eef5;--green:#3ecf8e;--red:#ff6b6b;--amber:#f3b431;--blue:#69a9ff;--ink:#cfe1ff}
 *{box-sizing:border-box;font-family:Inter,ui-sans-serif,system-ui,-apple-system,Segoe UI,Roboto,Arial}
@@ -649,7 +649,7 @@ function loadLog(){ try{ return JSON.parse(localStorage.getItem('dnav_log_v1')||
 function saveLog(arr){ localStorage.setItem('dnav_log_v1', JSON.stringify(arr)); }
 function escapeHtml(s=''){ return s.replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m])); }
 
-/* CSV parsing (same as before) */
+/* CSV parsing */
 function parseCSV(text){
   const rows=[]; let i=0, cur=[], val='', inQ=false;
   while(i<text.length){
@@ -797,7 +797,7 @@ function downloadCsv(){
   URL.revokeObjectURL(a.href);
 }
 
-/* ----------- PDF report (window-aware + waypoint narrative) ----------- */
+/* ----------- PDF report (window-aware + waypoint) ----------- */
 function openPdfReport(){
   const all = loadLog();
   const inRange = filterRows(all);
@@ -917,11 +917,6 @@ function openPdfReport(){
         <div class="mini">Confidence ↔ Return correlation</div>
       </div>
 
-      <div class="card"><h2>Waypoint</h2>
-        <div class="mini"><b>Now:</b> Avg D-NAV ${avg} across ${total} decisions; trajectory is <b>${traj}</b>; profile is <b>${driver}</b>.</div>
-        <div class="mini"><b>Next:</b> • ${nexts[0]} • ${nexts[1]} • ${nexts[2]}</div>
-      </div>
-
       <div class="card"><h2>Return distribution</h2>
         <div class="stack"><span class="seg g" style="width:${pct(retPos,total)}%"></span><span class="seg a" style="width:${pct(retNeu,total)}%"></span><span class="seg r" style="width:${pct(retNeg,total)}%"></span></div>
         <div class="legend"><span>Positive: ${pct(retPos,total)}%</span><span>Neutral: ${pct(retNeu,total)}%</span><span>Negative: ${pct(retNeg,total)}%</span></div>
@@ -939,7 +934,7 @@ function openPdfReport(){
     </div>
   </body></html>`;
   const w = window.open('', '_blank');
-  if(!w){ alert('Please allow pop-ups to view the PDF."); return; }
+  if(!w){ alert('Please allow pop-ups to view the PDF.'); return; } /* FIX: balanced quotes */
   w.document.open(); w.document.write(html); w.document.close();
   try{ w.focus(); }catch{}
 }
@@ -1226,6 +1221,7 @@ const winnerLine = document.getElementById('winnerLine');
 const scenarioPalette = ['#4cc9f0','#f72585','#b5179e','#7209b7','#3f37c9','#4895ef','#06d6a0','#ffd166','#ef476f','#8338ec','#ff006e','#3a86ff'];
 let scenarioCount = 0;
 const scenarios = new Map(); // key -> state
+let baseOverride = null;
 
 function populateRecent(){
   const rows = loadLog().slice(0,5);
@@ -1290,10 +1286,12 @@ moreClose.addEventListener('click', ()=>{ morePanel.style.display='none'; });
 
 baseLock.addEventListener('change', ()=>{
   baseLockState.textContent = baseLock.checked?'(locked)':'(unlocked)';
+  if(!baseLock.checked && baseOverride==null){ baseOverride = {...readCurrent()}; }
+  updateBaseInModal(); recomputeAllScenarios();
 });
 
 function updateBaseInModal(){
-  const base = baseLock.checked ? readCurrent() : baseOverride || readCurrent();
+  const base = baseLock.checked ? readCurrent() : (baseOverride || readCurrent());
   const Mb = computeMetrics(base);
   document.getElementById('B_meta').textContent = `I:${base.impact}  C:${base.cost}  R:${base.risk}  U:${base.urgency}  Conf:${base.confidence}`;
   $('#B_ret').textContent = (Mb.ret>=0?'+':'')+Mb.ret;
@@ -1303,7 +1301,6 @@ function updateBaseInModal(){
   const baseCoach = coachHint({ret:Mb.ret, stab:Mb.stability, press:Mb.pressure, urg: base.urgency, conf: base.confidence, impact: base.impact, cost: base.cost, risk: base.risk});
   document.getElementById('B_tldr').textContent = `Base: ${baseCoach}`;
 }
-let baseOverride = null;
 
 /* Scenario helpers */
 function clearScenarios(){ scenarios.clear(); scenariosWrap.innerHTML=''; scenarioCount=0; winnerTag.textContent='—'; winnerTag.className='win'; winnerLine.textContent='Add/tweak scenarios to see which option leads on D-NAV.'; }
@@ -1516,18 +1513,6 @@ function suggestNudgeForScenario(key){
   }
 }
 
-/* UI wiring for scenarios */
-addScenarioBtn.addEventListener('click', ()=> addScenario());
-recentSelect.addEventListener('change', ()=>{
-  const idx = recentSelect.value;
-  if(idx==='') return;
-  const r = loadLog()[Number(idx)];
-  if(!r) return;
-  // seed into newest scenario
-  const key = Array.from(scenarios.keys()).pop();
-  if(key){ setScenarioValues(key,{impact:r.impact,cost:r.cost,risk:r.risk,urgency:r.urgency,confidence:r.confidence}); recomputeScenario(key); }
-});
-
 /* Buttons + handlers */
 document.getElementById('decisionName').addEventListener('input', checkFormValid);
 document.getElementById('decisionCategory').addEventListener('input', checkFormValid);
@@ -1547,6 +1532,11 @@ document.getElementById('clearLogBtn').addEventListener('click', ()=>{
 
 /* Range select re-renders stats + affects PDF window */
 document.getElementById('rangeSelect').addEventListener('change', ()=>renderStats(loadLog()));
+
+/* Compare openers */
+function safeBind(el, fn){ if(el) el.addEventListener('click', fn); } // guard
+safeBind(document.getElementById('openCompareFab'), openCompare);
+safeBind(document.getElementById('openCompareBtnA'), openCompare);
 
 /* boot */
 document.getElementById('allocTitle').textContent = 'Drive (U×C) by category';
