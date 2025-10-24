@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>The Decision NAVigator — D-NAV Mini (v3.36)</title>
+<title>The Decision NAVigator — D-NAV Mini (v3.37)</title>
 <style>
 :root{--bg:#0b0f14;--card:#121821;--muted:#8fa1b7;--text:#e9eef5;--green:#3ecf8e;--red:#ff6b6b;--amber:#f3b431;--blue:#69a9ff;--ink:#cfe1ff}
 *{box-sizing:border-box;font-family:Inter,ui-sans-serif,system-ui,-apple-system,Segoe UI,Roboto,Arial}
@@ -27,10 +27,15 @@ h1{margin:0 0 8px;font-weight:800;font-size:22px;letter-spacing:.2px}
 .row label{font-weight:700;color:#d7e2ef;font-size:16px;display:flex;flex-direction:column;gap:4px}
 .label-main{line-height:1}
 .hint{font-weight:600;color:var(--muted);font-size:12px;line-height:1.2}
+.scale-note{margin-top:8px;font-weight:900;color:#dbe8ff;font-size:15px}
 input[type=range]{width:100%;height:32px}
 output{text-align:right;display:inline-block;min-width:40px;font-weight:800;font-size:16px}
 .muted{color:var(--muted);font-size:13px}
 .mono{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace}
+
+/* Aggressive window control */
+.bar-controls{display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-top:10px}
+.badge-inline{display:inline-block;padding:2px 8px;border-radius:999px;background:rgba(105,169,255,.15);border:1px solid rgba(105,169,255,.35);font-size:11px;font-weight:800;color:#cfe1ff}
 
 /* Stats */
 .stats{display:grid;grid-template-rows:repeat(3,1fr);gap:12px}
@@ -51,6 +56,7 @@ output{text-align:right;display:inline-block;min-width:40px;font-weight:800;font
 .green{background:rgba(62,207,142,.18);color:var(--green);border:1px solid rgba(62,207,142,.4)}
 .amber{background:rgba(243,180,49,.18);color:var(--amber);border:1px solid rgba(243,180,49,.35)}
 .red{background:rgba(255,107,107,.18);color:var(--red);border:1px solid rgba(255,255,107,.4)}
+.blue{background:rgba(105,169,255,.18);color:#beddff;border:1px solid rgba(105,169,255,.5)}
 
 /* Summary */
 .summary{display:grid;grid-template-rows:auto auto 1fr;gap:12px}
@@ -232,6 +238,7 @@ tbody tr:nth-child(even){background:rgba(255,255,255,.02)}
   <div class="card">
     <h1>D-NAV Variables</h1>
     <div class="muted">Rate each variable <i>in the moment</i>. These scores are relative to your current context.</div>
+    <div class="scale-note">Scale: <span class="badge-inline">1 = minimal</span> <span class="badge-inline">10 = maximum</span> • judge how it feels <b>right now</b> (tomorrow may differ).</div>
 
     <div class="row">
       <label><span class="label-main" data-default="Impact">Impact</span><span class="hint" data-default="Expected benefit / upside.">Expected benefit / upside.</span></label>
@@ -246,7 +253,7 @@ tbody tr:nth-child(even){background:rgba(255,255,255,.02)}
     </div>
 
     <div class="row">
-      <label><span class="label-main" data-default="Risk">Risk</span><span class="hint" data-default="Chance and size of downside.">Chance and size of downside.</span></label>
+      <label><span class="label-main" data-default="Risk">Risk</span><span class="hint" data-default="Downside, what could go wrong.">Downside, what could go wrong.</span></label>
       <input id="risk" type="range" min="1" max="10" value="1" />
       <output id="o_risk">1</output>
     </div>
@@ -263,7 +270,16 @@ tbody tr:nth-child(even){background:rgba(255,255,255,.02)}
       <output id="o_confidence">1</output>
     </div>
 
-    <div class="muted">Formula: <span class="mono">(Impact − Cost − Risk) + (Urgency × Confidence)</span></div>
+    <div class="bar-controls">
+      <label class="muted" style="display:flex;gap:6px;align-items:center;">
+        <input id="aggrOn" type="checkbox" /> Aggressive window
+      </label>
+      <span class="muted">Allow Pressure up to <b>+2</b> when Return ≥ 0 for</span>
+      <input id="aggrN" class="input" type="number" min="0" max="10" value="3" style="width:84px;text-align:right;" />
+      <span class="muted">decision(s). <span id="aggrLeft" class="badge-inline" title="Remaining in window">left: 3</span></span>
+    </div>
+
+    <div class="muted" style="margin-top:6px;">Formula: <span class="mono">(Impact − Cost − Risk) + (Urgency × Confidence)</span></div>
   </div>
 
   <div class="card stats">
@@ -564,16 +580,35 @@ function energyTier(u, c){
   return {e, name:"Low energy", short:"low"};
 }
 
-/* Coach text */
+/* Aggressive window state */
+function getAggressiveState(){
+  const on   = document.getElementById('aggrOn').checked;
+  const left = Number(localStorage.getItem('dnav_aggr_left') ?? document.getElementById('aggrN').value || 0);
+  const cap  = Number(document.getElementById('aggrN').value || 0);
+  return {on, left: Math.max(0, Math.min(cap, left)), cap};
+}
+function setAggressiveLeft(n){
+  const {cap} = getAggressiveState();
+  const left = Math.max(0, Math.min(cap, Number(n)||0));
+  localStorage.setItem('dnav_aggr_left', String(left));
+  const tag = document.getElementById('aggrLeft');
+  if(tag) tag.textContent = `left: ${left}`;
+}
+
+/* Coach text (respects aggressive window) */
 function coachHint({ret, stab, press, urg, conf, impact, cost, risk}){
+  const {on, left} = getAggressiveState();
+  const allowPress = (on && left>0 && ret>=0) ? 2 : 0; // “Aggressive: allow Pressure up to +2 for ≤N decisions if Return↑”
+  const adjPress = (press>0 && press<=allowPress) ? 0 : press;
+
   const et = energyTier(urg, conf);
   let sugs = [];
   const needRaiseImpact = (impact <= cost) && (ret <= 0);
   const needLowerCosts  = (impact <= cost) && (ret <= 0);
   const needLowerRisks  = (risk >= conf);
   const needAddEvidence = (stab <= 0);
-  const needNarrowScope = (press > 0);
-  const needAddCapacity = (press > 0 && (et.short === "overdrive" || et.short === "high"));
+  const needNarrowScope = (adjPress > 0);
+  const needAddCapacity = (adjPress > 0 && (et.short === "overdrive" || et.short === "high"));
 
   if (needRaiseImpact) sugs.push("raise impact");
   if (needLowerCosts)  sugs.push("lower costs");
@@ -601,15 +636,18 @@ function coachHint({ret, stab, press, urg, conf, impact, cost, risk}){
 
   if (ret === 0){
     let base = "Neutral return";
-    if (press > 0 && stab <= 0) base += " under pressure on fragile footing";
-    else if (press > 0)         base += " under pressure";
-    else if (stab <= 0)         base += " but fragile";
+    if (adjPress > 0 && stab <= 0) base += " under pressure on fragile footing";
+    else if (adjPress > 0)         base += " under pressure";
+    else if (stab <= 0)            base += " but fragile";
     return base + leverLine;
   }
 
-  if (stab <= 0 && press > 0) return "Upside with fragile footing and pressure" + leverLine;
-  if (stab <= 0)              return "Upside but fragile — shore up footing before scaling" + leverLine;
-  if (press > 0)              return "Good profile, but pressured" + leverLine;
+  if (stab <= 0 && adjPress > 0) return "Upside with fragile footing and pressure" + leverLine;
+  if (stab <= 0)                 return "Upside but fragile — shore up footing before scaling" + leverLine;
+  if (adjPress > 0)              return "Good profile, but pressured" + leverLine;
+
+  // If aggressive window absorbed the pressure, call it out.
+  if (press>0 && allowPress>0 && press<=allowPress) return "Greenlight profile — within aggressive window; monitor pressure." + leverLine;
   return sugs.length ? "Greenlight profile" + leverLine : "Greenlight profile — execute with discipline.";
 }
 
@@ -629,7 +667,13 @@ function compute(){
 
   const ret = impact - cost;
   const stab = confidence - risk;
-  const press = urgency - confidence;
+  const pressRaw = urgency - confidence;
+
+  // Aggressive allowance affects display/coach, not the underlying math.
+  const {on, left} = getAggressiveState();
+  const allowPress = (on && left>0 && ret>=0) ? 2 : 0;
+  const pressAbsorbed = (pressRaw>0 && pressRaw<=allowPress);
+
   const merit = impact - cost - risk;
   const eInfo = energyTier(urgency, confidence);
   const composite = merit + eInfo.e;
@@ -637,16 +681,21 @@ function compute(){
 
   document.getElementById('ret').textContent=s(ret);
   document.getElementById('stab').textContent=s(stab);
-  document.getElementById('press').textContent=s(press);
+  document.getElementById('press').textContent=s(pressRaw);
 
   badge(document.getElementById('retPill'),Math.sign(ret),'Positive','Neutral','Negative');
   badge(document.getElementById('stabPill'),Math.sign(stab),'Stable','Uncertain','Fragile');
 
   const pressPill = document.getElementById('pressPill');
-  pressPill.textContent = press > 0 ? 'Pressured' : (press < 0 ? 'Calm' : 'Balanced');
-  pressPill.className = 'pill ' + (press > 0 ? 'red' : (press < 0 ? 'green' : 'amber'));
+  if(pressAbsorbed){
+    pressPill.textContent = 'Pressured (allowed)';
+    pressPill.className = 'pill blue';
+  }else{
+    pressPill.textContent = pressRaw > 0 ? 'Pressured' : (pressRaw < 0 ? 'Calm' : 'Balanced');
+    pressPill.className = 'pill ' + (pressRaw > 0 ? 'red' : (pressRaw < 0 ? 'green' : 'amber'));
+  }
 
-  const pS=sign3(press), sS=sign3(stab), rS=sign3(ret);
+  const pS=sign3(pressRaw), sS=sign3(stab), rS=sign3(ret);
   const name=oneWord[[pS,sS,rS].join('|')]||'Unclassified';
   document.getElementById('arch').textContent=name;
   document.getElementById('archDesc').textContent=lineFor(pS,sS,rS);
@@ -657,7 +706,7 @@ function compute(){
   document.getElementById('driveVal').textContent = eInfo.e;
 
   document.getElementById('coach').textContent = coachHint({
-    ret, stab, press, urg: urgency, conf: confidence, impact, cost, risk
+    ret, stab, press: pressRaw, urg: urgency, conf: confidence, impact, cost, risk
   });
 
   if(document.getElementById('compareModal').getAttribute('aria-hidden')==='false'){
@@ -1193,6 +1242,17 @@ function enterDecision(){
   const arr=loadLog();
   arr.unshift(row);
   saveLog(arr);
+
+  // Decrement aggressive window if used on a pressured (positive) return
+  const {on, left} = getAggressiveState();
+  if(on && left>0){
+    const press = vals.urgency - vals.confidence;
+    const ret   = vals.impact - vals.cost;
+    if(press>0 && press<=2 && ret>=0){
+      setAggressiveLeft(left-1);
+    }
+  }
+
   renderLog();
   resetForm();
 }
@@ -1377,6 +1437,18 @@ baseLock.addEventListener('change', ()=>{
   baseLockState.textContent = baseLock.checked?'(locked)':'(unlocked)';
   if(!baseLock.checked && baseOverride==null){ baseOverride = {...readCurrent()}; }
   updateBaseInModal(); recomputeAllScenarios();
+});
+
+/* Aggressive controls wiring */
+document.getElementById('aggrOn').addEventListener('change', ()=>{
+  const {on, cap} = {on:document.getElementById('aggrOn').checked, cap:Number(document.getElementById('aggrN').value||0)};
+  if(on){ setAggressiveLeft(Number(localStorage.getItem('dnav_aggr_left') ?? cap)); }
+  compute();
+});
+document.getElementById('aggrN').addEventListener('input', ()=>{
+  const n = Number(document.getElementById('aggrN').value||0);
+  setAggressiveLeft(n);
+  compute();
 });
 
 function updateBaseInModal(){
@@ -1706,6 +1778,7 @@ safeBind(document.getElementById('openCompareBtnA'), openCompare);
 
 /* boot */
 document.getElementById('allocTitle').textContent = 'Drive (U×C) by category';
+setAggressiveLeft(Number(localStorage.getItem('dnav_aggr_left') ?? document.getElementById('aggrN').value || 0));
 compute();
 renderLog();
 
