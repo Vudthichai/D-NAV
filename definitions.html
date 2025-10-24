@@ -7,13 +7,13 @@
 <style>
 :root{
   --bg:#0b0f14;--card:#121821;--muted:#8fa1b7;--text:#e9eef5;
-  --green:#3ecf8e;--red:#ff6b6b;--amber:#f3b431;--blue:#69a9ff
+  --green:#3ecf8e;--red:#ff6b6b;--amber:#f3b431;--blue:#69a9ff;--ink:#cfe1ff
 }
 *{box-sizing:border-box;font-family:Inter,ui-sans-serif,system-ui,-apple-system,Segoe UI,Roboto,Arial}
 body{background:var(--bg);color:var(--text);margin:0;padding:24px}
-a{color:#cfe1ff;text-decoration:underline;text-underline-offset:3px}
+a{color:var(--ink);text-decoration:underline;text-underline-offset:3px}
 .wrap{max-width:1100px;margin:0 auto;display:grid;gap:16px}
-.header{display:flex;align-items:flex-end;justify-content:space-between;gap:12px}
+.header{display:flex;align-items:flex-end;justify-content:space-between;gap:12px;flex-wrap:wrap}
 .h1{font-weight:900;font-size:28px;margin:0}
 .muted{color:var(--muted)}
 .card{background:var(--card);border-radius:16px;padding:18px;box-shadow:0 10px 24px rgba(0,0,0,.35)}
@@ -26,25 +26,22 @@ h3{margin:0 0 6px;font-size:12px;color:#9fb1c7;text-transform:uppercase;letter-s
 .kv{display:flex;align-items:flex-start;gap:10px}
 .kv .k{min-width:118px;color:#a7b4c7}
 .code{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;background:rgba(255,255,255,.06);padding:2px 6px;border-radius:6px}
-
-/* Pills — smaller & tighter */
-.pill{display:inline-block;padding:3px 7px;border-radius:999px;font-weight:800;font-size:10.5px;line-height:1;white-space:nowrap}
-.green{background:rgba(62,207,142,.18);color:var(--green);border:1px solid rgba(62,207,142,.4)}
-.amber{background:rgba(243,180,49,.18);color:var(--amber);border:1px solid rgba(243,180,49,.35)}
-.red{background:rgba(255,107,107,.18);color:var(--red);border:1px solid rgba(255,107,107,.4)}
-
 .small{font-size:12px;color:#9fb1c7}
 .tiny{font-size:12px;color:#aab8cc}
 .hr{height:1px;background:rgba(255,255,255,.08);margin:8px 0}
 .nav{display:flex;gap:12px;flex-wrap:wrap}
 
-/* Derived signals row (single-line) */
+.pill{display:inline-block;padding:3px 7px;border-radius:999px;font-weight:800;font-size:10.5px;line-height:1;white-space:nowrap}
+.green{background:rgba(62,207,142,.18);color:var(--green);border:1px solid rgba(62,207,142,.4)}
+.amber{background:rgba(243,180,49,.18);color:var(--amber);border:1px solid rgba(243,180,49,.35)}
+.red{background:rgba(255,107,107,.18);color:var(--red);border:1px solid rgba(255,107,107,.4)}
+.blue{background:rgba(105,169,255,.18);color:var(--blue);border:1px solid rgba(105,169,255,.35)}
+
 .signals{display:grid;grid-template-columns:repeat(3,1fr);gap:12px}
 .sig{border-bottom:1px solid rgba(255,255,255,.08);padding-bottom:8px}
 .sig .line{margin-top:4px}
 .sig .def{margin-top:4px;font-size:12px;color:#aab8cc}
 
-/* Core ingredients: 3×2 with spacer to align U/C */
 .ingredients-grid{display:grid;gap:12px;grid-template-columns:repeat(3,1fr)}
 @media (max-width:900px){.ingredients-grid{grid-template-columns:1fr}}
 .spacer{min-height:1px}
@@ -68,6 +65,17 @@ h3{margin:0 0 6px;font-size:12px;color:#9fb1c7;text-transform:uppercase;letter-s
 .chip.rPlus{background:rgba(62,207,142,.18);border-color:rgba(62,207,142,.35);color:var(--green)}
 .chip.rZero{background:rgba(243,180,49,.18);border-color:rgba(243,180,49,.35);color:var(--amber)}
 .chip.rMinus{background:rgba(255,107,107,.18);border-color:rgba(255,107,107,.35);color:var(--red)}
+
+/* Simple key/value table */
+.kvtbl{display:grid;grid-template-columns:180px 1fr;gap:8px}
+.kvtbl .k{color:#9fb1c7}
+.kvtbl .v{color:#e5eefb}
+
+/* callouts */
+.call{border-left:3px solid var(--blue);padding:8px 10px;background:rgba(105,169,255,.08);border-radius:8px}
+.warn{border-left:3px solid var(--amber);background:rgba(243,180,49,.08)}
+.good{border-left:3px solid var(--green);background:rgba(62,207,142,.08)}
+.bad{border-left:3px solid var(--red);background:rgba(255,107,107,.08)}
 </style>
 </head>
 <body>
@@ -84,7 +92,13 @@ h3{margin:0 0 6px;font-size:12px;color:#9fb1c7;text-transform:uppercase;letter-s
       <a href="#signals" class="small">Derived signals</a>
       <a href="#merit-drive" class="small">Merit & Drive</a>
       <a href="#composite" class="small">Composite (D-NAV)</a>
+      <a href="#compare" class="small">Compare Mode</a>
+      <a href="#learning" class="small">Learning & Momentum</a>
+      <a href="#windows" class="small">Rolling Windows</a>
+      <a href="#category" class="small">Category Stats</a>
+      <a href="#thresholds" class="small">Thresholds</a>
       <a href="#archetypes" class="small">Archetypes</a>
+      <a href="#notation" class="small">Notation</a>
     </div>
   </div>
 
@@ -102,7 +116,7 @@ h3{margin:0 0 6px;font-size:12px;color:#9fb1c7;text-transform:uppercase;letter-s
       </div>
       <div>
         <h3>Risk</h3>
-        <p class="p">Downside = likelihood × size of harm.</p>
+        <p class="p">Downside (likelihood × magnitude of harm).</p>
       </div>
       <div>
         <h3>Urgency</h3>
@@ -114,6 +128,7 @@ h3{margin:0 0 6px;font-size:12px;color:#9fb1c7;text-transform:uppercase;letter-s
       </div>
       <div class="spacer"></div>
     </div>
+    <div class="tiny" style="margin-top:6px">Notes: 1 = minimal • 10 = extreme. Scores are calibrated per user/team over time.</div>
   </div>
 
   <!-- Derived Signals -->
@@ -122,7 +137,7 @@ h3{margin:0 0 6px;font-size:12px;color:#9fb1c7;text-transform:uppercase;letter-s
     <div class="signals">
       <div class="sig">
         <h3>Return</h3>
-        <div class="line tiny"><span class="code">Impact − Cost</span></div>
+        <div class="line tiny"><span class="code">Return = Impact − Cost</span></div>
         <div class="def">
           Value after cost:
           <span class="pill green">Positive</span>
@@ -132,7 +147,7 @@ h3{margin:0 0 6px;font-size:12px;color:#9fb1c7;text-transform:uppercase;letter-s
       </div>
       <div class="sig">
         <h3>Stability</h3>
-        <div class="line tiny"><span class="code">Confidence − Risk</span></div>
+        <div class="line tiny"><span class="code">Stability = Confidence − Risk</span></div>
         <div class="def">
           Survivability:
           <span class="pill green">Stable</span>
@@ -142,7 +157,7 @@ h3{margin:0 0 6px;font-size:12px;color:#9fb1c7;text-transform:uppercase;letter-s
       </div>
       <div class="sig">
         <h3>Pressure</h3>
-        <div class="line tiny"><span class="code">Urgency − Confidence</span></div>
+        <div class="line tiny"><span class="code">Pressure = Urgency − Confidence</span></div>
         <div class="def">
           Execution stress:
           <span class="pill red">Pressured</span>
@@ -152,8 +167,7 @@ h3{margin:0 0 6px;font-size:12px;color:#9fb1c7;text-transform:uppercase;letter-s
       </div>
     </div>
     <div class="tiny" style="margin-top:8px;">
-      Order doesn’t change the math; we group them to highlight different risks:
-      <b>Return</b> (unit economics), <b>Stability</b> (survivability), <b>Pressure</b> (execution risk).
+      We group them to expose different risks: <b>Return</b> (unit economics), <b>Stability</b> (survivability), <b>Pressure</b> (execution risk).
       Short-term negative return can be strategic — keep stability ≥ 0 and pressure managed.
     </div>
   </div>
@@ -164,12 +178,12 @@ h3{margin:0 0 6px;font-size:12px;color:#9fb1c7;text-transform:uppercase;letter-s
     <div class="grid-2">
       <div>
         <h3>Merit</h3>
-        <div class="kv"><div class="k">Formula</div><div class="v"><span class="code">Impact − Cost − Risk</span></div></div>
+        <div class="kv"><div class="k">Formula</div><div class="v"><span class="code">Merit = Impact − Cost − Risk</span></div></div>
         <p class="p">Inherent quality of the bet (unit economics minus risk drag).</p>
       </div>
       <div>
         <h3>Drive</h3>
-        <div class="kv"><div class="k">Formula</div><div class="v"><span class="code">Urgency × Confidence</span></div></div>
+        <div class="kv"><div class="k">Formula</div><div class="v"><span class="code">Drive = Urgency × Confidence</span></div></div>
         <p class="p">Applied energy — how hard & how ready you’ll push now.</p>
       </div>
     </div>
@@ -182,9 +196,127 @@ h3{margin:0 0 6px;font-size:12px;color:#9fb1c7;text-transform:uppercase;letter-s
     <div class="hr"></div>
     <p class="p">
       D-NAV blends <b>Merit</b> (quality of the bet) with <b>Drive</b> (execution momentum).
-      High D-NAV = a strong bet and/or a strong push — but always read
-      <b>Return</b>, <b>Stability</b>, and <b>Pressure</b> to avoid hidden traps and slow bleeds.
+      High D-NAV = a strong bet and/or a strong push — always read <b>Return</b>, <b>Stability</b>, and <b>Pressure</b> to avoid hidden traps and slow bleeds.
     </p>
+  </div>
+
+  <!-- Compare Mode -->
+  <div id="compare" class="card section">
+    <h2>Compare Mode</h2>
+    <p class="p">Side-by-side comparison between a <b>Base</b> scenario and a <b>Scenario</b> you adjust with sliders.</p>
+    <div class="kvtbl" style="margin-top:8px">
+      <div class="k">Delta (Δ)</div><div class="v"><span class="code">ΔX = X<sub>Scenario</sub> − X<sub>Base</sub></span>. Positive = Scenario is higher.</div>
+      <div class="k">ΔReturn</div><div class="v"><span class="code">Δ(Impact − Cost)</span> — net value change after cost.</div>
+      <div class="k">ΔStability</div><div class="v"><span class="code">Δ(Confidence − Risk)</span> — survivability change.</div>
+      <div class="k">ΔPressure</div><div class="v"><span class="code">Δ(Urgency − Confidence)</span> — execution stress change.</div>
+      <div class="k">ΔD-NAV</div><div class="v"><span class="code">Δ[(Impact − Cost − Risk) + (Urgency × Confidence)]</span> — overall quality × push change.</div>
+    </div>
+    <div class="hr"></div>
+    <h3>Smallest Nudge (optimizer hint)</h3>
+    <p class="p">
+      The “Smallest Nudge” recommends the single 1-point slider change that yields the largest <b>ΔD-NAV</b> while avoiding red flags
+      (e.g., pushing <b>Pressure</b> deeply positive or <b>Stability</b> negative). It’s a local, minimal-effort move, not a global optimum.
+    </p>
+    <div class="call small">
+      Narrative insight (2 lines) explains <i>why</i> ΔD-NAV moved: e.g., “Return up via +Impact (cost unchanged), Stability flat; pressure increases slightly — acceptable if short-term.”
+    </div>
+  </div>
+
+  <!-- Learning & Momentum -->
+  <div id="learning" class="card section">
+    <h2>Learning Curve & Momentum</h2>
+    <p class="p">Turn outcomes into improvement. The system tracks short-, mid-, and long-horizon learning signals from your decision stream.</p>
+    <div class="kvtbl" style="margin-top:8px">
+      <div class="k">Learning Curve Index (LCI)</div>
+      <div class="v">
+        Measures recovery after drawdowns: how effectively you rebound from a local low.
+        <span class="code">LCI = Rebound / Drawdown</span>.
+        <span class="pill green">>1.0</span> = over-recovery; <span class="pill amber">≈1.0</span> = full recovery; <span class="pill red"><1.0</span> = under-recovery.
+      </div>
+
+      <div class="k">Momentum<sub>n</sub></div>
+      <div class="v">
+        Trend velocity over the last <span class="code">n</span> decisions using least-squares slope of a rolling mean.
+        <span class="code">Momentum<sub>n</sub> = slope(MA<sub>n</sub>(D-NAV))</span>.
+        Also available per signal: <span class="code">Momentum<sub>n</sub>(Return|Stability|Pressure)</span>.
+      </div>
+
+      <div class="k">MA / EMA</div>
+      <div class="v">
+        <span class="code">MA<sub>n</sub>(X)</span> = rolling average of the last <span class="code">n</span>.
+        <span class="code">EMA<sub>n</sub>(X)</span> = exponential average (faster to react). UI uses MA by default; EMA is optional.
+      </div>
+
+      <div class="k">Post-loss bounce</div>
+      <div class="v">For sequences with negative Return or D-NAV dips, LCI highlights rebound efficiency until you surpass the pre-dip baseline.</div>
+    </div>
+    <div class="tiny" style="margin-top:6px">
+      Defaults: short = 15 decisions, mid = 50, long = 100. You can change windows in Settings. Short = “steering now,” mid = “course,” long = “climate.”
+    </div>
+  </div>
+
+  <!-- Rolling Windows -->
+  <div id="windows" class="card section">
+    <h2>Rolling Windows</h2>
+    <div class="grid-3">
+      <div>
+        <h3>Short (15)</h3>
+        <p class="p">Captures immediate behavior shifts and learning. Good for rapid feedback loops and testing nudges.</p>
+      </div>
+      <div>
+        <h3>Mid (50)</h3>
+        <p class="p">Stabilizes noise; shows whether tactics are compounding or stalling.</p>
+      </div>
+      <div>
+        <h3>Long (100)</h3>
+        <p class="p">Baseline trend and resilience over time. Useful for category benchmarking and seasonality.</p>
+      </div>
+    </div>
+    <div class="call small" style="margin-top:8px">
+      Why 15? It’s long enough to smooth randomness but short enough for actionable course-correction in a typical weekly cadence.
+      If your cadence is slower/faster, adjust in Settings.
+    </div>
+  </div>
+
+  <!-- Category Stats -->
+  <div id="category" class="card section">
+    <h2>Category Stats</h2>
+    <p class="p">Every decision belongs to a category (e.g., Hiring, Fitness, Capital Allocation). D-NAV summarizes per-category behavior to reduce self-mythology.</p>
+    <div class="kvtbl" style="margin-top:8px">
+      <div class="k">Category Avg</div>
+      <div class="v"><span class="code">Avg<sub>cat</sub>(D-NAV)</span>, plus <span class="code">Avg<sub>cat</sub>(Return|Stability|Pressure)</span>.</div>
+
+      <div class="k">Category Momentum</div>
+      <div class="v"><span class="code">Momentum<sub>n</sub><sup>cat</sup>(D-NAV)</span> — trend velocity within the category.</div>
+
+      <div class="k">Diff vs Personal</div>
+      <div class="v"><span class="code">ΔD-NAV<sup>cat</sup> = Avg<sub>cat</sub>(D-NAV) − Avg<sub>all</sub>(D-NAV)</span> — where you over/underperform yourself.</div>
+
+      <div class="k">Baselines</div>
+      <div class="v">Optional fixed baselines (e.g., “ship rate ≥ 3/wk”) used in narratives and flags.</div>
+    </div>
+    <div class="hr"></div>
+    <div class="small">
+      Reports show: category ranks, trends, and risk posture distributions (P/S/R sign mix) so you can rebalance attention and tactics.
+    </div>
+  </div>
+
+  <!-- Thresholds & Flags -->
+  <div id="thresholds" class="card section">
+    <h2>Thresholds & Flags</h2>
+    <div class="kvtbl" style="margin-top:8px">
+      <div class="k">Return</div>
+      <div class="v"><span class="pill green">> 0</span> Gain; <span class="pill amber">= 0</span> Flat; <span class="pill red">< 0</span> Loss.</div>
+
+      <div class="k">Stability</div>
+      <div class="v"><span class="pill green">≥ 0</span> Stable; <span class="pill amber">≈ 0</span> Uncertain; <span class="pill red">< 0</span> Fragile.</div>
+
+      <div class="k">Pressure</div>
+      <div class="v"><span class="pill green">< 0</span> Calm; <span class="pill amber">≈ 0</span> Balanced; <span class="pill red">> 0</span> Pressured.</div>
+
+      <div class="k">Narratives</div>
+      <div class="v">Tooltips and compare summaries surface causes: e.g., “Return ↑ via Impact; Pressure ↑ due to Urgency outpacing Confidence.”</div>
+    </div>
   </div>
 
   <!-- Archetypes -->
@@ -192,6 +324,27 @@ h3{margin:0 0 6px;font-size:12px;color:#9fb1c7;text-transform:uppercase;letter-s
     <h2>Archetypes (Pressure • Stability • Return)</h2>
     <p class="small">Each outcome is defined by the signs of <span class="code">Pressure</span>, <span class="code">Stability</span>, and <span class="code">Return</span> → e.g., P+, S+, R+.</p>
     <div class="archgrid" id="archGrid"></div>
+  </div>
+
+  <!-- Notation -->
+  <div id="notation" class="card section">
+    <h2>Notation</h2>
+    <div class="kvtbl" style="margin-top:8px">
+      <div class="k"><span class="code">ΔX</span></div>
+      <div class="v">Delta (change). In Compare: <span class="code">X<sub>Scenario</sub> − X<sub>Base</sub></span>. In time series: <span class="code">X<sub>t</sub> − X<sub>t−1</sub></span>.</div>
+
+      <div class="k"><span class="code">MA<sub>n</sub>(X)</span></div>
+      <div class="v">Moving average over the last <span class="code">n</span> decisions.</div>
+
+      <div class="k"><span class="code">EMA<sub>n</sub>(X)</span></div>
+      <div class="v">Exponential moving average (more weight on recent points).</div>
+
+      <div class="k"><span class="code">Momentum<sub>n</sub>(X)</span></div>
+      <div class="v">Least-squares slope of <span class="code">MA<sub>n</sub>(X)</span> (positive = trending up).</div>
+
+      <div class="k"><span class="code">LCI</span></div>
+      <div class="v">Learning Curve Index = <span class="code">Rebound / Drawdown</span> around local dips.</div>
+    </div>
   </div>
 
 </div>
