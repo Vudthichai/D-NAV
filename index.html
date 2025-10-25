@@ -12,7 +12,7 @@ body.no-scroll{overflow:hidden}
 
 /* Page banner */
 .site-title{max-width:1200px;margin:0 auto 12px auto;padding:8px 2px;font-weight:900;letter-spacing:.2px}
-.site-title h0{display:block;font-size:28px;font-weight:900;line-height:1;margin:0}
+.site-title h1{display:block;font-size:28px;font-weight:900;line-height:1;margin:0}
 .site-title .sub{color:var(--muted);font-size:13px;margin-top:6px}
 
 /* Layout */
@@ -230,7 +230,7 @@ tbody tr:nth-child(even){background:rgba(255,255,255,.02)}
 
 <!-- Page banner -->
 <div class="site-title">
-  <h0>The Decision NAVigator</h0>
+  <h1>The Decision NAVigator</h1>
   <div class="sub">Bring clarity to complex decisions.</div>
 </div>
 
@@ -371,6 +371,29 @@ tbody tr:nth-child(even){background:rgba(255,255,255,.02)}
         <div class="big" id="k_last5" data-val="0">0</div>
         <div class="mini" id="k_last5mini">—</div>
       </div>
+
+      <!-- NEW: Loss hygiene -->
+      <div class="kpi" id="tile_loss">
+        <h4>Loss Streak</h4>
+        <div class="big" id="k_loss">0 / 0</div>
+        <div class="mini">Current / Longest (Return &lt; 0)</div>
+      </div>
+      <div class="kpi" id="tile_debt">
+        <h4>Return Debt</h4>
+        <div class="big" id="k_debt">0</div>
+        <div class="mini" id="k_debtmini">Sum of losses in current streak</div>
+      </div>
+      <div class="kpi" id="tile_payback">
+        <h4>Payback Ratio</h4>
+        <div class="big" id="k_payback">—</div>
+        <div class="mini" id="k_paybackmini"># of avg wins to break even</div>
+      </div>
+    </div>
+
+    <div class="kpi" id="tile_policy" style="margin-top:10px;">
+      <h4>Policy Hint</h4>
+      <div class="big" id="k_policy">—</div>
+      <div class="mini" id="k_policymini">Guardrail: pause after 3 losses or if Payback &gt; 2×</div>
     </div>
 
     <!-- Distributions -->
@@ -406,6 +429,8 @@ tbody tr:nth-child(even){background:rgba(255,255,255,.02)}
 
     <h3 id="allocTitle" style="margin:14px 0 6px;">Drive (U×C) by category</h3>
     <div class="alloc" id="allocList"></div>
+
+    <div class="mini" id="k_losscats" style="margin-top:8px;">Active loss streaks by category: —</div>
 
     <div class="mini" id="k_misc" style="margin-top:8px;">Top category: — • Top archetype: —</div>
   </div>
@@ -583,7 +608,7 @@ function energyTier(u, c){
 /* Aggressive window state */
 function getAggressiveState(){
   const on   = document.getElementById('aggrOn').checked;
-  const left = Number(localStorage.getItem('dnav_aggr_left') ?? document.getElementById('aggrN').value || 0);
+  const left = Number(localStorage.getItem('dnav_aggr_left') ?? (document.getElementById('aggrN').value || 0));
   const cap  = Number(document.getElementById('aggrN').value || 0);
   return {on, left: Math.max(0, Math.min(cap, left)), cap};
 }
@@ -1100,6 +1125,78 @@ function renderDists(rows){
   document.getElementById('pr_calm_lbl').textContent = `Calm: ${pct(prCa)}%`;
 }
 
+/* ===== NEW: Loss hygiene helpers ===== */
+function lossHygiene(rows){
+  const desc = [...rows].sort((a,b)=>b.ts-a.ts);
+  // current streak and debt
+  let current=0, debt=0;
+  for(const r of desc){
+    if((r.return||0) < 0){ current++; debt += Math.abs(r.return||0); }
+    else break;
+  }
+  // longest streak
+  let longest=0, run=0;
+  for(const r of desc){
+    if((r.return||0) < 0){ run++; longest = Math.max(longest, run); }
+    else run = 0;
+  }
+  // average positive return
+  const pos = rows.filter(r=> (r.return||0) > 0).map(r=>r.return||0);
+  const avgPos = pos.length ? (pos.reduce((a,b)=>a+b,0)/pos.length) : 0;
+  const payback = (avgPos>0) ? Math.ceil(debt / avgPos) : Infinity;
+  return {current, longest, debt:Math.round(debt), avgPos:Math.round(avgPos*100)/100, payback};
+}
+function lossByCategory(rows){
+  // compute current loss streak per category (only categories with active streak>0)
+  const byCat = new Map();
+  const grouped = new Map();
+  rows.forEach(r=>{
+    const c=(r.category||'Uncategorized').trim();
+    if(!grouped.has(c)) grouped.set(c,[]);
+    grouped.get(c).push(r);
+  });
+  grouped.forEach((arr,cat)=>{
+    const desc = arr.sort((a,b)=>b.ts-a.ts);
+    let cur=0;
+    for(const r of desc){
+      if((r.return||0)<0) cur++;
+      else break;
+    }
+    if(cur>0) byCat.set(cat,cur);
+  });
+  return [...byCat.entries()].sort((a,b)=>b[1]-a[1]).slice(0,5);
+}
+function renderLossTiles(rows){
+  const h = lossHygiene(rows);
+  document.getElementById('k_loss').textContent = `${h.current} / ${h.longest}`;
+  document.getElementById('k_debt').textContent = `${h.debt}`;
+  document.getElementById('k_debtmini').textContent = `Sum of losses in current streak (${h.current} step${h.current===1?'':'s'})`;
+  document.getElementById('k_payback').textContent = (h.payback===Infinity ? '∞' : `${h.payback}`);
+  document.getElementById('k_paybackmini').textContent = h.avgPos>0 ? `Using avg +${h.avgPos} Return per win` : 'No wins in window — cannot estimate';
+
+  // Policy Hint
+  let policy='Within guardrails.';
+  if(h.current>=3 || (h.payback!==Infinity && h.payback>2)){
+    policy = 'Pause exploration: stop after 3 losses or if Payback > 2×.';
+  }else if(h.current>0){
+    policy = 'Controlled exploration: losses active — tighten scope and check unit economics.';
+  }
+  document.getElementById('k_policy').textContent = policy;
+
+  // By category (active only)
+  const byCat = lossByCategory(rows);
+  document.getElementById('k_losscats').textContent = byCat.length
+    ? 'Active loss streaks by category: ' + byCat.map(([c,n])=>`${c} (${n})`).join(' • ')
+    : 'Active loss streaks by category: —';
+
+  // subtle pulse for attention
+  ['tile_loss','tile_debt','tile_payback','tile_policy'].forEach(id=>{
+    const el=document.getElementById(id);
+    if(!el) return;
+    el.classList.remove('pulse'); void el.offsetWidth; el.classList.add('pulse');
+  });
+}
+
 /* Learning tiles + Calibration + Last-5 */
 function renderLearningTiles(rows){
   const total = rows.length;
@@ -1174,6 +1271,7 @@ function renderStats(allRows){
   renderAlloc(rows);
   renderDists(rows);
   renderLearningTiles(rows);
+  renderLossTiles(rows);
 }
 
 function renderLog(){
@@ -1676,7 +1774,7 @@ function renderDeltaBoard(){
   }).join('');
 }
 
-/* ---- Nudge finder: clearer, fifth-grader-friendly ---- */
+/* ---- Nudge finder ---- */
 function suggestNudgeForScenario(key){
   const base = (document.getElementById('baseLock').checked ? readCurrent() : (baseOverride || readCurrent()));
   const Bm = computeMetrics(base);
@@ -1778,7 +1876,7 @@ safeBind(document.getElementById('openCompareBtnA'), openCompare);
 
 /* boot */
 document.getElementById('allocTitle').textContent = 'Drive (U×C) by category';
-setAggressiveLeft(Number(localStorage.getItem('dnav_aggr_left') ?? document.getElementById('aggrN').value || 0));
+setAggressiveLeft(Number(localStorage.getItem('dnav_aggr_left') ?? (document.getElementById('aggrN').value || 0)));
 compute();
 renderLog();
 
