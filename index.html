@@ -388,8 +388,8 @@ tbody tr:nth-child(even){background:rgba(255,255,255,.02)}
       <div class="kpi"><h4>Policy Hint</h4><div class="big" id="h_hint">—</div><div class="mini">Guardrails, not handcuffs</div></div>
     </div>
     <div class="mini" style="margin-top:8px">
-      Losses aren’t bad — streaks need intent. Track them so “learning” doesn’t become a silent bleed.
-    </div>
+  Tracks recovery behavior after losses — streak length, cumulative “return debt,” and typical wins needed to dig out. It’s your resilience gauge.
+</div>
   </div>
 </div>
 
@@ -1131,6 +1131,7 @@ function renderHygiene(rows){
 
 /* ---- NARRATIVE: top-of-page (exec readout) ---- */
 // ---- DROP-IN: richer narrative (Pressure / Stability / Return insight) ----
+// ---- DROP-IN: plain-language momentum + Energy ROI + Pressure Tax + Lever ----
 function narrativeFor(rowsAll){
   const rows = filterRows(rowsAll);
   const daysSel = Number($('#rangeSelect').value||0);
@@ -1141,6 +1142,9 @@ function narrativeFor(rowsAll){
 
   const n = rows.length;
   const mean = (arr, f)=> arr.length? arr.reduce((a,r)=>a+(Number(f(r))||0),0)/arr.length : 0;
+  const sum  = (arr, f)=> arr.reduce((a,r)=>a+(Number(f(r))||0),0);
+
+  // Core portfolio tones
   const avgR = mean(rows,r=>r.return);
   const avgS = mean(rows,r=>r.stability);
   const avgP = mean(rows,r=>r.pressure);
@@ -1149,13 +1153,80 @@ function narrativeFor(rowsAll){
   const toneS = avgS>0?'stable':(avgS<0?'fragile':'uncertain');
   const toneP = avgP>0?'pressured':(avgP<0?'calm':'balanced');
 
+  // Momentum (keep your math, change the words)
   const asc=[...rows].sort((a,b)=>a.ts-b.ts);
   const dnavAsc=asc.map(r=>Number(r.dnav)||0);
-  const ema7 = dnavAsc.length? Math.round(ema(dnavAsc,7)) : 0;
-  const ema30= dnavAsc.length? Math.round(ema(dnavAsc,30)) : 0;
+  const ema7  = dnavAsc.length? Math.round(ema(dnavAsc,7))  : 0;
+  const ema30 = dnavAsc.length? Math.round(ema(dnavAsc,30)) : 0;
   const trend = ema7-ema30;
   const trendTone = trend>2?'rising':(trend>0?'tilting up':(trend===0?'flat':'slipping'));
+  const momentumPlain = `Momentum is <b>${trendTone}</b> (recent decisions running ${trend>=0?'+':''}${trend} vs baseline).`;
 
+  // Energy by category (pressure sink / stability anchor / return leader/drag)
+  const byCat = new Map(); let totalEnergy = 0;
+  rows.forEach(r=>{
+    const c=(r.category||'').trim()||'Uncategorized';
+    const e=(Number(r.urgency)||0)*(Number(r.confidence)||0);
+    totalEnergy += e;
+    if(!byCat.has(c)) byCat.set(c,{cnt:0,e:0,pressCnt:0,stabCnt:0,sumRet:0});
+    const t = byCat.get(c);
+    t.cnt += 1; t.e += e;
+    if((r.pressure||0)>0) t.pressCnt += 1;
+    if((r.stability||0)>0) t.stabCnt  += 1;
+    t.sumRet += (Number(r.return)||0);
+  });
+  function pickTop(arr, key){ return arr.length ? arr.sort((a,b)=>b[key]-a[key])[0] : null; }
+  const catRows = [...byCat.entries()].map(([cat,t])=>{
+    const pressRate = t.cnt ? (t.pressCnt / t.cnt) : 0;
+    const stabRate  = t.cnt ? (t.stabCnt  / t.cnt) : 0;
+    const avgRet    = t.cnt ? (t.sumRet   / t.cnt) : 0;
+    return { cat, cnt:t.cnt, e:t.e,
+      eShare: totalEnergy? (t.e/totalEnergy) : 0,
+      pressScore: t.e * pressRate,
+      stabScore:  t.e * stabRate,
+      avgRet
+    };
+  }).filter(x=>x.cnt>=2);
+  const pressureSink    = pickTop(catRows, 'pressScore');
+  const stabilityAnchor = pickTop(catRows, 'stabScore');
+  const returnLeader    = pickTop(catRows, 'avgRet');
+  const returnDrag      = catRows.length ? catRows.sort((a,b)=>a.avgRet-b.avgRet)[0] : null;
+  const pct = v => Math.round((v||0)*100);
+
+  // --- NEW: Energy ROI (return per unit energy) ---
+  const totalReturn = sum(rows, r=>r.return);
+  const energyUsed  = sum(rows, r=>(Number(r.urgency)||0)*(Number(r.confidence)||0));
+  const energyROI   = energyUsed ? (totalReturn / energyUsed) : 0; // unitless efficiency
+  const energyROITxt= `${(Math.round(energyROI*100)/100).toFixed(2)}`;
+
+  // --- NEW: Pressure Tax (penalty under pressure) ---
+  const dnavPress = mean(rows.filter(r=>r.pressure>0), r=>r.dnav);
+  const dnavCalm  = mean(rows.filter(r=>r.pressure<=0), r=>r.dnav);
+  const pressureTax = Math.round((dnavCalm||0) - (dnavPress||0)); // + = pressure hurts
+
+  // Fragility exposure (share of rows with stability<0)
+  const fragExp = Math.round(rows.filter(r=>r.stability<0).length * 100 / n);
+
+  // --- Biggest single-step lever (portfolio-level) ---
+  const clamp = (v)=>Math.min(10,Math.max(1,v));
+  const avgImpact     = mean(rows,r=>r.impact)||1;
+  const avgCost       = mean(rows,r=>r.cost)||1;
+  const avgRisk       = mean(rows,r=>r.risk)||1;
+  const avgUrgency    = mean(rows,r=>r.urgency)||1;
+  const avgConfidence = mean(rows,r=>r.confidence)||1;
+  const baseVals = {impact:avgImpact, cost:avgCost, risk:avgRisk, urgency:avgUrgency, confidence:avgConfidence};
+  const baseD = computeMetrics(baseVals).dnav;
+  const levers = ['impact','cost','risk','urgency','confidence'].map(k=>{
+    const tryUp   = computeMetrics({...baseVals,[k]:clamp(baseVals[k]+1)}).dnav - baseD;
+    const tryDown = computeMetrics({...baseVals,[k]:clamp(baseVals[k]-1)}).dnav - baseD;
+    const bestDir = Math.abs(tryUp)>=Math.abs(tryDown)? '+1' : '−1';
+    const bestΔ   = Math.abs(tryUp)>=Math.abs(tryDown)? tryUp : tryDown;
+    return {k, dir:bestDir, delta:Math.round(bestΔ)};
+  }).sort((a,b)=>Math.abs(b.delta)-Math.abs(a.delta))[0];
+  const leverNice = {impact:'Impact', cost:'Cost', risk:'Risk', urgency:'Urgency', confidence:'Confidence'}[levers.k];
+  const leverLine = levers.delta!==0 ? `Biggest single-step lever: <b>${leverNice} ${levers.dir}</b> (ΔD ${levers.delta>=0?'+':''}${levers.delta}).` : `Levers balanced — iterate locally.`;
+
+  // Cadence (kept)
   let cadence=0;
   if(asc.length){
     const first=asc[0].ts, last=asc[asc.length-1].ts;
@@ -1163,55 +1234,16 @@ function narrativeFor(rowsAll){
     cadence=Math.round((n/days)*7);
   }
 
-  // ---- Category diagnostics: pressure sink, stability anchor, return leader/drag ----
-  const byCat = new Map();
-  let totalEnergy = 0;
-  rows.forEach(r=>{
-    const c=(r.category||'').trim()||'Uncategorized';
-    const e=(Number(r.urgency)||0)*(Number(r.confidence)||0);
-    totalEnergy += e;
-    if(!byCat.has(c)) byCat.set(c,{cnt:0,e:0,pressCnt:0,stabCnt:0,sumRet:0});
-    const t = byCat.get(c);
-    t.cnt += 1;
-    t.e += e;
-    if((r.pressure||0) > 0) t.pressCnt += 1;
-    if((r.stability||0) > 0) t.stabCnt  += 1;
-    t.sumRet += (Number(r.return)||0);
-  });
+  // Exec sentence 1 (plain-language momentum)
+  const s1 = `Across <b>${n}</b> decisions, footing is <b>${toneS}</b>, operating state is <b>${toneP}</b>, and return profile is <b>${toneR}</b>. ${momentumPlain} Cadence ~<b>${cadence}/wk</b>.`;
 
-  function pickTop(arr, key){ return arr.length ? arr.sort((a,b)=>b[key]-a[key])[0] : null; }
-  const catRows = [...byCat.entries()].map(([cat,t])=>{
-    const pressRate = t.cnt ? (t.pressCnt / t.cnt) : 0;
-    const stabRate  = t.cnt ? (t.stabCnt  / t.cnt) : 0;
-    const avgRet    = t.cnt ? (t.sumRet   / t.cnt) : 0;
-    return {
-      cat, cnt:t.cnt, e:t.e,
-      eShare: totalEnergy? (t.e/totalEnergy) : 0,
-      pressScore: t.e * pressRate,
-      stabScore:  t.e * stabRate,
-      avgRet
-    };
-  }).filter(x=>x.cnt>=2);
-
-  const pressureSink   = pickTop(catRows, 'pressScore');
-  const stabilityAnchor= pickTop(catRows, 'stabScore');
-  const returnLeader   = pickTop(catRows, 'avgRet');
-  const returnDrag     = catRows.length ? catRows.sort((a,b)=>a.avgRet-b.avgRet)[0] : null;
-
-  const pct = v => Math.round((v||0)*100);
-
-  // Exec sentence 1
-  const s1 = `Across <b>${n}</b> decisions, footing is <b>${toneS}</b>, operating state is <b>${toneP}</b>, and return profile is <b>${toneR}</b>. Momentum is <b>${trendTone}</b> (EMA7–30 ${trend>=0?'+':''}${trend}); cadence ~<b>${cadence}/wk</b>.`;
-
-  // Exec sentence 2: deeper analytics
+  // Exec sentence 2 (pressure/stability/return by category)
   const pChunk = pressureSink
     ? `Pressure is being <b>spent in ${escapeHtml(pressureSink.cat)}</b> (${pct(pressureSink.eShare)}% of energy).`
     : `Pressure is <b>diffuse</b> across categories.`;
-
   const sChunk = stabilityAnchor
     ? `Stability is <b>sourced from ${escapeHtml(stabilityAnchor.cat)}</b> (${pct(stabilityAnchor.eShare)}% of energy).`
     : `Stability has <b>no clear anchor</b> yet.`;
-
   let rChunk = `Return is <b>undeclared</b>.`;
   if(returnLeader && returnDrag){
     const lead = `${escapeHtml(returnLeader.cat)} (${returnLeader.avgRet>=0?'+':''}${Math.round(returnLeader.avgRet)})`;
@@ -1221,10 +1253,12 @@ function narrativeFor(rowsAll){
     rChunk = `Return is led by <b>${escapeHtml(returnLeader.cat)}</b> (${returnLeader.avgRet>=0?'+':''}${Math.round(returnLeader.avgRet)}).`;
   }
 
-  const lever = `Tighten loops and move <b>one lever at a time</b> (impact ↑, cost ↓, risk ↓); shift energy away from the pressure sink into the stability anchor.`;
+  // Exec sentence 3 (new insights that no one shows)
+  const s3 = `Energy ROI <b>${energyROITxt}</b> (return per unit energy). Pressure Tax <b>${pressureTax>=0?'+':''}${pressureTax}</b> D-NAV (penalty vs calm). Fragility exposure <b>${fragExp}%</b>. ${leverLine}`;
 
-  el.innerHTML = `${s1} ${pChunk} ${sChunk} ${rChunk} ${lever}`;
+  el.innerHTML = `${s1} ${pChunk} ${sChunk} ${rChunk} ${s3}`;
 }
+
 
 /* --------- Minimal table/log rendering --------- */
 function renderLogTable(rows){
