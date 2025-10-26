@@ -3,12 +3,24 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>The Decision NAVigator — D-NAV Mini (v3.38)</title>
+<title>The Decision NAVigator — D-NAV Mini (v3.38f)</title>
 <style>
 :root{--bg:#0b0f14;--card:#121821;--muted:#8fa1b7;--text:#e9eef5;--green:#3ecf8e;--red:#ff6b6b;--amber:#f3b431;--blue:#69a9ff;--ink:#cfe1ff}
 *{box-sizing:border-box;font-family:Inter,ui-sans-serif,system-ui,-apple-system,Segoe UI,Roboto,Arial}
-body{background:var(--bg);color:var(--text);margin:0;padding:24px;overflow-x:hidden}
-body.no-scroll{overflow:hidden}
+body{background:var(--bg);color:var(--text);margin:0;padding:0;overflow-x:hidden}
+
+/* Sticky top nav */
+.topnav{position:sticky;top:0;z-index:10000;background:rgba(11,15,20,.9);backdrop-filter:blur(8px);border-bottom:1px solid rgba(255,255,255,.06)}
+.topnav .inner{max-width:1200px;margin:0 auto;display:flex;align-items:center;justify-content:space-between;padding:10px 16px}
+.brand{display:flex;align-items:center;gap:10px;font-weight:900;letter-spacing:.2px}
+.brand h1{font-size:18px;margin:0}
+.navlinks{display:flex;gap:10px;flex-wrap:wrap}
+.navlinks a,.navlinks button{padding:8px 10px;border-radius:10px;border:1px solid rgba(255,255,255,.08);background:#0f141b;color:#cfe1ff;font-weight:700;cursor:pointer;text-decoration:none}
+.navlinks a:hover,.navlinks button:hover{background:rgba(105,169,255,.10);border-color:rgba(105,169,255,.45);color:#e9f2ff}
+
+/* Page wrap */
+.page{padding:24px}
+.page.no-scroll{overflow:hidden}
 
 /* Page banner */
 .site-title{max-width:1200px;margin:0 auto 12px auto;padding:8px 2px;font-weight:900;letter-spacing:.2px}
@@ -160,7 +172,7 @@ tbody tr:nth-child(even){background:rgba(255,255,255,.02)}
 
 /* Mobile */
 @media (max-width:900px){
-  body{padding:14px}
+  .page{padding:14px}
   .wrap{grid-template-columns:1fr}
   .row{grid-template-columns:1fr 1fr 46px}
   h1{font-size:20px}
@@ -194,6 +206,25 @@ tbody tr:nth-child(even){background:rgba(255,255,255,.02)}
 </head>
 <body>
 
+<!-- Sticky top nav -->
+<div class="topnav">
+  <div class="inner">
+    <div class="brand">
+      <img src="./logo.PNG" alt="" style="width:28px;height:28px;border-radius:6px;background:#c9d4e6"/>
+      <h1>D-NAV Mini</h1>
+    </div>
+    <div class="navlinks">
+      <a href="#vars">Variables</a>
+      <a href="#stats">Stats</a>
+      <a href="#hygiene">Hygiene</a>
+      <a href="#log">Log</a>
+      <button id="openCompareTop">Compare</button>
+    </div>
+  </div>
+</div>
+
+<div class="page">
+
 <!-- Page banner -->
 <div class="site-title">
   <h1>The Decision NAVigator</h1>
@@ -210,11 +241,15 @@ tbody tr:nth-child(even){background:rgba(255,255,255,.02)}
 </div>
 
 <!-- Controls / Summary row -->
-<div class="wrap">
+<div class="wrap" id="vars">
   <div class="card">
     <h1>D-NAV Variables</h1>
     <div class="muted">Rate each variable <i>in the moment</i>. These scores are relative to your current context.</div>
-    <div class="scale-note">Scale: <span class="pill blue" style="padding:2px 8px;border:1px solid rgba(105,169,255,.35)">1 = minimal</span> <span class="pill blue" style="padding:2px 8px;border:1px solid rgba(105,169,255,.35)">10 = maximum</span> • judge how it feels <b>right now</b>.</div>
+    <div class="scale-note">Scale:
+      <span class="pill blue" style="padding:2px 8px;border:1px solid rgba(105,169,255,.35)">1 = minimal</span>
+      <span class="pill blue" style="padding:2px 8px;border:1px solid rgba(105,169,255,.35)">10 = maximum</span>
+      • judge how it feels <b>right now</b>.
+    </div>
 
     <div class="row">
       <label><span class="label-main" data-default="Impact">Impact</span><span class="hint" data-default="Expected benefit / upside.">Expected benefit / upside.</span></label>
@@ -317,7 +352,7 @@ tbody tr:nth-child(even){background:rgba(255,255,255,.02)}
 </div>
 
 <!-- STATS HUD + Distributions -->
-<div class="wrap" style="grid-template-columns:1fr;">
+<div class="wrap" id="stats" style="grid-template-columns:1fr;">
   <div class="card">
     <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;">
       <h2 style="margin:0;">Your Decision Stats</h2>
@@ -405,7 +440,7 @@ tbody tr:nth-child(even){background:rgba(255,255,255,.02)}
 </div>
 
 <!-- RETURN HYGIENE -->
-<div class="wrap" style="grid-template-columns:1fr;">
+<div class="wrap" id="hygiene" style="grid-template-columns:1fr;">
   <div class="card">
     <h2 style="margin:0;">Return Hygiene</h2>
     <div class="kpis">
@@ -421,7 +456,7 @@ tbody tr:nth-child(even){background:rgba(255,255,255,.02)}
 </div>
 
 <!-- LOG -->
-<div class="wrap" style="grid-template-columns:1fr;">
+<div class="wrap" id="log" style="grid-template-columns:1fr;">
   <div class="card grid">
     <div style="display:flex;gap:10px;align-items:center;justify-content:space-between;">
       <h2 style="margin:0;">Decision Log</h2>
@@ -959,7 +994,7 @@ function openPdfReport(){
       `With <b>${total}</b> recorded decisions and an average D-NAV of <b>${avg}</b>, this portfolio reads as <b>${arche}</b> — ${consTone}. `
       + `Short-term momentum is <b>${trendTone}</b> (EMA7–EMA30 ${trend>=0?'+':''}${trend}), cadence is <b>${cadence}/wk</b>, `
       + `and calibration is <b>${calDisp}</b> (${calTone}). `
-      + `Operationally, the mix is <b>${toneP</b>} with <b>${toneS}</b> footing; average return trend is <b>${toneR}</b>. `
+      + `Operationally, the mix is <b>${toneP}</b> with <b>${toneS}</b> footing; average return tone is <b>${toneR}</b>. `
       + `Attention skews toward <b>${topCat}</b>.`;
   }
 
@@ -1043,23 +1078,12 @@ function openPdfReport(){
   </body></html>`;
 
   const w = window.open('', '_blank');
-  if(!w){ alert('Please allow pop-ups to view the PDF."); return; }
+  if(!w){ alert("Please allow pop-ups to view the PDF."); return; } /* fixed quotes */
   w.document.open(); w.document.write(html); w.document.close();
   try{ w.focus(); }catch{}
 }
 
 /* ---------- Animated Stats / rendering ---------- */
-function animateNumber(el, to, {suffix='', duration=500}={}){
-  const from = Number(el.dataset.val || 0);
-  const start = performance.now();
-  function step(t){
-    const p = Math.min(1, (t - start)/duration);
-    const v = Math.round(from + (to - from)*p);
-    el.textContent = v + suffix;
-    if(p < 1){ requestAnimationFrame(step); } else { el.dataset.val = to; }
-  }
-  requestAnimationFrame(step);
-}
 function filterRows(rows){
   const days = Number($('#rangeSelect').value || 0);
   if(!days) return rows;
@@ -1101,7 +1125,6 @@ function renderAlloc(rows){
 
 /* Distributions render */
 function renderDists(rows){
-  const total = rows.length || 1;
   const count = (fn)=> rows.filter(fn).length;
   const retPos = count(r=>r.return>0), retNeu=count(r=>r.return===0), retNeg=count(r=>r.return<0);
   const stSt = count(r=>r.stability>0), stUn=count(r=>r.stability===0), stFr=count(r=>r.stability<0);
@@ -1297,7 +1320,7 @@ function refreshHUD(){
 /* ================== COMPARE MODE ================== */
 let compareState = {
   base: { impact:1,cost:1,risk:1,urgency:1,confidence:1, locked:true, name:'Base' },
-  scenarios: [] // {id, name, impact,cost,risk,urgency,confidence, metrics}
+  scenarios: [] // {id, name, impact,cost,risk,urgency,confidence}
 };
 let scCounter = 1;
 
@@ -1308,12 +1331,10 @@ function currentBaseValues(){
   }
   return { ...compareState.base };
 }
+function caps01(x){ return Math.max(1, Math.min(10, Number(x)||1)); }
 
 function smallestNudge(from){
-  // Single-step best lever (+1 impact, -1 cost, -1 risk, +1 urgency (×C), +1 confidence (×U))
-  const caps = (x)=>Math.max(1,Math.min(10,x));
   const options = [];
-  // Each tweak is one unit in-range if possible:
   if(from.impact < 10) options.push({label:'impact +1', delta: +1});
   if(from.cost > 1)    options.push({label:'cost -1',   delta: +1});
   if(from.risk > 1)    options.push({label:'risk -1',   delta: +1});
@@ -1324,10 +1345,18 @@ function smallestNudge(from){
   return `Smallest nudge: <b>${best.label}</b> (≈ ΔD-NAV +${best.delta}).`;
 }
 
-function scenarioMetrics(v){ return computeMetrics(v); }
+function computeMetrics(v){  // shadowed above — keep for local clarity
+  const ret=v.impact - v.cost;
+  const pressure=v.urgency - v.confidence;
+  const stability=v.confidence - v.risk;
+  const merit = v.impact - v.cost - v.risk;
+  const energy = (v.urgency||0)*(v.confidence||0);
+  const dnav = merit + energy;
+  return {ret,pressure,stability,dnav,merit,energy};
+}
 
 function scenarioCardHTML(sc, simple){
-  const m = scenarioMetrics(sc);
+  const m = computeMetrics(sc);
   const ret = m.ret, stab = m.stability, press = m.pressure, dnav = m.dnav;
   return `
     <div class="sc-card" data-id="${sc.id}">
@@ -1436,7 +1465,6 @@ function addScenario(init){
   renderScenarios();
   recomputeAllScenarios();
 }
-function caps01(x){ return Math.max(1, Math.min(10, Number(x)||1)); }
 
 function recomputeAllScenarios(){
   const base = currentBaseValues();
@@ -1489,7 +1517,7 @@ function recomputeAllScenarios(){
       : (best.d===0 ? 'No advantage — scenarios tie the Base.' : 'Base outperforms all scenarios.');
   }
 
-  // Re-render scenario cards (for simple/expanded toggle deltas & nudges)
+  // Re-render scenario cards (so toggling Simple mode reflects)
   renderScenarios();
 }
 
@@ -1498,7 +1526,7 @@ function populateRecent(){
   const sel = $('#recentSelect');
   if(!sel) return;
   const all = loadLog().slice(0,50);
-  sel.innerHTML = '<option value="">Load from recent…</option>' + all.map((r,i)=>`<option value="${r.ts}">${fmtLocal(r.ts)} — ${escapeHtml(r.name||'(untitled)')}</option>`).join('');
+  sel.innerHTML = '<option value="">Load from recent…</option>' + all.map((r)=>`<option value="${r.ts}">${fmtLocal(r.ts)} — ${escapeHtml(r.name||'(untitled)')}</option>`).join('');
 
   const more = $('#moreList');
   if(more){
@@ -1604,7 +1632,6 @@ document.addEventListener('DOMContentLoaded', ()=>{
     // Initialize from sliders if locked
     compareState.base = { ...readCurrent(), name:'Base', locked: $('#baseLock').checked };
     if(!compareState.scenarios.length){
-      // start with one alt scenario
       addScenario({ ...readCurrent(), name:'Scenario 1' });
     }else{
       updateBaseInModal();
@@ -1622,6 +1649,7 @@ document.addEventListener('DOMContentLoaded', ()=>{
 
   document.getElementById('openCompareFab').addEventListener('click', openCompare);
   document.getElementById('openCompareBtnA').addEventListener('click', openCompare);
+  document.getElementById('openCompareTop').addEventListener('click', openCompare);
   document.getElementById('closeCompareBtn').addEventListener('click', closeCompare);
   document.addEventListener('keydown', (e)=>{ if(e.key==='Escape' && document.getElementById('compareModal').getAttribute('aria-hidden')==='false') closeCompare(); });
 
@@ -1660,5 +1688,6 @@ document.addEventListener('DOMContentLoaded', ()=>{
   refreshHUD();
 });
 </script>
+</div>
 </body>
 </html>
