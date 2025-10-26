@@ -156,30 +156,29 @@ tbody tr:nth-child(even){background:rgba(255,255,255,.02)}
   .alloc .meta{text-align:left}
   .dual{grid-template-columns:1fr}
 }
+
 /* === Refined "Open Compare" button inside the summary card === */
-.open-compare {
-  display: inline-block;
-  margin-top: 18px;        /* lowers it slightly */
-  margin-left: 8px;        /* moves it toward the left */
-  background: transparent;
-  color: var(--blue);
-  border: 1px solid rgba(105,169,255,0.45);
-  border-radius: 8px;
-  padding: 6px 14px;
-  font-size: 0.85rem;
-  font-weight: 600;
-  text-align: center;
-  box-shadow: none;
-  transition: all 0.2s ease;
+.open-compare{
+  display:inline-block;
+  align-self:flex-start;
+  margin-top:18px;
+  margin-left:0;
+  background:transparent;
+  color:var(--blue);
+  border:1px solid rgba(105,169,255,.45);
+  border-radius:8px;
+  padding:6px 14px;
+  font-size:.85rem;
+  font-weight:600;
+  text-align:center;
+  box-shadow:none;
+  transition:all .2s ease;
 }
-
-}
-
-.open-compare:hover {
-  background: rgba(105,169,255,0.10);
-  border-color: rgba(105,169,255,0.65);
-  color: var(--ink);
-  transform: translateY(-1px);
+.open-compare:hover{
+  background:rgba(105,169,255,.10);
+  border-color:rgba(105,169,255,.65);
+  color:var(--ink);
+  transform:translateY(-1px);
 }
 </style>
 </head>
@@ -237,16 +236,22 @@ tbody tr:nth-child(even){background:rgba(255,255,255,.02)}
   </div>
 
   <div class="card summary">
-    <div class="arch"><h3>Archetype</h3><div id="arch" class="name">Routine</div><div id="archDesc" class="desc">Flat with uncertain footing — balanced execution.</div></div>
+    <div class="arch">
+      <h3>Archetype</h3>
+      <div id="arch" class="name">Routine</div>
+      <div id="archDesc" class="desc">Flat with uncertain footing — balanced execution.</div>
+    </div>
     <div class="comp">
       <h3>Composite (D-NAV)</h3>
       <div id="score" class="big">0</div>
       <div id="scoreTag" class="tag">Low D-NAV — Low energy</div>
       <div class="breakdown">Merit: <span id="meritVal" class="mono">0</span> • Drive: <span id="driveVal" class="mono">0</span></div>
-      <div class="compare-inline"><button id="openCompareBtnA" class="btn open-compare">Open Compare</button>
-</div>
+      <div class="compare-inline"><button id="openCompareBtnA" class="btn open-compare">Open Compare</button></div>
     </div>
-    <div class="coach"><h3>Coach Readout</h3><div id="coach" class="txt">Greenlight profile — execute with discipline.</div></div>
+    <div class="coach">
+      <h3>Coach Readout</h3>
+      <div id="coach" class="txt">Greenlight profile — execute with discipline.</div>
+    </div>
   </div>
 </div>
 
@@ -560,7 +565,7 @@ function energyTier(u, c){
   return {e, name:"Low energy", short:"low"};
 }
 
-/* Coach text (no aggressive window) */
+/* Coach text — concise, directive */
 function coachHint({ret, stab, press, urg, conf, impact, cost, risk}){
   const et = energyTier(urg, conf);
   let sugs = [];
@@ -659,8 +664,8 @@ function compute(){
   });
 
   if(document.getElementById('compareModal').getAttribute('aria-hidden')==='false'){
-    if(document.getElementById('baseLock').checked) updateBaseInModal();
-    recomputeAllScenarios();
+    if(document.getElementById('baseLock').checked && typeof updateBaseInModal==='function') updateBaseInModal();
+    if(typeof recomputeAllScenarios==='function') recomputeAllScenarios();
   }
 }
 
@@ -715,7 +720,7 @@ function loadLog(){ try{ return JSON.parse(localStorage.getItem('dnav_log_v1')||
 function saveLog(arr){ localStorage.setItem('dnav_log_v1', JSON.stringify(arr)); }
 function escapeHtml(s=''){ return s.replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m])); }
 
-/* CSV parsing (unchanged) */
+/* CSV parsing */
 function parseCSV(text){
   const rows=[]; let i=0, cur=[], val='', inQ=false;
   while(i<text.length){
@@ -838,7 +843,7 @@ function importCSV(text){
   imported.sort((a,b)=>b.ts-a.ts);
   const merged = dedupeRows([...imported, ...current]);
   saveLog(merged);
-  populateRecent();
+  populateRecent?.();
   return {count: imported.length};
 }
 
@@ -863,7 +868,7 @@ function downloadCsv(){
   URL.revokeObjectURL(a.href);
 }
 
-/* -------- Compact, one-page-leaning PDF report -------- */
+/* -------- Compact, one-page PDF (with Narrative) -------- */
 function openPdfReport(){
   const compact = document.getElementById('compactPrint')?.checked === true;
 
@@ -900,6 +905,42 @@ function openPdfReport(){
   const cal = corr(confs,rets);
   const calDisp = (cal===null)?'n/a':(cal>=0?'+':'')+ (Math.round(cal*100)/100);
 
+  // Narrative
+  function mean(a){ return a.length ? a.reduce((x,y)=>x+(Number(y)||0),0)/a.length : 0; }
+  let narrative = 'No decisions to summarize yet.';
+  if (inRange.length){
+    const avgR = mean(inRange.map(r=>r.return));
+    const avgS = mean(inRange.map(r=>r.stability));
+    const avgP = mean(inRange.map(r=>r.pressure));
+    const arche = avg>60?'Harvest': avg>40?'Advance': avg>20?'Routine':'Recover';
+    const trendTone = trend>2?'strong upward': trend>0?'steady positive': trend===0?'flat':'declining';
+    const consTone  = consistency<8?'tight and disciplined': consistency<15?'variable — mixing wins and misfires':'wide — brilliance mixed with chaos';
+    const calTone   = (cal===null)?'insufficient data':
+                      cal>0.5?'confident and mostly justified':
+                      cal>0?'healthy optimism':
+                      cal>-0.5?'under-confident or reactionary':'consistently over-confident';
+    const toneR = avgR>0?'positive':(avgR<0?'negative':'flat');
+    const toneS = avgS>0?'stable':(avgS<0?'fragile':'uncertain');
+    const toneP = avgP>0?'high-pressure':(avgP<0?'calm':'balanced');
+
+    const catE = new Map(); let topCat = '—';
+    inRange.forEach(r=>{
+      const c=(r.category||'').trim()||'Uncategorized';
+      const e=(r.urgency||0)*(r.confidence||0);
+      catE.set(c,(catE.get(c)||0)+e);
+    });
+    if (catE.size){
+      topCat = [...catE.entries()].sort((a,b)=>b[1]-a[1])[0][0];
+    }
+
+    narrative =
+      `With <b>${total}</b> recorded decisions and an average D-NAV of <b>${avg}</b>, this portfolio reads as <b>${arche}</b> — ${consTone}. `
+      + `Short-term momentum is <b>${trendTone}</b> (EMA7–EMA30 ${trend>=0?'+':''}${trend}), cadence is <b>${cadence}/wk</b>, `
+      + `and calibration is <b>${calDisp}</b> (${calTone}). `
+      + `Operationally, the mix is <b>${toneP}</b> with <b>${toneS}</b> footing; average return trend is <b>${toneR}</b>. `
+      + `Attention skews toward <b>${topCat}</b>.`;
+  }
+
   const html = `
   <html><head><meta charset="utf-8" />
     <title>D-NAV Insights</title>
@@ -919,7 +960,9 @@ function openPdfReport(){
       .stack{height:${compact?'8px':'10px'};border-radius:999px;background:rgba(255,255,255,.09);display:flex;overflow:hidden;margin-top:${compact?'4px':'6px'}}
       .seg{height:100%}.g{background:rgba(62,207,142,.85)}.a{background:rgba(243,180,49,.85)}.r{background:rgba(255,107,107,.85)}
       .legend{display:${compact?'none':'flex'};gap:12px;flex-wrap:wrap;color:var(--muted);font-size:12px;margin-top:6px}
-      @page{size: ${compact?'Letter':'auto'}; margin:${compact?'.5in':'1in'}}
+      .narrative{padding:12px;margin-top:10px}
+      .narrative p{line-height:1.5}
+      @page{size:${compact?'Letter':'auto'};margin:${compact?'.5in':'1in'}}
       @media print{body{background:#fff;color:#000}.card{background:#fff;border:1px solid #ddd}.kpi,.stack{background:#eee}.g{background:#4caf50}.a{background:#ffb300}.r{background:#ef5350}}
     </style>
   </head>
@@ -945,20 +988,38 @@ function openPdfReport(){
         <div class="kpi"><h4>Calibration</h4><div class="big">${calDisp}</div><div class="mini">Conf ↔ Return</div></div>
       </div>
 
+      <section class="card narrative">
+        <h2 style="margin:0 0 8px 0;">D-NAV Narrative Summary</h2>
+        <p>${narrative}</p>
+      </section>
+
       <div class="grid">
         <div class="card"><h2>Return distribution</h2>
-          <div class="stack"><span class="seg g" style="width:${pct(retPos,total)}%"></span><span class="seg a" style="width:${pct(retNeu,total)}%"></span><span class="seg r" style="width:${pct(retNeg,total)}%"></span></div>
+          <div class="stack">
+            <span class="seg g" style="width:${pct(retPos,total)}%"></span>
+            <span class="seg a" style="width:${pct(retNeu,total)}%"></span>
+            <span class="seg r" style="width:${pct(retNeg,total)}%"></span>
+          </div>
         </div>
         <div class="card"><h2>Stability distribution</h2>
-          <div class="stack"><span class="seg g" style="width:${pct(stabSt,total)}%"></span><span class="seg a" style="width:${pct(stabUn,total)}%"></span><span class="seg r" style="width:${pct(stabFr,total)}%"></span></div>
+          <div class="stack">
+            <span class="seg g" style="width:${pct(stabSt,total)}%"></span>
+            <span class="seg a" style="width:${pct(stabUn,total)}%"></span>
+            <span class="seg r" style="width:${pct(stabFr,total)}%"></span>
+          </div>
         </div>
         ${compact ? '' : `
         <div class="card"><h2>Pressure distribution</h2>
-          <div class="stack"><span class="seg r" style="width:${pct(prPress,total)}%"></span><span class="seg a" style="width:${pct(prBal,total)}%"></span><span class="seg g" style="width:${pct(prCalm,total)}%"></span></div>
+          <div class="stack">
+            <span class="seg r" style="width:${pct(prPress,total)}%"></span>
+            <span class="seg a" style="width:${pct(prBal,total)}%"></span>
+            <span class="seg g" style="width:${pct(prCalm,total)}%"></span>
+          </div>
         </div>`}
       </div>
     </div>
   </body></html>`;
+
   const w = window.open('', '_blank');
   if(!w){ alert('Please allow pop-ups to view the PDF.'); return; }
   w.document.open(); w.document.write(html); w.document.close();
@@ -977,7 +1038,6 @@ function animateNumber(el, to, {suffix='', duration=500}={}){
   }
   requestAnimationFrame(step);
 }
-function pulse(tile){ tile.classList.remove('pulse'); void tile.offsetWidth; tile.classList.add('pulse'); }
 function filterRows(rows){
   const days = Number($('#rangeSelect').value || 0);
   if(!days) return rows;
@@ -1024,7 +1084,7 @@ function renderDists(rows){
   const retPos = count(r=>r.return>0), retNeu=count(r=>r.return===0), retNeg=count(r=>r.return<0);
   const stSt = count(r=>r.stability>0), stUn=count(r=>r.stability===0), stFr=count(r=>r.stability<0);
   const prPr = count(r=>r.pressure>0), prBa=count(r=>r.pressure===0), prCa=count(r=>r.pressure<0);
-  const pct = (n)=> Math.round(n*100/total);
+  const pct = (n)=> Math.round(n*100/(rows.length||1));
 
   $('#ret_pos').style.width = pct(retPos)+'%';
   $('#ret_neu').style.width = pct(retNeu)+'%';
@@ -1075,120 +1135,86 @@ function renderHygiene(rows){
   document.getElementById('h_hint').textContent = hint;
 }
 
-/* Portfolio narrative */
+/* ---- NARRATIVE: On-page Portfolio Readout (interprets Return / Stability / Pressure) ---- */
 function renderPortfolioReadout(allRows){
   const rows = filterRows(allRows);
-  if(!rows.length){ document.getElementById('portfolioReadout').textContent='No data in range. Import or add decisions to see a narrative.'; return; }
-
-  const mean = a => a.length ? a.reduce((x,y)=>x+(Number(y)||0),0)/a.length : 0;
-  const avgR = mean(rows.map(r=>r.return));
-  const avgS = mean(rows.map(r=>r.stability));
-  const avgP = mean(rows.map(r=>r.pressure));
-  const toneR = avgR>0?'positive':(avgR<0?'negative':'flat');
-  const toneS = avgS>0?'stable':(avgS<0?'fragile':'uncertain');
-  const toneP = avgP>0?'high-pressure':(avgP<0?'calm':'balanced');
-
-  // Energy by category
-  const acc = new Map();
-  rows.forEach(r=>{
-    const cat=(r.category||'').trim()||'Uncategorized';
-    const e=(r.urgency||0)*(r.confidence||0);
-    acc.set(cat,(acc.get(cat)||0)+e);
-  });
-  const top = [...acc.entries()].sort((a,b)=>b[1]-a[1])[0];
-  const topCat = top ? top[0] : '—';
-
-  const line = `Portfolio leaning ${toneP} with ${toneS} footing; return is ${toneR}. Energy concentrated in ${topCat}.`;
-  let advice = '';
-  if(avgP>0 && avgS<=0) advice=' Tighten scope or add evidence before pushing.';
-  else if(avgP>0 && avgS>0) advice=' High-pressure on solid footing — execute with discipline.';
-  else if(avgP<=0 && avgS>0 && avgR>0) advice=' Calm and stable with gains — consider scaling.';
-  else if(avgR<0) advice=' Negative average return — improve unit economics or pivot.';
-  document.getElementById('portfolioReadout').textContent = line + advice;
-}
-
-/* Learning tiles + Calibration + Last-5 */
-function renderLearningTiles(rows){
-  const total = rows.length;
-
-  const asc = [...rows].sort((a,b)=>a.ts-b.ts);
-  const dnavAsc = asc.map(r=>Number(r.dnav)||0);
-
-  const ema7 = dnavAsc.length ? Math.round(ema(dnavAsc,7)) : 0;
-  const ema30 = dnavAsc.length ? Math.round(ema(dnavAsc,30)) : 0;
-  const momentum = ema7 - ema30;
-
-  const last20 = dnavAsc.slice(-20);
-  const consistency = Math.round(stdev(last20));
-
-  let cadence = 0;
-  if (asc.length){
-    const first = asc[0].ts, last = asc[asc.length-1].ts;
-    const days = Math.max(1, (last-first)/86400000);
-    cadence = Math.round((total / days) * 7);
+  const el = document.getElementById('portfolioReadout');
+  if(!rows.length){
+    el.innerHTML = 'No data in range. Import or add decisions to see a narrative.';
+    return;
   }
 
-  const confs = asc.map(r=>Number(r.confidence)||0);
-  const rets  = asc.map(r=>Number(r.return)||0);
-  const c = corr(confs,rets);
-  const disp = (c===null)?'n/a':(c>=0?'+':'')+(Math.round(c*100)/100);
+  const n = rows.length;
+  const sum = (a,f)=>a.reduce((x,r)=>x+(Number(f(r))||0),0);
+  const mean = (a,f)=> a.length? sum(a,f)/a.length : 0;
 
-  const desc = [...rows].sort((a,b)=>b.ts-a.ts);
-  const last5 = desc.slice(0,5).map(r=>r.dnav);
-  const prior5 = desc.slice(5,10).map(r=>r.dnav);
-  const avg = arr => arr.length? Math.round(arr.reduce((a,b)=>a+(Number(b)||0),0)/arr.length) : 0;
-  const last5Avg = avg(last5), prior5Avg = avg(prior5);
-  const delta5 = last5Avg - prior5Avg;
+  const avgR = mean(rows,r=>r.return);
+  const avgS = mean(rows,r=>r.stability);
+  const avgP = mean(rows,r=>r.pressure);
 
-  animateNumber($('#k_momentum'), momentum);
-  animateNumber($('#k_consistency'), consistency);
-  animateNumber($('#k_cadence'), cadence);
-  $('#k_calib').textContent = disp;
-  $('#k_last5').textContent = (delta5>=0?'+':'') + delta5;
-  $('#k_last5mini').textContent = `Last-5: ${last5Avg} • Prior-5: ${prior5Avg}`;
+  const toneR = avgR>0?'positive':(avgR<0?'negative':'flat');
+  const toneS = avgS>0?'stable':(avgS<0?'fragile':'uncertain');
+  const toneP = avgP>0?'pressured':(avgP<0?'calm':'balanced');
 
-  pulse($('#tile_mom')); pulse($('#tile_cons')); pulse($('#tile_cad')); pulse($('#tile_calib')); pulse($('#tile_last5'));
+  // Energy allocation (Urgency × Confidence)
+  const catE = new Map();
+  for(const r of rows){
+    const c=(r.category||'').trim()||'Uncategorized';
+    const e=(Number(r.urgency)||0)*(Number(r.confidence)||0);
+    catE.set(c,(catE.get(c)||0)+e);
+  }
+  let topCat='—', topShare='—';
+  if(catE.size){
+    const totalE = [...catE.values()].reduce((a,b)=>a+b,0) || 1;
+    const [tc, te] = [...catE.entries()].sort((a,b)=>b[1]-a[1])[0];
+    topCat = tc;
+    topShare = Math.round(te*100/totalE)+'%';
+  }
+
+  // Trend & cadence
+  const asc=[...rows].sort((a,b)=>a.ts-b.ts);
+  const dnavAsc=asc.map(r=>Number(r.dnav)||0);
+  const ema7 = dnavAsc.length? Math.round(ema(dnavAsc,7)) : 0;
+  const ema30= dnavAsc.length? Math.round(ema(dnavAsc,30)) : 0;
+  const trend = ema7-ema30;
+  const trendTone = trend>2?'rising':(trend>0?'tilting up':(trend===0?'flat':'slipping'));
+
+  let cadence=0;
+  if(asc.length){
+    const first=asc[0].ts, last=asc[asc.length-1].ts;
+    const days=Math.max(1,(last-first)/86400000);
+    cadence=Math.round((n/days)*7);
+  }
+
+  // Executive-style readout
+  // Para 1: state of play
+  const p1 = `Across <b>${n}</b> decisions, footing is <b>${toneS}</b>, operating state is <b>${toneP}</b>, and return profile trends <b>${toneR}</b>. Momentum is <b>${trendTone}</b> (EMA7–30 ${trend>=0?'+':''}${trend}); cadence ~<b>${cadence}/wk</b>. Energy concentrates in <b>${escapeHtml(topCat)}</b> (${topShare}).`;
+
+  // Para 2: guardrails & go-forward
+  let p2 = '';
+  if(avgP>0 && avgS<=0){
+    p2 = `You’re pushing under pressure on <b>fragile footing</b> — tighten scope, prove units, or add capacity before scaling.`;
+  } else if(avgP>0 && avgS>0){
+    p2 = `High pressure with <b>stable footing</b> — acceptable performance zone; maintain discipline and watch lead indicators.`;
+  } else if(avgR<0){
+    p2 = `Returns are <b>negative</b> — stop/pivot experiments with weak unit economics; recycle energy to proven lanes.`;
+  } else if(avgR>0 && avgS>0){
+    p2 = `Greenlight conditions — keep compounding what works and raise quality bar instead of volume.`;
+  } else {
+    p2 = `Mixed signals — shorten feedback loops, isolate one lever at a time (cost ↓, risk ↓, or impact ↑).`;
+  }
+
+  el.innerHTML = `<div>${p1}</div><div style="margin-top:6px">${p2}</div>`;
 }
 
-function renderStats(allRows){
-  const rows = filterRows(allRows);
-  const total = rows.length;
-  const avg = total ? Math.round(rows.reduce((a,r)=>a + (Number(r.dnav)||0),0)/total) : 0;
-
-  const counts = new Map();
-  rows.forEach(r=>{ const c=(r.category||'').trim(); if(!c) return; counts.set(c,(counts.get(c)||0)+1); });
-  let topCat='—', topCatCount=0;
-  counts.forEach((v,k)=>{ if(v>topCatCount){ topCat=k; topCatCount=v; } });
-
-  const aCounts = new Map();
-  rows.forEach(r=>{
-    const key=[Math.sign(r.pressure),Math.sign(r.stability),Math.sign(r.return)].join('|');
-    const n=oneWord[key]; if(!n) return;
-    aCounts.set(n,(aCounts.get(n)||0)+1);
-  });
-  let topArch='—', topArchCount=0;
-  aCounts.forEach((v,k)=>{ if(v>topArchCount){ topArch=k; topArchCount=v; } });
-
-  animateNumber($('#k_total'), total);
-  $('#k_recent').textContent = `${total} in range`;
-  animateNumber($('#k_avgdnav'), avg);
-
-  $('#k_misc').textContent = `Top category: ${topCat} • Top archetype: ${topArch}`;
-
-  renderAlloc(rows);
-  renderDists(rows);
-  renderLearningTiles(rows);
-  renderHygiene(rows);
-  renderPortfolioReadout(allRows);
-}
-
-function renderLog(){
-  const rows=loadLog();
-  const tbody=$('#logBody');
-  tbody.innerHTML = rows.map((r,i)=>`
+/* --------- Minimal table/log rendering (for narrative freshness) --------- */
+function renderLogTable(rows){
+  const body = document.getElementById('logBody');
+  if(!body) return;
+  body.innerHTML = rows.map(r=>`
     <tr>
-      <td>${new Date(r.ts).toLocaleString()}</td>
-      <td>${escapeHtml(r.name)}</td>
+      <td>${fmtLocal(r.ts)}</td>
+      <td>${escapeHtml(r.name||'')}</td>
       <td>${escapeHtml(r.category||'')}</td>
       <td class="num">${fmt0(r.impact)}</td>
       <td class="num">${fmt0(r.cost)}</td>
@@ -1198,585 +1224,121 @@ function renderLog(){
       <td class="num">${fmt0(r.return)}</td>
       <td class="num">${fmt0(r.pressure)}</td>
       <td class="num">${fmt0(r.stability)}</td>
-      <td class="num" style="font-weight:700;">${fmt0(r.dnav)}</td>
-      <td style="text-align:center;">
-        <button data-idx="${i}" class="del" style="border:0;background:transparent;color:#fff;cursor:pointer;">✕</button>
-      </td>
+      <td class="num">${fmt0(r.dnav)}</td>
+      <td style="text-align:center;"><button class="btn secondary" data-del="${r.ts}">✕</button></td>
     </tr>
   `).join('');
-
-  tbody.querySelectorAll('button.del').forEach(btn=>{
-    btn.addEventListener('click',()=>{
-      const idx=Number(btn.getAttribute('data-idx'));
-      const arr=loadLog(); arr.splice(idx,1); saveLog(arr); renderLog(); populateRecent();
-    });
-  });
-
-  renderStats(rows);
 }
 
-/* Form + log */
-function resetForm(){
-  SLIDER_IDS.forEach(id=>{ const el=$('#'+id); el.value=1; });
-  $('#decisionName').value='';
-  $('#decisionCategory').value='';
+/* HUD refresh (just enough for narrative + tiles) */
+function refreshHUD(){
+  const all = loadLog();
+  const rows = filterRows(all);
+  // KPIs
+  const n = rows.length;
+  const avg = n ? Math.round(rows.reduce((a,r)=>a+(Number(r.dnav)||0),0)/n) : 0;
+  const asc=[...rows].sort((a,b)=>a.ts-b.ts);
+  const dnavAsc=asc.map(r=>Number(r.dnav)||0);
+  const ema7 = dnavAsc.length? Math.round(ema(dnavAsc,7)) : 0;
+  const ema30= dnavAsc.length? Math.round(ema(dnavAsc,30)) : 0;
+  const trend = ema7-ema30;
+  const last20 = dnavAsc.slice(-20);
+  const sigma = Math.round(stdev(last20));
+  let cadence=0;
+  if(asc.length){
+    const first=asc[0].ts, last=asc[asc.length-1].ts;
+    const days=Math.max(1,(last-first)/86400000);
+    cadence=Math.round((n/days)*7);
+  }
+  document.getElementById('k_total').textContent = n;
+  document.getElementById('k_avgdnav').textContent = avg;
+  document.getElementById('k_momentum').textContent = (trend>=0?'+':'')+trend;
+  document.getElementById('k_consistency').textContent = sigma;
+  document.getElementById('k_cadence').textContent = cadence;
+
+  // Dists, alloc, hygiene, narrative
+  renderDists(rows);
+  renderAlloc(rows);
+  renderHygiene(rows);
+  renderPortfolioReadout(all);
+  renderLogTable(all);
+}
+
+/* -------- Event wiring -------- */
+document.addEventListener('DOMContentLoaded', ()=>{
+  // Sliders
+  SLIDER_IDS.forEach(id=>{
+    document.getElementById(id).addEventListener('input', compute);
+  });
   compute();
-  $('#enterBtn').disabled = true;
-}
-function checkFormValid(){
-  const nameOk = $('#decisionName').value.trim().length>0;
-  const catOk  = $('#decisionCategory').value.trim().length>0;
-  $('#enterBtn').disabled = !(nameOk && catOk);
-}
-function enterDecision(){
-  const btn=$('#enterBtn'); if(btn.disabled) return;
-  btn.disabled = true;
-  const name=$('#decisionName').value.trim();
-  const category=$('#decisionCategory').value.trim();
-  if(!name || !category){ btn.disabled=false; return; }
 
-  const vals=readCurrent();
-  const m=computeMetrics(vals);
+  // Range window
+  document.getElementById('rangeSelect').addEventListener('change', ()=>refreshHUD());
 
-  const row={
-    ts:Date.now(),
-    name, category,
-    ...vals,
-    return:m.ret, pressure:m.pressure, stability:m.stability, merit:m.merit, energy:m.energy, dnav:m.dnav
-  };
+  // CSV upload
+  const fileInput = document.getElementById('csvInput');
+  const uploadBtn = document.getElementById('uploadBtn');
+  fileInput.addEventListener('change', ()=>{
+    uploadBtn.disabled = !fileInput.files?.length;
+    document.getElementById('uploadMsg').textContent = fileInput.files?.length ? 'File ready — click Confirm Import' : '';
+  });
+  uploadBtn.addEventListener('click', async ()=>{
+    const f = fileInput.files?.[0];
+    if(!f) return;
+    const text = await f.text();
+    try{
+      const res = importCSV(text);
+      document.getElementById('uploadMsg').textContent = `Imported ${res.count} rows.`;
+      refreshHUD();
+    }catch(e){
+      document.getElementById('uploadMsg').textContent = String(e.message||e);
+    }
+  });
 
-  const arr=loadLog();
-  arr.unshift(row);
-  saveLog(arr);
-
-  renderLog();
-  resetForm();
-}
-
-/* ---- Upload UI wiring ---- */
-const csvInput  = document.getElementById('csvInput');
-const uploadBtn = document.getElementById('uploadBtn');
-const uploadMsg = document.getElementById('uploadMsg');
-
-function setUploadMsg(text, ok=false){
-  uploadMsg.textContent = text;
-  uploadMsg.style.color = ok ? '#9fe7b6' : '#ffb3b3';
-}
-
-let selectedFile = null;
-csvInput.addEventListener('change', ()=>{
-  selectedFile = (csvInput.files && csvInput.files[0]) ? csvInput.files[0] : null;
-  uploadBtn.disabled = !selectedFile;
-  setUploadMsg(selectedFile ? `Selected: ${selectedFile.name}. Click “Confirm Import”.` : '');
-});
-uploadBtn.addEventListener('click', async ()=>{
-  if(!selectedFile){ setUploadMsg('Please choose a CSV first.'); return; }
-  try{
-    const text = await selectedFile.text();
-    const res = importCSV(text);
-    setUploadMsg(`Imported ${res.count} row${res.count!==1?'s':''}.`, true);
-    renderLog();
-    csvInput.value = '';
-    selectedFile = null;
-    uploadBtn.disabled = true;
-  }catch(err){
-    setUploadMsg(`Import failed: ${err.message||err}`);
-  }
-});
-
-/* ======== Compare modal: multi-scenario + base lock/unlock ======== */
-const compareModal = document.getElementById('compareModal');
-const openCompareFab = document.getElementById('openCompareFab');
-const openCompareBtnA = document.getElementById('openCompareBtnA');
-const closeCompareBtn = document.getElementById('closeCompareBtn');
-const recentSelect = document.getElementById('recentSelect');
-const moreBtn = document.getElementById('moreRecentBtn');
-const morePanel = document.getElementById('morePanel');
-const moreClose = document.getElementById('moreClose');
-const moreList = document.getElementById('moreList');
-const addScenarioBtn = document.getElementById('addScenarioBtn');
-const baseLock = document.getElementById('baseLock');
-const baseLockState = document.getElementById('baseLockState');
-const scenariosWrap = document.getElementById('scenarios');
-const winnerTag = document.getElementById('winnerTag');
-const winnerLine = document.getElementById('winnerLine');
-
-const scenarioPalette = ['#4cc9f0','#f72585','#b5179e','#7209b7','#3f37c9','#4895ef','#06d6a0','#ffd166','#ef476f','#8338ec','#ff006e','#3a86ff'];
-let scenarioCount = 0;
-const scenarios = new Map();
-let baseOverride = null;
-
-/* Simple mode labels */
-const SIMPLE_LABELS = {
-  impact:   {label:'Upside',     hint:'How big the win could be'},
-  cost:     {label:'Price',      hint:'Money/time/effort it takes'},
-  risk:     {label:'Could go wrong', hint:'Chance + size of downside'},
-  urgency:  {label:'How soon',   hint:'How quickly this matters'},
-  confidence:{label:'How sure',  hint:'Evidence and readiness'}
-};
-function setSimpleMode(on){
-  // Global first card labels
-  const firstCard = document.querySelector('.wrap .card');
-  if(firstCard){
-    const rows = firstCard.querySelectorAll('.row');
-    const keys = ['impact','cost','risk','urgency','confidence'];
-    keys.forEach((k,i)=>{
-      const L = rows[i]?.querySelector('.label-main');
-      const H = rows[i]?.querySelector('.hint');
-      if(L && H){
-        const defLabel = L.getAttribute('data-default') || L.textContent;
-        const defHint  = H.getAttribute('data-default') || H.textContent;
-        if(!L.getAttribute('data-default')) L.setAttribute('data-default', defLabel);
-        if(!H.getAttribute('data-default')) H.setAttribute('data-default', defHint);
-        L.textContent = on ? SIMPLE_LABELS[k].label : L.getAttribute('data-default');
-        H.textContent = on ? SIMPLE_LABELS[k].hint  : H.getAttribute('data-default');
-      }
-    });
-  }
-  // Scenario cards
-  document.querySelectorAll('.sc-card').forEach(card=>{
-    const defs = {
-      impact:{lab:'Impact', hint:'↑ Payoff'},
-      cost:{lab:'Cost', hint:'↓ Unit cost'},
-      risk:{lab:'Risk', hint:'↓ Downside'},
-      urgency:{lab:'Urgency', hint:'↑ Speed'},
-      confidence:{lab:'Confidence', hint:'↑ Evidence'},
+  // Quick Entry
+  const nameEl = document.getElementById('decisionName');
+  const catEl  = document.getElementById('decisionCategory');
+  const enterBtn = document.getElementById('enterBtn');
+  function gate(){ enterBtn.disabled = !(nameEl.value.trim() && catEl.value.trim()); }
+  nameEl.addEventListener('input', gate); catEl.addEventListener('input', gate);
+  enterBtn.addEventListener('click', ()=>{
+    const v = readCurrent();
+    const m = computeMetrics(v);
+    const row = {
+      ts: Date.now(),
+      name: nameEl.value.trim(),
+      category: catEl.value.trim(),
+      impact:v.impact, cost:v.cost, risk:v.risk, urgency:v.urgency, confidence:v.confidence,
+      return:m.ret, pressure:m.pressure, stability:m.stability, merit:m.merit, energy:m.energy, dnav:m.dnav
     };
-    Object.keys(defs).forEach(k=>{
-      const row = card.querySelector(`.row input[data-field="${k}"]`)?.closest('.row');
-      if(!row) return;
-      const lab = row.querySelector('.label-main');
-      const hint = row.querySelector('.hint');
-      if(lab && hint){
-        lab.textContent  = on ? SIMPLE_LABELS[k].label : defs[k].lab;
-        hint.textContent = on ? SIMPLE_LABELS[k].hint  : defs[k].hint;
-      }
-    });
+    const cur = loadLog(); cur.unshift(row); saveLog(cur);
+    nameEl.value=''; catEl.value=''; gate();
+    refreshHUD();
   });
-}
-document.getElementById('simpleMode')?.addEventListener('change', (e)=> setSimpleMode(e.target.checked));
 
-function populateRecent(){
-  const rows = loadLog().slice(0,5);
-  const prev = recentSelect.value;
-  recentSelect.innerHTML = '<option value="">Load from recent…</option>';
-  rows.forEach((r,idx)=>{
-    const label = `${new Date(r.ts).toLocaleString()} — ${r.name} (${r.category})`;
-    const opt = document.createElement('option');
-    opt.value = String(idx);
-    opt.textContent = label;
-    recentSelect.appendChild(opt);
+  // Downloads
+  document.getElementById('downloadCsvBtn').addEventListener('click', downloadCsv);
+  document.getElementById('downloadPdfBtn').addEventListener('click', openPdfReport);
+
+  // Clear
+  document.getElementById('clearLogBtn').addEventListener('click', ()=>{
+    if(!confirm('Clear all saved decisions?')) return;
+    saveLog([]); refreshHUD();
   });
-  recentSelect.value = prev && recentSelect.querySelector(`option[value="${prev}"]`) ? prev : '';
-}
-function populateMorePanel(){
-  const rows = loadLog();
-  if(!rows.length){ moreList.innerHTML = '<div class="muted">No saved decisions yet.</div>'; return; }
-  moreList.innerHTML = rows.map((r,idx)=>`
-    <div class="more-row" data-idx="${idx}" style="padding:8px 6px;border-bottom:1px solid rgba(255,255,255,.06);cursor:pointer">
-      <div><b>${escapeHtml(r.name||'—')}</b> <span class="muted">(${escapeHtml(r.category||'—')})</span></div>
-      <div class="muted" style="font-size:12px">${new Date(r.ts).toLocaleString()} • I:${r.impact} C:${r.cost} R:${r.risk} U:${r.urgency} Conf:${r.confidence}</div>
-    </div>
-  `).join('');
-  moreList.querySelectorAll('.more-row').forEach(row=>{
-    row.addEventListener('click', ()=>{
-      const r = loadLog()[Number(row.getAttribute('data-idx'))];
-      if(!r) return;
-      const lastKey = Array.from(scenarios.keys()).pop();
-      if(lastKey){
-        setScenarioValues(lastKey,{impact:r.impact,cost:r.cost,risk:r.risk,urgency:r.urgency,confidence:r.confidence});
-        recomputeScenario(lastKey);
-      }
-      morePanel.style.display='none';
-    });
-  });
-}
 
-function openCompare(){
-  if(compareModal.getAttribute('aria-hidden')==='false') return;
-  populateRecent();
-  updateBaseInModal();
-  clearScenarios();
-  addScenario();
-  compareModal.classList.add('show');
-  compareModal.setAttribute('aria-hidden','false');
-  document.body.classList.add('no-scroll');
-  renderDeltaBoard();
-}
-function closeCompare(){
-  compareModal.classList.remove('show');
-  compareModal.setAttribute('aria-hidden','true');
-  document.body.classList.remove('no-scroll');
-}
-openCompareFab.addEventListener('click', openCompare);
-openCompareBtnA.addEventListener('click', openCompare);
-closeCompareBtn.addEventListener('click', closeCompare);
-compareModal.addEventListener('click', (e)=>{ if(e.target===compareModal) closeCompare(); });
-document.addEventListener('keydown', (e)=>{ if(e.key==='Escape' && compareModal.getAttribute('aria-hidden')==='false') closeCompare(); });
-
-moreBtn.addEventListener('click', ()=>{
-  populateMorePanel();
-  morePanel.style.display = (morePanel.style.display==='block' ? 'none' : 'block');
-});
-moreClose.addEventListener('click', ()=>{ morePanel.style.display='none'; });
-
-recentSelect.addEventListener('change', ()=>{
-  const idx = Number(recentSelect.value);
-  if(Number.isFinite(idx)){
-    const r = loadLog()[idx];
-    if(r){ addScenario({impact:r.impact,cost:r.cost,risk:r.risk,urgency:r.urgency,confidence:r.confidence}); }
-    recentSelect.value = '';
+  // Simple compare open hooks (no logic change)
+  document.getElementById('openCompareFab').addEventListener('click', ()=>openCompare());
+  document.getElementById('openCompareBtnA').addEventListener('click', ()=>openCompare());
+  function openCompare(){
+    const m = document.getElementById('compareModal');
+    m.classList.add('show'); m.setAttribute('aria-hidden','false');
   }
-});
-
-baseLock.addEventListener('change', ()=>{
-  baseLockState.textContent = baseLock.checked?'(locked)':'(unlocked)';
-  if(!baseLock.checked && baseOverride==null){ baseOverride = {...readCurrent()}; }
-  updateBaseInModal(); recomputeAllScenarios();
-});
-
-function updateBaseInModal(){
-  const base = baseLock.checked ? readCurrent() : (baseOverride || readCurrent());
-  const Mb = computeMetrics(base);
-  document.getElementById('B_meta').textContent = `Impact ${base.impact} • Cost ${base.cost} • Risk ${base.risk} • Urgency ${base.urgency} • Confidence ${base.confidence}`;
-  document.getElementById('B_ret').textContent = (Mb.ret>=0?'+':'')+Mb.ret;
-  document.getElementById('B_stab').textContent = (Mb.stability>=0?'+':'')+Mb.stability;
-  document.getElementById('B_press').textContent = (Mb.pressure>=0?'+':'')+Mb.pressure;
-  document.getElementById('B_dnav').textContent = Mb.dnav;
-  const baseCoach = coachHint({ret:Mb.ret, stab:Mb.stability, press:Mb.pressure, urg: base.urgency, conf: base.confidence, impact: base.impact, cost: base.cost, risk: base.risk});
-  document.getElementById('B_tldr').textContent = `Base: ${baseCoach}`;
-  renderDeltaBoard();
-}
-
-/* Scenario helpers */
-function clearScenarios(){ scenarios.clear(); scenariosWrap.innerHTML=''; scenarioCount=0; winnerTag.textContent='—'; winnerTag.className='win'; winnerLine.textContent='Add/tweak scenarios to see which option leads on D-NAV.'; }
-
-function addScenario(seedVals){
-  const key = `S${++scenarioCount}`;
-  const hue = scenarioPalette[(scenarioCount-1)%scenarioPalette.length];
-  const card = document.createElement('div');
-  card.className='sc-card';
-  card.id = `card_${key}`;
-  card.style.border='1px solid rgba(255,255,255,.08)';
-  card.style.borderRadius='12px';
-  card.style.padding='10px';
-  card.innerHTML = `
-    <div class="sc-head" style="display:flex;align-items:center;justify-content:space-between;gap:8px">
-      <div style="display:flex;align-items:center;gap:6px;">
-        <span class="sc-hue" style="width:10px;height:10px;border-radius:999px;background:${hue};display:inline-block"></span>
-        <b>Scenario ${key}</b>
-      </div>
-      <div class="sc-footer" style="display:flex;gap:6px;flex-wrap:wrap;">
-        <button class="btn secondary" data-act="setbase">Set as Base</button>
-        <button class="btn secondary" data-act="reset">Reset</button>
-        <button class="btn secondary" data-act="remove">Remove</button>
-      </div>
-    </div>
-
-    <div class="kvline" id="${key}_kv">—</div>
-
-    <div class="row"><label><span class="label-main">Impact</span><span class="hint">↑ Payoff</span></label><input type="range" min="1" max="10" value="1" data-k="${key}" data-field="impact"/><output id="${key}_o_impact">1</output></div>
-    <div class="row"><label><span class="label-main">Cost</span><span class="hint">↓ Unit cost</span></label><input type="range" min="1" max="10" value="1" data-k="${key}" data-field="cost"/><output id="${key}_o_cost">1</output></div>
-    <div class="row"><label><span class="label-main">Risk</span><span class="hint">↓ Downside</span></label><input type="range" min="1" max="10" value="1" data-k="${key}" data-field="risk"/><output id="${key}_o_risk">1</output></div>
-    <div class="row"><label><span class="label-main">Urgency</span><span class="hint">↑ Speed</span></label><input type="range" min="1" max="10" value="1" data-k="${key}" data-field="urgency"/><output id="${key}_o_urgency">1</output></div>
-    <div class="row"><label><span class="label-main">Confidence</span><span class="hint">↑ Evidence</span></label><input type="range" min="1" max="10" value="1" data-k="${key}" data-field="confidence"/><output id="${key}_o_confidence">1</output></div>
-
-    <div class="kpis" style="margin-top:6px;">
-      <div class="kpi"><h4>Return</h4><div class="big" id="${key}_ret">0</div></div>
-      <div class="kpi"><h4>Stability</h4><div class="big" id="${key}_stab">0</div></div>
-      <div class="kpi"><h4>Pressure</h4><div class="big" id="${key}_press">0</div></div>
-      <div class="kpi"><h4>D-NAV</h4><div class="big" id="${key}_dnav">0</div></div>
-    </div>
-
-    <div class="delta" style="margin-top:6px;">
-      <div class="tile"><h4>Δ Return</h4><div class="big" id="${key}_Dret">0</div></div>
-      <div class="tile"><h4>Δ Stability</h4><div class="big" id="${key}_Dstab">0</div></div>
-      <div class="tile"><h4>Δ Pressure</h4><div class="big" id="${key}_Dpress">0</div></div>
-      <div class="tile"><h4>Δ D-NAV</h4><div class="big" id="${key}_Ddnav">0</div></div>
-    </div>
-
-    <div class="card" style="margin-top:6px;background:rgba(255,255,255,.03);border:1px dashed rgba(255,255,255,.1)">
-      <h3 style="margin:0 0 6px 0;color:#9fb1c7;letter-spacing:.3px;text-transform:uppercase;font-size:12px;">Objective</h3>
-      <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
-        <select id="${key}_obj" class="input" style="padding:6px 8px;">
-          <option value="max_dnav">Maximize D-NAV</option>
-          <option value="max_return">Maximize Return</option>
-          <option value="min_pressure">Minimize Pressure</option>
-          <option value="hit_stability">Hit Stability ≥ target</option>
-        </select>
-        <span class="muted">Target:</span>
-        <input id="${key}_stabTarget" type="range" min="-5" max="9" value="0" />
-        <output id="${key}_stabOut">0</output>
-        <button class="btn" data-act="nudge">Find easiest single change</button>
-      </div>
-      <div class="muted" id="${key}_knob" style="margin-top:6px;">Pick an objective to get a suggested change.</div>
-    </div>
-  `;
-  scenariosWrap.appendChild(card);
-  scenarios.set(key,{impact:1,cost:1,risk:1,urgency:1,confidence:1, hue});
-
-  setScenarioValues(key, seedVals || readCurrent());
-  recomputeScenario(key);
-
-  card.querySelectorAll('input[type=range][data-k="'+key+'"]').forEach(el=>{
-    el.addEventListener('input', ()=>{
-      const field=el.getAttribute('data-field');
-      const v = Math.max(1, Math.min(10, Number(el.value||1)));
-      scenarios.get(key)[field]=v;
-      document.getElementById(`${key}_o_${field}`).textContent=v;
-      recomputeScenario(key);
-    });
+  document.getElementById('closeCompareBtn').addEventListener('click', ()=>{
+    const m = document.getElementById('compareModal');
+    m.classList.remove('show'); m.setAttribute('aria-hidden','true');
   });
 
-  card.querySelectorAll('button').forEach(btn=>{
-    const act = btn.getAttribute('data-act');
-    if(act==='remove'){
-      btn.addEventListener('click', ()=>{ scenarios.delete(key); card.remove(); recomputeAllScenarios(); });
-    }
-    if(act==='reset'){
-      btn.addEventListener('click', ()=>{ setScenarioValues(key,{impact:1,cost:1,risk:1,urgency:1,confidence:1}); recomputeScenario(key); });
-    }
-    if(act==='setbase'){
-      btn.addEventListener('click', ()=>{
-        if(baseLock.checked){ alert('Unlock Base first.'); return; }
-        baseOverride = {...scenarios.get(key)};
-        updateBaseInModal(); recomputeAllScenarios();
-      });
-    }
-    if(act==='nudge'){
-      btn.addEventListener('click', ()=>{ suggestNudgeForScenario(key); });
-    }
-  });
-
-  const st = document.getElementById(`${key}_stabTarget`);
-  const so = document.getElementById(`${key}_stabOut`);
-  st.addEventListener('input',()=>{ so.textContent = st.value; });
-
-  // show kv line
-  updateScenarioKv(key);
-}
-addScenarioBtn.addEventListener('click', ()=> addScenario());
-
-function updateScenarioKv(key){
-  const s = scenarios.get(key); if(!s) return;
-  const kv = document.getElementById(`${key}_kv`);
-  kv.textContent = `Impact ${s.impact} • Cost ${s.cost} • Risk ${s.risk} • Urgency ${s.urgency} • Confidence ${s.confidence}`;
-}
-
-function setScenarioValues(key, vals){
-  const s = scenarios.get(key); if(!s) return;
-  const fields=['impact','cost','risk','urgency','confidence'];
-  fields.forEach(f=>{
-    const v = Math.max(1, Math.min(10, Number(vals?.[f]??1)));
-    s[f]=v;
-    const el = document.querySelector(`#card_${key} input[data-field="${f}"]`);
-    if(el){ el.value=v; document.getElementById(`${key}_o_${f}`).textContent=v; }
-  });
-  updateScenarioKv(key);
-}
-
-function recomputeScenario(key){
-  const base = baseLock.checked ? readCurrent() : (baseOverride || readCurrent());
-  const Bm = computeMetrics(base);
-  const s = scenarios.get(key); if(!s) return;
-  const M = computeMetrics(s);
-
-  ['ret','stab','press','dnav'].forEach(k=>{
-    const map = { ret: 'ret', stab: 'stability', press: 'pressure', dnav: 'dnav' };
-    const val = M[map[k]];
-    document.getElementById(`${key}_${k}`).textContent = (k === 'dnav')
-      ? val
-      : ((val >= 0 ? '+' : '') + val);
-  });
-
-  const d = {
-    ret: M.ret - Bm.ret,
-    stab: M.stability - Bm.stability,
-    press: M.pressure - Bm.pressure,
-    dnav: M.dnav - Bm.dnav
-  };
-  document.getElementById(`${key}_Dret`).textContent  = (d.ret>=0?'+':'')+d.ret;
-  document.getElementById(`${key}_Dstab`).textContent = (d.stab>=0?'+':'')+d.stab;
-  document.getElementById(`${key}_Dpress`).textContent = (d.press>=0?'+':'')+d.press;
-  document.getElementById(`${key}_Ddnav`).textContent = (d.dnav>=0?'+':'')+d.dnav;
-
-  recomputeWinner();
-}
-function recomputeAllScenarios(){ scenarios.forEach((_v,k)=>recomputeScenario(k)); }
-
-function recomputeWinner(){
-  let bestKey=null, best= -Infinity;
-  const base = baseLock.checked ? readCurrent() : (baseOverride || readCurrent());
-  const Bm = computeMetrics(base);
-  scenarios.forEach((s,k)=>{
-    const M = computeMetrics(s);
-    const delta = M.dnav - Bm.dnav;
-    if(delta>best){ best=delta; bestKey=k; }
-  });
-  if(bestKey){
-    winnerTag.textContent = `${bestKey} leads`;
-    winnerTag.className='win a';
-    winnerLine.textContent = `${bestKey} ahead by ${best>=0?'+':''}${best} D-NAV vs Base.`;
-  }else{
-    winnerTag.textContent='—'; winnerTag.className='win'; winnerLine.textContent='Add/tweak scenarios to see which option leads on D-NAV.';
-  }
-  renderDeltaBoard();
-}
-
-/* ---- Delta Board ---- */
-function arrowCls(n){ return n>0?'up':(n<0?'down':'flat'); }
-function arrowTxt(n){ return n>0?'▲':(n<0?'▼':'–'); }
-function renderDeltaBoard(){
-  const board = document.getElementById('deltaBoard');
-  const tbody = document.querySelector('#deltaTable tbody');
-  if(!tbody) return;
-
-  const base = (document.getElementById('baseLock').checked ? readCurrent() : (baseOverride || readCurrent()));
-  const Bm = computeMetrics(base);
-
-  const rows=[];
-  scenarios.forEach((s,k)=>{
-    const M = computeMetrics(s);
-    rows.push({
-      key:k,
-      dret: M.ret - Bm.ret,
-      dstab: M.stability - Bm.stability,
-      dpress: M.pressure - Bm.pressure,
-      ddnav: M.dnav - Bm.dnav
-    });
-  });
-
-  if(!rows.length){ board.style.display='none'; tbody.innerHTML=''; return; }
-  board.style.display='block';
-
-  const maxAbs = Math.max(1, ...rows.map(r=>Math.abs(r.ddnav)));
-  tbody.innerHTML = rows.map(r=>{
-    const width = Math.round(Math.min(100, Math.abs(r.ddnav)/maxAbs*100));
-    const pos = r.ddnav>=0;
-    return `
-      <tr>
-        <td style="font-weight:800">${r.key}</td>
-        <td><span class="arrow ${arrowCls(r.dret)}">${arrowTxt(r.dret)}</span> ${(r.dret>=0?'+':'')}${r.dret}</td>
-        <td><span class="arrow ${arrowCls(r.dstab)}">${arrowTxt(r.dstab)}</span> ${(r.dstab>=0?'+':'')}${r.dstab}</td>
-        <td><span class="arrow ${arrowCls(r.dpress)}">${arrowTxt(r.dpress)}</span> ${(r.dpress>=0?'+':'')}${r.dpress}</td>
-        <td>
-          <div class="barchip">
-            <span class="${pos?'pos':'neg'}" style="width:${width}%"></span>
-          </div>
-          <div style="font-size:11px;margin-top:2px;text-align:right">${(r.ddnav>=0?'+':'')}${r.ddnav}</div>
-        </td>
-      </tr>
-    `;
-  }).join('');
-}
-
-/* ---- Nudge finder ---- */
-function suggestNudgeForScenario(key){
-  const base = (document.getElementById('baseLock').checked ? readCurrent() : (baseOverride || readCurrent()));
-  const Bm = computeMetrics(base);
-  const s = scenarios.get(key); if(!s) return;
-  const M0 = computeMetrics(s);
-  const obj = document.getElementById(`${key}_obj`).value;
-  const targetStab = Number(document.getElementById(`${key}_stabTarget`).value);
-
-  const levers = [
-    {k:'impact', dir:+1, label:'Impact'},
-    {k:'cost',   dir:-1, label:'Cost'},
-    {k:'risk',   dir:-1, label:'Risk'},
-    {k:'urgency',dir:+1, label:'Urgency'},
-    {k:'confidence',dir:+1,label:'Confidence'},
-  ];
-
-  function meets(M){
-    if(obj==='max_dnav')      return M.dnav >= Math.max(Bm.dnav, M0.dnav);
-    if(obj==='max_return')    return M.ret  >= Math.max(Bm.ret,  M0.ret);
-    if(obj==='min_pressure')  return M.pressure <= Math.min(Bm.pressure, M0.pressure);
-    if(obj==='hit_stability') return M.stability >= targetStab;
-    return false;
-  }
-  function primary(M){
-    if(obj==='max_dnav')      return M.dnav - Math.max(Bm.dnav, M0.dnav);
-    if(obj==='max_return')    return M.ret  - Math.max(Bm.ret,  M0.ret);
-    if(obj==='min_pressure')  return Math.min(Bm.pressure, M0.pressure) - M.pressure;
-    if(obj==='hit_stability') return M.stability - targetStab;
-    return -Infinity;
-  }
-
-  const cands = [];
-  for(const L of levers){
-    const start = s[L.k];
-    for(let pct=1; pct<=50; pct++){
-      const delta = start * (pct/100) * L.dir;
-      let trialVal = Math.min(10, Math.max(1, start + delta));
-      trialVal = Math.round(trialVal);
-      if(trialVal === start) continue;
-      const Mt = computeMetrics({...s, [L.k]: trialVal});
-      if(meets(Mt)){
-        cands.push({
-          lever:L, pct,
-          ticks: Math.abs(trialVal - start),
-          before:start, after:trialVal,
-          Mt, lift: primary(Mt),
-          dnavLift: Mt.dnav - M0.dnav
-        });
-        break;
-      }
-    }
-  }
-
-  const knobLine = document.getElementById(`${key}_knob`);
-  if(!cands.length){
-    knobLine.textContent = 'I tried 1–50% on each slider. No single change hits the goal. Try combining two sliders.';
-    return;
-  }
-
-  cands.sort((a,b)=>{
-    if(a.ticks!==b.ticks) return a.ticks-b.ticks;
-    if(a.pct!==b.pct) return a.pct-b.pct;
-    if(a.lift!==b.lift) return b.lift-a.lift;
-    return b.dnavLift-a.dnavLift;
-  });
-  const best = cands[0];
-  const fmt = n => (n>=0?'+':'')+n;
-  knobLine.textContent =
-    `Easiest change: ${best.lever.label} ${best.before} → ${best.after} (${best.pct}% ≈ ${best.ticks} tick${best.ticks!==1?'s':''}). `
-    + `Result: D-NAV ${best.Mt.dnav} • Return ${fmt(best.Mt.ret)} • Stability ${fmt(best.Mt.stability)} • Pressure ${fmt(best.Mt.pressure)}.`;
-}
-
-/* Buttons + handlers */
-document.getElementById('decisionName').addEventListener('input', checkFormValid);
-document.getElementById('decisionCategory').addEventListener('input', checkFormValid);
-document.getElementById('enterBtn').addEventListener('click', enterDecision);
-document.getElementById('downloadCsvBtn').addEventListener('click', downloadCsv);
-document.getElementById('downloadPdfBtn').addEventListener('click', openPdfReport);
-document.getElementById('clearLogBtn').addEventListener('click', ()=>{
-  if(confirm('Clear all saved decisions?')){ saveLog([]); renderLog(); populateRecent(); }
-});
-
-/* Keep sliders live */
-["impact","cost","risk","urgency","confidence"].forEach(id=>{
-  const el = document.getElementById(id);
-  el.addEventListener('input', compute);
-  el.addEventListener('change', compute);
-});
-
-/* Range select re-renders stats + affects PDF window */
-document.getElementById('rangeSelect').addEventListener('change', ()=>renderStats(loadLog()));
-
-/* Compare openers */
-function safeBind(el, fn){ if(el) el.addEventListener('click', fn); }
-safeBind(document.getElementById('openCompareFab'), openCompare);
-safeBind(document.getElementById('openCompareBtnA'), openCompare);
-
-/* boot */
-document.getElementById('allocTitle').textContent = 'Energy (U×C) by category';
-compute();
-renderLog();
-
-/* Accessibility: close More panel on outside click */
-document.addEventListener('click',(e)=>{
-  const within = morePanel.contains(e.target) || e.target===moreBtn;
-  if(!within){ morePanel.style.display='none'; }
+  refreshHUD();
 });
 </script>
 </body>
