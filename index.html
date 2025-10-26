@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>The Decision NAVigator — D-NAV Mini (v3.38)</title>
+<title>The Decision NAVigator — D-NAV Mini (v3.39)</title>
 <style>
 :root{--bg:#0b0f14;--card:#121821;--muted:#8fa1b7;--text:#e9eef5;--green:#3ecf8e;--red:#ff6b6b;--amber:#f3b431;--blue:#69a9ff;--ink:#cfe1ff}
 *{box-sizing:border-box;font-family:Inter,ui-sans-serif,system-ui,-apple-system,Segoe UI,Roboto,Arial}
@@ -142,6 +142,11 @@ tbody tr:nth-child(even){background:rgba(255,255,255,.02)}
 .kvline{font-size:13px;color:#cfe1ff;margin:6px 0 2px}
 .kvline b{font-weight:900}
 
+/* Narrative (top) */
+.narrative-top h2{margin:0 0 6px 0}
+.narrative-top .mini{color:#a7b4c7}
+.narrative-top .txt{margin-top:6px;line-height:1.6}
+
 /* Mobile */
 @media (max-width:900px){
   body{padding:14px}
@@ -188,6 +193,15 @@ tbody tr:nth-child(even){background:rgba(255,255,255,.02)}
 <div class="site-title">
   <h1>The Decision NAVigator</h1>
   <div class="sub">Bring clarity to complex decisions.</div>
+</div>
+
+<!-- NEW: Narrative at the top -->
+<div class="wrap" style="grid-template-columns:1fr;">
+  <div class="card narrative-top">
+    <h2 style="margin:0;">Portfolio Narrative</h2>
+    <div class="mini" id="narrativeWindow">All time</div>
+    <div class="txt" id="narrativeTopTxt">Add decisions or import a CSV to see your executive readout.</div>
+  </div>
 </div>
 
 <div class="wrap">
@@ -275,27 +289,7 @@ tbody tr:nth-child(even){background:rgba(255,255,255,.02)}
   </div>
 </div>
 
-<!-- PORTFOLIO INSIGHT + FRAMEWORK -->
-<div class="wrap" style="grid-template-columns:1fr;">
-  <div class="card">
-    <h2 style="margin:0 0 6px 0;">Portfolio Readout</h2>
-    <div id="portfolioReadout" class="muted">Add decisions or import a CSV to see a narrative summary.</div>
-  </div>
-</div>
-
-<div class="wrap" style="grid-template-columns:1fr;">
-  <div class="card">
-    <h2 style="margin:0 0 6px 0;">The Framework</h2>
-    <div class="muted">
-      <b>D-NAV = (Impact − Cost − Risk) + (Urgency × Confidence)</b>.<br/>
-      Impact is potential gain. Cost is the price of pursuit. Risk is what could go wrong.
-      Urgency × Confidence is the drive vector — how fast and how sure. High pressure isn’t bad by itself;
-      <b>pressure + fragile footing</b> is where things break. High pressure + stable footing is a valid performance zone.
-    </div>
-  </div>
-</div>
-
-<!-- STATS HUD + Distributions -->
+<!-- STATS HUD -->
 <div class="wrap" style="grid-template-columns:1fr;">
   <div class="card">
     <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;">
@@ -460,17 +454,17 @@ tbody tr:nth-child(even){background:rgba(255,255,255,.02)}
           <span class="chip blue">BASE</span> vs <span class="chip green">SCENARIOS</span>
         </h2>
         <div class="muted" style="margin-top:4px;">
-          Base = current sliders <span id="baseLockState">(locked)</span> • Add unlimited scenarios and set any as Base.
+          Base = current sliders <span id="baseLockState">(locked)</span> • Add scenarios and set any as Base.
         </div>
       </div>
-      <div class="actions" style="position:relative;">
+      <div class="actions" style="position:relative;display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
         <label class="muted" style="display:flex;align-items:center;gap:6px;">
           <input id="baseLock" type="checkbox" checked/> Lock Base to sliders
         </label>
         <label class="muted" style="display:flex;align-items:center;gap:6px;">
           <input id="simpleMode" type="checkbox"/> Simple mode
         </label>
-        <select id="recentSelect" class="input" style="padding:8px 10px;">
+        <select id="recentSelect" class="input" style="padding:8px 10px;min-width:200px;">
           <option value="">Load from recent…</option>
         </select>
         <button id="moreRecentBtn" class="btn secondary" title="Browse all">More…</button>
@@ -664,8 +658,8 @@ function compute(){
   });
 
   if(document.getElementById('compareModal').getAttribute('aria-hidden')==='false'){
-    if(document.getElementById('baseLock').checked && typeof updateBaseInModal==='function') updateBaseInModal();
-    if(typeof recomputeAllScenarios==='function') recomputeAllScenarios();
+    if(document.getElementById('baseLock').checked) updateBaseInModal();
+    recomputeAllScenarios();
   }
 }
 
@@ -732,9 +726,9 @@ function parseCSV(text){
     }else{
       if(c==='"' ){ inQ=true; i++; continue; }
       if(c===','){ cur.push(val); val=''; i++; continue; }
-      if(c==='\n'){ cur.push(val); rows.push(cur); cur=[]; val=''; i++; continue; }
-      if(c==='\r'){
-        if(text[i+1]==='\n'){ i+=2; cur.push(val); rows.push(cur); cur=[]; val=''; continue; }
+      if(c=='\n'){ cur.push(val); rows.push(cur); cur=[]; val=''; i++; continue; }
+      if(c=='\r'){
+        if(text[i+1]=='\n'){ i+=2; cur.push(val); rows.push(cur); cur=[]; val=''; continue; }
         cur.push(val); rows.push(cur); cur=[]; val=''; i++; continue;
       }
       val+=c; i++; continue;
@@ -1135,19 +1129,17 @@ function renderHygiene(rows){
   document.getElementById('h_hint').textContent = hint;
 }
 
-/* ---- NARRATIVE: On-page Portfolio Readout (interprets Return / Stability / Pressure) ---- */
-function renderPortfolioReadout(allRows){
-  const rows = filterRows(allRows);
-  const el = document.getElementById('portfolioReadout');
-  if(!rows.length){
-    el.innerHTML = 'No data in range. Import or add decisions to see a narrative.';
-    return;
-  }
+/* ---- NARRATIVE: top-of-page (exec readout) ---- */
+function narrativeFor(rowsAll){
+  const rows = filterRows(rowsAll);
+  const daysSel = Number($('#rangeSelect').value||0);
+  $('#narrativeWindow').textContent = daysSel ? `Last ${daysSel} days` : 'All time';
+  const el = document.getElementById('narrativeTopTxt');
+
+  if(!rows.length){ el.innerHTML = 'No data in range. Import or add decisions to see a narrative.'; return; }
 
   const n = rows.length;
-  const sum = (a,f)=>a.reduce((x,r)=>x+(Number(f(r))||0),0);
-  const mean = (a,f)=> a.length? sum(a,f)/a.length : 0;
-
+  const mean = (arr, f)=> arr.length? arr.reduce((a,r)=>a+(Number(f(r))||0),0)/arr.length : 0;
   const avgR = mean(rows,r=>r.return);
   const avgS = mean(rows,r=>r.stability);
   const avgP = mean(rows,r=>r.pressure);
@@ -1156,22 +1148,6 @@ function renderPortfolioReadout(allRows){
   const toneS = avgS>0?'stable':(avgS<0?'fragile':'uncertain');
   const toneP = avgP>0?'pressured':(avgP<0?'calm':'balanced');
 
-  // Energy allocation (Urgency × Confidence)
-  const catE = new Map();
-  for(const r of rows){
-    const c=(r.category||'').trim()||'Uncategorized';
-    const e=(Number(r.urgency)||0)*(Number(r.confidence)||0);
-    catE.set(c,(catE.get(c)||0)+e);
-  }
-  let topCat='—', topShare='—';
-  if(catE.size){
-    const totalE = [...catE.values()].reduce((a,b)=>a+b,0) || 1;
-    const [tc, te] = [...catE.entries()].sort((a,b)=>b[1]-a[1])[0];
-    topCat = tc;
-    topShare = Math.round(te*100/totalE)+'%';
-  }
-
-  // Trend & cadence
   const asc=[...rows].sort((a,b)=>a.ts-b.ts);
   const dnavAsc=asc.map(r=>Number(r.dnav)||0);
   const ema7 = dnavAsc.length? Math.round(ema(dnavAsc,7)) : 0;
@@ -1186,28 +1162,28 @@ function renderPortfolioReadout(allRows){
     cadence=Math.round((n/days)*7);
   }
 
-  // Executive-style readout
-  // Para 1: state of play
-  const p1 = `Across <b>${n}</b> decisions, footing is <b>${toneS}</b>, operating state is <b>${toneP}</b>, and return profile trends <b>${toneR}</b>. Momentum is <b>${trendTone}</b> (EMA7–30 ${trend>=0?'+':''}${trend}); cadence ~<b>${cadence}/wk</b>. Energy concentrates in <b>${escapeHtml(topCat)}</b> (${topShare}).`;
-
-  // Para 2: guardrails & go-forward
-  let p2 = '';
-  if(avgP>0 && avgS<=0){
-    p2 = `You’re pushing under pressure on <b>fragile footing</b> — tighten scope, prove units, or add capacity before scaling.`;
-  } else if(avgP>0 && avgS>0){
-    p2 = `High pressure with <b>stable footing</b> — acceptable performance zone; maintain discipline and watch lead indicators.`;
-  } else if(avgR<0){
-    p2 = `Returns are <b>negative</b> — stop/pivot experiments with weak unit economics; recycle energy to proven lanes.`;
-  } else if(avgR>0 && avgS>0){
-    p2 = `Greenlight conditions — keep compounding what works and raise quality bar instead of volume.`;
-  } else {
-    p2 = `Mixed signals — shorten feedback loops, isolate one lever at a time (cost ↓, risk ↓, or impact ↑).`;
+  // Energy by category
+  const catE = new Map();
+  rows.forEach(r=>{
+    const c=(r.category||'').trim()||'Uncategorized';
+    const e=(Number(r.urgency)||0)*(Number(r.confidence)||0);
+    catE.set(c,(catE.get(c)||0)+e);
+  });
+  let topCat='—', topShare='—';
+  if(catE.size){
+    const totalE = [...catE.values()].reduce((a,b)=>a+b,0) || 1;
+    const [tc, te] = [...catE.entries()].sort((a,b)=>b[1]-a[1])[0];
+    topCat = tc; topShare = Math.round(te*100/totalE)+'%';
   }
 
-  el.innerHTML = `<div>${p1}</div><div style="margin-top:6px">${p2}</div>`;
+  // Exec text (two tight sentences)
+  const s1 = `Across <b>${n}</b> decisions, footing is <b>${toneS}</b>, operating state is <b>${toneP}</b>, and return profile is <b>${toneR}</b>. Momentum is <b>${trendTone}</b> (EMA7–30 ${trend>=0?'+':''}${trend}); cadence ~<b>${cadence}/wk</b>.`;
+  const s2 = `Energy concentrates in <b>${escapeHtml(topCat)}</b> (${topShare}). If signals conflict, tighten feedback loops and move one lever at a time (impact ↑, cost ↓, risk ↓).`;
+
+  el.innerHTML = `${s1} ${s2}`;
 }
 
-/* --------- Minimal table/log rendering (for narrative freshness) --------- */
+/* --------- Minimal table/log rendering --------- */
 function renderLogTable(rows){
   const body = document.getElementById('logBody');
   if(!body) return;
@@ -1230,7 +1206,7 @@ function renderLogTable(rows){
   `).join('');
 }
 
-/* HUD refresh (just enough for narrative + tiles) */
+/* HUD refresh */
 function refreshHUD(){
   const all = loadLog();
   const rows = filterRows(all);
@@ -1260,11 +1236,216 @@ function refreshHUD(){
   renderDists(rows);
   renderAlloc(rows);
   renderHygiene(rows);
-  renderPortfolioReadout(all);
+  narrativeFor(all);
   renderLogTable(all);
+
+  // tiny extras
+  document.getElementById('k_recent').textContent = asc.length ? `From ${fmtLocal(asc[0].ts)} → ${fmtLocal(asc[asc.length-1].ts)}` : '—';
 }
 
-/* -------- Event wiring -------- */
+/* ======== COMPARE ENGINE ======== */
+let baseSnapshot = null;          // {vals, metrics}
+let scenarios = [];               // [{id, name, vals, metrics, el}]
+let scenarioSeq = 1;
+
+function currentMetricsFromSliders(){
+  const v = readCurrent();
+  return {v, m: computeMetrics(v)};
+}
+
+function updateBaseInModal(){
+  const lock = document.getElementById('baseLock').checked;
+  document.getElementById('baseLockState').textContent = lock ? '(locked)' : '(unlocked)';
+  if(lock){
+    const {v, m} = currentMetricsFromSliders();
+    baseSnapshot = {vals:v, metrics:m, name:'Current sliders'};
+  }
+  renderBasePanel();
+}
+
+function renderBasePanel(){
+  if(!baseSnapshot){ const {v, m} = currentMetricsFromSliders(); baseSnapshot={vals:v, metrics:m, name:'Current sliders'}; }
+  const v = baseSnapshot.vals, m = baseSnapshot.metrics;
+  const sgn = x=>x>0?('+'+x):(x<0?x:'0');
+
+  document.getElementById('B_meta').innerHTML = `Return <b>${sgn(m.ret)}</b> • Stability <b>${sgn(m.stability)}</b> • Pressure <b>${sgn(m.pressure)}</b>`;
+  document.getElementById('B_ret').textContent = sgn(m.ret);
+  document.getElementById('B_stab').textContent = sgn(m.stability);
+  document.getElementById('B_press').textContent = sgn(m.pressure);
+  document.getElementById('B_dnav').textContent = m.dnav;
+
+  // TL;DR coach line for base
+  document.getElementById('B_tldr').textContent = coachHint({
+    ret:m.ret, stab:m.stability, press:m.pressure,
+    urg:v.urgency, conf:v.confidence, impact:v.impact, cost:v.cost, risk:v.risk
+  });
+
+  refreshDeltaTable();
+}
+
+function makeSlider(name, key, val, onInput){
+  const wrap = document.createElement('div'); wrap.className='row';
+  const label = document.createElement('label');
+  label.innerHTML = `<span class="label-main">${name}</span><span class="hint">${key==='impact'?'Upside':key==='cost'?'Price':key==='risk'?'Downside':key==='urgency'?'Soonness':'Conviction'}</span>`;
+  const input = document.createElement('input');
+  input.type='range'; input.min='1'; input.max='10'; input.value=String(val||1);
+  const out = document.createElement('output'); out.textContent = String(val||1);
+  input.addEventListener('input', e=>{ out.textContent = e.target.value; onInput(Number(e.target.value)); });
+  wrap.appendChild(label); wrap.appendChild(input); wrap.appendChild(out);
+  return {wrap, input, out};
+}
+
+function scenarioCard(scn){
+  const card = document.createElement('div');
+  card.className = 'card';
+  card.style.minWidth='320px';
+  card.style.background='rgba(255,255,255,.03)';
+  card.style.border='1px solid rgba(255,255,255,.08)';
+
+  const head = document.createElement('div');
+  head.style.display='flex'; head.style.justifyContent='space-between'; head.style.alignItems='center';
+  const h = document.createElement('h2'); h.style.margin='0'; h.textContent = scn.name;
+  const btns = document.createElement('div');
+  btns.style.display='flex'; btns.style.gap='6px';
+
+  const setBase = document.createElement('button');
+  setBase.className='btn secondary'; setBase.textContent='Set as Base';
+  setBase.addEventListener('click', ()=>{
+    baseSnapshot = {vals:{...scn.vals}, metrics:{...scn.metrics}, name:scn.name};
+    document.getElementById('baseLock').checked = false; // unlock when using scenario as Base
+    renderBasePanel();
+    refreshDeltaTable();
+  });
+
+  const del = document.createElement('button');
+  del.className='btn secondary'; del.textContent='Remove';
+  del.addEventListener('click', ()=>{
+    scenarios = scenarios.filter(x=>x.id!==scn.id);
+    card.remove();
+    refreshDeltaTable();
+  });
+
+  btns.appendChild(setBase); btns.appendChild(del);
+  head.appendChild(h); head.appendChild(btns);
+  card.appendChild(head);
+
+  const simple = document.getElementById('simpleMode').checked;
+
+  const grid = document.createElement('div'); grid.className='grid'; grid.style.gap='6px';
+  const keys = simple ? ['impact','cost','risk'] : ['impact','cost','risk','urgency','confidence'];
+  keys.forEach(k=>{
+    const nice = k[0].toUpperCase()+k.slice(1);
+    const {wrap} = makeSlider(nice,k,scn.vals[k], (nv)=>{ scn.vals[k]=nv; scn.metrics = computeMetrics(scn.vals); refreshDeltaTable(); });
+    grid.appendChild(wrap);
+  });
+  card.appendChild(grid);
+
+  const meta = document.createElement('div'); meta.className='mini';
+  meta.style.marginTop='6px';
+  meta.id = `scn_meta_${scn.id}`;
+  card.appendChild(meta);
+
+  scn.el = card;
+  return card;
+}
+
+function recomputeAllScenarios(){
+  scenarios.forEach(s=>{
+    s.metrics = computeMetrics(s.vals);
+  });
+  refreshDeltaTable();
+}
+
+/* Smallest nudge: which single slider ±1 yields the biggest Δ D-NAV */
+function smallestNudge(fromVals){
+  const keys = ['impact','cost','risk','urgency','confidence'];
+  const base = computeMetrics(fromVals).dnav;
+  let best = {key:null, dir:0, delta:0};
+  keys.forEach(k=>{
+    [-1,+1].forEach(dir=>{
+      const nv = Math.min(10, Math.max(1, fromVals[k]+dir));
+      if(nv===fromVals[k]) return;
+      const trial = {...fromVals, [k]:nv};
+      const d = computeMetrics(trial).dnav - base;
+      if(Math.abs(d) > Math.abs(best.delta)){ best = {key:k, dir, delta:d}; }
+    });
+  });
+  return best.key ? best : null;
+}
+
+function refreshDeltaTable(){
+  if(!baseSnapshot){ renderBasePanel(); }
+  const B = baseSnapshot.metrics;
+  const tbody = document.querySelector('#deltaTable tbody');
+  const board = document.getElementById('deltaBoard');
+
+  if(!scenarios.length){
+    board.style.display='none';
+    document.getElementById('winnerTag').textContent='—';
+    document.getElementById('winnerLine').textContent='Add/tweak scenarios to see which option leads on D-NAV.';
+    return;
+  }
+
+  board.style.display='block';
+  tbody.innerHTML = scenarios.map(s=>{
+    const dR = s.metrics.ret - B.ret;
+    const dS = s.metrics.stability - B.stability;
+    const dP = s.metrics.pressure - B.pressure;
+    const dN = s.metrics.dnav - B.dnav;
+
+    const barWidth = Math.min(100, Math.abs(dN));
+    const bar = `<div class="barchip"><span class="${dN>=0?'pos':'neg'}" style="width:${barWidth}%"></span></div>`;
+    const arrow = dN>0?'<span class="arrow up">▲</span>':(dN<0?'<span class="arrow down">▼</span>':'<span class="arrow flat">—</span>');
+
+    // scenario meta line
+    const meta = document.getElementById(`scn_meta_${s.id}`);
+    if(meta){
+      const best = smallestNudge(s.vals);
+      const lever = best ? `${best.dir>0?'+':'−'}1 ${best.key} → ΔD ${best.delta>0?'+':''}${Math.round(best.delta)}` : '—';
+      meta.innerHTML = `Return ${dR>=0?'+':''}${Math.round(dR)} • Stability ${dS>=0?'+':''}${Math.round(dS)} • Pressure ${dP>=0?'+':''}${Math.round(dP)} • D-NAV ${dN>=0?'+':''}${Math.round(dN)} • <b>easiest nudge:</b> ${lever}`;
+    }
+
+    return `<tr>
+      <td style="text-align:left">${escapeHtml(s.name)}</td>
+      <td>${dR>=0?'+':''}${Math.round(dR)}</td>
+      <td>${dS>=0?'+':''}${Math.round(dS)}</td>
+      <td>${dP>=0?'+':''}${Math.round(dP)}</td>
+      <td>${arrow} ${dN>=0?'+':''}${Math.round(dN)} ${bar}</td>
+    </tr>`;
+  }).join('');
+
+  // Winner
+  const best = scenarios.slice().sort((a,b)=>b.metrics.dnav - a.metrics.dnav)[0];
+  const lead = best.metrics.dnav - B.dnav;
+  const winnerTag = document.getElementById('winnerTag');
+  winnerTag.className = 'win ' + (lead>=0?'a':'b');
+  winnerTag.textContent = lead>=0 ? 'Scenario leads' : 'Base leads';
+  document.getElementById('winnerLine').textContent =
+    `${best.name} is ${lead>=0?'+':''}${Math.round(lead)} D-NAV vs Base.`;
+}
+
+/* Recent loader */
+function populateRecent(){
+  const sel = document.getElementById('recentSelect');
+  const list = document.getElementById('moreList');
+  if(!sel || !list) return;
+  const rows = loadLog().slice(0,50); // latest 50
+  sel.innerHTML = '<option value="">Load from recent…</option>' +
+    rows.map(r=>`<option value="${r.ts}">${fmtLocal(r.ts)} — ${escapeHtml(r.name||'Untitled')}</option>`).join('');
+  list.innerHTML = rows.map(r=>{
+    const v = {impact:r.impact,cost:r.cost,risk:r.risk,urgency:r.urgency,confidence:r.confidence};
+    const m = computeMetrics(v);
+    return `<div class="card" style="margin-bottom:6px">
+      <div style="display:flex;justify-content:space-between;gap:8px;align-items:center;">
+        <div><b>${escapeHtml(r.name||'Untitled')}</b><div class="mini">${fmtLocal(r.ts)} • Cat: ${escapeHtml(r.category||'—')}</div></div>
+        <button class="btn secondary" data-ts="${r.ts}">Load as Scenario</button>
+      </div>
+      <div class="mini" style="margin-top:6px">D-NAV ${m.dnav} • Return ${m.ret>=0?'+':''}${m.ret} • Stability ${m.stability>=0?'+':''}${m.stability} • Pressure ${m.pressure>=0?'+':''}${m.pressure}</div>
+    </div>`;
+  }).join('');
+}
+
+/* ======== WIRING ======== */
 document.addEventListener('DOMContentLoaded', ()=>{
   // Sliders
   SLIDER_IDS.forEach(id=>{
@@ -1273,7 +1454,7 @@ document.addEventListener('DOMContentLoaded', ()=>{
   compute();
 
   // Range window
-  document.getElementById('rangeSelect').addEventListener('change', ()=>refreshHUD());
+  document.getElementById('rangeSelect').addEventListener('change', ()=>{ refreshHUD(); });
 
   // CSV upload
   const fileInput = document.getElementById('csvInput');
@@ -1314,6 +1495,7 @@ document.addEventListener('DOMContentLoaded', ()=>{
     const cur = loadLog(); cur.unshift(row); saveLog(cur);
     nameEl.value=''; catEl.value=''; gate();
     refreshHUD();
+    populateRecent();
   });
 
   // Downloads
@@ -1323,19 +1505,96 @@ document.addEventListener('DOMContentLoaded', ()=>{
   // Clear
   document.getElementById('clearLogBtn').addEventListener('click', ()=>{
     if(!confirm('Clear all saved decisions?')) return;
-    saveLog([]); refreshHUD();
+    saveLog([]); refreshHUD(); populateRecent();
   });
 
-  // Simple compare open hooks (no logic change)
-  document.getElementById('openCompareFab').addEventListener('click', ()=>openCompare());
-  document.getElementById('openCompareBtnA').addEventListener('click', ()=>openCompare());
+  /* ===== Compare modal ===== */
+  const modal = document.getElementById('compareModal');
   function openCompare(){
-    const m = document.getElementById('compareModal');
-    m.classList.add('show'); m.setAttribute('aria-hidden','false');
+    // Initialize base & purge scenarios panel (keep array)
+    updateBaseInModal();
+    const wrap = document.getElementById('scenarios');
+    wrap.innerHTML = '';
+    scenarios.forEach(s=>wrap.appendChild(scnToDOM(s)));
+    modal.classList.add('show'); modal.setAttribute('aria-hidden','false');
+    populateRecent();
+    refreshDeltaTable();
   }
-  document.getElementById('closeCompareBtn').addEventListener('click', ()=>{
-    const m = document.getElementById('compareModal');
-    m.classList.remove('show'); m.setAttribute('aria-hidden','true');
+  function closeCompare(){
+    modal.classList.remove('show'); modal.setAttribute('aria-hidden','true');
+  }
+
+  document.getElementById('openCompareFab').addEventListener('click', openCompare);
+  document.getElementById('openCompareBtnA').addEventListener('click', openCompare);
+  document.getElementById('closeCompareBtn').addEventListener('click', closeCompare);
+  document.addEventListener('keydown', (e)=>{ if(e.key==='Escape' && modal.getAttribute('aria-hidden')==='false') closeCompare(); });
+
+  // Base lock / simple mode
+  document.getElementById('baseLock').addEventListener('change', ()=>{
+    if(document.getElementById('baseLock').checked){ updateBaseInModal(); }
+    else { document.getElementById('baseLockState').textContent='(unlocked)'; }
+    refreshDeltaTable();
+  });
+  document.getElementById('simpleMode').addEventListener('change', ()=>{
+    // rebuild scenario cards with fewer/more sliders
+    const wrap = document.getElementById('scenarios'); wrap.innerHTML='';
+    scenarios.forEach(s=>wrap.appendChild(scnToDOM(s)));
+    refreshDeltaTable();
+  });
+
+  // Add Scenario
+  function scnToDOM(scn){
+    const card = scenarioCard(scn);
+    return card;
+  }
+  document.getElementById('addScenarioBtn').addEventListener('click', ()=>{
+    const {v} = currentMetricsFromSliders();
+    const scn = { id: 'S'+(scenarioSeq++), name: 'Scenario '+(scenarios.length+1), vals: {...v}, metrics: computeMetrics(v), el:null };
+    scenarios.push(scn);
+    document.getElementById('scenarios').appendChild(scnToDOM(scn));
+    refreshDeltaTable();
+  });
+
+  // Recent quick pick
+  document.getElementById('recentSelect').addEventListener('change', (e)=>{
+    const ts = Number(e.target.value||'');
+    if(!ts) return;
+    const row = loadLog().find(r=>r.ts===ts);
+    if(!row) return;
+    const vals = {impact:row.impact,cost:row.cost,risk:row.risk,urgency:row.urgency,confidence:row.confidence};
+    const scn = { id:'S'+(scenarioSeq++), name: (row.name||'Recent'), vals, metrics:computeMetrics(vals), el:null };
+    scenarios.push(scn);
+    document.getElementById('scenarios').appendChild(scnToDOM(scn));
+    e.target.value='';
+    refreshDeltaTable();
+  });
+
+  // More panel
+  document.getElementById('moreRecentBtn').addEventListener('click', ()=>{
+    const p = document.getElementById('morePanel');
+    p.style.display = (p.style.display==='none' || !p.style.display)?'block':'none';
+  });
+  document.getElementById('moreClose').addEventListener('click', ()=>{ document.getElementById('morePanel').style.display='none'; });
+  document.getElementById('moreList').addEventListener('click', (e)=>{
+    const btn = e.target.closest('button[data-ts]');
+    if(!btn) return;
+    const ts = Number(btn.dataset.ts||'');
+    const row = loadLog().find(r=>r.ts===ts);
+    if(!row) return;
+    const vals = {impact:row.impact,cost:row.cost,risk:row.risk,urgency:row.urgency,confidence:row.confidence};
+    const scn = { id:'S'+(scenarioSeq++), name: (row.name||'Recent'), vals, metrics:computeMetrics(vals), el:null };
+    scenarios.push(scn);
+    document.getElementById('scenarios').appendChild(scnToDOM(scn));
+    refreshDeltaTable();
+  });
+
+  // Delete from log (inline)
+  document.getElementById('logTable').addEventListener('click', (e)=>{
+    const btn = e.target.closest('button[data-del]');
+    if(!btn) return;
+    const ts = Number(btn.dataset.del);
+    const cur = loadLog().filter(r=>r.ts!==ts);
+    saveLog(cur); refreshHUD(); populateRecent();
   });
 
   refreshHUD();
