@@ -158,10 +158,11 @@ tbody tr:nth-child(even){background:rgba(255,255,255,.02)}
 }
 /* === Refined "Open Compare" button inside the summary card === */
 .open-compare {
-  display: block;
-  margin: 22px auto 10px auto;   /* centers and lowers the button */
+  display: inline-block;
+  margin-top: 18px;        /* lowers it slightly */
+  margin-left: 8px;        /* moves it toward the left */
   background: transparent;
-  color: var(--blue);             /* subtle accent */
+  color: var(--blue);
   border: 1px solid rgba(105,169,255,0.45);
   border-radius: 8px;
   padding: 6px 14px;
@@ -170,6 +171,8 @@ tbody tr:nth-child(even){background:rgba(255,255,255,.02)}
   text-align: center;
   box-shadow: none;
   transition: all 0.2s ease;
+}
+
 }
 
 .open-compare:hover {
