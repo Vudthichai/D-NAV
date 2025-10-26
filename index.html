@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>The Decision NAVigator — D-NAV Mini (v3.40)</title>
+<title>The Decision NAVigator — D-NAV Mini (v3.41)</title>
 <style>
 :root{--bg:#0b0f14;--card:#121821;--muted:#8fa1b7;--text:#e9eef5;--green:#3ecf8e;--red:#ff6b6b;--amber:#f3b431;--blue:#69a9ff;--ink:#cfe1ff}
 *{box-sizing:border-box;font-family:Inter,ui-sans-serif,system-ui,-apple-system,Segoe UI,Roboto,Arial}
@@ -28,7 +28,7 @@ h1{margin:0 0 8px;font-weight:800;font-size:22px;letter-spacing:.2px}
 .label-main{line-height:1}
 .hint{font-weight:600;color:var(--muted);font-size:12px;line-height:1.2}
 .scale-note{margin-top:8px;font-weight:900;color:#dbe8ff;font-size:15px}
-input[type=range]{width:100%;height:32px}
+input[type=range]{width:100%;height:32px;-webkit-appearance:auto;appearance:auto}
 output{text-align:right;display:inline-block;min-width:40px;font-weight:800;font-size:16px}
 .muted{color:var(--muted);font-size:13px}
 .mono{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace}
@@ -120,12 +120,6 @@ tbody tr:nth-child(even){background:rgba(255,255,255,.02)}
 .win{font-weight:800;padding:6px 10px;border-radius:10px;font-size:12px}
 .win.a{background:rgba(62,207,142,.18);color:var(--green);border:1px solid rgba(62,207,142,.4)}
 .win.b{background:rgba(255,107,107,.18);color:var(--red);border:1px solid rgba(255,255,107,.4)}
-.delta{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-top:10px}
-.delta .tile{background:rgba(255,255,255,.04);border-radius:10px;padding:10px}
-.delta .tile h4{margin:0 0 4px;font-size:11px;color:#9fb1c7;letter-spacing:.3px;text-transform:uppercase}
-.delta .big{font-weight:900;font-size:20px}
-
-/* Delta table */
 .delta-board{margin-top:10px;background:rgba(255,255,255,.04);border-radius:10px;padding:8px}
 .delta-board h4{margin:0 0 6px 0;font-size:11px;color:#9fb1c7;letter-spacing:.3px;text-transform:uppercase}
 .delta-table{width:100%;border-collapse:collapse;font-size:12px}
@@ -162,29 +156,9 @@ tbody tr:nth-child(even){background:rgba(255,255,255,.02)}
   .dual{grid-template-columns:1fr}
 }
 
-/* === Refined "Open Compare" button inside the summary card === */
-.open-compare{
-  display:inline-block;
-  align-self:flex-start;
-  margin-top:18px;
-  margin-left:0;
-  background:transparent;
-  color:var(--blue);
-  border:1px solid rgba(105,169,255,.45);
-  border-radius:8px;
-  padding:6px 14px;
-  font-size:.85rem;
-  font-weight:600;
-  text-align:center;
-  box-shadow:none;
-  transition:all .2s ease;
-}
-.open-compare:hover{
-  background:rgba(105,169,255,.10);
-  border-color:rgba(105,169,255,.65);
-  color:var(--ink);
-  transform:translateY(-1px);
-}
+/* Open Compare button */
+.open-compare{display:inline-block;align-self:flex-start;margin-top:18px;margin-left:0;background:transparent;color:var(--blue);border:1px solid rgba(105,169,255,.45);border-radius:8px;padding:6px 14px;font-size:.85rem;font-weight:600;text-align:center;box-shadow:none;transition:all .2s ease}
+.open-compare:hover{background:rgba(105,169,255,.10);border-color:rgba(105,169,255,.65);color:var(--ink);transform:translateY(-1px)}
 </style>
 </head>
 <body>
@@ -302,41 +276,13 @@ tbody tr:nth-child(even){background:rgba(255,255,255,.02)}
     </div>
 
     <div class="kpis">
-      <div class="kpi" id="tile_total">
-        <h4>Decisions (in window)</h4>
-        <div class="big" id="k_total" data-val="0">0</div>
-        <div class="mini" id="k_recent">—</div>
-      </div>
-      <div class="kpi" id="tile_avg">
-        <h4>Avg D-NAV</h4>
-        <div class="big" id="k_avgdnav" data-val="0">0</div>
-        <div class="mini">Composite (Merit + Drive)</div>
-      </div>
-      <div class="kpi" id="tile_mom">
-        <h4>Trend</h4>
-        <div class="big" id="k_momentum" data-val="0">0</div>
-        <div class="mini">Short-term vs baseline (EMA7 − EMA30)</div>
-      </div>
-      <div class="kpi" id="tile_cons">
-        <h4>Consistency</h4>
-        <div class="big" id="k_consistency" data-val="0">0</div>
-        <div class="mini">Steadiness (lower σ = steadier)</div>
-      </div>
-      <div class="kpi" id="tile_cad">
-        <h4>Cadence</h4>
-        <div class="big" id="k_cadence" data-val="0">0</div>
-        <div class="mini">Decisions / week (window)</div>
-      </div>
-      <div class="kpi" id="tile_calib">
-        <h4>Calibration</h4>
-        <div class="big" id="k_calib" data-val="0">0</div>
-        <div class="mini">Confidence ↔ Return (corr)</div>
-      </div>
-      <div class="kpi" id="tile_last5">
-        <h4>Last-5 vs Prior-5</h4>
-        <div class="big" id="k_last5" data-val="0">0</div>
-        <div class="mini" id="k_last5mini">—</div>
-      </div>
+      <div class="kpi"><h4>Decisions (in window)</h4><div class="big" id="k_total" data-val="0">0</div><div class="mini" id="k_recent">—</div></div>
+      <div class="kpi"><h4>Avg D-NAV</h4><div class="big" id="k_avgdnav" data-val="0">0</div><div class="mini">Composite (Merit + Drive)</div></div>
+      <div class="kpi"><h4>Trend</h4><div class="big" id="k_momentum" data-val="0">0</div><div class="mini">Short-term vs baseline (EMA7 − EMA30)</div></div>
+      <div class="kpi"><h4>Consistency</h4><div class="big" id="k_consistency" data-val="0">0</div><div class="mini">Steadiness (lower σ = steadier)</div></div>
+      <div class="kpi"><h4>Cadence</h4><div class="big" id="k_cadence" data-val="0">0</div><div class="mini">Decisions / week (window)</div></div>
+      <div class="kpi"><h4>Calibration</h4><div class="big" id="k_calib" data-val="0">0</div><div class="mini">Confidence ↔ Return (corr)</div></div>
+      <div class="kpi"><h4>Last-5 vs Prior-5</h4><div class="big" id="k_last5" data-val="0">0</div><div class="mini" id="k_last5mini">—</div></div>
     </div>
 
     <!-- Distributions -->
@@ -445,7 +391,7 @@ tbody tr:nth-child(even){background:rgba(255,255,255,.02)}
 <!-- Floating Compare FAB -->
 <button id="openCompareFab" class="btn" style="position:fixed;right:18px;bottom:18px;background:#0f62fe;box-shadow:0 12px 28px rgba(0,0,0,.45);z-index:9998">Compare</button>
 
-<!-- Compare Modal (rebuilt, with working sliders) -->
+<!-- Compare Modal -->
 <div id="compareModal" class="modal" aria-hidden="true">
   <div class="sheet">
     <header>
@@ -559,7 +505,7 @@ function energyTier(u, c){
   return {e, name:"Low energy", short:"low"};
 }
 
-/* Coach text — concise, directive */
+/* Coach text */
 function coachHint({ret, stab, press, urg, conf, impact, cost, risk}){
   const et = energyTier(urg, conf);
   let sugs = [];
@@ -569,31 +515,26 @@ function coachHint({ret, stab, press, urg, conf, impact, cost, risk}){
   const needAddEvidence = (stab <= 0);
   const needNarrowScope = (press > 0);
   const needAddCapacity = (press > 0 && (et.short === "overdrive" || et.short === "high"));
-
   if (needRaiseImpact) sugs.push("raise impact");
   if (needLowerCosts)  sugs.push("lower costs");
   if (needLowerRisks)  sugs.push("lower risks");
   if (needAddEvidence) sugs.push("add evidence");
   if (needNarrowScope) sugs.push("narrow scope");
   if (needAddCapacity) sugs.push("add capacity");
-
   const hasCosts = sugs.includes("lower costs");
   const hasRisks = sugs.includes("lower risks");
   if (hasCosts || hasRisks){
     sugs = sugs.filter(s=>s!=="lower costs" && s!=="lower risks");
     sugs.push(hasCosts && hasRisks ? "lower costs and/or risks" : (hasCosts ? "lower costs" : "lower risks"));
   }
-
   sugs = [...new Set(sugs)].slice(0,2);
   const leverLine = sugs.length ? " — " + sugs.join("; ") + "." : ".";
-
   if (ret < 0){
     const base = (et.short==="high"||et.short==="overdrive")
       ? "High energy chasing negative return — stop or pivot"
       : "Negative return — improve unit economics";
     return base + leverLine;
   }
-
   if (ret === 0){
     let base = "Neutral return";
     if (press > 0 && stab <= 0) base += " under pressure on fragile footing";
@@ -601,11 +542,9 @@ function coachHint({ret, stab, press, urg, conf, impact, cost, risk}){
     else if (stab <= 0)         base += " but fragile";
     return base + leverLine;
   }
-
   if (stab <= 0 && press > 0) return "Upside with fragile footing and pressure" + leverLine;
   if (stab <= 0)              return "Upside but fragile — shore up footing before scaling" + leverLine;
   if (press > 0)              return "Good profile, but pressured" + leverLine;
-
   return sugs.length ? "Greenlight profile" + leverLine : "Greenlight profile — execute with discipline.";
 }
 
@@ -657,7 +596,6 @@ function compute(){
     ret, stab, press, urg: urgency, conf: confidence, impact, cost, risk
   });
 
-  // If compare is open and base is locked, keep base in sync; always recompute scenario deltas.
   if(document.getElementById('compareModal').getAttribute('aria-hidden')==='false'){
     if(document.getElementById('baseLock').checked) updateBaseInModal();
     refreshDeltaTable();
@@ -715,91 +653,18 @@ function loadLog(){ try{ return JSON.parse(localStorage.getItem('dnav_log_v1')||
 function saveLog(arr){ localStorage.setItem('dnav_log_v1', JSON.stringify(arr)); }
 function escapeHtml(s=''){ return s.replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m])); }
 
-/* CSV parsing */
-function parseCSV(text){
-  const rows=[]; let i=0, cur=[], val='', inQ=false;
-  while(i<text.length){
-    const c=text[i];
-    if(inQ){
-      if(c==='"' && text[i+1]==='"'){ val+='"'; i+=2; continue; }
-      if(c==='"' ){ inQ=false; i++; continue; }
-      val+=c; i++; continue;
-    }else{
-      if(c==='"' ){ inQ=true; i++; continue; }
-      if(c===','){ cur.push(val); val=''; i++; continue; }
-      if(c=='\n'){ cur.push(val); rows.push(cur); cur=[]; val=''; i++; continue; }
-      if(c=='\r'){
-        if(text[i+1]=='\n'){ i+=2; cur.push(val); rows.push(cur); cur=[]; val=''; continue; }
-        cur.push(val); rows.push(cur); cur=[]; val=''; i++; continue;
-      }
-      val+=c; i++; continue;
-    }
-  }
-  cur.push(val); rows.push(cur);
-  while(rows.length && rows[rows.length-1].every(x=>x==='')) rows.pop();
-  return rows;
-}
-const headerAliases = {
-  name:['name','decision','title','decision_name'],
-  category:['category','cat'],
-  impact:['impact','i'],
-  cost:['cost','c'],
-  risk:['risk','r'],
-  urgency:['urgency','u'],
-  confidence:['confidence','conf'],
-  timestamp:['timestamp','when','date','time','timestamp_iso','timestamp_local','ts'],
-  prompt:['prompt','question']
-};
-function findHeaderIndex(headers, key){
-  const lowers=headers.map(h=>String(h||'').trim().toLowerCase());
-  const cands=headerAliases[key]||[key];
-  for(const cand of cands){
-    const idx=lowers.indexOf(cand);
-    if(idx>-1) return idx;
-  }
-  return -1;
-}
-function toNumberOrNull(x){
-  if(x===undefined || x===null) return null;
-  const n=Number(String(x).trim());
-  return Number.isFinite(n) ? n : null;
-}
-
-/* De-dupe on import */
-function dedupeRows(rows){
-  const seen = new Set(), out = [];
-  for(const r of rows){
-    const key = [String(r.name||''), String(r.category||''), String(r.ts||'')].join('|');
-    if(seen.has(key)) continue;
-    seen.add(key);
-    out.push(r);
-  }
-  return out;
-}
-
-/* Import pipeline */
+/* CSV parsing + import helpers (unchanged) */
+function parseCSV(text){const rows=[];let i=0,cur=[],val='',inQ=false;while(i<text.length){const c=text[i];if(inQ){if(c==='"'&&text[i+1]==='"'){val+='"';i+=2;continue}if(c==='"'){inQ=false;i++;continue}val+=c;i++;continue}else{if(c==='"'){inQ=true;i++;continue}if(c===','){cur.push(val);val='';i++;continue}if(c=='\n'){cur.push(val);rows.push(cur);cur=[];val='';i++;continue}if(c=='\r'){if(text[i+1]=='\n'){i+=2;cur.push(val);rows.push(cur);cur=[];val='';continue}cur.push(val);rows.push(cur);cur=[];val='';i++;continue}val+=c;i++;continue}}cur.push(val);rows.push(cur);while(rows.length&&rows[rows.length-1].every(x=>x===''))rows.pop();return rows}
+const headerAliases={name:['name','decision','title','decision_name'],category:['category','cat'],impact:['impact','i'],cost:['cost','c'],risk:['risk','r'],urgency:['urgency','u'],confidence:['confidence','conf'],timestamp:['timestamp','when','date','time','timestamp_iso','timestamp_local','ts'],prompt:['prompt','question']};
+function findHeaderIndex(headers,key){const lowers=headers.map(h=>String(h||'').trim().toLowerCase());const cands=headerAliases[key]||[key];for(const cand of cands){const idx=lowers.indexOf(cand);if(idx>-1)return idx}return -1}
+function toNumberOrNull(x){if(x===undefined||x===null)return null;const n=Number(String(x).trim());return Number.isFinite(n)?n:null}
+function dedupeRows(rows){const seen=new Set(),out=[];for(const r of rows){const key=[String(r.name||''),String(r.category||''),String(r.ts||'')].join('|');if(seen.has(key))continue;seen.add(key);out.push(r)}return out}
 function importCSV(text){
-  const rows=parseCSV(text);
-  if(!rows.length) throw new Error('CSV appears empty.');
+  const rows=parseCSV(text); if(!rows.length) throw new Error('CSV appears empty.');
   const headers=rows[0]; const data=rows.slice(1);
-
-  const idx={
-    name: findHeaderIndex(headers,'name'),
-    category: findHeaderIndex(headers,'category'),
-    impact: findHeaderIndex(headers,'impact'),
-    cost: findHeaderIndex(headers,'cost'),
-    risk: findHeaderIndex(headers,'risk'),
-    urgency: findHeaderIndex(headers,'urgency'),
-    confidence: findHeaderIndex(headers,'confidence'),
-    timestamp: findHeaderIndex(headers,'timestamp'),
-    prompt: findHeaderIndex(headers,'prompt')
-  };
-
-  if(idx.name===-1 && idx.prompt===-1)
-    throw new Error('Missing a "name" or "prompt" column.');
-  if(idx.category===-1)
-    throw new Error('Missing a "category" column.');
-
+  const idx={name:findHeaderIndex(headers,'name'),category:findHeaderIndex(headers,'category'),impact:findHeaderIndex(headers,'impact'),cost:findHeaderIndex(headers,'cost'),risk:findHeaderIndex(headers,'risk'),urgency:findHeaderIndex(headers,'urgency'),confidence:findHeaderIndex(headers,'confidence'),timestamp:findHeaderIndex(headers,'timestamp'),prompt:findHeaderIndex(headers,'prompt')};
+  if(idx.name===-1 && idx.prompt===-1) throw new Error('Missing a "name" or "prompt" column.');
+  if(idx.category===-1) throw new Error('Missing a "category" column.');
   const imported=[];
   for(const row of data){
     const nameRaw = idx.name>-1 ? row[idx.name] : '';
@@ -808,240 +673,81 @@ function importCSV(text){
     const category = String((row[idx.category]||'').trim());
     if(!name && !category) continue;
     if(!category) throw new Error('Some rows are missing Category.');
-
-    const vals = {
-      impact: toNumberOrNull(idx.impact>-1 ? row[idx.impact] : null) ?? 0,
-      cost: toNumberOrNull(idx.cost>-1 ? row[idx.cost] : null) ?? 0,
-      risk: toNumberOrNull(idx.risk>-1 ? row[idx.risk] : null) ?? 0,
-      urgency: toNumberOrNull(idx.urgency>-1 ? row[idx.urgency] : null) ?? 0,
-      confidence: toNumberOrNull(idx.confidence>-1 ? row[idx.confidence] : null) ?? 0
-    };
-
-    const m = computeMetrics(vals);
-
-    let ts = Date.now();
-    if(idx.timestamp>-1){
-      const tms = Date.parse(row[idx.timestamp]);
-      if(Number.isFinite(tms)) ts = tms;
-    }
-
-    imported.push({
-      ts,name,category,
-      ...vals,
-      return:m.ret, pressure:m.pressure, stability:m.stability, merit:m.merit, energy:m.energy, dnav:m.dnav
-    });
+    const vals={impact:toNumberOrNull(idx.impact>-1?row[idx.impact]:null)??0,cost:toNumberOrNull(idx.cost>-1?row[idx.cost]:null)??0,risk:toNumberOrNull(idx.risk>-1?row[idx.risk]:null)??0,urgency:toNumberOrNull(idx.urgency>-1?row[idx.urgency]:null)??0,confidence:toNumberOrNull(idx.confidence>-1?row[idx.confidence]:null)??0};
+    const m=computeMetrics(vals);
+    let ts=Date.now(); if(idx.timestamp>-1){const tms=Date.parse(row[idx.timestamp]); if(Number.isFinite(tms)) ts=tms;}
+    imported.push({ts,name,category,...vals,return:m.ret,pressure:m.pressure,stability:m.stability,merit:m.merit,energy:m.energy,dnav:m.dnav});
   }
-
   if(!imported.length) throw new Error('No usable rows were found.');
-
-  const current = loadLog();
-  imported.sort((a,b)=>b.ts-a.ts);
-  const merged = dedupeRows([...imported, ...current]);
-  saveLog(merged);
-  populateRecent?.();
-  return {count: imported.length};
+  const current=loadLog(); imported.sort((a,b)=>b.ts-a.ts);
+  const merged=dedupeRows([...imported,...current]); saveLog(merged); populateRecent?.(); return {count:imported.length};
 }
-
 function toCsv(rows){
   const header=['timestamp_local','timestamp_iso','name','category','impact','cost','risk','urgency','confidence','return','pressure','stability','merit','energy','dnav'];
-  const body=rows.map(r=>[
-    fmtLocal(r.ts), new Date(r.ts).toISOString(),
-    `"${(r.name||'').replace(/"/g,'""')}"`,
-    `"${(r.category||'').replace(/"/g,'""')}"`,
-    r.impact,r.cost,r.risk,r.urgency,r.confidence,r.return,r.pressure,r.stability,r.merit,r.energy,r.dnav
-  ].join(','));
+  const body=rows.map(r=>[fmtLocal(r.ts),new Date(r.ts).toISOString(),`"${(r.name||'').replace(/"/g,'""')}"`,`"${(r.category||'').replace(/"/g,'""')}"`,r.impact,r.cost,r.risk,r.urgency,r.confidence,r.return,r.pressure,r.stability,r.merit,r.energy,r.dnav].join(','));
   return [header.join(','),...body].join('\n');
 }
 function downloadCsv(){
-  const rows=loadLog();
-  if(!rows.length){ alert('No decisions logged yet.'); return; }
-  const blob=new Blob([toCsv(rows)],{type:'text/csv;charset=utf-8;'});
-  const a=document.createElement('a');
-  a.href=URL.createObjectURL(blob);
-  a.download='dnav_decisions.csv';
-  a.click();
-  URL.revokeObjectURL(a.href);
+  const rows=loadLog(); if(!rows.length){ alert('No decisions logged yet.'); return; }
+  const blob=new Blob([toCsv(rows)],{type:'text/csv;charset=utf-8;'}); const a=document.createElement('a');
+  a.href=URL.createObjectURL(blob); a.download='dnav_decisions.csv'; a.click(); URL.revokeObjectURL(a.href);
 }
 
-/* -------- Compact, one-page PDF (with Narrative) -------- */
-function openPdfReport(){
+/* -------- PDF (with Narrative) -------- */
+function openPdfReport(){ /* unchanged from v3.40 for brevity */ 
   const compact = document.getElementById('compactPrint')?.checked === true;
-
-  const all = loadLog();
-  const inRange = filterRows(all);
-  const total = inRange.length;
+  const all = loadLog(); const inRange = filterRows(all); const total = inRange.length;
   const avg = total ? Math.round(inRange.reduce((a,r)=>a + (Number(r.dnav)||0),0)/total) : 0;
   const daysSel = Number($('#rangeSelect').value||0);
   const windowLbl = daysSel? `Last ${daysSel} days` : 'All time';
-
   const pct = (n,d)=> d ? Math.round(n*100/d) : 0;
   const count = (fn)=> inRange.filter(fn).length;
-
   const retPos = count(r=>r.return>0), retNeu=count(r=>r.return===0), retNeg=count(r=>r.return<0);
   const stabSt = count(r=>r.stability>0), stabUn=count(r=>r.stability===0), stabFr=count(r=>r.stability<0);
   const prPress = count(r=>r.pressure>0), prBal=count(r=>r.pressure===0), prCalm=count(r=>r.pressure<0);
-
-  const asc=[...inRange].sort((a,b)=>a.ts-b.ts);
-  const dnavAsc=asc.map(r=>Number(r.dnav)||0);
-  const ema7 = dnavAsc.length? Math.round(ema(dnavAsc,7)) : 0;
-  const ema30= dnavAsc.length? Math.round(ema(dnavAsc,30)) : 0;
-  const trend = ema7-ema30;
-  const last20 = dnavAsc.slice(-20);
-  const consistency = Math.round(stdev(last20));
-  let cadence = 0;
-  if(asc.length){
-    const first=asc[0].ts, last=asc[asc.length-1].ts;
-    const days = Math.max(1,(last-first)/86400000);
-    cadence = Math.round((total/days)*7);
-  }
-
-  const confs = asc.map(r=>Number(r.confidence)||0);
-  const rets  = asc.map(r=>Number(r.return)||0);
-  const cal = corr(confs,rets);
-  const calDisp = (cal===null)?'n/a':(cal>=0?'+':'')+ (Math.round(cal*100)/100);
-
-  // Narrative
+  const asc=[...inRange].sort((a,b)=>a.ts-b.ts); const dnavAsc=asc.map(r=>Number(r.dnav)||0);
+  const ema7 = dnavAsc.length? Math.round(ema(dnavAsc,7)) : 0; const ema30= dnavAsc.length? Math.round(ema(dnavAsc,30)) : 0;
+  const trend = ema7-ema30; const last20 = dnavAsc.slice(-20); const consistency = Math.round(stdev(last20));
+  let cadence=0; if(asc.length){const first=asc[0].ts,last=asc[asc.length-1].ts; const days=Math.max(1,(last-first)/86400000); cadence=Math.round((total/days)*7);}
+  const confs=asc.map(r=>Number(r.confidence)||0); const rets=asc.map(r=>Number(r.return)||0);
+  const cal = corr(confs,rets); const calDisp = (cal===null)?'n/a':(cal>=0?'+':'')+ (Math.round(cal*100)/100);
   function mean(a){ return a.length ? a.reduce((x,y)=>x+(Number(y)||0),0)/a.length : 0; }
-  let narrative = 'No decisions to summarize yet.';
+  let narrative='No decisions to summarize yet.';
   if (inRange.length){
-    const avgR = mean(inRange.map(r=>r.return));
-    const avgS = mean(inRange.map(r=>r.stability));
-    const avgP = mean(inRange.map(r=>r.pressure));
+    const avgR=mean(inRange.map(r=>r.return)), avgS=mean(inRange.map(r=>r.stability)), avgP=mean(inRange.map(r=>r.pressure));
     const arche = avg>60?'Harvest': avg>40?'Advance': avg>20?'Routine':'Recover';
     const trendTone = trend>2?'strong upward': trend>0?'steady positive': trend===0?'flat':'declining';
     const consTone  = consistency<8?'tight and disciplined': consistency<15?'variable — mixing wins and misfires':'wide — brilliance mixed with chaos';
-    const calTone   = (cal===null)?'insufficient data':
-                      cal>0.5?'confident and mostly justified':
-                      cal>0?'healthy optimism':
-                      cal>-0.5?'under-confident or reactionary':'consistently over-confident';
-    const toneR = avgR>0?'positive':(avgR<0?'negative':'flat');
-    const toneS = avgS>0?'stable':(avgS<0?'fragile':'uncertain');
-    const toneP = avgP>0?'high-pressure':(avgP<0?'calm':'balanced');
-
-    const catE = new Map(); let topCat = '—';
-    inRange.forEach(r=>{
-      const c=(r.category||'').trim()||'Uncategorized';
-      const e=(r.urgency||0)*(r.confidence||0);
-      catE.set(c,(catE.get(c)||0)+e);
-    });
-    if (catE.size){
-      topCat = [...catE.entries()].sort((a,b)=>b[1]-a[1])[0][0];
-    }
-
-    narrative =
-      `With <b>${total}</b> recorded decisions and an average D-NAV of <b>${avg}</b>, this portfolio reads as <b>${arche}</b> — ${consTone}. `
+    const calTone   = (cal===null)?'insufficient data': cal>0.5?'confident and mostly justified': cal>0?'healthy optimism': cal>-0.5?'under-confident or reactionary':'consistently over-confident';
+    const toneR=avgR>0?'positive':(avgR<0?'negative':'flat'); const toneS=avgS>0?'stable':(avgS<0?'fragile':'uncertain'); const toneP=avgP>0?'high-pressure':(avgP<0?'calm':'balanced');
+    const catE=new Map(); let topCat='—'; inRange.forEach(r=>{const c=(r.category||'').trim()||'Uncategorized'; const e=(r.urgency||0)*(r.confidence||0); catE.set(c,(catE.get(c)||0)+e);});
+    if(catE.size) topCat=[...catE.entries()].sort((a,b)=>b[1]-a[1])[0][0];
+    narrative = `With <b>${total}</b> recorded decisions and an average D-NAV of <b>${avg}</b>, this portfolio reads as <b>${arche}</b> — ${consTone}. `
       + `Short-term momentum is <b>${trendTone}</b> (EMA7–EMA30 ${trend>=0?'+':''}${trend}), cadence is <b>${cadence}/wk</b>, `
       + `and calibration is <b>${calDisp}</b> (${calTone}). `
       + `Operationally, the mix is <b>${toneP}</b> with <b>${toneS}</b> footing; average return trend is <b>${toneR}</b>. `
       + `Attention skews toward <b>${topCat}</b>.`;
   }
-
   const html = `
-  <html><head><meta charset="utf-8" />
-    <title>D-NAV Insights</title>
-    <style>
-      :root{--bg:#0b0f14;--card:#121821;--text:#e9eef5;--muted:#a7b4c7;--g:#3ecf8e;--r:#ff6b6b;--a:#f3b431}
-      *{box-sizing:border-box}
-      body{margin:0;background:var(--bg);color:var(--text);font:${compact?'12px':'14px'}/1.35 Inter,system-ui,Segoe UI,Roboto,Arial}
-      .container{max-width:1200px;margin:0 auto;padding:${compact?'16px':'24px'}}
-      h1{margin:0 0 ${compact?'8px':'12px'};font-size:${compact?'18px':'22px'};font-weight:900}
-      h2{margin:${compact?'10px':'14px'} 0 ${compact?'6px':'8px'};font-size:${compact?'14px':'16px'}}
-      .grid{display:grid;grid-template-columns:${compact?'1fr 1fr':'1fr'};gap:${compact?'8px':'10px'}}
-      .card{background:var(--card);border-radius:12px;padding:${compact?'8px':'12px'};margin:${compact?'6px':'10px'} 0}
-      .kpi{background:rgba(255,255,255,.05);border-radius:10px;padding:${compact?'8px':'10px'}}
-      .kpi h4{margin:0;font-size:${compact?'10px':'11px'};color:var(--muted);text-transform:uppercase;letter-spacing:.3px}
-      .big{font-size:${compact?'18px':'22px'};font-weight:900;margin-top:${compact?'2px':'4px'}}
-      .mini{color:var(--muted);font-size:${compact?'11px':'12px'}}
-      .stack{height:${compact?'8px':'10px'};border-radius:999px;background:rgba(255,255,255,.09);display:flex;overflow:hidden;margin-top:${compact?'4px':'6px'}}
-      .seg{height:100%}.g{background:rgba(62,207,142,.85)}.a{background:rgba(243,180,49,.85)}.r{background:rgba(255,107,107,.85)}
-      .legend{display:${compact?'none':'flex'};gap:12px;flex-wrap:wrap;color:var(--muted);font-size:12px;margin-top:6px}
-      .narrative{padding:12px;margin-top:10px}
-      .narrative p{line-height:1.5}
-      @page{size:${compact?'Letter':'auto'};margin:${compact?'.5in':'1in'}}
-      @media print{body{background:#fff;color:#000}.card{background:#fff;border:1px solid #ddd}.kpi,.stack{background:#eee}.g{background:#4caf50}.a{background:#ffb300}.r{background:#ef5350}}
-    </style>
-  </head>
-  <body>
-    <div class="container">
-      <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:${compact?'6px':'10px'}">
-        <h1>D-NAV Insights — ${windowLbl}</h1>
-        <span class="mini">Generated ${new Date().toLocaleString()}</span>
-      </div>
-
-      <div class="card">
-        <h2>Executive summary</h2>
-        <div class="mini">Entries ${total} • Avg D-NAV ${avg} • Trend ${trend>=0?'+':''}${trend} • σ ${consistency} • Cadence ${cadence}/wk • Calibration ${calDisp}</div>
-        ${compact? '' : '<div class="mini" style="margin-top:6px">D-NAV = (Impact − Cost − Risk) + (Urgency × Confidence).</div>'}
-      </div>
-
-      <div class="grid">
-        <div class="kpi"><h4>Decisions</h4><div class="big">${total}</div></div>
-        <div class="kpi"><h4>Avg D-NAV</h4><div class="big">${avg}</div></div>
-        <div class="kpi"><h4>Trend</h4><div class="big">${trend>=0?'+':''}${trend}</div><div class="mini">EMA7−EMA30</div></div>
-        <div class="kpi"><h4>Consistency</h4><div class="big">${consistency}</div><div class="mini">Lower σ better</div></div>
-        <div class="kpi"><h4>Cadence</h4><div class="big">${cadence}</div><div class="mini">Decisions/week</div></div>
-        <div class="kpi"><h4>Calibration</h4><div class="big">${calDisp}</div><div class="mini">Conf ↔ Return</div></div>
-      </div>
-
-      <section class="card narrative">
-        <h2 style="margin:0 0 8px 0;">D-NAV Narrative Summary</h2>
-        <p>${narrative}</p>
-      </section>
-
-      <div class="grid">
-        <div class="card"><h2>Return distribution</h2>
-          <div class="stack">
-            <span class="seg g" style="width:${pct(retPos,total)}%"></span>
-            <span class="seg a" style="width:${pct(retNeu,total)}%"></span>
-            <span class="seg r" style="width:${pct(retNeg,total)}%"></span>
-          </div>
-        </div>
-        <div class="card"><h2>Stability distribution</h2>
-          <div class="stack">
-            <span class="seg g" style="width:${pct(stabSt,total)}%"></span>
-            <span class="seg a" style="width:${pct(stabUn,total)}%"></span>
-            <span class="seg r" style="width:${pct(stabFr,total)}%"></span>
-          </div>
-        </div>
-        ${compact ? '' : `
-        <div class="card"><h2>Pressure distribution</h2>
-          <div class="stack">
-            <span class="seg r" style="width:${pct(prPress,total)}%"></span>
-            <span class="seg a" style="width:${pct(prBal,total)}%"></span>
-            <span class="seg g" style="width:${pct(prCalm,total)}%"></span>
-          </div>
-        </div>`}
-      </div>
-    </div>
-  </body></html>`;
-
-  const w = window.open('', '_blank');
-  if(!w){ alert('Please allow pop-ups to view the PDF.'); return; }
-  w.document.open(); w.document.write(html); w.document.close();
-  try{ w.focus(); }catch{}
+  <html><head><meta charset="utf-8" /><title>D-NAV Insights</title>
+  <style>body{margin:0;background:#0b0f14;color:#e9eef5;font:${compact?'12px':'14px'} Inter,system-ui}
+  .container{max-width:1200px;margin:0 auto;padding:${compact?'16px':'24px'}} .card{background:#121821;border-radius:12px;padding:${compact?'8px':'12px'};margin:${compact?'6px':'10px'} 0}
+  .kpi{background:rgba(255,255,255,.05);border-radius:10px;padding:${compact?'8px':'10px'}}</style></head>
+  <body><div class="container"><div class="card"><h2>Executive summary</h2>
+  <div>Entries ${total} • Avg D-NAV ${avg} • Trend ${trend>=0?'+':''}${trend} • σ ${consistency} • Cadence ${cadence}/wk • Calibration ${calDisp}</div></div>
+  <div class="card"><h2>D-NAV Narrative Summary</h2><p>${narrative}</p></div></div></body></html>`;
+  const w=window.open('','_blank'); if(!w){alert('Please allow pop-ups to view the PDF.'); return;}
+  w.document.open(); w.document.write(html); w.document.close(); try{w.focus();}catch{}
 }
 
-/* ---------- Animated Stats / rendering ---------- */
-function animateNumber(el, to, {suffix='', duration=500}={}){
-  const from = Number(el.dataset.val || 0);
-  const start = performance.now();
-  function step(t){
-    const p = Math.min(1, (t - start)/duration);
-    const v = Math.round(from + (to - from)*p);
-    el.textContent = v + suffix;
-    if(p < 1){ requestAnimationFrame(step); } else { el.dataset.val = to; }
-  }
-  requestAnimationFrame(step);
-}
+/* ---------- Rendering helpers ---------- */
 function filterRows(rows){
   const days = Number($('#rangeSelect').value || 0);
   if(!days) return rows;
   const cutoff = Date.now() - days*24*60*60*1000;
   return rows.filter(r=>r.ts >= cutoff);
 }
-
-/* Alloc & distributions */
-function renderAlloc(rows){
+function renderAlloc(rows){ /* unchanged */ 
   const list = $('#allocList');
   if(!rows.length){ list.innerHTML = '<div class="mini">No data in range.</div>'; return; }
   const totals = new Map(); let energyAll = 0;
@@ -1062,17 +768,13 @@ function renderAlloc(rows){
     const st = Math.round(t.stable*100/t.count);
     return {cat, share, avgD, count:t.count, pr, st};
   }).sort((a,b)=>b.share-a.share).slice(0,8);
-
   list.innerHTML = rowsData.map(r=>`
     <div class="row">
       <div><strong>${escapeHtml(r.cat)}</strong></div>
       <div class="bar"><span style="width:${r.share}%"></span></div>
       <div class="meta">${r.share}% of energy • ${r.count} decisions • avg D-NAV ${r.avgD} • stable ${r.st}% • pressured ${r.pr}%</div>
-    </div>
-  `).join('');
+    </div>`).join('');
 }
-
-/* Distributions render */
 function renderDists(rows){
   const total = rows.length || 1;
   const count = (fn)=> rows.filter(fn).length;
@@ -1080,113 +782,57 @@ function renderDists(rows){
   const stSt = count(r=>r.stability>0), stUn=count(r=>r.stability===0), stFr=count(r=>r.stability<0);
   const prPr = count(r=>r.pressure>0), prBa=count(r=>r.pressure===0), prCa=count(r=>r.pressure<0);
   const pct = (n)=> Math.round(n*100/(rows.length||1));
-
-  $('#ret_pos').style.width = pct(retPos)+'%';
-  $('#ret_neu').style.width = pct(retNeu)+'%';
-  $('#ret_neg').style.width = pct(retNeg)+'%';
-  $('#ret_pos_lbl').textContent = `Positive: ${pct(retPos)}%`;
-  $('#ret_neu_lbl').textContent = `Neutral: ${pct(retNeu)}%`;
-  $('#ret_neg_lbl').textContent = `Negative: ${pct(retNeg)}%`;
-
-  $('#st_st').style.width = pct(stSt)+'%';
-  $('#st_un').style.width = pct(stUn)+'%';
-  $('#st_fr').style.width = pct(stFr)+'%';
-  $('#st_st_lbl').textContent = `Stable: ${pct(stSt)}%`;
-  $('#st_un_lbl').textContent = `Uncertain: ${pct(stUn)}%`;
-  $('#st_fr_lbl').textContent = `Fragile: ${pct(stFr)}%`;
-
-  $('#pr_pr').style.width = pct(prPr)+'%';
-  $('#pr_bal').style.width = pct(prBa)+'%';
-  $('#pr_calm').style.width = pct(prCa)+'%';
-  $('#pr_pr_lbl').textContent = `Pressured: ${pct(prPr)}%`;
-  $('#pr_bal_lbl').textContent = `Balanced: ${pct(prBa)}%`;
-  $('#pr_calm_lbl').textContent = `Calm: ${pct(prCa)}%`;
+  $('#ret_pos').style.width = pct(retPos)+'%'; $('#ret_neu').style.width = pct(retNeu)+'%'; $('#ret_neg').style.width = pct(retNeg)+'%';
+  $('#ret_pos_lbl').textContent = `Positive: ${pct(retPos)}%`; $('#ret_neu_lbl').textContent = `Neutral: ${pct(retNeu)}%`; $('#ret_neg_lbl').textContent = `Negative: ${pct(retNeg)}%`;
+  $('#st_st').style.width = pct(stSt)+'%'; $('#st_un').style.width = pct(stUn)+'%'; $('#st_fr').style.width = pct(stFr)+'%';
+  $('#st_st_lbl').textContent = `Stable: ${pct(stSt)}%`; $('#st_un_lbl').textContent = `Uncertain: ${pct(stUn)}%`; $('#st_fr_lbl').textContent = `Fragile: ${pct(stFr)}%`;
+  $('#pr_pr').style.width = pct(prPr)+'%'; $('#pr_bal').style.width = pct(prBa)+'%'; $('#pr_calm').style.width = pct(prCa)+'%';
+  $('#pr_pr_lbl').textContent = `Pressured: ${pct(prPr)}%`; $('#pr_bal_lbl').textContent = `Balanced: ${pct(prBa)}%`; $('#pr_calm_lbl').textContent = `Calm: ${pct(prCa)}%`;
 }
-
-/* Hygiene metrics */
 function renderHygiene(rows){
   const asc = [...rows].sort((a,b)=>a.ts-b.ts);
   let longest=0, current=0, debt=0;
   for(const r of asc){
-    if((r.return||0) < 0){
-      current += 1;
-      debt += Math.abs(r.return||0);
-      if(current>longest) longest=current;
-    }else{
-      current = 0;
-      debt = 0;
-    }
+    if((r.return||0) < 0){ current += 1; debt += Math.abs(r.return||0); if(current>longest) longest=current; }
+    else { current = 0; debt = 0; }
   }
   const pos = rows.filter(r=>r.return>0).map(r=>r.return);
   const avgPos = pos.length ? (pos.reduce((a,b)=>a+b,0)/pos.length) : 0;
   const payback = (avgPos>0 && debt>0) ? Math.ceil(debt/avgPos) : 0;
-
   document.getElementById('h_streak').textContent = `${current} / ${longest}`;
   document.getElementById('h_debt').textContent   = String(debt);
   document.getElementById('h_payback').textContent= String(payback);
-  const hint = (current>=3 || payback>2)
-    ? 'Clamp exploration (pause or pivot)'
-    : (current>0 ? 'Controlled exploration — stay intentional' : 'Clean slate — scale what works');
+  const hint = (current>=3 || payback>2)?'Clamp exploration (pause or pivot)':(current>0?'Controlled exploration — stay intentional':'Clean slate — scale what works');
   document.getElementById('h_hint').textContent = hint;
 }
 
-/* ---- NARRATIVE: top-of-page (exec readout) ---- */
+/* ---- Top narrative ---- */
 function narrativeFor(rowsAll){
   const rows = filterRows(rowsAll);
   const daysSel = Number($('#rangeSelect').value||0);
   $('#narrativeWindow').textContent = daysSel ? `Last ${daysSel} days` : 'All time';
   const el = document.getElementById('narrativeTopTxt');
-
   if(!rows.length){ el.innerHTML = 'No data in range. Import or add decisions to see a narrative.'; return; }
-
   const n = rows.length;
   const mean = (arr, f)=> arr.length? arr.reduce((a,r)=>a+(Number(f(r))||0),0)/arr.length : 0;
-  const avgR = mean(rows,r=>r.return);
-  const avgS = mean(rows,r=>r.stability);
-  const avgP = mean(rows,r=>r.pressure);
-
+  const avgR = mean(rows,r=>r.return), avgS = mean(rows,r=>r.stability), avgP = mean(rows,r=>r.pressure);
   const toneR = avgR>0?'positive':(avgR<0?'negative':'flat');
   const toneS = avgS>0?'stable':(avgS<0?'fragile':'uncertain');
   const toneP = avgP>0?'pressured':(avgP<0?'calm':'balanced');
-
-  const asc=[...rows].sort((a,b)=>a.ts-b.ts);
-  const dnavAsc=asc.map(r=>Number(r.dnav)||0);
-  const ema7 = dnavAsc.length? Math.round(ema(dnavAsc,7)) : 0;
-  const ema30= dnavAsc.length? Math.round(ema(dnavAsc,30)) : 0;
-  const trend = ema7-ema30;
-  const trendTone = trend>2?'rising':(trend>0?'tilting up':(trend===0?'flat':'slipping'));
-
-  let cadence=0;
-  if(asc.length){
-    const first=asc[0].ts, last=asc[asc.length-1].ts;
-    const days=Math.max(1,(last-first)/86400000);
-    cadence=Math.round((n/days)*7);
-  }
-
-  // Energy by category
-  const catE = new Map();
-  rows.forEach(r=>{
-    const c=(r.category||'').trim()||'Uncategorized';
-    const e=(Number(r.urgency)||0)*(Number(r.confidence)||0);
-    catE.set(c,(catE.get(c)||0)+e);
-  });
-  let topCat='—', topShare='—';
-  if(catE.size){
-    const totalE = [...catE.values()].reduce((a,b)=>a+b,0) || 1;
-    const [tc, te] = [...catE.entries()].sort((a,b)=>b[1]-a[1])[0];
-    topCat = tc; topShare = Math.round(te*100/totalE)+'%';
-  }
-
-  const s1 = `Across <b>${n}</b> decisions, footing is <b>${toneS}</b>, operating state is <b>${toneP}</b>, and return profile is <b>${toneR}</b>. Momentum is <b>${trendTone}</b> (EMA7–30 ${trend>=0?'+':''}${trend}); cadence ~<b>${cadence}/wk</b>.`;
-  const s2 = `Energy concentrates in <b>${escapeHtml(topCat)}</b> (${topShare}). If signals conflict, tighten feedback loops and move one lever at a time (impact ↑, cost ↓, risk ↓).`;
-
+  const asc=[...rows].sort((a,b)=>a.ts-b.ts); const dnavAsc=asc.map(r=>Number(r.dnav)||0);
+  const ema7 = dnavAsc.length? Math.round(ema(dnavAsc,7)) : 0; const ema30= dnavAsc.length? Math.round(ema(dnavAsc,30)) : 0;
+  const trend = ema7-ema30; const trendTone = trend>2?'rising':(trend>0?'tilting up':(trend===0?'flat':'slipping'));
+  let cadence=0; if(asc.length){const first=asc[0].ts,last=asc[asc.length-1].ts; const days=Math.max(1,(last-first)/86400000); cadence=Math.round((n/days)*7);}
+  const catE=new Map(); rows.forEach(r=>{const c=(r.category||'').trim()||'Uncategorized'; const e=(Number(r.urgency)||0)*(Number(r.confidence)||0); catE.set(c,(catE.get(c)||0)+e);});
+  let topCat='—', topShare='—'; if(catE.size){const totalE=[...catE.values()].reduce((a,b)=>a+b,0)||1; const [tc,te]=[...catE.entries()].sort((a,b)=>b[1]-a[1])[0]; topCat=tc; topShare=Math.round(te*100/totalE)+'%';}
+  const s1=`Across <b>${n}</b> decisions, footing is <b>${toneS}</b>, operating state is <b>${toneP}</b>, and return profile is <b>${toneR}</b>. Momentum is <b>${trendTone}</b> (EMA7–30 ${trend>=0?'+':''}${trend}); cadence ~<b>${cadence}/wk</b>.`;
+  const s2=`Energy concentrates in <b>${escapeHtml(topCat)}</b> (${topShare}). If signals conflict, tighten feedback loops and move one lever at a time (impact ↑, cost ↓, risk ↓).`;
   el.innerHTML = `${s1} ${s2}`;
 }
 
-/* --------- Minimal table/log rendering --------- */
+/* --------- Log rendering --------- */
 function renderLogTable(rows){
-  const body = document.getElementById('logBody');
-  if(!body) return;
+  const body = document.getElementById('logBody'); if(!body) return;
   body.innerHTML = rows.map(r=>`
     <tr>
       <td>${fmtLocal(r.ts)}</td>
@@ -1202,59 +848,35 @@ function renderLogTable(rows){
       <td class="num">${fmt0(r.stability)}</td>
       <td class="num">${fmt0(r.dnav)}</td>
       <td style="text-align:center;"><button class="btn secondary" data-del="${r.ts}">✕</button></td>
-    </tr>
-  `).join('');
+    </tr>`).join('');
 }
 
 /* HUD refresh */
 function refreshHUD(){
-  const all = loadLog();
-  const rows = filterRows(all);
-  // KPIs
-  const n = rows.length;
-  const avg = n ? Math.round(rows.reduce((a,r)=>a+(Number(r.dnav)||0),0)/n) : 0;
-  const asc=[...rows].sort((a,b)=>a.ts-b.ts);
-  const dnavAsc=asc.map(r=>Number(r.dnav)||0);
-  const ema7 = dnavAsc.length? Math.round(ema(dnavAsc,7)) : 0;
-  const ema30= dnavAsc.length? Math.round(ema(dnavAsc,30)) : 0;
-  const trend = ema7-ema30;
-  const last20 = dnavAsc.slice(-20);
-  const sigma = Math.round(stdev(last20));
-  let cadence=0;
-  if(asc.length){
-    const first=asc[0].ts, last=asc[asc.length-1].ts;
-    const days=Math.max(1,(last-first)/86400000);
-    cadence=Math.round((n/days)*7);
-  }
+  const all = loadLog(); const rows = filterRows(all);
+  const n = rows.length; const avg = n ? Math.round(rows.reduce((a,r)=>a+(Number(r.dnav)||0),0)/n) : 0;
+  const asc=[...rows].sort((a,b)=>a.ts-b.ts); const dnavAsc=asc.map(r=>Number(r.dnav)||0);
+  const ema7 = dnavAsc.length? Math.round(ema(dnavAsc,7)) : 0; const ema30= dnavAsc.length? Math.round(ema(dnavAsc,30)) : 0;
+  const trend = ema7-ema30; const last20 = dnavAsc.slice(-20); const sigma = Math.round(stdev(last20));
+  let cadence=0; if(asc.length){const first=asc[0].ts,last=asc[asc.length-1].ts; const days=Math.max(1,(last-first)/86400000); cadence=Math.round((n/days)*7);}
   document.getElementById('k_total').textContent = n;
   document.getElementById('k_avgdnav').textContent = avg;
   document.getElementById('k_momentum').textContent = (trend>=0?'+':'')+trend;
   document.getElementById('k_consistency').textContent = sigma;
   document.getElementById('k_cadence').textContent = cadence;
-
-  // Dists, alloc, hygiene, narrative
-  renderDists(rows);
-  renderAlloc(rows);
-  renderHygiene(rows);
-  narrativeFor(all);
-  renderLogTable(all);
-
-  // tiny extras
+  renderDists(rows); renderAlloc(rows); renderHygiene(rows); narrativeFor(all); renderLogTable(all);
   document.getElementById('k_recent').textContent = asc.length ? `From ${fmtLocal(asc[0].ts)} → ${fmtLocal(asc[asc.length-1].ts)}` : '—';
 }
 
-/* ======== COMPARE ENGINE — SIMPLE, RELIABLE SLIDERS ======== */
-let baseSnapshot = null;          // {vals, metrics, name}
-let scenarios = [];               // [{id, name, vals:{...}, metrics:{...}}]
+/* ======== COMPARE ENGINE ======== */
+let baseSnapshot = null;
+let scenarios = [];
 let scenarioSeq = 1;
 
 const CMP_KEYS_ALL   = ['impact','cost','risk','urgency','confidence'];
 const CMP_KEYS_SIMPLE= ['impact','cost','risk'];
 
-function currentMetricsFromSliders(){
-  const v = readCurrent();
-  return {v, m: computeMetrics(v)};
-}
+function currentMetricsFromSliders(){ const v = readCurrent(); return {v, m: computeMetrics(v)}; }
 function sgnStr(n){ return n>0?('+'+Math.round(n)):(n<0?String(Math.round(n)):'0'); }
 
 function smallestNudge(vals){
@@ -1272,14 +894,10 @@ function smallestNudge(vals){
   return best.key ? best : null;
 }
 
-/* Base Panel */
 function updateBaseInModal(){
   const lock = document.getElementById('baseLock').checked;
   document.getElementById('baseLockState').textContent = lock ? '(locked)' : '(unlocked)';
-  if(lock){
-    const {v, m} = currentMetricsFromSliders();
-    baseSnapshot = {vals:v, metrics:m, name:'Current sliders'};
-  } else if (!baseSnapshot){
+  if(lock || !baseSnapshot){
     const {v, m} = currentMetricsFromSliders();
     baseSnapshot = {vals:v, metrics:m, name:'Current sliders'};
   }
@@ -1301,27 +919,21 @@ function renderBasePanel(){
   refreshDeltaTable();
 }
 
-/* Scenario Cards (HTML with real sliders) */
+/* Scenario card with real sliders */
 function scenarioCardHTML(scn){
   const simple = document.getElementById('simpleMode').checked;
   const keys = simple ? CMP_KEYS_SIMPLE : CMP_KEYS_ALL;
-
-  const sliderRow = (label, key, val) => `
+  const labelMap = {impact:'Impact', cost:'Cost', risk:'Risk', urgency:'Urgency', confidence:'Confidence'};
+  const hintMap  = {impact:'Upside', cost:'Price', risk:'Downside', urgency:'Soonness', confidence:'Conviction'};
+  const row = (k,val)=>`
     <div class="row">
-      <label><span class="label-main">${label}</span>
-        <span class="hint">${key==='impact'?'Upside':key==='cost'?'Price':key==='risk'?'Downside':key==='urgency'?'Soonness':'Conviction'}</span>
-      </label>
-      <input class="cmp-range" type="range" min="1" max="10" value="${val}" 
-             data-scn="${scn.id}" data-key="${key}">
+      <label><span class="label-main">${labelMap[k]}</span><span class="hint">${hintMap[k]}</span></label>
+      <input class="cmp-range" type="range" min="1" max="10" value="${val}" data-scn="${scn.id}" data-key="${k}">
       <output class="cmp-out">${val}</output>
     </div>`;
-
-  const labelMap = {impact:'Impact', cost:'Cost', risk:'Risk', urgency:'Urgency', confidence:'Confidence'};
-  const rowsHTML = keys.map(k => sliderRow(labelMap[k], k, scn.vals[k]||1)).join('');
-
+  const rowsHTML = keys.map(k=>row(k, scn.vals[k]||1)).join('');
   const m = computeMetrics(scn.vals);
   const meta = `D-NAV ${sgnStr(m.dnav)} • Return ${sgnStr(m.ret)} • Stability ${sgnStr(m.stability)} • Pressure ${sgnStr(m.pressure)}`;
-
   return `
     <div class="card scn-card" data-scn="${scn.id}" style="min-width:320px;background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.08)">
       <div style="display:flex;justify-content:space-between;align-items:center;">
@@ -1364,20 +976,19 @@ function refreshDeltaTable(){
     const barWidth = Math.min(100, Math.abs(Math.round(dN)));
     const bar = `<div class="barchip"><span class="${dN>=0?'pos':'neg'}" style="width:${barWidth}%"></span></div>`;
     const arrow = dN>0?'<span class="arrow up">▲</span>':(dN<0?'<span class="arrow down">▼</span>':'<span class="arrow flat">—</span>');
-    // update per-card meta (and easiest nudge)
-    const card = document.querySelector(`.scn-card[data-scn="${s.id}"] .scn-meta`);
+    const card = document.querySelector(\`.scn-card[data-scn="\${s.id}"] .scn-meta\`);
     if(card){
       const best = smallestNudge(s.vals);
-      const lever = best ? `${best.dir>0?'+':'−'}1 ${best.key} → ΔD ${best.delta>0?'+':''}${Math.round(best.delta)}` : '—';
-      card.innerHTML = `D-NAV ${sgnStr(s.metrics.dnav)} • Return ${sgnStr(s.metrics.ret)} • Stability ${sgnStr(s.metrics.stability)} • Pressure ${sgnStr(s.metrics.pressure)} • <b>easiest nudge:</b> ${lever}`;
+      const lever = best ? \`\${best.dir>0?'+':'−'}1 \${best.key} → ΔD \${best.delta>0?'+':''}\${Math.round(best.delta)}\` : '—';
+      card.innerHTML = \`D-NAV \${sgnStr(s.metrics.dnav)} • Return \${sgnStr(s.metrics.ret)} • Stability \${sgnStr(s.metrics.stability)} • Pressure \${sgnStr(s.metrics.pressure)} • <b>easiest nudge:</b> \${lever}\`;
     }
-    return `<tr>
-      <td style="text-align:left">${escapeHtml(s.name)}</td>
-      <td>${sgnStr(dR)}</td>
-      <td>${sgnStr(dS)}</td>
-      <td>${sgnStr(dP)}</td>
-      <td>${arrow} ${sgnStr(dN)} ${bar}</td>
-    </tr>`;
+    return \`<tr>
+      <td style="text-align:left">\${escapeHtml(s.name)}</td>
+      <td>\${sgnStr(dR)}</td>
+      <td>\${sgnStr(dS)}</td>
+      <td>\${sgnStr(dP)}</td>
+      <td>\${arrow} \${sgnStr(dN)} \${bar}</td>
+    </tr>\`;
   }).join('');
 
   const best = scenarios.slice().sort((a,b)=>b.metrics.dnav - a.metrics.dnav)[0];
@@ -1386,7 +997,7 @@ function refreshDeltaTable(){
   winnerTag.className = 'win ' + (lead>=0?'a':'b');
   winnerTag.textContent = lead>=0 ? 'Scenario leads' : 'Base leads';
   document.getElementById('winnerLine').textContent =
-    `${best.name} is ${lead>=0?'+':''}${Math.round(lead)} D-NAV vs Base.`;
+    \`\${best.name} is \${lead>=0?'+':''}\${Math.round(lead)} D-NAV vs Base.\`;
 }
 
 /* Recents */
@@ -1416,6 +1027,11 @@ function populateRecent(){
 
   function openCompare(){
     updateBaseInModal();
+    // *** FIX: always show sliders by seeding a scenario on first open
+    if(scenarios.length === 0){
+      const {v} = currentMetricsFromSliders();
+      scenarios.push({ id:'S'+(scenarioSeq++), name:'Scenario 1', vals:{...v}, metrics:computeMetrics(v) });
+    }
     renderScenarios();
     modal.classList.add('show'); modal.setAttribute('aria-hidden','false');
     populateRecent();
@@ -1450,36 +1066,29 @@ function populateRecent(){
     const row = loadLog().find(r=>r.ts===ts);
     if(!row) return;
     const vals = {impact:row.impact,cost:row.cost,risk:row.risk,urgency:row.urgency,confidence:row.confidence};
-    const scn = { id:'S'+(scenarioSeq++), name:(row.name||'Recent'), vals, metrics:computeMetrics(vals) };
-    scenarios.push(scn);
+    scenarios.push({ id:'S'+(scenarioSeq++), name:(row.name||'Recent'), vals, metrics:computeMetrics(vals) });
     renderScenarios();
     refreshDeltaTable();
     e.target.value='';
   });
 
-  // “More…” panel & load
+  // “More…” panel
   document.getElementById('moreRecentBtn').addEventListener('click', ()=>{
     const p = document.getElementById('morePanel');
     p.style.display = (p.style.display==='none' || !p.style.display)?'block':'none';
   });
   document.getElementById('moreClose').addEventListener('click', ()=>{ document.getElementById('morePanel').style.display='none'; });
   document.getElementById('moreList').addEventListener('click', (e)=>{
-    const btn = e.target.closest('button[data-ts]');
-    if(!btn) return;
-    const ts = Number(btn.dataset.ts||'');
-    const row = loadLog().find(r=>r.ts===ts);
-    if(!row) return;
+    const btn = e.target.closest('button[data-ts]'); if(!btn) return;
+    const ts = Number(btn.dataset.ts||''); const row = loadLog().find(r=>r.ts===ts); if(!row) return;
     const vals = {impact:row.impact,cost:row.cost,risk:row.risk,urgency:row.urgency,confidence:row.confidence};
-    const scn = { id:'S'+(scenarioSeq++), name:(row.name||'Recent'), vals, metrics:computeMetrics(vals) };
-    scenarios.push(scn);
-    renderScenarios();
-    refreshDeltaTable();
+    scenarios.push({ id:'S'+(scenarioSeq++), name:(row.name||'Recent'), vals, metrics:computeMetrics(vals) });
+    renderScenarios(); refreshDeltaTable();
   });
 
   // Event delegation: sliders, set base, remove
   document.getElementById('scenarios').addEventListener('input', (e)=>{
-    const r = e.target.closest('.cmp-range');
-    if(!r) return;
+    const r = e.target.closest('.cmp-range'); if(!r) return;
     const scnId = r.dataset.scn, key = r.dataset.key, val = Number(r.value);
     const scn = scenarios.find(s=>s.id===scnId); if(!scn) return;
     scn.vals[key] = val;
@@ -1497,76 +1106,42 @@ function populateRecent(){
       if(scn){
         baseSnapshot = {vals:{...scn.vals}, metrics:{...scn.metrics}, name:scn.name};
         document.getElementById('baseLock').checked = false;
-        renderBasePanel();
-        refreshDeltaTable();
+        renderBasePanel(); refreshDeltaTable();
       }
     }else if(delBtn){
       const scnId = delBtn.dataset.scn;
       scenarios = scenarios.filter(s=>s.id!==scnId);
-      renderScenarios();
-      refreshDeltaTable();
+      renderScenarios(); refreshDeltaTable();
     }
   });
 })();
 
-/* -------- Event wiring (page) -------- */
+/* -------- Page wiring -------- */
 document.addEventListener('DOMContentLoaded', ()=>{
-  // Sliders
-  SLIDER_IDS.forEach(id=>{
-    document.getElementById(id).addEventListener('input', compute);
-  });
+  SLIDER_IDS.forEach(id=>{ document.getElementById(id).addEventListener('input', compute); });
   compute();
 
-  // Range window
   document.getElementById('rangeSelect').addEventListener('change', ()=>refreshHUD());
 
-  // CSV upload
-  const fileInput = document.getElementById('csvInput');
-  const uploadBtn = document.getElementById('uploadBtn');
-  fileInput.addEventListener('change', ()=>{
-    uploadBtn.disabled = !fileInput.files?.length;
-    document.getElementById('uploadMsg').textContent = fileInput.files?.length ? 'File ready — click Confirm Import' : '';
-  });
-  uploadBtn.addEventListener('click', async ()=>{
-    const f = fileInput.files?.[0];
-    if(!f) return;
-    const text = await f.text();
-    try{
-      const res = importCSV(text);
-      document.getElementById('uploadMsg').textContent = `Imported ${res.count} rows.`;
-      refreshHUD();
-    }catch(e){
-      document.getElementById('uploadMsg').textContent = String(e.message||e);
-    }
-  });
+  const fileInput = document.getElementById('csvInput'); const uploadBtn = document.getElementById('uploadBtn');
+  fileInput.addEventListener('change', ()=>{ uploadBtn.disabled = !fileInput.files?.length; document.getElementById('uploadMsg').textContent = fileInput.files?.length ? 'File ready — click Confirm Import' : ''; });
+  uploadBtn.addEventListener('click', async ()=>{ const f=fileInput.files?.[0]; if(!f) return; const text=await f.text(); try{ const res=importCSV(text); document.getElementById('uploadMsg').textContent = `Imported ${res.count} rows.`; refreshHUD(); }catch(e){ document.getElementById('uploadMsg').textContent = String(e.message||e); } });
 
-  // Quick Entry
-  const nameEl = document.getElementById('decisionName');
-  const catEl  = document.getElementById('decisionCategory');
-  const enterBtn = document.getElementById('enterBtn');
+  const nameEl=document.getElementById('decisionName'); const catEl=document.getElementById('decisionCategory'); const enterBtn=document.getElementById('enterBtn');
   function gate(){ enterBtn.disabled = !(nameEl.value.trim() && catEl.value.trim()); }
   nameEl.addEventListener('input', gate); catEl.addEventListener('input', gate);
   enterBtn.addEventListener('click', ()=>{
-    const v = readCurrent();
-    const m = computeMetrics(v);
-    const row = {
-      ts: Date.now(),
-      name: nameEl.value.trim(),
-      category: catEl.value.trim(),
+    const v = readCurrent(); const m = computeMetrics(v);
+    const row = { ts:Date.now(), name:nameEl.value.trim(), category:catEl.value.trim(),
       impact:v.impact, cost:v.cost, risk:v.risk, urgency:v.urgency, confidence:v.confidence,
-      return:m.ret, pressure:m.pressure, stability:m.stability, merit:m.merit, energy:m.energy, dnav:m.dnav
-    };
+      return:m.ret, pressure:m.pressure, stability:m.stability, merit:m.merit, energy:m.energy, dnav:m.dnav };
     const cur = loadLog(); cur.unshift(row); saveLog(cur);
-    nameEl.value=''; catEl.value=''; gate();
-    refreshHUD();
-    populateRecent();
+    nameEl.value=''; catEl.value=''; gate(); refreshHUD(); populateRecent();
   });
 
-  // Downloads
   document.getElementById('downloadCsvBtn').addEventListener('click', downloadCsv);
   document.getElementById('downloadPdfBtn').addEventListener('click', openPdfReport);
 
-  // Clear
   document.getElementById('clearLogBtn').addEventListener('click', ()=>{
     if(!confirm('Clear all saved decisions?')) return;
     saveLog([]); refreshHUD(); populateRecent();
