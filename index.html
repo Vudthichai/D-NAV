@@ -1130,6 +1130,8 @@ function renderHygiene(rows){
 }
 
 /* ---- NARRATIVE: top-of-page (exec readout) ---- */
+<script>
+// ---- DROP-IN: richer narrative (Pressure / Stability / Return insight) ----
 function narrativeFor(rowsAll){
   const rows = filterRows(rowsAll);
   const daysSel = Number($('#rangeSelect').value||0);
@@ -1162,26 +1164,69 @@ function narrativeFor(rowsAll){
     cadence=Math.round((n/days)*7);
   }
 
-  // Energy by category
-  const catE = new Map();
+  // ---- Category diagnostics: pressure sink, stability anchor, return leader/drag ----
+  const byCat = new Map();
+  let totalEnergy = 0;
   rows.forEach(r=>{
     const c=(r.category||'').trim()||'Uncategorized';
     const e=(Number(r.urgency)||0)*(Number(r.confidence)||0);
-    catE.set(c,(catE.get(c)||0)+e);
+    totalEnergy += e;
+    if(!byCat.has(c)) byCat.set(c,{cnt:0,e:0,pressCnt:0,stabCnt:0,sumRet:0});
+    const t = byCat.get(c);
+    t.cnt += 1;
+    t.e += e;
+    if((r.pressure||0) > 0) t.pressCnt += 1;
+    if((r.stability||0) > 0) t.stabCnt  += 1;
+    t.sumRet += (Number(r.return)||0);
   });
-  let topCat='—', topShare='—';
-  if(catE.size){
-    const totalE = [...catE.values()].reduce((a,b)=>a+b,0) || 1;
-    const [tc, te] = [...catE.entries()].sort((a,b)=>b[1]-a[1])[0];
-    topCat = tc; topShare = Math.round(te*100/totalE)+'%';
+
+  function pickTop(arr, key){ return arr.length ? arr.sort((a,b)=>b[key]-a[key])[0] : null; }
+  const catRows = [...byCat.entries()].map(([cat,t])=>{
+    const pressRate = t.cnt ? (t.pressCnt / t.cnt) : 0;      // share of pressured decisions
+    const stabRate  = t.cnt ? (t.stabCnt  / t.cnt) : 0;      // share of stable footing
+    const avgRet    = t.cnt ? (t.sumRet   / t.cnt) : 0;
+    return {
+      cat, cnt:t.cnt, e:t.e,
+      eShare: totalEnergy? (t.e/totalEnergy) : 0,
+      pressScore: t.e * pressRate,         // where pressure is being spent (energy-weighted)
+      stabScore:  t.e * stabRate,          // where stability is sourced   (energy-weighted)
+      avgRet
+    };
+  }).filter(x=>x.cnt>=2); // need at least a couple of data points to be meaningful
+
+  const pressureSink   = pickTop(catRows, 'pressScore');
+  const stabilityAnchor= pickTop(catRows, 'stabScore');
+  const returnLeader   = pickTop(catRows, 'avgRet');
+  const returnDrag     = catRows.length ? catRows.sort((a,b)=>a.avgRet-b.avgRet)[0] : null;
+
+  const pct = v => Math.round((v||0)*100);
+
+  // Exec sentence 1: footing/pressure/return + momentum/cadence
+  const s1 = `Across <b>${n}</b> decisions, footing is <b>${toneS}</b>, operating state is <b>${toneP}</b>, and return profile is <b>${toneR}</b>. Momentum is <b>${trendTone}</b> (EMA7–30 ${trend>=0?'+':''}${trend}); cadence ~<b>${cadence}/wk</b>.`;
+
+  // Exec sentence 2: where pressure is spent, stability is found, and return is led/dragged
+  const pChunk = pressureSink
+    ? `Pressure is being <b>spent in ${escapeHtml(pressureSink.cat)}</b> (${pct(pressureSink.eShare)}% of energy).`
+    : `Pressure is <b>diffuse</b> across categories.`;
+
+  const sChunk = stabilityAnchor
+    ? `Stability is <b>sourced from ${escapeHtml(stabilityAnchor.cat)}</b> (${pct(stabilityAnchor.eShare)}% of energy).`
+    : `Stability has <b>no clear anchor</b> yet.`;
+
+  let rChunk = `Return is <b>undeclared</b>.`;
+  if(returnLeader && returnDrag){
+    const lead = `${escapeHtml(returnLeader.cat)} (${returnLeader.avgRet>=0?'+':''}${Math.round(returnLeader.avgRet)})`;
+    const drag = `${escapeHtml(returnDrag.cat)} (${returnDrag.avgRet>=0?'+':''}${Math.round(returnDrag.avgRet)})`;
+    rChunk = `Return is led by <b>${lead}</b> and constrained by <b>${drag}</b>.`;
+  }else if(returnLeader){
+    rChunk = `Return is led by <b>${escapeHtml(returnLeader.cat)}</b> (${returnLeader.avgRet>=0?'+':''}${Math.round(returnLeader.avgRet)}).`;
   }
 
-  // Exec text (two tight sentences)
-  const s1 = `Across <b>${n}</b> decisions, footing is <b>${toneS}</b>, operating state is <b>${toneP}</b>, and return profile is <b>${toneR}</b>. Momentum is <b>${trendTone}</b> (EMA7–30 ${trend>=0?'+':''}${trend}); cadence ~<b>${cadence}/wk</b>.`;
-  const s2 = `Energy concentrates in <b>${escapeHtml(topCat)}</b> (${topShare}). If signals conflict, tighten feedback loops and move one lever at a time (impact ↑, cost ↓, risk ↓).`;
+  const lever = `Tighten loops and move <b>one lever at a time</b> (impact ↑, cost ↓, risk ↓); shift energy away from the pressure sink into the stability anchor.`;
 
-  el.innerHTML = `${s1} ${s2}`;
+  el.innerHTML = `${s1} ${pChunk} ${sChunk} ${rChunk} ${lever}`;
 }
+</script>
 
 /* --------- Minimal table/log rendering --------- */
 function renderLogTable(rows){
