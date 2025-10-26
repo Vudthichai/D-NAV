@@ -569,6 +569,32 @@ function energyTier(u, c){
   if (e >= 16) return {e, name:"Moderate energy",  short:"moderate"};
   return {e, name:"Low energy", short:"low"};
 }
+/* ---- Plain-language thresholds for Energy ROI & Pressure Tax ---- */
+function energyRoiLabel(val){
+  if (val < 0.05) return 'inefficient (wasteful effort)';
+  if (val < 0.15) return 'normal efficiency';
+  if (val < 0.30) return 'high leverage';
+  return 'exceptional burst';
+}
+function pressureTaxLabel(val){
+  // val is Pressure Tax = -avgPressure; closer to 0 is better
+  if (val < -10) return 'overpressured (burnout / rework risk)';
+  if (val < -5)  return 'high drive (watch stamina)';
+  if (val < 2)   return 'balanced pace';
+  return 'underused slack (slow / missed upside)';
+}
+function energyRoiColor(val){
+  if (val < 0.05) return 'var(--red)';
+  if (val < 0.15) return 'var(--amber)';
+  if (val < 0.30) return 'var(--green)';
+  return 'var(--blue)';
+}
+function pressureTaxColor(val){
+  if (val < -10) return 'var(--red)';
+  if (val < -5)  return 'var(--amber)';
+  if (val < 2)   return 'var(--green)';
+  return 'var(--blue)';
+}
 
 /* Coach text — concise, directive */
 function coachHint({ret, stab, press, urg, conf, impact, cost, risk}){
