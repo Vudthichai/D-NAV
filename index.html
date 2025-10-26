@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>The Decision NAVigator — D-NAV Mini (v3.39-context)</title>
+<title>The Decision NAVigator — D-NAV Mini (v3.38)</title>
 <style>
 :root{--bg:#0b0f14;--card:#121821;--muted:#8fa1b7;--text:#e9eef5;--green:#3ecf8e;--red:#ff6b6b;--amber:#f3b431;--blue:#69a9ff;--ink:#cfe1ff}
 *{box-sizing:border-box;font-family:Inter,ui-sans-serif,system-ui,-apple-system,Segoe UI,Roboto,Arial}
@@ -20,6 +20,11 @@ body.no-scroll{overflow:hidden}
 .wrap + .wrap{ margin-top:16px }
 .card{background:var(--card);border-radius:16px;padding:16px;box-shadow:0 10px 24px rgba(0,0,0,.35);display:flex;flex-direction:column}
 h1{margin:0 0 8px;font-weight:800;font-size:22px;letter-spacing:.2px}
+
+/* Narrative (top) */
+.narrative h2{margin:0 0 6px 0}
+.narrative .lead{color:#cfe1ff;line-height:1.55}
+.narrative .tail{color:#aec3df;margin-top:8px;line-height:1.55}
 
 /* Slider rows */
 .row{display:grid;grid-template-columns:180px 1fr 52px;gap:12px;align-items:center;margin:10px 0 12px}
@@ -142,16 +147,16 @@ tbody tr:nth-child(even){background:rgba(255,255,255,.02)}
 .kvline{font-size:13px;color:#cfe1ff;margin:6px 0 2px}
 .kvline b{font-weight:900}
 
-/* Narrative (top) */
-.narrative-top h2{margin:0 0 6px 0}
-.narrative-top .mini{color:#a7b4c7}
-.narrative-top .txt{margin-top:6px;line-height:1.6}
-
-/* Explainer panel */
-.explain{margin-top:12px;background:rgba(255,255,255,.04);border-radius:12px;padding:12px}
-.explain h3{margin:0 0 6px 0;font-size:13px;color:#cfe1ff}
-.explain p{margin:6px 0;color:#c9d4e6;line-height:1.5}
-.explain .b{font-weight:800;color:#e9eef5}
+/* Scenario card */
+.sc-card{min-width:280px;background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.08);border-radius:12px;padding:10px}
+.sc-h{display:flex;align-items:center;justify-content:space-between;gap:6px}
+.sc-h input{background:#0f141b;border:1px solid #333;border-radius:8px;color:#e9eef5;padding:6px 8px;font-weight:700;width:100%}
+.sc-sl{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:8px}
+.sc-sl label{font-size:11px;color:#a7b4c7}
+.sc-sl input[type=range]{height:26px}
+.sc-metrics{display:grid;grid-template-columns:repeat(4,1fr);gap:6px;margin-top:8px}
+.sc-metrics .m{background:rgba(255,255,255,.04);border-radius:8px;padding:6px;text-align:center}
+.sc-actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:8px}
 
 /* Mobile */
 @media (max-width:900px){
@@ -168,11 +173,21 @@ tbody tr:nth-child(even){background:rgba(255,255,255,.02)}
   .dual{grid-template-columns:1fr}
 }
 
-/* === Refined "Open Compare" button === */
+/* Open Compare button in summary */
 .open-compare{
-  display:inline-block;align-self:flex-start;margin-top:18px;margin-left:0;background:transparent;color:var(--blue);
-  border:1px solid rgba(105,169,255,.45);border-radius:8px;padding:6px 14px;font-size:.85rem;font-weight:600;
-  text-align:center;box-shadow:none;transition:all .2s ease;
+  display:inline-block;
+  align-self:flex-start;
+  margin-top:18px;
+  margin-left:0;
+  background:transparent;
+  color:var(--blue);
+  border:1px solid rgba(105,169,255,.45);
+  border-radius:8px;
+  padding:6px 14px;
+  font-size:.85rem;
+  font-weight:600;
+  text-align:center;
+  transition:all .2s ease;
 }
 .open-compare:hover{background:rgba(105,169,255,.10);border-color:rgba(105,169,255,.65);color:var(--ink);transform:translateY(-1px)}
 </style>
@@ -185,15 +200,16 @@ tbody tr:nth-child(even){background:rgba(255,255,255,.02)}
   <div class="sub">Bring clarity to complex decisions.</div>
 </div>
 
-<!-- Narrative at the very top with richer context -->
+<!-- ===== TOP NARRATIVE ===== -->
 <div class="wrap" style="grid-template-columns:1fr;">
-  <div class="card narrative-top">
-    <h2 style="margin:0;">Portfolio Narrative</h2>
-    <div class="mini" id="narrativeWindow">All time</div>
-    <div class="txt" id="narrativeTopTxt">Add decisions or import a CSV to see your executive readout.</div>
+  <div class="card narrative">
+    <h2 style="margin:0;">Narrative</h2>
+    <div id="topNarrLead" class="lead">Add or import decisions to generate a live readout of footing, pressure, return, and energy allocation.</div>
+    <div id="topNarrTail" class="tail">This section interprets your recent window, calls out risk zones, and suggests the next lever to pull.</div>
   </div>
 </div>
 
+<!-- Controls / Summary row -->
 <div class="wrap">
   <div class="card">
     <h1>D-NAV Variables</h1>
@@ -234,9 +250,9 @@ tbody tr:nth-child(even){background:rgba(255,255,255,.02)}
   </div>
 
   <div class="card stats">
-    <div class="stat"><h3 title="Impact − Cost (higher is better)">Return</h3><div class="val" id="ret">0</div><span id="retPill" class="pill amber">Neutral</span></div>
-    <div class="stat"><h3 title="Confidence − Risk (higher is steadier)">Stability</h3><div class="val" id="stab">0</div><span id="stabPill" class="pill amber">Uncertain</span></div>
-    <div class="stat"><h3 title="Urgency − Confidence (higher means more pressure)">Pressure</h3><div class="val" id="press">0</div><span id="pressPill" class="pill amber">Balanced</span></div>
+    <div class="stat"><h3>Return</h3><div class="val" id="ret">0</div><span id="retPill" class="pill amber">Neutral</span></div>
+    <div class="stat"><h3>Stability</h3><div class="val" id="stab">0</div><span id="stabPill" class="pill amber">Uncertain</span></div>
+    <div class="stat"><h3>Pressure</h3><div class="val" id="press">0</div><span id="pressPill" class="pill amber">Balanced</span></div>
   </div>
 
   <div class="card summary">
@@ -246,7 +262,7 @@ tbody tr:nth-child(even){background:rgba(255,255,255,.02)}
       <div id="archDesc" class="desc">Flat with uncertain footing — balanced execution.</div>
     </div>
     <div class="comp">
-      <h3 title="Composite = Merit + Drive; Merit = Impact − Cost − Risk; Drive = Urgency × Confidence">Composite (D-NAV)</h3>
+      <h3>Composite (D-NAV)</h3>
       <div id="score" class="big">0</div>
       <div id="scoreTag" class="tag">Low D-NAV — Low energy</div>
       <div class="breakdown">Merit: <span id="meritVal" class="mono">0</span> • Drive: <span id="driveVal" class="mono">0</span></div>
@@ -279,7 +295,28 @@ tbody tr:nth-child(even){background:rgba(255,255,255,.02)}
   </div>
 </div>
 
-<!-- STATS HUD -->
+<!-- PORTFOLIO INSIGHT -->
+<div class="wrap" style="grid-template-columns:1fr;">
+  <div class="card">
+    <h2 style="margin:0 0 6px 0;">Portfolio Readout (detail)</h2>
+    <div id="portfolioReadout" class="muted">Add decisions or import a CSV to see a narrative summary.</div>
+  </div>
+</div>
+
+<!-- FRAMEWORK -->
+<div class="wrap" style="grid-template-columns:1fr;">
+  <div class="card">
+    <h2 style="margin:0 0 6px 0;">The Framework</h2>
+    <div class="muted">
+      <b>D-NAV = (Impact − Cost − Risk) + (Urgency × Confidence)</b>.<br/>
+      Impact is potential gain. Cost is the price of pursuit. Risk is what could go wrong.
+      Urgency × Confidence is the drive vector — how fast and how sure. High pressure isn’t bad by itself;
+      <b>pressure + fragile footing</b> is where things break. High pressure + stable footing is a valid performance zone.
+    </div>
+  </div>
+</div>
+
+<!-- STATS HUD + Distributions -->
 <div class="wrap" style="grid-template-columns:1fr;">
   <div class="card">
     <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;">
@@ -293,37 +330,37 @@ tbody tr:nth-child(even){background:rgba(255,255,255,.02)}
 
     <div class="kpis">
       <div class="kpi" id="tile_total">
-        <h4 title="How many decisions fall inside the selected window">Decisions (in window)</h4>
+        <h4>Decisions (in window)</h4>
         <div class="big" id="k_total" data-val="0">0</div>
         <div class="mini" id="k_recent">—</div>
       </div>
       <div class="kpi" id="tile_avg">
-        <h4 title="Average Composite score over the window">Avg D-NAV</h4>
+        <h4>Avg D-NAV</h4>
         <div class="big" id="k_avgdnav" data-val="0">0</div>
-        <div class="mini">Composite = Merit + Drive</div>
+        <div class="mini">Composite (Merit + Drive)</div>
       </div>
       <div class="kpi" id="tile_mom">
-        <h4 title="EMA7 − EMA30 of D-NAV; positive = improving short-term vs baseline">Trend</h4>
+        <h4>Trend</h4>
         <div class="big" id="k_momentum" data-val="0">0</div>
         <div class="mini">Short-term vs baseline (EMA7 − EMA30)</div>
       </div>
       <div class="kpi" id="tile_cons">
-        <h4 title="Standard deviation of recent D-NAV values (lower is steadier)">Consistency</h4>
+        <h4>Consistency</h4>
         <div class="big" id="k_consistency" data-val="0">0</div>
         <div class="mini">Steadiness (lower σ = steadier)</div>
       </div>
       <div class="kpi" id="tile_cad">
-        <h4 title="Average decisions per week inside the current window">Cadence</h4>
+        <h4>Cadence</h4>
         <div class="big" id="k_cadence" data-val="0">0</div>
         <div class="mini">Decisions / week (window)</div>
       </div>
       <div class="kpi" id="tile_calib">
-        <h4 title="Correlation between Confidence and Return; +1 = more confidence tends to coincide with better returns">Calibration</h4>
+        <h4>Calibration</h4>
         <div class="big" id="k_calib" data-val="0">0</div>
         <div class="mini">Confidence ↔ Return (corr)</div>
       </div>
       <div class="kpi" id="tile_last5">
-        <h4 title="Average D-NAV of the last 5 entries minus the prior 5">Last-5 vs Prior-5</h4>
+        <h4>Last-5 vs Prior-5</h4>
         <div class="big" id="k_last5" data-val="0">0</div>
         <div class="mini" id="k_last5mini">—</div>
       </div>
@@ -358,12 +395,6 @@ tbody tr:nth-child(even){background:rgba(255,255,255,.02)}
         <div class="seg g" id="pr_calm" style="width:0%"></div>
       </div>
       <div class="legend"><span id="pr_pr_lbl">Pressured: 0%</span><span id="pr_bal_lbl">Balanced: 0%</span><span id="pr_calm_lbl">Calm: 0%</span></div>
-    </div>
-
-    <!-- New: dynamic plain-language explainer tied to your numbers -->
-    <div class="explain" id="explainStats" aria-live="polite">
-      <h3>What these stats mean (with your data)</h3>
-      <p>Waiting for data…</p>
     </div>
 
     <h3 id="allocTitle" style="margin:14px 0 6px;">Energy (U×C) by category</h3>
@@ -441,7 +472,7 @@ tbody tr:nth-child(even){background:rgba(255,255,255,.02)}
 <!-- Floating Compare FAB -->
 <button id="openCompareFab" class="btn" style="position:fixed;right:18px;bottom:18px;background:#0f62fe;box-shadow:0 12px 28px rgba(0,0,0,.45);z-index:9998">Compare</button>
 
-<!-- Compare Modal (unchanged mechanics) -->
+<!-- Compare Modal -->
 <div id="compareModal" class="modal" aria-hidden="true">
   <div class="sheet">
     <header>
@@ -460,7 +491,7 @@ tbody tr:nth-child(even){background:rgba(255,255,255,.02)}
         <label class="muted" style="display:flex;align-items:center;gap:6px;">
           <input id="simpleMode" type="checkbox"/> Simple mode
         </label>
-        <select id="recentSelect" class="input" style="padding:8px 10px;min-width:200px;">
+        <select id="recentSelect" class="input" style="padding:8px 10px;">
           <option value="">Load from recent…</option>
         </select>
         <button id="moreRecentBtn" class="btn secondary" title="Browse all">More…</button>
@@ -524,7 +555,7 @@ tbody tr:nth-child(even){background:rgba(255,255,255,.02)}
 </div>
 
 <script>
-/* ---- One-word archetypes (keyed by P|S|R) ---- */
+/* ---- Archetype dictionary keyed by P|S|R sign ---- */
 const oneWord={
   "1|1|1":"Breakthrough","0|1|1":"Advance","-1|1|1":"Harvest",
   "1|0|1":"Sprint","0|0|1":"Build","-1|0|1":"Coast",
@@ -555,7 +586,7 @@ function energyTier(u, c){
   return {e, name:"Low energy", short:"low"};
 }
 
-/* Coach text — concise, directive */
+/* Coach text */
 function coachHint({ret, stab, press, urg, conf, impact, cost, risk}){
   const et = energyTier(urg, conf);
   let sugs = [];
@@ -653,9 +684,10 @@ function compute(){
     ret, stab, press, urg: urgency, conf: confidence, impact, cost, risk
   });
 
+  // live-update compare if open
   if(document.getElementById('compareModal').getAttribute('aria-hidden')==='false'){
-    if(document.getElementById('baseLock').checked) updateBaseInModal();
-    recomputeAllScenarios();
+    if(document.getElementById('baseLock').checked && typeof updateBaseInModal==='function') updateBaseInModal();
+    if(typeof recomputeAllScenarios==='function') recomputeAllScenarios();
   }
 }
 
@@ -710,7 +742,7 @@ function loadLog(){ try{ return JSON.parse(localStorage.getItem('dnav_log_v1')||
 function saveLog(arr){ localStorage.setItem('dnav_log_v1', JSON.stringify(arr)); }
 function escapeHtml(s=''){ return s.replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m])); }
 
-/* CSV parsing (unchanged)… */
+/* CSV parsing */
 function parseCSV(text){
   const rows=[]; let i=0, cur=[], val='', inQ=false;
   while(i<text.length){
@@ -722,9 +754,9 @@ function parseCSV(text){
     }else{
       if(c==='"' ){ inQ=true; i++; continue; }
       if(c===','){ cur.push(val); val=''; i++; continue; }
-      if(c=='\n'){ cur.push(val); rows.push(cur); cur=[]; val=''; i++; continue; }
-      if(c=='\r'){
-        if(text[i+1]=='\n'){ i+=2; cur.push(val); rows.push(cur); cur=[]; val=''; continue; }
+      if(c==='\n'){ cur.push(val); rows.push(cur); cur=[]; val=''; i++; continue; }
+      if(c==='\r'){
+        if(text[i+1]==='\n'){ i+=2; cur.push(val); rows.push(cur); cur=[]; val=''; continue; }
         cur.push(val); rows.push(cur); cur=[]; val=''; i++; continue;
       }
       val+=c; i++; continue;
@@ -734,7 +766,17 @@ function parseCSV(text){
   while(rows.length && rows[rows.length-1].every(x=>x==='')) rows.pop();
   return rows;
 }
-const headerAliases = {name:['name','decision','title','decision_name'],category:['category','cat'],impact:['impact','i'],cost:['cost','c'],risk:['risk','r'],urgency:['urgency','u'],confidence:['confidence','conf'],timestamp:['timestamp','when','date','time','timestamp_iso','timestamp_local','ts'],prompt:['prompt','question']};
+const headerAliases = {
+  name:['name','decision','title','decision_name'],
+  category:['category','cat'],
+  impact:['impact','i'],
+  cost:['cost','c'],
+  risk:['risk','r'],
+  urgency:['urgency','u'],
+  confidence:['confidence','conf'],
+  timestamp:['timestamp','when','date','time','timestamp_iso','timestamp_local','ts'],
+  prompt:['prompt','question']
+};
 function findHeaderIndex(headers, key){
   const lowers=headers.map(h=>String(h||'').trim().toLowerCase());
   const cands=headerAliases[key]||[key];
@@ -749,13 +791,42 @@ function toNumberOrNull(x){
   const n=Number(String(x).trim());
   return Number.isFinite(n) ? n : null;
 }
-function dedupeRows(rows){const seen=new Set(),out=[];for(const r of rows){const key=[String(r.name||''),String(r.category||''),String(r.ts||'')].join('|');if(seen.has(key))continue;seen.add(key);out.push(r)}return out;}
+
+/* De-dupe on import */
+function dedupeRows(rows){
+  const seen = new Set(), out = [];
+  for(const r of rows){
+    const key = [String(r.name||''), String(r.category||''), String(r.ts||'')].join('|');
+    if(seen.has(key)) continue;
+    seen.add(key);
+    out.push(r);
+  }
+  return out;
+}
+
+/* Import pipeline */
 function importCSV(text){
-  const rows=parseCSV(text); if(!rows.length) throw new Error('CSV appears empty.');
+  const rows=parseCSV(text);
+  if(!rows.length) throw new Error('CSV appears empty.');
   const headers=rows[0]; const data=rows.slice(1);
-  const idx={name:findHeaderIndex(headers,'name'),category:findHeaderIndex(headers,'category'),impact:findHeaderIndex(headers,'impact'),cost:findHeaderIndex(headers,'cost'),risk:findHeaderIndex(headers,'risk'),urgency:findHeaderIndex(headers,'urgency'),confidence:findHeaderIndex(headers,'confidence'),timestamp:findHeaderIndex(headers,'timestamp'),prompt:findHeaderIndex(headers,'prompt')};
-  if(idx.name===-1 && idx.prompt===-1) throw new Error('Missing a "name" or "prompt" column.');
-  if(idx.category===-1) throw new Error('Missing a "category" column.');
+
+  const idx={
+    name: findHeaderIndex(headers,'name'),
+    category: findHeaderIndex(headers,'category'),
+    impact: findHeaderIndex(headers,'impact'),
+    cost: findHeaderIndex(headers,'cost'),
+    risk: findHeaderIndex(headers,'risk'),
+    urgency: findHeaderIndex(headers,'urgency'),
+    confidence: findHeaderIndex(headers,'confidence'),
+    timestamp: findHeaderIndex(headers,'timestamp'),
+    prompt: findHeaderIndex(headers,'prompt')
+  };
+
+  if(idx.name===-1 && idx.prompt===-1)
+    throw new Error('Missing a "name" or "prompt" column.');
+  if(idx.category===-1)
+    throw new Error('Missing a "category" column.');
+
   const imported=[];
   for(const row of data){
     const nameRaw = idx.name>-1 ? row[idx.name] : '';
@@ -764,75 +835,231 @@ function importCSV(text){
     const category = String((row[idx.category]||'').trim());
     if(!name && !category) continue;
     if(!category) throw new Error('Some rows are missing Category.');
-    const vals={impact:toNumberOrNull(idx.impact>-1?row[idx.impact]:null)??0,cost:toNumberOrNull(idx.cost>-1?row[idx.cost]:null)??0,risk:toNumberOrNull(idx.risk>-1?row[idx.risk]:null)??0,urgency:toNumberOrNull(idx.urgency>-1?row[idx.urgency]:null)??0,confidence:toNumberOrNull(idx.confidence>-1?row[idx.confidence]:null)??0};
-    const m=computeMetrics(vals);
-    let ts=Date.now(); if(idx.timestamp>-1){const tms=Date.parse(row[idx.timestamp]); if(Number.isFinite(tms)) ts=tms;}
-    imported.push({ts,name,category,...vals,return:m.ret,pressure:m.pressure,stability:m.stability,merit:m.merit,energy:m.energy,dnav:m.dnav});
+
+    const vals = {
+      impact: toNumberOrNull(idx.impact>-1 ? row[idx.impact] : null) ?? 0,
+      cost: toNumberOrNull(idx.cost>-1 ? row[idx.cost] : null) ?? 0,
+      risk: toNumberOrNull(idx.risk>-1 ? row[idx.risk] : null) ?? 0,
+      urgency: toNumberOrNull(idx.urgency>-1 ? row[idx.urgency] : null) ?? 0,
+      confidence: toNumberOrNull(idx.confidence>-1 ? row[idx.confidence] : null) ?? 0
+    };
+
+    const m = computeMetrics(vals);
+
+    let ts = Date.now();
+    if(idx.timestamp>-1){
+      const tms = Date.parse(row[idx.timestamp]);
+      if(Number.isFinite(tms)) ts = tms;
+    }
+
+    imported.push({
+      ts,name,category,
+      ...vals,
+      return:m.ret, pressure:m.pressure, stability:m.stability, merit:m.merit, energy:m.energy, dnav:m.dnav
+    });
   }
+
   if(!imported.length) throw new Error('No usable rows were found.');
-  const current=loadLog(); imported.sort((a,b)=>b.ts-a.ts);
-  const merged=dedupeRows([...imported,...current]); saveLog(merged); populateRecent?.(); return {count:imported.length};
+
+  const current = loadLog();
+  imported.sort((a,b)=>b.ts-a.ts);
+  const merged = dedupeRows([...imported, ...current]);
+  saveLog(merged);
+  populateRecent?.();
+  return {count: imported.length};
 }
+
 function toCsv(rows){
   const header=['timestamp_local','timestamp_iso','name','category','impact','cost','risk','urgency','confidence','return','pressure','stability','merit','energy','dnav'];
-  const body=rows.map(r=>[fmtLocal(r.ts),new Date(r.ts).toISOString(),`"${(r.name||'').replace(/"/g,'""')}"`,`"${(r.category||'').replace(/"/g,'""')}"`,r.impact,r.cost,r.risk,r.urgency,r.confidence,r.return,r.pressure,r.stability,r.merit,r.energy,r.dnav].join(','));
+  const body=rows.map(r=>[
+    fmtLocal(r.ts), new Date(r.ts).toISOString(),
+    `"${(r.name||'').replace(/"/g,'""')}"`,
+    `"${(r.category||'').replace(/"/g,'""')}"`,
+    r.impact,r.cost,r.risk,r.urgency,r.confidence,r.return,r.pressure,r.stability,r.merit,r.energy,r.dnav
+  ].join(','));
   return [header.join(','),...body].join('\n');
 }
 function downloadCsv(){
-  const rows=loadLog(); if(!rows.length){ alert('No decisions logged yet.'); return; }
-  const blob=new Blob([toCsv(rows)],{type:'text/csv;charset=utf-8;'}); const a=document.createElement('a');
-  a.href=URL.createObjectURL(blob); a.download='dnav_decisions.csv'; a.click(); URL.revokeObjectURL(a.href);
+  const rows=loadLog();
+  if(!rows.length){ alert('No decisions logged yet.'); return; }
+  const blob=new Blob([toCsv(rows)],{type:'text/csv;charset=utf-8;'});
+  const a=document.createElement('a');
+  a.href=URL.createObjectURL(blob);
+  a.download='dnav_decisions.csv';
+  a.click();
+  URL.revokeObjectURL(a.href);
 }
 
-/* -------- Compact PDF (unchanged) -------- */
-function openPdfReport(){ /* unchanged except already narrative-rich */ 
+/* -------- Compact, one-page PDF (with Narrative) -------- */
+function openPdfReport(){
   const compact = document.getElementById('compactPrint')?.checked === true;
-  const all = loadLog(); const inRange = filterRows(all); const total = inRange.length;
+
+  const all = loadLog();
+  const inRange = filterRows(all);
+  const total = inRange.length;
   const avg = total ? Math.round(inRange.reduce((a,r)=>a + (Number(r.dnav)||0),0)/total) : 0;
   const daysSel = Number($('#rangeSelect').value||0);
   const windowLbl = daysSel? `Last ${daysSel} days` : 'All time';
+
   const pct = (n,d)=> d ? Math.round(n*100/d) : 0;
   const count = (fn)=> inRange.filter(fn).length;
+
   const retPos = count(r=>r.return>0), retNeu=count(r=>r.return===0), retNeg=count(r=>r.return<0);
   const stabSt = count(r=>r.stability>0), stabUn=count(r=>r.stability===0), stabFr=count(r=>r.stability<0);
   const prPress = count(r=>r.pressure>0), prBal=count(r=>r.pressure===0), prCalm=count(r=>r.pressure<0);
-  const asc=[...inRange].sort((a,b)=>a.ts-b.ts); const dnavAsc=asc.map(r=>Number(r.dnav)||0);
-  const ema7 = dnavAsc.length? Math.round(ema(dnavAsc,7)) : 0; const ema30= dnavAsc.length? Math.round(ema(dnavAsc,30)) : 0;
-  const trend = ema7-ema30; const last20 = dnavAsc.slice(-20); const consistency = Math.round(stdev(last20));
-  let cadence=0; if(asc.length){const first=asc[0].ts,last=asc[asc.length-1].ts; const days=Math.max(1,(last-first)/86400000); cadence=Math.round((total/days)*7);}
-  const confs=asc.map(r=>Number(r.confidence)||0); const rets=asc.map(r=>Number(r.return)||0);
-  const cal = corr(confs,rets); const calDisp = (cal===null)?'n/a':(cal>=0?'+':'')+ (Math.round(cal*100)/100);
+
+  const asc=[...inRange].sort((a,b)=>a.ts-b.ts);
+  const dnavAsc=asc.map(r=>Number(r.dnav)||0);
+  const ema7 = dnavAsc.length? Math.round(ema(dnavAsc,7)) : 0;
+  const ema30= dnavAsc.length? Math.round(ema(dnavAsc,30)) : 0;
+  const trend = ema7-ema30;
+  const last20 = dnavAsc.slice(-20);
+  const consistency = Math.round(stdev(last20));
+  let cadence = 0;
+  if(asc.length){
+    const first=asc[0].ts, last=asc[asc.length-1].ts;
+    const days = Math.max(1,(last-first)/86400000);
+    cadence = Math.round((total/days)*7);
+  }
+
+  const confs = asc.map(r=>Number(r.confidence)||0);
+  const rets  = asc.map(r=>Number(r.return)||0);
+  const cal = corr(confs,rets);
+  const calDisp = (cal===null)?'n/a':(cal>=0?'+':'')+ (Math.round(cal*100)/100);
+
+  // Narrative for PDF
   function mean(a){ return a.length ? a.reduce((x,y)=>x+(Number(y)||0),0)/a.length : 0; }
-  let narrative='No decisions to summarize yet.';
+  let narrative = 'No decisions to summarize yet.';
   if (inRange.length){
-    const avgR=mean(inRange.map(r=>r.return)), avgS=mean(inRange.map(r=>r.stability)), avgP=mean(inRange.map(r=>r.pressure));
+    const avgR = mean(inRange.map(r=>r.return));
+    const avgS = mean(inRange.map(r=>r.stability));
+    const avgP = mean(inRange.map(r=>r.pressure));
     const arche = avg>60?'Harvest': avg>40?'Advance': avg>20?'Routine':'Recover';
     const trendTone = trend>2?'strong upward': trend>0?'steady positive': trend===0?'flat':'declining';
     const consTone  = consistency<8?'tight and disciplined': consistency<15?'variable — mixing wins and misfires':'wide — brilliance mixed with chaos';
-    const calTone   = (cal===null)?'insufficient data': cal>0.5?'confident and mostly justified': cal>0?'healthy optimism': cal>-0.5?'under-confident or reactionary':'consistently over-confident';
-    const toneR=avgR>0?'positive':(avgR<0?'negative':'flat'); const toneS=avgS>0?'stable':(avgS<0?'fragile':'uncertain'); const toneP=avgP>0?'high-pressure':(avgP<0?'calm':'balanced');
-    const catE=new Map(); let topCat='—'; inRange.forEach(r=>{const c=(r.category||'').trim()||'Uncategorized'; const e=(r.urgency||0)*(r.confidence||0); catE.set(c,(catE.get(c)||0)+e);});
-    if(catE.size) topCat=[...catE.entries()].sort((a,b)=>b[1]-a[1])[0][0];
-    narrative = `With <b>${total}</b> recorded decisions and an average D-NAV of <b>${avg}</b>, this portfolio reads as <b>${arche}</b> — ${consTone}. `
-      + `Short-term momentum is <b>${trendTone}</b> (EMA7–EMA30 ${trend>=0?'+':''}${trend}); cadence is <b>${cadence}/wk</b> (avg decisions per week in window). `
-      + `Calibration is <b>${calDisp}</b> (${calTone}). `
-      + `Operationally, the mix is <b>${toneP}</b> with <b>${toneS}</b> footing; average return trend is <b>${toneR}</b>. `
+    const calTone   = (cal===null)?'insufficient data':
+                      cal>0.5?'confident and mostly justified':
+                      cal>0?'healthy optimism':
+                      cal>-0.5?'under-confident or reactionary':'consistently over-confident';
+    const toneR = avgR>0?'positive':(avgR<0?'negative':'flat');
+    const toneS = avgS>0?'stable':(avgS<0?'fragile':'uncertain');
+    const toneP = avgP>0?'high-pressure':(avgP<0?'calm':'balanced');
+
+    const catE = new Map(); let topCat = '—';
+    inRange.forEach(r=>{
+      const c=(r.category||'').trim()||'Uncategorized';
+      const e=(r.urgency||0)*(r.confidence||0);
+      catE.set(c,(catE.get(c)||0)+e);
+    });
+    if (catE.size){
+      topCat = [...catE.entries()].sort((a,b)=>b[1]-a[1])[0][0];
+    }
+
+    narrative =
+      `With <b>${total}</b> recorded decisions and an average D-NAV of <b>${avg}</b>, this portfolio reads as <b>${arche}</b> — ${consTone}. `
+      + `Short-term momentum is <b>${trendTone}</b> (EMA7–EMA30 ${trend>=0?'+':''}${trend}), cadence is <b>${cadence}/wk</b>, `
+      + `and calibration is <b>${calDisp}</b> (${calTone}). `
+      + `Operationally, the mix is <b>${toneP</b>} with <b>${toneS}</b> footing; average return trend is <b>${toneR}</b>. `
       + `Attention skews toward <b>${topCat}</b>.`;
   }
+
   const html = `
-  <html><head><meta charset="utf-8" /><title>D-NAV Insights</title>
-  <style>body{margin:0;background:#0b0f14;color:#e9eef5;font:${compact?'12px':'14px'} Inter,system-ui}
-  .container{max-width:1200px;margin:0 auto;padding:${compact?'16px':'24px'}} .card{background:#121821;border-radius:12px;padding:${compact?'8px':'12px'};margin:${compact?'6px':'10px'} 0}
-  .kpi{background:rgba(255,255,255,.05);border-radius:10px;padding:${compact?'8px':'10px'}}</style></head>
-  <body><div class="container"><div class="card"><h2>Executive summary</h2>
-  <div>Entries ${total} • Avg D-NAV ${avg} • Trend ${trend>=0?'+':''}${trend} (EMA7 ${ema7}, EMA30 ${ema30}) • σ ${consistency} • Cadence ${cadence}/wk • Calibration ${calDisp}</div></div>
-  <div class="card"><h2>D-NAV Narrative Summary</h2><p>${narrative}</p></div></div></body></html>`;
-  const w=window.open('','_blank'); if(!w){alert('Please allow pop-ups to view the PDF.'); return;}
-  w.document.open(); w.document.write(html); w.document.close(); try{w.focus();}catch{}
+  <html><head><meta charset="utf-8" />
+    <title>D-NAV Insights</title>
+    <style>
+      :root{--bg:#0b0f14;--card:#121821;--text:#e9eef5;--muted:#a7b4c7;--g:#3ecf8e;--r:#ff6b6b;--a:#f3b431}
+      *{box-sizing:border-box}
+      body{margin:0;background:var(--bg);color:var(--text);font:${compact?'12px':'14px'}/1.35 Inter,system-ui,Segoe UI,Roboto,Arial}
+      .container{max-width:1200px;margin:0 auto;padding:${compact?'16px':'24px'}}
+      h1{margin:0 0 ${compact?'8px':'12px'};font-size:${compact?'18px':'22px'};font-weight:900}
+      h2{margin:${compact?'10px':'14px'} 0 ${compact?'6px':'8px'};font-size:${compact?'14px':'16px'}}
+      .grid{display:grid;grid-template-columns:${compact?'1fr 1fr':'1fr'};gap:${compact?'8px':'10px'}}
+      .card{background:var(--card);border-radius:12px;padding:${compact?'8px':'12px'};margin:${compact?'6px':'10px'} 0}
+      .kpi{background:rgba(255,255,255,.05);border-radius:10px;padding:${compact?'8px':'10px'}}
+      .kpi h4{margin:0;font-size:${compact?'10px':'11px'};color:var(--muted);text-transform:uppercase;letter-spacing:.3px}
+      .big{font-size:${compact?'18px':'22px'};font-weight:900;margin-top:${compact?'2px':'4px'}}
+      .mini{color:var(--muted);font-size:${compact?'11px':'12px'}}
+      .stack{height:${compact?'8px':'10px'};border-radius:999px;background:rgba(255,255,255,.09);display:flex;overflow:hidden;margin-top:${compact?'4px':'6px'}}
+      .seg{height:100%}.g{background:rgba(62,207,142,.85)}.a{background:rgba(243,180,49,.85)}.r{background:rgba(255,107,107,.85)}
+      .legend{display:${compact?'none':'flex'};gap:12px;flex-wrap:wrap;color:var(--muted);font-size:12px;margin-top:6px}
+      .narrative{padding:12px;margin-top:10px}
+      .narrative p{line-height:1.5}
+      @page{size:${compact?'Letter':'auto'};margin:${compact?'.5in':'1in'}}
+      @media print{body{background:#fff;color:#000}.card{background:#fff;border:1px solid #ddd}.kpi,.stack{background:#eee}.g{background:#4caf50}.a{background:#ffb300}.r{background:#ef5350}}
+    </style>
+  </head>
+  <body>
+    <div class="container">
+      <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:${compact?'6px':'10px'}">
+        <h1>D-NAV Insights — ${windowLbl}</h1>
+        <span class="mini">Generated ${new Date().toLocaleString()}</span>
+      </div>
+
+      <div class="card">
+        <h2>Executive summary</h2>
+        <div class="mini">Entries ${total} • Avg D-NAV ${avg} • Trend ${trend>=0?'+':''}${trend} • σ ${consistency} • Cadence ${cadence}/wk • Calibration ${calDisp}</div>
+        ${compact? '' : '<div class="mini" style="margin-top:6px">D-NAV = (Impact − Cost − Risk) + (Urgency × Confidence).</div>'}
+      </div>
+
+      <section class="card narrative">
+        <h2 style="margin:0 0 8px 0;">D-NAV Narrative Summary</h2>
+        <p>${narrative}</p>
+      </section>
+
+      <div class="grid">
+        <div class="kpi"><h4>Decisions</h4><div class="big">${total}</div></div>
+        <div class="kpi"><h4>Avg D-NAV</h4><div class="big">${avg}</div></div>
+        <div class="kpi"><h4>Trend</h4><div class="big">${trend>=0?'+':''}${trend}</div><div class="mini">EMA7−EMA30</div></div>
+        <div class="kpi"><h4>Consistency</h4><div class="big">${consistency}</div><div class="mini">Lower σ better</div></div>
+        <div class="kpi"><h4>Cadence</h4><div class="big">${cadence}</div><div class="mini">Decisions/week</div></div>
+        <div class="kpi"><h4>Calibration</h4><div class="big">${calDisp}</div><div class="mini">Conf ↔ Return</div></div>
+      </div>
+
+      <div class="grid">
+        <div class="card"><h2>Return distribution</h2>
+          <div class="stack">
+            <span class="seg g" style="width:${pct(retPos,total)}%"></span>
+            <span class="seg a" style="width:${pct(retNeu,total)}%"></span>
+            <span class="seg r" style="width:${pct(retNeg,total)}%"></span>
+          </div>
+        </div>
+        <div class="card"><h2>Stability distribution</h2>
+          <div class="stack">
+            <span class="seg g" style="width:${pct(stabSt,total)}%"></span>
+            <span class="seg a" style="width:${pct(stabUn,total)}%"></span>
+            <span class="seg r" style="width:${pct(stabFr,total)}%"></span>
+          </div>
+        </div>
+        ${compact ? '' : `
+        <div class="card"><h2>Pressure distribution</h2>
+          <div class="stack">
+            <span class="seg r" style="width:${pct(prPress,total)}%"></span>
+            <span class="seg a" style="width:${pct(prBal,total)}%"></span>
+            <span class="seg g" style="width:${pct(prCalm,total)}%"></span>
+          </div>
+        </div>`}
+      </div>
+    </div>
+  </body></html>`;
+
+  const w = window.open('', '_blank');
+  if(!w){ alert('Please allow pop-ups to view the PDF."); return; }
+  w.document.open(); w.document.write(html); w.document.close();
+  try{ w.focus(); }catch{}
 }
 
-/* ---------- Rendering helpers ---------- */
-function animateNumber(el, to, {suffix='', duration=500}={}){const from=Number(el.dataset.val||0);const start=performance.now();function step(t){const p=Math.min(1,(t-start)/duration);const v=Math.round(from+(to-from)*p);el.textContent=v+suffix;if(p<1){requestAnimationFrame(step)}else{el.dataset.val=to}}requestAnimationFrame(step)}
+/* ---------- Animated Stats / rendering ---------- */
+function animateNumber(el, to, {suffix='', duration=500}={}){
+  const from = Number(el.dataset.val || 0);
+  const start = performance.now();
+  function step(t){
+    const p = Math.min(1, (t - start)/duration);
+    const v = Math.round(from + (to - from)*p);
+    el.textContent = v + suffix;
+    if(p < 1){ requestAnimationFrame(step); } else { el.dataset.val = to; }
+  }
+  requestAnimationFrame(step);
+}
 function filterRows(rows){
   const days = Number($('#rangeSelect').value || 0);
   if(!days) return rows;
@@ -862,6 +1089,7 @@ function renderAlloc(rows){
     const st = Math.round(t.stable*100/t.count);
     return {cat, share, avgD, count:t.count, pr, st};
   }).sort((a,b)=>b.share-a.share).slice(0,8);
+
   list.innerHTML = rowsData.map(r=>`
     <div class="row">
       <div><strong>${escapeHtml(r.cat)}</strong></div>
@@ -879,12 +1107,27 @@ function renderDists(rows){
   const stSt = count(r=>r.stability>0), stUn=count(r=>r.stability===0), stFr=count(r=>r.stability<0);
   const prPr = count(r=>r.pressure>0), prBa=count(r=>r.pressure===0), prCa=count(r=>r.pressure<0);
   const pct = (n)=> Math.round(n*100/(rows.length||1));
-  $('#ret_pos').style.width = pct(retPos)+'%'; $('#ret_neu').style.width = pct(retNeu)+'%'; $('#ret_neg').style.width = pct(retNeg)+'%';
-  $('#ret_pos_lbl').textContent = `Positive: ${pct(retPos)}%`; $('#ret_neu_lbl').textContent = `Neutral: ${pct(retNeu)}%`; $('#ret_neg_lbl').textContent = `Negative: ${pct(retNeg)}%`;
-  $('#st_st').style.width = pct(stSt)+'%'; $('#st_un').style.width = pct(stUn)+'%'; $('#st_fr').style.width = pct(stFr)+'%';
-  $('#st_st_lbl').textContent = `Stable: ${pct(stSt)}%`; $('#st_un_lbl').textContent = `Uncertain: ${pct(stUn)}%`; $('#st_fr_lbl').textContent = `Fragile: ${pct(stFr)}%`;
-  $('#pr_pr').style.width = pct(prPr)+'%'; $('#pr_bal').style.width = pct(prBa)+'%'; $('#pr_calm').style.width = pct(prCa)+'%';
-  $('#pr_pr_lbl').textContent = `Pressured: ${pct(prPr)}%`; $('#pr_bal_lbl').textContent = `Balanced: ${pct(prBa)}%`; $('#pr_calm_lbl').textContent = `Calm: ${pct(prCa)}%`;
+
+  $('#ret_pos').style.width = pct(retPos)+'%';
+  $('#ret_neu').style.width = pct(retNeu)+'%';
+  $('#ret_neg').style.width = pct(retNeg)+'%';
+  $('#ret_pos_lbl').textContent = `Positive: ${pct(retPos)}%`;
+  $('#ret_neu_lbl').textContent = `Neutral: ${pct(retNeu)}%`;
+  $('#ret_neg_lbl').textContent = `Negative: ${pct(retNeg)}%`;
+
+  $('#st_st').style.width = pct(stSt)+'%';
+  $('#st_un').style.width = pct(stUn)+'%';
+  $('#st_fr').style.width = pct(stFr)+'%';
+  $('#st_st_lbl').textContent = `Stable: ${pct(stSt)}%`;
+  $('#st_un_lbl').textContent = `Uncertain: ${pct(stUn)}%`;
+  $('#st_fr_lbl').textContent = `Fragile: ${pct(stFr)}%`;
+
+  $('#pr_pr').style.width = pct(prPr)+'%';
+  $('#pr_bal').style.width = pct(prBa)+'%';
+  $('#pr_calm').style.width = pct(prCa)+'%';
+  $('#pr_pr_lbl').textContent = `Pressured: ${pct(prPr)}%`;
+  $('#pr_bal_lbl').textContent = `Balanced: ${pct(prBa)}%`;
+  $('#pr_calm_lbl').textContent = `Calm: ${pct(prCa)}%`;
 }
 
 /* Hygiene metrics */
@@ -892,41 +1135,70 @@ function renderHygiene(rows){
   const asc = [...rows].sort((a,b)=>a.ts-b.ts);
   let longest=0, current=0, debt=0;
   for(const r of asc){
-    if((r.return||0) < 0){ current += 1; debt += Math.abs(r.return||0); if(current>longest) longest=current; }
-    else { current = 0; debt = 0; }
+    if((r.return||0) < 0){
+      current += 1;
+      debt += Math.abs(r.return||0);
+      if(current>longest) longest=current;
+    }else{
+      current = 0;
+      debt = 0;
+    }
   }
   const pos = rows.filter(r=>r.return>0).map(r=>r.return);
   const avgPos = pos.length ? (pos.reduce((a,b)=>a+b,0)/pos.length) : 0;
   const payback = (avgPos>0 && debt>0) ? Math.ceil(debt/avgPos) : 0;
+
   document.getElementById('h_streak').textContent = `${current} / ${longest}`;
   document.getElementById('h_debt').textContent   = String(debt);
   document.getElementById('h_payback').textContent= String(payback);
-  const hint = (current>=3 || payback>2)?'Clamp exploration (pause or pivot)':(current>0?'Controlled exploration — stay intentional':'Clean slate — scale what works');
+  const hint = (current>=3 || payback>2)
+    ? 'Clamp exploration (pause or pivot)'
+    : (current>0 ? 'Controlled exploration — stay intentional' : 'Clean slate — scale what works');
   document.getElementById('h_hint').textContent = hint;
 }
 
-/* ---- NARRATIVE: top-of-page (exec readout) ---- */
-function narrativeFor(rowsAll){
-  const rows = filterRows(rowsAll);
-  const daysSel = Number($('#rangeSelect').value||0);
-  $('#narrativeWindow').textContent = daysSel ? `Last ${daysSel} days` : 'All time';
-  const el = document.getElementById('narrativeTopTxt');
-  if(!rows.length){ el.innerHTML = 'No data in range. Import or add decisions to see a narrative.'; return; }
-
+/* ---- NARRATIVE (top + detail) ---- */
+function narrativeText(allRows){
+  const rows = filterRows(allRows);
+  if(!rows.length){
+    return {
+      lead:'No data in range. Add or import decisions to generate a live narrative.',
+      tail:'Once populated, this will call out footing (stability), pressure, return tone, momentum, cadence, and where your energy is actually going.'
+    };
+  }
   const n = rows.length;
-  const mean = (arr, f)=> arr.length? arr.reduce((a,r)=>a+(Number(f(r))||0),0)/arr.length : 0;
+  const sum = (a,f)=>a.reduce((x,r)=>x+(Number(f(r))||0),0);
+  const mean = (a,f)=> a.length? sum(a,f)/a.length : 0;
+
   const avgR = mean(rows,r=>r.return);
   const avgS = mean(rows,r=>r.stability);
   const avgP = mean(rows,r=>r.pressure);
+
   const toneR = avgR>0?'positive':(avgR<0?'negative':'flat');
   const toneS = avgS>0?'stable':(avgS<0?'fragile':'uncertain');
   const toneP = avgP>0?'pressured':(avgP<0?'calm':'balanced');
 
+  // Energy allocation
+  const catE = new Map();
+  for(const r of rows){
+    const c=(r.category||'').trim()||'Uncategorized';
+    const e=(Number(r.urgency)||0)*(Number(r.confidence)||0);
+    catE.set(c,(catE.get(c)||0)+e);
+  }
+  let topCat='—', topShare='—';
+  if(catE.size){
+    const totalE = [...catE.values()].reduce((a,b)=>a+b,0) || 1;
+    const [tc, te] = [...catE.entries()].sort((a,b)=>b[1]-a[1])[0];
+    topCat = tc;
+    topShare = Math.round(te*100/totalE)+'%';
+  }
+
+  // Trend & cadence
   const asc=[...rows].sort((a,b)=>a.ts-b.ts);
   const dnavAsc=asc.map(r=>Number(r.dnav)||0);
-  const e7 = dnavAsc.length? Math.round(ema(dnavAsc,7)) : 0;
-  const e30= dnavAsc.length? Math.round(ema(dnavAsc,30)) : 0;
-  const trend = e7 - e30;
+  const ema7 = dnavAsc.length? Math.round(ema(dnavAsc,7)) : 0;
+  const ema30= dnavAsc.length? Math.round(ema(dnavAsc,30)) : 0;
+  const trend = ema7-ema30;
   const trendTone = trend>2?'rising':(trend>0?'tilting up':(trend===0?'flat':'slipping'));
 
   let cadence=0;
@@ -936,28 +1208,38 @@ function narrativeFor(rowsAll){
     cadence=Math.round((n/days)*7);
   }
 
-  const catE = new Map();
-  rows.forEach(r=>{
-    const c=(r.category||'').trim()||'Uncategorized';
-    const e=(Number(r.urgency)||0)*(Number(r.confidence)||0);
-    catE.set(c,(catE.get(c)||0)+e);
-  });
-  let topCat='—', topShare='—';
-  if(catE.size){
-    const totalE=[...catE.values()].reduce((a,b)=>a+b,0)||1;
-    const [tc,te]=[...catE.entries()].sort((a,b)=>b[1]-a[1])[0];
-    topCat=tc; topShare=Math.round(te*100/totalE)+'%';
+  const lead = `Across <b>${n}</b> decisions, footing is <b>${toneS}</b>, operating state is <b>${toneP}</b>, and return tone skews <b>${toneR}</b>. Momentum is <b>${trendTone}</b> (EMA7–30 ${trend>=0?'+':''}${trend}), cadence ≈ <b>${cadence}/wk</b>.`;
+  let tail='';
+  if(avgP>0 && avgS<=0){
+    tail = `You’re pushing under pressure on <b>fragile footing</b>. Tighten scope, prove units, or add capacity before scaling. Energy concentrates in <b>${escapeHtml(topCat)}</b> (${topShare}).`;
+  } else if(avgP>0 && avgS>0){
+    tail = `High pressure with <b>stable footing</b> — valid performance zone. Keep discipline; watch lead indicators. Energy concentrates in <b>${escapeHtml(topCat)}</b> (${topShare}).`;
+  } else if(avgR<0){
+    tail = `Returns are <b>negative</b>. Stop/pivot weak experiments; recycle energy toward proven lanes. Focus area: <b>${escapeHtml(topCat)}</b> (${topShare}).`;
+  } else if(avgR>0 && avgS>0){
+    tail = `Greenlight conditions. Compound what works and raise quality bar over volume. Dominant lane: <b>${escapeHtml(topCat)}</b> (${topShare}).`;
+  } else {
+    tail = `Mixed signals — shorten feedback loops; move one lever at a time (cost ↓, risk ↓, or impact ↑). Current energy: <b>${escapeHtml(topCat)}</b> (${topShare}).`;
   }
-
-  // Exec text with explicit EMA & cadence meaning
-  const s1 = `Across <b>${n}</b> decisions, footing is <b>${toneS}</b>, operating state is <b>${toneP}</b>, and return profile is <b>${toneR}</b>. Momentum is <b>${trendTone}</b> (EMA7–30 ${trend>=0?'+':''}${trend}; EMA7=${e7}, EMA30=${e30}).`;
-  const s2 = `Cadence is ~<b>${cadence} decisions/week</b> in this window (just how often you log decisions here). Energy concentrates in <b>${escapeHtml(topCat)}</b> (${topShare}).`;
-  el.innerHTML = `${s1} ${s2}`;
+  return {lead, tail};
 }
 
-/* --------- Log rendering --------- */
+function renderPortfolioReadout(allRows){
+  const rows = filterRows(allRows);
+  const el = document.getElementById('portfolioReadout');
+  const tLead = document.getElementById('topNarrLead');
+  const tTail = document.getElementById('topNarrTail');
+  const {lead, tail} = narrativeText(allRows);
+
+  if(el) el.innerHTML = `<div>${lead}</div><div style="margin-top:6px">${tail}</div>`;
+  if(tLead) tLead.innerHTML = lead;
+  if(tTail) tTail.innerHTML = tail;
+}
+
+/* --------- Table render --------- */
 function renderLogTable(rows){
-  const body = document.getElementById('logBody'); if(!body) return;
+  const body = document.getElementById('logBody');
+  if(!body) return;
   body.innerHTML = rows.map(r=>`
     <tr>
       <td>${fmtLocal(r.ts)}</td>
@@ -977,11 +1259,12 @@ function renderLogTable(rows){
   `).join('');
 }
 
-/* HUD refresh (+ new explainer content) */
+/* HUD refresh */
 function refreshHUD(){
   const all = loadLog();
   const rows = filterRows(all);
 
+  // KPIs
   const n = rows.length;
   const avg = n ? Math.round(rows.reduce((a,r)=>a+(Number(r.dnav)||0),0)/n) : 0;
   const asc=[...rows].sort((a,b)=>a.ts-b.ts);
@@ -1003,217 +1286,377 @@ function refreshHUD(){
   document.getElementById('k_consistency').textContent = sigma;
   document.getElementById('k_cadence').textContent = cadence;
 
-  // Dists, alloc, hygiene, narrative, log
-  renderDists(rows); renderAlloc(rows); renderHygiene(rows); narrativeFor(all); renderLogTable(all);
-  document.getElementById('k_recent').textContent = asc.length ? `From ${fmtLocal(asc[0].ts)} → ${fmtLocal(asc[asc.length-1].ts)}` : '—';
+  // Distributions / alloc / hygiene / narratives / table
+  renderDists(rows);
+  renderAlloc(rows);
+  renderHygiene(rows);
+  renderPortfolioReadout(all);
+  renderLogTable(all);
+}
 
-  // NEW: human-language explainer tied to *current* numbers
-  const expl = document.getElementById('explainStats');
-  const cal = (()=>{
-    const confs = asc.map(r=>Number(r.confidence)||0);
-    const rets  = asc.map(r=>Number(r.return)||0);
-    const c = corr(confs,rets);
-    return (c===null)?null:Math.round(c*100)/100;
-  })();
+/* ================== COMPARE MODE ================== */
+let compareState = {
+  base: { impact:1,cost:1,risk:1,urgency:1,confidence:1, locked:true, name:'Base' },
+  scenarios: [] // {id, name, impact,cost,risk,urgency,confidence, metrics}
+};
+let scCounter = 1;
 
-  const last10 = dnavAsc.slice(-10);
-  const prev10 = dnavAsc.slice(-20, -10);
-  const last5  = dnavAsc.slice(-5);
-  const prior5 = dnavAsc.slice(-10, -5);
-  const mean = a => a.length ? Math.round(a.reduce((x,y)=>x+(Number(y)||0),0)/a.length) : 0;
-  const last5m = mean(last5), prior5m = mean(prior5);
-  const delta5 = last5m - prior5m;
+function currentBaseValues(){
+  if($('#baseLock').checked){
+    const v = readCurrent();
+    return { ...v, name:'Base' };
+  }
+  return { ...compareState.base };
+}
 
-  expl.innerHTML = `
-    <h3>What these stats mean (with your data)</h3>
-    <p><span class="b">Return</span> is Impact − Cost. Positive means the upside outweighs the spend. Your window average D-NAV is <span class="b">${avg}</span>, which blends <span class="b">Merit</span> (Impact−Cost−Risk) with <span class="b">Drive</span> (Urgency×Confidence).</p>
-    <p><span class="b">Stability</span> is Confidence − Risk. Above zero = you’re standing on firmer ground; below zero = fragile footing. <span class="b">Pressure</span> is Urgency − Confidence; higher pressure means you feel rushed relative to readiness.</p>
-    <p><span class="b">Trend</span> compares a quick mood (EMA7) to a slow mood (EMA30) of D-NAV. Yours: EMA7=<span class="b">${ema7}</span>, EMA30=<span class="b">${ema30}</span>, so EMA7−EMA30=<span class="b">${trend>=0?'+':''}${trend}</span>. Positive means recent decisions are scoring higher than your longer-run baseline.</p>
-    <p><span class="b">Consistency</span> (σ=${sigma}) is the wiggle of recent scores; the lower it is, the steadier your execution. Consider it your “variance tax” — high variance burns attention even when the average looks fine.</p>
-    <p><span class="b">Cadence</span> is simply how many entries per week you’re logging in this window: <span class="b">${cadence}/week</span>. It measures decision throughput here, not absolute “work done.” If it’s lower than reality, you’re likely under-logging.</p>
-    <p><span class="b">Calibration</span> asks: when you feel more confident, do outcomes actually come out better? Correlation = <span class="b">${cal===null?'n/a':(cal>=0?'+':'')+cal}</span>. Near +1: trust your nose; near 0: confidence needs better feedback; negative: you may be overconfident when the ground is slippery.</p>
-    <p><span class="b">Last-5 vs Prior-5</span> looks for short bursts of improvement: last-5 average = <span class="b">${last5m}</span> vs prior-5 = <span class="b">${prior5m}</span> → Δ = <span class="b">${delta5>=0?'+':''}${delta5}</span>.</p>
+function smallestNudge(from){
+  // Single-step best lever (+1 impact, -1 cost, -1 risk, +1 urgency (×C), +1 confidence (×U))
+  const caps = (x)=>Math.max(1,Math.min(10,x));
+  const options = [];
+  // Each tweak is one unit in-range if possible:
+  if(from.impact < 10) options.push({label:'impact +1', delta: +1});
+  if(from.cost > 1)    options.push({label:'cost -1',   delta: +1});
+  if(from.risk > 1)    options.push({label:'risk -1',   delta: +1});
+  if(from.urgency < 10)options.push({label:'urgency +1',delta: (from.confidence||0)});
+  if(from.confidence<10)options.push({label:'confidence +1',delta: (from.urgency||0)});
+  if(!options.length) return 'No single-step room left — adjust scope.';
+  const best = options.sort((a,b)=>b.delta-a.delta)[0];
+  return `Smallest nudge: <b>${best.label}</b> (≈ ΔD-NAV +${best.delta}).`;
+}
+
+function scenarioMetrics(v){ return computeMetrics(v); }
+
+function scenarioCardHTML(sc, simple){
+  const m = scenarioMetrics(sc);
+  const ret = m.ret, stab = m.stability, press = m.pressure, dnav = m.dnav;
+  return `
+    <div class="sc-card" data-id="${sc.id}">
+      <div class="sc-h">
+        <input type="text" value="${escapeHtml(sc.name)}" placeholder="Scenario ${sc.id}" data-role="rename"/>
+        <div style="display:flex;gap:6px;">
+          <button class="btn secondary" data-role="setbase" title="Set as Base">Base</button>
+          <button class="btn secondary" data-role="dup" title="Duplicate">Dup</button>
+          <button class="btn secondary" data-role="del" title="Delete">✕</button>
+        </div>
+      </div>
+      <div class="sc-sl">
+        <div><label>I<input data-k="impact" type="range" min="1" max="10" value="${sc.impact}"></label></div>
+        <div><label>C<input data-k="cost" type="range" min="1" max="10" value="${sc.cost}"></label></div>
+        <div><label>R<input data-k="risk" type="range" min="1" max="10" value="${sc.risk}"></label></div>
+        <div><label>U<input data-k="urgency" type="range" min="1" max="10" value="${sc.urgency}"></label></div>
+        <div><label>Conf<input data-k="confidence" type="range" min="1" max="10" value="${sc.confidence}"></label></div>
+      </div>
+      ${simple ? '' : `
+      <div class="sc-metrics">
+        <div class="m"><div class="mini">Ret</div><div class="big">${ret>=0?'+':''}${ret}</div></div>
+        <div class="m"><div class="mini">Stab</div><div class="big">${stab>=0?'+':''}${stab}</div></div>
+        <div class="m"><div class="mini">Press</div><div class="big">${press>=0?'+':''}${press}</div></div>
+        <div class="m"><div class="mini">D-NAV</div><div class="big">${dnav}</div></div>
+      </div>
+      <div class="mini" style="margin-top:6px">${smallestNudge(sc)}</div>
+      `}
+    </div>
   `;
 }
 
-/* ======== COMPARE ENGINE (unchanged) ======== */
-let baseSnapshot = null; let scenarios = []; let scenarioSeq = 1;
-function currentMetricsFromSliders(){ const v = readCurrent(); return {v, m: computeMetrics(v)}; }
-function updateBaseInModal(){
-  const lock = document.getElementById('baseLock').checked;
-  document.getElementById('baseLockState').textContent = lock ? '(locked)' : '(unlocked)';
-  if(lock){ const {v, m} = currentMetricsFromSliders(); baseSnapshot = {vals:v, metrics:m, name:'Current sliders'}; }
-  renderBasePanel();
-}
-function renderBasePanel(){
-  if(!baseSnapshot){ const {v, m} = currentMetricsFromSliders(); baseSnapshot={vals:v, metrics:m, name:'Current sliders'}; }
-  const v = baseSnapshot.vals, m = baseSnapshot.metrics;
-  const sgn = x=>x>0?('+'+x):(x<0?x:'0');
-  document.getElementById('B_meta').innerHTML = `Return <b>${sgn(m.ret)}</b> • Stability <b>${sgn(m.stability)}</b> • Pressure <b>${sgn(m.pressure)}</b>`;
-  document.getElementById('B_ret').textContent = sgn(m.ret);
-  document.getElementById('B_stab').textContent = sgn(m.stability);
-  document.getElementById('B_press').textContent = sgn(m.pressure);
-  document.getElementById('B_dnav').textContent = m.dnav;
-  document.getElementById('B_tldr').textContent = coachHint({ret:m.ret, stab:m.stability, press:m.pressure, urg:v.urgency, conf:v.confidence, impact:v.impact, cost:v.cost, risk:v.risk});
-  refreshDeltaTable();
-}
-function makeSlider(name, key, val, onInput){
-  const wrap = document.createElement('div'); wrap.className='row';
-  const label = document.createElement('label');
-  label.innerHTML = `<span class="label-main">${name}</span><span class="hint">${key==='impact'?'Upside':key==='cost'?'Price':key==='risk'?'Downside':key==='urgency'?'Soonness':'Conviction'}</span>`;
-  const input = document.createElement('input'); input.type='range'; input.min='1'; input.max='10'; input.value=String(val||1);
-  const out = document.createElement('output'); out.textContent = String(val||1);
-  input.addEventListener('input', e=>{ out.textContent = e.target.value; onInput(Number(e.target.value)); });
-  wrap.appendChild(label); wrap.appendChild(input); wrap.appendChild(out);
-  return {wrap, input, out};
-}
-function scenarioCard(scn){
-  const card = document.createElement('div'); card.className = 'card'; card.style.minWidth='320px'; card.style.background='rgba(255,255,255,.03)'; card.style.border='1px solid rgba(255,255,255,.08)';
-  const head = document.createElement('div'); head.style.display='flex'; head.style.justifyContent='space-between'; head.style.alignItems='center';
-  const h = document.createElement('h2'); h.style.margin='0'; h.textContent = scn.name;
-  const btns = document.createElement('div'); btns.style.display='flex'; btns.style.gap='6px';
-  const setBase = document.createElement('button'); setBase.className='btn secondary'; setBase.textContent='Set as Base';
-  setBase.addEventListener('click', ()=>{ baseSnapshot = {vals:{...scn.vals}, metrics:{...scn.metrics}, name:scn.name}; document.getElementById('baseLock').checked = false; renderBasePanel(); refreshDeltaTable(); });
-  const del = document.createElement('button'); del.className='btn secondary'; del.textContent='Remove';
-  del.addEventListener('click', ()=>{ scenarios = scenarios.filter(x=>x.id!==scn.id); card.remove(); refreshDeltaTable(); });
-  btns.appendChild(setBase); btns.appendChild(del); head.appendChild(h); head.appendChild(btns); card.appendChild(head);
-  const simple = document.getElementById('simpleMode').checked;
-  const grid = document.createElement('div'); grid.className='grid'; grid.style.gap='6px';
-  const keys = simple ? ['impact','cost','risk'] : ['impact','cost','risk','urgency','confidence'];
-  keys.forEach(k=>{ const nice = k[0].toUpperCase()+k.slice(1); const {wrap} = makeSlider(nice,k,scn.vals[k], (nv)=>{ scn.vals[k]=nv; scn.metrics = computeMetrics(scn.vals); refreshDeltaTable(); }); grid.appendChild(wrap); });
-  card.appendChild(grid);
-  const meta = document.createElement('div'); meta.className='mini'; meta.style.marginTop='6px'; meta.id = `scn_meta_${scn.id}`; card.appendChild(meta);
-  scn.el = card; return card;
-}
-function recomputeAllScenarios(){ scenarios.forEach(s=>{ s.metrics = computeMetrics(s.vals); }); refreshDeltaTable(); }
-function smallestNudge(fromVals){
-  const keys = ['impact','cost','risk','urgency','confidence']; const base = computeMetrics(fromVals).dnav;
-  let best = {key:null, dir:0, delta:0};
-  keys.forEach(k=>{ [-1,+1].forEach(dir=>{ const nv = Math.min(10, Math.max(1, fromVals[k]+dir)); if(nv===fromVals[k]) return; const trial = {...fromVals, [k]:nv}; const d = computeMetrics(trial).dnav - base; if(Math.abs(d) > Math.abs(best.delta)){ best = {key:k, dir, delta:d}; } }); });
-  return best.key ? best : null;
-}
-function refreshDeltaTable(){
-  if(!baseSnapshot){ renderBasePanel(); }
-  const B = baseSnapshot.metrics; const tbody = document.querySelector('#deltaTable tbody'); const board = document.getElementById('deltaBoard');
-  if(!scenarios.length){ board.style.display='none'; document.getElementById('winnerTag').textContent='—'; document.getElementById('winnerLine').textContent='Add/tweak scenarios to see which option leads on D-NAV.'; return; }
-  board.style.display='block';
-  tbody.innerHTML = scenarios.map(s=>{
-    const dR = s.metrics.ret - B.ret; const dS = s.metrics.stability - B.stability; const dP = s.metrics.pressure - B.pressure; const dN = s.metrics.dnav - B.dnav;
-    const barWidth = Math.min(100, Math.abs(dN)); const bar = `<div class="barchip"><span class="${dN>=0?'pos':'neg'}" style="width:${barWidth}%"></span></div>`;
-    const arrow = dN>0?'<span class="arrow up">▲</span>':(dN<0?'<span class="arrow down">▼</span>':'<span class="arrow flat">—</span>');
-    const meta = document.getElementById(\`scn_meta_\${s.id}\`);
-    if(meta){ const best = smallestNudge(s.vals); const lever = best ? \`\${best.dir>0?'+':'−'}1 \${best.key} → ΔD \${best.delta>0?'+':''}\${Math.round(best.delta)}\` : '—';
-      meta.innerHTML = \`Return \${dR>=0?'+':''}\${Math.round(dR)} • Stability \${dS>=0?'+':''}\${Math.round(dS)} • Pressure \${dP>=0?'+':''}\${Math.round(dP)} • D-NAV \${dN>=0?'+':''}\${Math.round(dN)} • <b>easiest nudge:</b> \${lever}\`; }
-    return \`<tr><td style="text-align:left">\${escapeHtml(s.name)}</td><td>\${dR>=0?'+':''}\${Math.round(dR)}</td><td>\${dS>=0?'+':''}\${Math.round(dS)}</td><td>\${dP>=0?'+':''}\${Math.round(dP)}</td><td>\${arrow} \${dN>=0?'+':''}\${Math.round(dN)} \${bar}</td></tr>\`;
-  }).join('');
-  const best = scenarios.slice().sort((a,b)=>b.metrics.dnav - a.metrics.dnav)[0];
-  const lead = best.metrics.dnav - B.dnav;
-  const winnerTag = document.getElementById('winnerTag'); winnerTag.className = 'win ' + (lead>=0?'a':'b'); winnerTag.textContent = lead>=0 ? 'Scenario leads' : 'Base leads';
-  document.getElementById('winnerLine').textContent = \`\${best.name} is \${lead>=0?'+':''}\${Math.round(lead)} D-NAV vs Base.\`;
-}
-function populateRecent(){
-  const sel = document.getElementById('recentSelect'); const list = document.getElementById('moreList'); if(!sel || !list) return;
-  const rows = loadLog().slice(0,50);
-  sel.innerHTML = '<option value="">Load from recent…</option>' + rows.map(r=>`<option value="${r.ts}">${fmtLocal(r.ts)} — ${escapeHtml(r.name||'Untitled')}</option>`).join('');
-  list.innerHTML = rows.map(r=>{
-    const v = {impact:r.impact,cost:r.cost,risk:r.risk,urgency:r.urgency,confidence:r.confidence}; const m = computeMetrics(v);
-    return `<div class="card" style="margin-bottom:6px">
-      <div style="display:flex;justify-content:space-between;gap:8px;align-items:center;">
-        <div><b>${escapeHtml(r.name||'Untitled')}</b><div class="mini">${fmtLocal(r.ts)} • Cat: ${escapeHtml(r.category||'—')}</div></div>
-        <button class="btn secondary" data-ts="${r.ts}">Load as Scenario</button>
-      </div>
-      <div class="mini" style="margin-top:6px">D-NAV ${m.dnav} • Return ${m.ret>=0?'+':''}${m.ret} • Stability ${m.stability>=0?'+':''}${m.stability} • Pressure ${m.pressure>=0?'+':''}${m.pressure}</div>
-    </div>`;
-  }).join('');
+function renderScenarios(){
+  const simple = $('#simpleMode').checked;
+  const box = $('#scenarios');
+  if(!compareState.scenarios.length){
+    box.innerHTML = '<div class="mini">No scenarios yet. Click “Add Scenario” or load one from recent.</div>';
+    $('#deltaBoard').style.display='none';
+    $('#winnerTag').textContent='—';
+    $('#winnerLine').textContent='Add/tweak scenarios to see which option leads on D-NAV.';
+    return;
+  }
+  box.innerHTML = compareState.scenarios.map(sc=>scenarioCardHTML(sc, simple)).join('');
+  // Wire sliders + actions
+  box.querySelectorAll('.sc-card').forEach(card=>{
+    const id = Number(card.getAttribute('data-id'));
+    card.querySelectorAll('input[type=range]').forEach(r=>{
+      r.addEventListener('input', ()=>{
+        const k = r.getAttribute('data-k');
+        const sc = compareState.scenarios.find(s=>s.id===id);
+        sc[k] = Number(r.value);
+        recomputeAllScenarios();
+      });
+    });
+    const rename = card.querySelector('[data-role=rename]');
+    rename.addEventListener('input', ()=>{
+      const sc = compareState.scenarios.find(s=>s.id===id);
+      sc.name = rename.value;
+      recomputeAllScenarios();
+    });
+    card.querySelector('[data-role=setbase]').addEventListener('click', ()=>{
+      const sc = compareState.scenarios.find(s=>s.id===id);
+      $('#baseLock').checked = false;
+      compareState.base = { ...sc, name:'Base', locked:false };
+      updateBaseInModal();
+      recomputeAllScenarios();
+    });
+    card.querySelector('[data-role=dup]').addEventListener('click', ()=>{
+      const sc = compareState.scenarios.find(s=>s.id===id);
+      addScenario({ ...sc, name: sc.name+' (copy)' });
+    });
+    card.querySelector('[data-role=del]').addEventListener('click', ()=>{
+      compareState.scenarios = compareState.scenarios.filter(s=>s.id!==id);
+      renderScenarios();
+      recomputeAllScenarios();
+    });
+  });
 }
 
-/* ======== WIRING ======== */
+function updateBaseInModal(){
+  const v = currentBaseValues();
+  const m = computeMetrics(v);
+
+  $('#baseLockState').textContent = $('#baseLock').checked ? '(locked)' : '(unlocked)';
+  $('#B_ret').textContent  = (m.ret>=0?'+':'')+m.ret;
+  $('#B_stab').textContent = (m.stability>=0?'+':'')+m.stability;
+  $('#B_press').textContent= (m.pressure>=0?'+':'')+m.pressure;
+  $('#B_dnav').textContent = m.dnav;
+  $('#B_meta').innerHTML   = `I${v.impact} • C${v.cost} • R${v.risk} • U${v.urgency} • Conf${v.confidence}`;
+  $('#B_tldr').innerHTML   = coachHint({ret:m.ret, stab:m.stability, press:m.pressure, urg:v.urgency, conf:v.confidence, impact:v.impact, cost:v.cost, risk:v.risk});
+
+  // if unlocked, persist base value changes back to state
+  if(!$('#baseLock').checked){
+    compareState.base = { ...v, locked:false, name:'Base' };
+  }
+}
+
+function addScenario(init){
+  const v = init || { ...readCurrent() };
+  const sc = {
+    id: scCounter++,
+    name: init?.name || `Scenario ${scCounter-1}`,
+    impact: caps01(v.impact), cost: caps01(v.cost), risk: caps01(v.risk),
+    urgency: caps01(v.urgency), confidence: caps01(v.confidence)
+  };
+  compareState.scenarios.push(sc);
+  renderScenarios();
+  recomputeAllScenarios();
+}
+function caps01(x){ return Math.max(1, Math.min(10, Number(x)||1)); }
+
+function recomputeAllScenarios(){
+  const base = currentBaseValues();
+  const bm = computeMetrics(base);
+
+  const tbody = $('#deltaTable tbody');
+  if(!compareState.scenarios.length){
+    $('#deltaBoard').style.display='none';
+    $('#winnerTag').textContent='—';
+    $('#winnerLine').textContent='Add/tweak scenarios to see which option leads on D-NAV.';
+    return;
+  }
+  $('#deltaBoard').style.display='block';
+
+  // Fill table
+  tbody.innerHTML = compareState.scenarios.map(sc=>{
+    const sm = computeMetrics(sc);
+    const dR = sm.ret - bm.ret;
+    const dS = sm.stability - bm.stability;
+    const dP = sm.pressure - bm.pressure;
+    const dD = sm.dnav - bm.dnav;
+    const barWidth = Math.min(100, Math.abs(dD)*2);
+    const arrow = dD>0 ? '<span class="arrow up">▲</span>' : (dD<0?'<span class="arrow down">▼</span>':'<span class="arrow flat">—</span>');
+    const barColor = dD>=0? 'pos':'neg';
+    return `
+      <tr>
+        <td>${escapeHtml(sc.name)}</td>
+        <td>${dR>=0?'+':''}${dR}</td>
+        <td>${dS>=0?'+':''}${dS}</td>
+        <td>${dP>=0?'+':''}${dP}</td>
+        <td>
+          ${arrow} ${dD>=0?'+':''}${dD}
+          <div class="barchip"><span class="${barColor}" style="width:${barWidth}%"></span></div>
+        </td>
+      </tr>
+    `;
+  }).join('');
+
+  // Winner
+  let best = null;
+  compareState.scenarios.forEach(sc=>{
+    const d = computeMetrics(sc).dnav - bm.dnav;
+    if(best===null || d > best.d){ best = {name:sc.name, d}; }
+  });
+  if(best){
+    $('#winnerTag').className = 'win a';
+    $('#winnerTag').textContent = best.d>0 ? 'Scenario leads' : (best.d===0 ? 'Tie' : 'Base leads');
+    $('#winnerLine').innerHTML  = best.d>0
+      ? `<b>${escapeHtml(best.name)}</b> beats Base by ΔD-NAV +${best.d}.`
+      : (best.d===0 ? 'No advantage — scenarios tie the Base.' : 'Base outperforms all scenarios.');
+  }
+
+  // Re-render scenario cards (for simple/expanded toggle deltas & nudges)
+  renderScenarios();
+}
+
+/* Recent loader */
+function populateRecent(){
+  const sel = $('#recentSelect');
+  if(!sel) return;
+  const all = loadLog().slice(0,50);
+  sel.innerHTML = '<option value="">Load from recent…</option>' + all.map((r,i)=>`<option value="${r.ts}">${fmtLocal(r.ts)} — ${escapeHtml(r.name||'(untitled)')}</option>`).join('');
+
+  const more = $('#moreList');
+  if(more){
+    more.innerHTML = all.map(r=>{
+      const v = {impact:r.impact,cost:r.cost,risk:r.risk,urgency:r.urgency,confidence:r.confidence};
+      return `<div class="card" style="margin:6px 0;padding:10px"><div style="font-weight:800">${escapeHtml(r.name||'(untitled)')}</div>
+      <div class="mini">${fmtLocal(r.ts)} • ${escapeHtml(r.category||'Uncategorized')}</div>
+      <div class="mini">I${v.impact} C${v.cost} R${v.risk} U${v.urgency} Conf${v.confidence}</div>
+      <button class="btn secondary" data-ts="${r.ts}">Add as scenario</button></div>`;
+    }).join('');
+    more.querySelectorAll('button[data-ts]').forEach(b=>{
+      b.addEventListener('click', ()=>{
+        const ts = Number(b.getAttribute('data-ts'));
+        const rec = loadLog().find(x=>x.ts===ts);
+        if(rec){
+          addScenario({
+            name: rec.name || 'Recent',
+            impact:rec.impact, cost:rec.cost, risk:rec.risk, urgency:rec.urgency, confidence:rec.confidence
+          });
+        }
+      });
+    });
+  }
+}
+
+/* ================== EVENT WIRING ================== */
 document.addEventListener('DOMContentLoaded', ()=>{
-  SLIDER_IDS.forEach(id=>{ document.getElementById(id).addEventListener('input', compute); });
+  // Sliders
+  SLIDER_IDS.forEach(id=>{
+    document.getElementById(id).addEventListener('input', compute);
+  });
   compute();
 
-  document.getElementById('rangeSelect').addEventListener('change', ()=>{ refreshHUD(); });
+  // Range window
+  document.getElementById('rangeSelect').addEventListener('change', ()=>refreshHUD());
 
-  const fileInput = document.getElementById('csvInput'); const uploadBtn = document.getElementById('uploadBtn');
-  fileInput.addEventListener('change', ()=>{ uploadBtn.disabled = !fileInput.files?.length; document.getElementById('uploadMsg').textContent = fileInput.files?.length ? 'File ready — click Confirm Import' : ''; });
-  uploadBtn.addEventListener('click', async ()=>{ const f=fileInput.files?.[0]; if(!f) return; const text=await f.text(); try{ const res = importCSV(text); document.getElementById('uploadMsg').textContent = `Imported ${res.count} rows.`; refreshHUD(); }catch(e){ document.getElementById('uploadMsg').textContent = String(e.message||e); } });
+  // CSV upload
+  const fileInput = document.getElementById('csvInput');
+  const uploadBtn = document.getElementById('uploadBtn');
+  fileInput.addEventListener('change', ()=>{
+    uploadBtn.disabled = !fileInput.files?.length;
+    document.getElementById('uploadMsg').textContent = fileInput.files?.length ? 'File ready — click Confirm Import' : '';
+  });
+  uploadBtn.addEventListener('click', async ()=>{
+    const f = fileInput.files?.[0];
+    if(!f) return;
+    const text = await f.text();
+    try{
+      const res = importCSV(text);
+      document.getElementById('uploadMsg').textContent = `Imported ${res.count} rows.`;
+      refreshHUD();
+    }catch(e){
+      document.getElementById('uploadMsg').textContent = String(e.message||e);
+    }
+  });
 
-  const nameEl=document.getElementById('decisionName'); const catEl=document.getElementById('decisionCategory'); const enterBtn=document.getElementById('enterBtn');
+  // Quick Entry
+  const nameEl = document.getElementById('decisionName');
+  const catEl  = document.getElementById('decisionCategory');
+  const enterBtn = document.getElementById('enterBtn');
   function gate(){ enterBtn.disabled = !(nameEl.value.trim() && catEl.value.trim()); }
   nameEl.addEventListener('input', gate); catEl.addEventListener('input', gate);
   enterBtn.addEventListener('click', ()=>{
-    const v = readCurrent(); const m = computeMetrics(v);
-    const row = { ts:Date.now(), name:nameEl.value.trim(), category:catEl.value.trim(),
+    const v = readCurrent();
+    const m = computeMetrics(v);
+    const row = {
+      ts: Date.now(),
+      name: nameEl.value.trim(),
+      category: catEl.value.trim(),
       impact:v.impact, cost:v.cost, risk:v.risk, urgency:v.urgency, confidence:v.confidence,
-      return:m.ret, pressure:m.pressure, stability:m.stability, merit:m.merit, energy:m.energy, dnav:m.dnav };
+      return:m.ret, pressure:m.pressure, stability:m.stability, merit:m.merit, energy:m.energy, dnav:m.dnav
+    };
     const cur = loadLog(); cur.unshift(row); saveLog(cur);
-    nameEl.value=''; catEl.value=''; gate(); refreshHUD(); populateRecent();
+    nameEl.value=''; catEl.value=''; gate();
+    refreshHUD();
   });
 
+  // Delete rows from log
+  document.getElementById('logBody').addEventListener('click', (e)=>{
+    const btn = e.target.closest('button[data-del]');
+    if(!btn) return;
+    const ts = Number(btn.getAttribute('data-del'));
+    const cur = loadLog().filter(r=>r.ts!==ts);
+    saveLog(cur);
+    refreshHUD();
+  });
+
+  // Downloads
   document.getElementById('downloadCsvBtn').addEventListener('click', downloadCsv);
   document.getElementById('downloadPdfBtn').addEventListener('click', openPdfReport);
 
-  document.getElementById('clearLogBtn').addEventListener('click', ()=>{ if(!confirm('Clear all saved decisions?')) return; saveLog([]); refreshHUD(); populateRecent(); });
+  // Clear
+  document.getElementById('clearLogBtn').addEventListener('click', ()=>{
+    if(!confirm('Clear all saved decisions?')) return;
+    saveLog([]); refreshHUD();
+  });
 
-  /* ===== Compare modal ===== */
-  const modal = document.getElementById('compareModal');
+  // ===== Compare wiring =====
   function openCompare(){
-    updateBaseInModal();
-    const wrap = document.getElementById('scenarios');
-    wrap.innerHTML = '';
-    scenarios.forEach(s=>wrap.appendChild(scnToDOM(s)));
-    modal.classList.add('show'); modal.setAttribute('aria-hidden','false');
+    const m = document.getElementById('compareModal');
+    m.classList.add('show'); m.setAttribute('aria-hidden','false');
+
+    // Initialize from sliders if locked
+    compareState.base = { ...readCurrent(), name:'Base', locked: $('#baseLock').checked };
+    if(!compareState.scenarios.length){
+      // start with one alt scenario
+      addScenario({ ...readCurrent(), name:'Scenario 1' });
+    }else{
+      updateBaseInModal();
+      renderScenarios();
+      recomputeAllScenarios();
+    }
     populateRecent();
-    refreshDeltaTable();
   }
-  function closeCompare(){ modal.classList.remove('show'); modal.setAttribute('aria-hidden','true'); }
+
+  function closeCompare(){
+    const m = document.getElementById('compareModal');
+    m.classList.remove('show'); m.setAttribute('aria-hidden','true');
+    $('#morePanel').style.display='none';
+  }
+
   document.getElementById('openCompareFab').addEventListener('click', openCompare);
   document.getElementById('openCompareBtnA').addEventListener('click', openCompare);
   document.getElementById('closeCompareBtn').addEventListener('click', closeCompare);
-  document.addEventListener('keydown', (e)=>{ if(e.key==='Escape' && modal.getAttribute('aria-hidden')==='false') closeCompare(); });
+  document.addEventListener('keydown', (e)=>{ if(e.key==='Escape' && document.getElementById('compareModal').getAttribute('aria-hidden')==='false') closeCompare(); });
 
-  document.getElementById('baseLock').addEventListener('change', ()=>{ if(document.getElementById('baseLock').checked){ updateBaseInModal(); } else { document.getElementById('baseLockState').textContent='(unlocked)'; } refreshDeltaTable(); });
-  document.getElementById('simpleMode').addEventListener('change', ()=>{ const wrap = document.getElementById('scenarios'); wrap.innerHTML=''; scenarios.forEach(s=>wrap.appendChild(scnToDOM(s))); refreshDeltaTable(); });
-  function scnToDOM(scn){ return scenarioCard(scn); }
+  document.getElementById('baseLock').addEventListener('change', ()=>{
+    updateBaseInModal();
+    recomputeAllScenarios();
+  });
+  document.getElementById('simpleMode').addEventListener('change', ()=>{
+    renderScenarios();
+  });
+
+  document.getElementById('recentSelect').addEventListener('change', ()=>{
+    const ts = Number(document.getElementById('recentSelect').value);
+    if(!ts) return;
+    const rec = loadLog().find(r=>r.ts===ts);
+    if(rec){
+      addScenario({
+        name: rec.name || 'Recent',
+        impact:rec.impact, cost:rec.cost, risk:rec.risk, urgency:rec.urgency, confidence:rec.confidence
+      });
+    }
+    document.getElementById('recentSelect').value='';
+  });
+
+  document.getElementById('moreRecentBtn').addEventListener('click', ()=>{
+    const p = $('#morePanel');
+    p.style.display = (p.style.display==='none'||!p.style.display) ? 'block' : 'none';
+  });
+  document.getElementById('moreClose').addEventListener('click', ()=>{ $('#morePanel').style.display='none'; });
 
   document.getElementById('addScenarioBtn').addEventListener('click', ()=>{
-    const {v} = currentMetricsFromSliders();
-    const scn = { id: 'S'+(scenarioSeq++), name: 'Scenario '+(scenarios.length+1), vals: {...v}, metrics: computeMetrics(v), el:null };
-    scenarios.push(scn);
-    document.getElementById('scenarios').appendChild(scnToDOM(scn));
-    refreshDeltaTable();
+    addScenario();
   });
 
-  document.getElementById('recentSelect').addEventListener('change', (e)=>{
-    const ts = Number(e.target.value||''); if(!ts) return;
-    const row = loadLog().find(r=>r.ts===ts); if(!row) return;
-    const vals = {impact:row.impact,cost:row.cost,risk:row.risk,urgency:row.urgency,confidence:row.confidence};
-    const scn = { id:'S'+(scenarioSeq++), name: (row.name||'Recent'), vals, metrics:computeMetrics(vals), el:null };
-    scenarios.push(scn);
-    document.getElementById('scenarios').appendChild(scnToDOM(scn));
-    e.target.value='';
-    refreshDeltaTable();
-  });
-
-  document.getElementById('moreRecentBtn').addEventListener('click', ()=>{ const p = document.getElementById('morePanel'); p.style.display = (p.style.display==='none' || !p.style.display)?'block':'none'; });
-  document.getElementById('moreClose').addEventListener('click', ()=>{ document.getElementById('morePanel').style.display='none'; });
-  document.getElementById('moreList').addEventListener('click', (e)=>{
-    const btn = e.target.closest('button[data-ts]'); if(!btn) return;
-    const ts = Number(btn.dataset.ts||''); const row = loadLog().find(r=>r.ts===ts); if(!row) return;
-    const vals = {impact:row.impact,cost:row.cost,risk:row.risk,urgency:row.urgency,confidence:row.confidence};
-    const scn = { id:'S'+(scenarioSeq++), name: (row.name||'Recent'), vals, metrics:computeMetrics(vals), el:null };
-    scenarios.push(scn);
-    document.getElementById('scenarios').appendChild(scnToDOM(scn));
-    refreshDeltaTable();
-  });
-
-  document.getElementById('logTable').addEventListener('click', (e)=>{
-    const btn = e.target.closest('button[data-del]'); if(!btn) return;
-    const ts = Number(btn.dataset.del);
-    const cur = loadLog().filter(r=>r.ts!==ts);
-    saveLog(cur); refreshHUD(); populateRecent();
-  });
-
+  // First render
   refreshHUD();
 });
 </script>
