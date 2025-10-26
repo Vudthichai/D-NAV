@@ -199,6 +199,17 @@ tbody tr:nth-child(even){background:rgba(255,255,255,.02)}
 <div class="wrap" style="grid-template-columns:1fr;">
   <div class="card narrative-top">
     <h2 style="margin:0;">Portfolio Narrative</h2>
+    <div class="card narrative-top">
+  <h2 style="margin:0;">Portfolio Narrative</h2>
+
+  <!-- NEW: framing line -->
+  <div class="mini" id="narrativeTagline" style="margin-top:2px;opacity:.78;">
+    A live decision health index — blending intuition, data, and operating momentum.
+  </div>
+
+  <div class="mini" id="narrativeWindow">All time</div>
+  <div class="txt" id="narrativeTopTxt">Add decisions or import a CSV to see your executive readout.</div>
+</div>
     <div class="mini" id="narrativeWindow">All time</div>
     <div class="txt" id="narrativeTopTxt">Add decisions or import a CSV to see your executive readout.</div>
   </div>
@@ -388,8 +399,8 @@ tbody tr:nth-child(even){background:rgba(255,255,255,.02)}
       <div class="kpi"><h4>Policy Hint</h4><div class="big" id="h_hint">—</div><div class="mini">Guardrails, not handcuffs</div></div>
     </div>
     <div class="mini" style="margin-top:8px">
-  Tracks recovery behavior after losses — streak length, cumulative “return debt,” and typical wins needed to dig out. It’s your resilience gauge.
-</div>
+      Losses aren’t bad — streaks need intent. Track them so “learning” doesn’t become a silent bleed.
+    </div>
   </div>
 </div>
 
@@ -1257,6 +1268,13 @@ function narrativeFor(rowsAll){
   const s3 = `Energy ROI <b>${energyROITxt}</b> (return per unit energy). Pressure Tax <b>${pressureTax>=0?'+':''}${pressureTax}</b> D-NAV (penalty vs calm). Fragility exposure <b>${fragExp}%</b>. ${leverLine}`;
 
   el.innerHTML = `${s1} ${pChunk} ${sChunk} ${rChunk} ${s3}`;
+  // --- LANGUAGE POLISH: replace jargon with plain English ---
+let text = el.innerHTML;
+text = text
+  .replace(/EMA7–?EMA30/g, 'short-term vs long-term execution pace')
+  .replace(/Pressure Tax/g, 'Execution Load')
+  .replace(/Energy ROI/g, 'Return on Effort');
+el.innerHTML = text;
 }
 
 
