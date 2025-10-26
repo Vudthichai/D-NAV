@@ -200,7 +200,7 @@ tbody tr:nth-child(even){background:rgba(255,255,255,.02)}
   <div class="card narrative-top">
     <h2 style="margin:0;">Portfolio Narrative</h2>
     <div class="card narrative-top">
-
+  <h2 style="margin:0;">Portfolio Narrative</h2>
 
   <!-- NEW: framing line -->
   <div class="mini" id="narrativeTagline" style="margin-top:2px;opacity:.78;">
@@ -209,9 +209,7 @@ tbody tr:nth-child(even){background:rgba(255,255,255,.02)}
 
   <div class="mini" id="narrativeWindow">All time</div>
   <div class="txt" id="narrativeTopTxt">Add decisions or import a CSV to see your executive readout.</div>
-</div><!-- NEW: plain-language legend for key metrics -->
-<div class="mini" id="narrativeLegend" style="margin-top:6px;"></div>
-
+</div>
     <div class="mini" id="narrativeWindow">All time</div>
     <div class="txt" id="narrativeTopTxt">Add decisions or import a CSV to see your executive readout.</div>
   </div>
@@ -570,32 +568,6 @@ function energyTier(u, c){
   if (e >= 41) return {e, name:"High energy",      short:"high"};
   if (e >= 16) return {e, name:"Moderate energy",  short:"moderate"};
   return {e, name:"Low energy", short:"low"};
-}
-/* ---- Plain-language thresholds for Energy ROI & Pressure Tax ---- */
-function energyRoiLabel(val){
-  if (val < 0.05) return 'inefficient (wasteful effort)';
-  if (val < 0.15) return 'normal efficiency';
-  if (val < 0.30) return 'high leverage';
-  return 'exceptional burst';
-}
-function pressureTaxLabel(val){
-  // val is Pressure Tax = -avgPressure; closer to 0 is better
-  if (val < -10) return 'overpressured (burnout / rework risk)';
-  if (val < -5)  return 'high drive (watch stamina)';
-  if (val < 2)   return 'balanced pace';
-  return 'underused slack (slow / missed upside)';
-}
-function energyRoiColor(val){
-  if (val < 0.05) return 'var(--red)';
-  if (val < 0.15) return 'var(--amber)';
-  if (val < 0.30) return 'var(--green)';
-  return 'var(--blue)';
-}
-function pressureTaxColor(val){
-  if (val < -10) return 'var(--red)';
-  if (val < -5)  return 'var(--amber)';
-  if (val < 2)   return 'var(--green)';
-  return 'var(--blue)';
 }
 
 /* Coach text — concise, directive */
@@ -1187,22 +1159,6 @@ function narrativeFor(rowsAll){
   const avgR = mean(rows,r=>r.return);
   const avgS = mean(rows,r=>r.stability);
   const avgP = mean(rows,r=>r.pressure);
-// --- Energy ROI & Pressure Tax (portfolio-level) ---
-const avgE = mean(rows, r => Number(r.energy) || ((Number(r.urgency)||0) * (Number(r.confidence)||0)));
-const energyROI = avgE ? (avgR / avgE) : 0;   // return per unit energy
-const pressureTax = -avgP;                    // cost of pace: closer to 0 is better
-
-const legendEl = document.getElementById('narrativeLegend');
-if (legendEl){
-  const roiTxt = `Energy ROI ${energyROI.toFixed(2)} — ${energyRoiLabel(energyROI)} (efficiency of effort; higher is better, ~0.05–0.15 normal, ≥0.20 high leverage).`;
-  const taxSign = pressureTax >= 0 ? '+' : '';
- const legendEl = document.getElementById('narrativeLegend');
-if (legendEl){
-  const roiTxt = `Energy ROI ${energyROI.toFixed(2)} — ${energyRoiLabel(energyROI)} (efficiency of effort; higher is better; ~0.05–0.15 normal; ≥0.20 high leverage).`;
-  const taxSign = pressureTax >= 0 ? '+' : '';
-  const taxTxt = `Pressure Tax ${taxSign}${pressureTax.toFixed(0)} — ${pressureTaxLabel(pressureTax)} (cost of pace; aim near 0; −1 to −5 healthy drive).`;
-  legendEl.textContent = `${roiTxt} ${taxTxt}`;
-}
 
   const toneR = avgR>0?'positive':(avgR<0?'negative':'flat');
   const toneS = avgS>0?'stable':(avgS<0?'fragile':'uncertain');
