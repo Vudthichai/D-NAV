@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>The Decision NAVigator — D-NAV Mini (v3.39)</title>
+<title>The Decision NAVigator — D-NAV Mini (v3.40)</title>
 <style>
 :root{--bg:#0b0f14;--card:#121821;--muted:#8fa1b7;--text:#e9eef5;--green:#3ecf8e;--red:#ff6b6b;--amber:#f3b431;--blue:#69a9ff;--ink:#cfe1ff}
 *{box-sizing:border-box;font-family:Inter,ui-sans-serif,system-ui,-apple-system,Segoe UI,Roboto,Arial}
@@ -195,7 +195,7 @@ tbody tr:nth-child(even){background:rgba(255,255,255,.02)}
   <div class="sub">Bring clarity to complex decisions.</div>
 </div>
 
-<!-- NEW: Narrative at the top -->
+<!-- Narrative at the very top -->
 <div class="wrap" style="grid-template-columns:1fr;">
   <div class="card narrative-top">
     <h2 style="margin:0;">Portfolio Narrative</h2>
@@ -445,7 +445,7 @@ tbody tr:nth-child(even){background:rgba(255,255,255,.02)}
 <!-- Floating Compare FAB -->
 <button id="openCompareFab" class="btn" style="position:fixed;right:18px;bottom:18px;background:#0f62fe;box-shadow:0 12px 28px rgba(0,0,0,.45);z-index:9998">Compare</button>
 
-<!-- Compare Modal -->
+<!-- Compare Modal (rebuilt, with working sliders) -->
 <div id="compareModal" class="modal" aria-hidden="true">
   <div class="sheet">
     <header>
@@ -657,9 +657,10 @@ function compute(){
     ret, stab, press, urg: urgency, conf: confidence, impact, cost, risk
   });
 
+  // If compare is open and base is locked, keep base in sync; always recompute scenario deltas.
   if(document.getElementById('compareModal').getAttribute('aria-hidden')==='false'){
     if(document.getElementById('baseLock').checked) updateBaseInModal();
-    recomputeAllScenarios();
+    refreshDeltaTable();
   }
 }
 
@@ -1176,7 +1177,6 @@ function narrativeFor(rowsAll){
     topCat = tc; topShare = Math.round(te*100/totalE)+'%';
   }
 
-  // Exec text (two tight sentences)
   const s1 = `Across <b>${n}</b> decisions, footing is <b>${toneS}</b>, operating state is <b>${toneP}</b>, and return profile is <b>${toneR}</b>. Momentum is <b>${trendTone}</b> (EMA7–30 ${trend>=0?'+':''}${trend}); cadence ~<b>${cadence}/wk</b>.`;
   const s2 = `Energy concentrates in <b>${escapeHtml(topCat)}</b> (${topShare}). If signals conflict, tighten feedback loops and move one lever at a time (impact ↑, cost ↓, risk ↓).`;
 
@@ -1243,138 +1243,106 @@ function refreshHUD(){
   document.getElementById('k_recent').textContent = asc.length ? `From ${fmtLocal(asc[0].ts)} → ${fmtLocal(asc[asc.length-1].ts)}` : '—';
 }
 
-/* ======== COMPARE ENGINE ======== */
-let baseSnapshot = null;          // {vals, metrics}
-let scenarios = [];               // [{id, name, vals, metrics, el}]
+/* ======== COMPARE ENGINE — SIMPLE, RELIABLE SLIDERS ======== */
+let baseSnapshot = null;          // {vals, metrics, name}
+let scenarios = [];               // [{id, name, vals:{...}, metrics:{...}}]
 let scenarioSeq = 1;
+
+const CMP_KEYS_ALL   = ['impact','cost','risk','urgency','confidence'];
+const CMP_KEYS_SIMPLE= ['impact','cost','risk'];
 
 function currentMetricsFromSliders(){
   const v = readCurrent();
   return {v, m: computeMetrics(v)};
 }
+function sgnStr(n){ return n>0?('+'+Math.round(n)):(n<0?String(Math.round(n)):'0'); }
 
+function smallestNudge(vals){
+  const baseD = computeMetrics(vals).dnav;
+  let best = {key:null, dir:0, delta:0};
+  CMP_KEYS_ALL.forEach(k=>{
+    [-1,+1].forEach(dir=>{
+      const nv = Math.min(10, Math.max(1, (vals[k]||1) + dir));
+      if(nv===vals[k]) return;
+      const trial = {...vals, [k]: nv};
+      const d = computeMetrics(trial).dnav - baseD;
+      if (Math.abs(d) > Math.abs(best.delta)) best = {key:k, dir, delta:d};
+    });
+  });
+  return best.key ? best : null;
+}
+
+/* Base Panel */
 function updateBaseInModal(){
   const lock = document.getElementById('baseLock').checked;
   document.getElementById('baseLockState').textContent = lock ? '(locked)' : '(unlocked)';
   if(lock){
     const {v, m} = currentMetricsFromSliders();
     baseSnapshot = {vals:v, metrics:m, name:'Current sliders'};
+  } else if (!baseSnapshot){
+    const {v, m} = currentMetricsFromSliders();
+    baseSnapshot = {vals:v, metrics:m, name:'Current sliders'};
   }
   renderBasePanel();
 }
-
 function renderBasePanel(){
-  if(!baseSnapshot){ const {v, m} = currentMetricsFromSliders(); baseSnapshot={vals:v, metrics:m, name:'Current sliders'}; }
+  if(!baseSnapshot){ updateBaseInModal(); return; }
   const v = baseSnapshot.vals, m = baseSnapshot.metrics;
-  const sgn = x=>x>0?('+'+x):(x<0?x:'0');
-
-  document.getElementById('B_meta').innerHTML = `Return <b>${sgn(m.ret)}</b> • Stability <b>${sgn(m.stability)}</b> • Pressure <b>${sgn(m.pressure)}</b>`;
-  document.getElementById('B_ret').textContent = sgn(m.ret);
-  document.getElementById('B_stab').textContent = sgn(m.stability);
-  document.getElementById('B_press').textContent = sgn(m.pressure);
-  document.getElementById('B_dnav').textContent = m.dnav;
-
-  // TL;DR coach line for base
+  document.getElementById('B_meta').innerHTML =
+    `Return <b>${sgnStr(m.ret)}</b> • Stability <b>${sgnStr(m.stability)}</b> • Pressure <b>${sgnStr(m.pressure)}</b>`;
+  document.getElementById('B_ret').textContent  = sgnStr(m.ret);
+  document.getElementById('B_stab').textContent = sgnStr(m.stability);
+  document.getElementById('B_press').textContent= sgnStr(m.pressure);
+  document.getElementById('B_dnav').textContent = Math.round(m.dnav);
   document.getElementById('B_tldr').textContent = coachHint({
     ret:m.ret, stab:m.stability, press:m.pressure,
     urg:v.urgency, conf:v.confidence, impact:v.impact, cost:v.cost, risk:v.risk
   });
-
   refreshDeltaTable();
 }
 
-function makeSlider(name, key, val, onInput){
-  const wrap = document.createElement('div'); wrap.className='row';
-  const label = document.createElement('label');
-  label.innerHTML = `<span class="label-main">${name}</span><span class="hint">${key==='impact'?'Upside':key==='cost'?'Price':key==='risk'?'Downside':key==='urgency'?'Soonness':'Conviction'}</span>`;
-  const input = document.createElement('input');
-  input.type='range'; input.min='1'; input.max='10'; input.value=String(val||1);
-  const out = document.createElement('output'); out.textContent = String(val||1);
-  input.addEventListener('input', e=>{ out.textContent = e.target.value; onInput(Number(e.target.value)); });
-  wrap.appendChild(label); wrap.appendChild(input); wrap.appendChild(out);
-  return {wrap, input, out};
-}
-
-function scenarioCard(scn){
-  const card = document.createElement('div');
-  card.className = 'card';
-  card.style.minWidth='320px';
-  card.style.background='rgba(255,255,255,.03)';
-  card.style.border='1px solid rgba(255,255,255,.08)';
-
-  const head = document.createElement('div');
-  head.style.display='flex'; head.style.justifyContent='space-between'; head.style.alignItems='center';
-  const h = document.createElement('h2'); h.style.margin='0'; h.textContent = scn.name;
-  const btns = document.createElement('div');
-  btns.style.display='flex'; btns.style.gap='6px';
-
-  const setBase = document.createElement('button');
-  setBase.className='btn secondary'; setBase.textContent='Set as Base';
-  setBase.addEventListener('click', ()=>{
-    baseSnapshot = {vals:{...scn.vals}, metrics:{...scn.metrics}, name:scn.name};
-    document.getElementById('baseLock').checked = false; // unlock when using scenario as Base
-    renderBasePanel();
-    refreshDeltaTable();
-  });
-
-  const del = document.createElement('button');
-  del.className='btn secondary'; del.textContent='Remove';
-  del.addEventListener('click', ()=>{
-    scenarios = scenarios.filter(x=>x.id!==scn.id);
-    card.remove();
-    refreshDeltaTable();
-  });
-
-  btns.appendChild(setBase); btns.appendChild(del);
-  head.appendChild(h); head.appendChild(btns);
-  card.appendChild(head);
-
+/* Scenario Cards (HTML with real sliders) */
+function scenarioCardHTML(scn){
   const simple = document.getElementById('simpleMode').checked;
+  const keys = simple ? CMP_KEYS_SIMPLE : CMP_KEYS_ALL;
 
-  const grid = document.createElement('div'); grid.className='grid'; grid.style.gap='6px';
-  const keys = simple ? ['impact','cost','risk'] : ['impact','cost','risk','urgency','confidence'];
-  keys.forEach(k=>{
-    const nice = k[0].toUpperCase()+k.slice(1);
-    const {wrap} = makeSlider(nice,k,scn.vals[k], (nv)=>{ scn.vals[k]=nv; scn.metrics = computeMetrics(scn.vals); refreshDeltaTable(); });
-    grid.appendChild(wrap);
-  });
-  card.appendChild(grid);
+  const sliderRow = (label, key, val) => `
+    <div class="row">
+      <label><span class="label-main">${label}</span>
+        <span class="hint">${key==='impact'?'Upside':key==='cost'?'Price':key==='risk'?'Downside':key==='urgency'?'Soonness':'Conviction'}</span>
+      </label>
+      <input class="cmp-range" type="range" min="1" max="10" value="${val}" 
+             data-scn="${scn.id}" data-key="${key}">
+      <output class="cmp-out">${val}</output>
+    </div>`;
 
-  const meta = document.createElement('div'); meta.className='mini';
-  meta.style.marginTop='6px';
-  meta.id = `scn_meta_${scn.id}`;
-  card.appendChild(meta);
+  const labelMap = {impact:'Impact', cost:'Cost', risk:'Risk', urgency:'Urgency', confidence:'Confidence'};
+  const rowsHTML = keys.map(k => sliderRow(labelMap[k], k, scn.vals[k]||1)).join('');
 
-  scn.el = card;
-  return card;
+  const m = computeMetrics(scn.vals);
+  const meta = `D-NAV ${sgnStr(m.dnav)} • Return ${sgnStr(m.ret)} • Stability ${sgnStr(m.stability)} • Pressure ${sgnStr(m.pressure)}`;
+
+  return `
+    <div class="card scn-card" data-scn="${scn.id}" style="min-width:320px;background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.08)">
+      <div style="display:flex;justify-content:space-between;align-items:center;">
+        <h2 style="margin:0">${escapeHtml(scn.name)}</h2>
+        <div style="display:flex;gap:6px;">
+          <button class="btn secondary scn-setbase" data-scn="${scn.id}">Set as Base</button>
+          <button class="btn secondary scn-remove"  data-scn="${scn.id}">Remove</button>
+        </div>
+      </div>
+      <div class="grid" style="gap:6px">${rowsHTML}</div>
+      <div class="mini scn-meta" style="margin-top:6px">${meta}</div>
+    </div>`;
+}
+function renderScenarios(){
+  const wrap = document.getElementById('scenarios');
+  wrap.innerHTML = scenarios.map(scn => scenarioCardHTML(scn)).join('');
 }
 
-function recomputeAllScenarios(){
-  scenarios.forEach(s=>{
-    s.metrics = computeMetrics(s.vals);
-  });
-  refreshDeltaTable();
-}
-
-/* Smallest nudge: which single slider ±1 yields the biggest Δ D-NAV */
-function smallestNudge(fromVals){
-  const keys = ['impact','cost','risk','urgency','confidence'];
-  const base = computeMetrics(fromVals).dnav;
-  let best = {key:null, dir:0, delta:0};
-  keys.forEach(k=>{
-    [-1,+1].forEach(dir=>{
-      const nv = Math.min(10, Math.max(1, fromVals[k]+dir));
-      if(nv===fromVals[k]) return;
-      const trial = {...fromVals, [k]:nv};
-      const d = computeMetrics(trial).dnav - base;
-      if(Math.abs(d) > Math.abs(best.delta)){ best = {key:k, dir, delta:d}; }
-    });
-  });
-  return best.key ? best : null;
-}
-
+/* Delta Table & Winner */
 function refreshDeltaTable(){
-  if(!baseSnapshot){ renderBasePanel(); }
+  if(!baseSnapshot){ updateBaseInModal(); return; }
   const B = baseSnapshot.metrics;
   const tbody = document.querySelector('#deltaTable tbody');
   const board = document.getElementById('deltaBoard');
@@ -1388,33 +1356,30 @@ function refreshDeltaTable(){
 
   board.style.display='block';
   tbody.innerHTML = scenarios.map(s=>{
+    s.metrics = computeMetrics(s.vals);
     const dR = s.metrics.ret - B.ret;
     const dS = s.metrics.stability - B.stability;
     const dP = s.metrics.pressure - B.pressure;
     const dN = s.metrics.dnav - B.dnav;
-
-    const barWidth = Math.min(100, Math.abs(dN));
+    const barWidth = Math.min(100, Math.abs(Math.round(dN)));
     const bar = `<div class="barchip"><span class="${dN>=0?'pos':'neg'}" style="width:${barWidth}%"></span></div>`;
     const arrow = dN>0?'<span class="arrow up">▲</span>':(dN<0?'<span class="arrow down">▼</span>':'<span class="arrow flat">—</span>');
-
-    // scenario meta line
-    const meta = document.getElementById(`scn_meta_${s.id}`);
-    if(meta){
+    // update per-card meta (and easiest nudge)
+    const card = document.querySelector(`.scn-card[data-scn="${s.id}"] .scn-meta`);
+    if(card){
       const best = smallestNudge(s.vals);
       const lever = best ? `${best.dir>0?'+':'−'}1 ${best.key} → ΔD ${best.delta>0?'+':''}${Math.round(best.delta)}` : '—';
-      meta.innerHTML = `Return ${dR>=0?'+':''}${Math.round(dR)} • Stability ${dS>=0?'+':''}${Math.round(dS)} • Pressure ${dP>=0?'+':''}${Math.round(dP)} • D-NAV ${dN>=0?'+':''}${Math.round(dN)} • <b>easiest nudge:</b> ${lever}`;
+      card.innerHTML = `D-NAV ${sgnStr(s.metrics.dnav)} • Return ${sgnStr(s.metrics.ret)} • Stability ${sgnStr(s.metrics.stability)} • Pressure ${sgnStr(s.metrics.pressure)} • <b>easiest nudge:</b> ${lever}`;
     }
-
     return `<tr>
       <td style="text-align:left">${escapeHtml(s.name)}</td>
-      <td>${dR>=0?'+':''}${Math.round(dR)}</td>
-      <td>${dS>=0?'+':''}${Math.round(dS)}</td>
-      <td>${dP>=0?'+':''}${Math.round(dP)}</td>
-      <td>${arrow} ${dN>=0?'+':''}${Math.round(dN)} ${bar}</td>
+      <td>${sgnStr(dR)}</td>
+      <td>${sgnStr(dS)}</td>
+      <td>${sgnStr(dP)}</td>
+      <td>${arrow} ${sgnStr(dN)} ${bar}</td>
     </tr>`;
   }).join('');
 
-  // Winner
   const best = scenarios.slice().sort((a,b)=>b.metrics.dnav - a.metrics.dnav)[0];
   const lead = best.metrics.dnav - B.dnav;
   const winnerTag = document.getElementById('winnerTag');
@@ -1424,12 +1389,12 @@ function refreshDeltaTable(){
     `${best.name} is ${lead>=0?'+':''}${Math.round(lead)} D-NAV vs Base.`;
 }
 
-/* Recent loader */
+/* Recents */
 function populateRecent(){
   const sel = document.getElementById('recentSelect');
   const list = document.getElementById('moreList');
   if(!sel || !list) return;
-  const rows = loadLog().slice(0,50); // latest 50
+  const rows = loadLog().slice(0,50);
   sel.innerHTML = '<option value="">Load from recent…</option>' +
     rows.map(r=>`<option value="${r.ts}">${fmtLocal(r.ts)} — ${escapeHtml(r.name||'Untitled')}</option>`).join('');
   list.innerHTML = rows.map(r=>{
@@ -1440,12 +1405,111 @@ function populateRecent(){
         <div><b>${escapeHtml(r.name||'Untitled')}</b><div class="mini">${fmtLocal(r.ts)} • Cat: ${escapeHtml(r.category||'—')}</div></div>
         <button class="btn secondary" data-ts="${r.ts}">Load as Scenario</button>
       </div>
-      <div class="mini" style="margin-top:6px">D-NAV ${m.dnav} • Return ${m.ret>=0?'+':''}${m.ret} • Stability ${m.stability>=0?'+':''}${m.stability} • Pressure ${m.pressure>=0?'+':''}${m.pressure}</div>
+      <div class="mini" style="margin-top:6px">D-NAV ${sgnStr(m.dnav)} • Return ${sgnStr(m.ret)} • Stability ${sgnStr(m.stability)} • Pressure ${sgnStr(m.pressure)}</div>
     </div>`;
   }).join('');
 }
 
-/* ======== WIRING ======== */
+/* Modal Open/Close & Wiring */
+(function wireCompare(){
+  const modal = document.getElementById('compareModal');
+
+  function openCompare(){
+    updateBaseInModal();
+    renderScenarios();
+    modal.classList.add('show'); modal.setAttribute('aria-hidden','false');
+    populateRecent();
+    refreshDeltaTable();
+  }
+  function closeCompare(){
+    modal.classList.remove('show'); modal.setAttribute('aria-hidden','true');
+  }
+
+  document.getElementById('openCompareFab').addEventListener('click', openCompare);
+  document.getElementById('openCompareBtnA').addEventListener('click', openCompare);
+  document.getElementById('closeCompareBtn').addEventListener('click', closeCompare);
+  document.addEventListener('keydown', (e)=>{ if(e.key==='Escape' && modal.getAttribute('aria-hidden')==='false') closeCompare(); });
+
+  // Base lock & simple mode
+  document.getElementById('baseLock').addEventListener('change', ()=>{ updateBaseInModal(); refreshDeltaTable(); });
+  document.getElementById('simpleMode').addEventListener('change', ()=>{ renderScenarios(); refreshDeltaTable(); });
+
+  // Add Scenario (clone current sliders)
+  document.getElementById('addScenarioBtn').addEventListener('click', ()=>{
+    const {v} = currentMetricsFromSliders();
+    const scn = { id:'S'+(scenarioSeq++), name:'Scenario '+(scenarios.length+1), vals:{...v}, metrics:computeMetrics(v) };
+    scenarios.push(scn);
+    renderScenarios();
+    refreshDeltaTable();
+  });
+
+  // Recent quick pick
+  document.getElementById('recentSelect').addEventListener('change', (e)=>{
+    const ts = Number(e.target.value||'');
+    if(!ts) return;
+    const row = loadLog().find(r=>r.ts===ts);
+    if(!row) return;
+    const vals = {impact:row.impact,cost:row.cost,risk:row.risk,urgency:row.urgency,confidence:row.confidence};
+    const scn = { id:'S'+(scenarioSeq++), name:(row.name||'Recent'), vals, metrics:computeMetrics(vals) };
+    scenarios.push(scn);
+    renderScenarios();
+    refreshDeltaTable();
+    e.target.value='';
+  });
+
+  // “More…” panel & load
+  document.getElementById('moreRecentBtn').addEventListener('click', ()=>{
+    const p = document.getElementById('morePanel');
+    p.style.display = (p.style.display==='none' || !p.style.display)?'block':'none';
+  });
+  document.getElementById('moreClose').addEventListener('click', ()=>{ document.getElementById('morePanel').style.display='none'; });
+  document.getElementById('moreList').addEventListener('click', (e)=>{
+    const btn = e.target.closest('button[data-ts]');
+    if(!btn) return;
+    const ts = Number(btn.dataset.ts||'');
+    const row = loadLog().find(r=>r.ts===ts);
+    if(!row) return;
+    const vals = {impact:row.impact,cost:row.cost,risk:row.risk,urgency:row.urgency,confidence:row.confidence};
+    const scn = { id:'S'+(scenarioSeq++), name:(row.name||'Recent'), vals, metrics:computeMetrics(vals) };
+    scenarios.push(scn);
+    renderScenarios();
+    refreshDeltaTable();
+  });
+
+  // Event delegation: sliders, set base, remove
+  document.getElementById('scenarios').addEventListener('input', (e)=>{
+    const r = e.target.closest('.cmp-range');
+    if(!r) return;
+    const scnId = r.dataset.scn, key = r.dataset.key, val = Number(r.value);
+    const scn = scenarios.find(s=>s.id===scnId); if(!scn) return;
+    scn.vals[key] = val;
+    const out = r.parentElement.querySelector('.cmp-out'); if(out) out.textContent = String(val);
+    scn.metrics = computeMetrics(scn.vals);
+    refreshDeltaTable();
+  });
+
+  document.getElementById('scenarios').addEventListener('click', (e)=>{
+    const setBtn = e.target.closest('.scn-setbase');
+    const delBtn = e.target.closest('.scn-remove');
+    if(setBtn){
+      const scnId = setBtn.dataset.scn;
+      const scn = scenarios.find(s=>s.id===scnId);
+      if(scn){
+        baseSnapshot = {vals:{...scn.vals}, metrics:{...scn.metrics}, name:scn.name};
+        document.getElementById('baseLock').checked = false;
+        renderBasePanel();
+        refreshDeltaTable();
+      }
+    }else if(delBtn){
+      const scnId = delBtn.dataset.scn;
+      scenarios = scenarios.filter(s=>s.id!==scnId);
+      renderScenarios();
+      refreshDeltaTable();
+    }
+  });
+})();
+
+/* -------- Event wiring (page) -------- */
 document.addEventListener('DOMContentLoaded', ()=>{
   // Sliders
   SLIDER_IDS.forEach(id=>{
@@ -1454,7 +1518,7 @@ document.addEventListener('DOMContentLoaded', ()=>{
   compute();
 
   // Range window
-  document.getElementById('rangeSelect').addEventListener('change', ()=>{ refreshHUD(); });
+  document.getElementById('rangeSelect').addEventListener('change', ()=>refreshHUD());
 
   // CSV upload
   const fileInput = document.getElementById('csvInput');
@@ -1506,95 +1570,6 @@ document.addEventListener('DOMContentLoaded', ()=>{
   document.getElementById('clearLogBtn').addEventListener('click', ()=>{
     if(!confirm('Clear all saved decisions?')) return;
     saveLog([]); refreshHUD(); populateRecent();
-  });
-
-  /* ===== Compare modal ===== */
-  const modal = document.getElementById('compareModal');
-  function openCompare(){
-    // Initialize base & purge scenarios panel (keep array)
-    updateBaseInModal();
-    const wrap = document.getElementById('scenarios');
-    wrap.innerHTML = '';
-    scenarios.forEach(s=>wrap.appendChild(scnToDOM(s)));
-    modal.classList.add('show'); modal.setAttribute('aria-hidden','false');
-    populateRecent();
-    refreshDeltaTable();
-  }
-  function closeCompare(){
-    modal.classList.remove('show'); modal.setAttribute('aria-hidden','true');
-  }
-
-  document.getElementById('openCompareFab').addEventListener('click', openCompare);
-  document.getElementById('openCompareBtnA').addEventListener('click', openCompare);
-  document.getElementById('closeCompareBtn').addEventListener('click', closeCompare);
-  document.addEventListener('keydown', (e)=>{ if(e.key==='Escape' && modal.getAttribute('aria-hidden')==='false') closeCompare(); });
-
-  // Base lock / simple mode
-  document.getElementById('baseLock').addEventListener('change', ()=>{
-    if(document.getElementById('baseLock').checked){ updateBaseInModal(); }
-    else { document.getElementById('baseLockState').textContent='(unlocked)'; }
-    refreshDeltaTable();
-  });
-  document.getElementById('simpleMode').addEventListener('change', ()=>{
-    // rebuild scenario cards with fewer/more sliders
-    const wrap = document.getElementById('scenarios'); wrap.innerHTML='';
-    scenarios.forEach(s=>wrap.appendChild(scnToDOM(s)));
-    refreshDeltaTable();
-  });
-
-  // Add Scenario
-  function scnToDOM(scn){
-    const card = scenarioCard(scn);
-    return card;
-  }
-  document.getElementById('addScenarioBtn').addEventListener('click', ()=>{
-    const {v} = currentMetricsFromSliders();
-    const scn = { id: 'S'+(scenarioSeq++), name: 'Scenario '+(scenarios.length+1), vals: {...v}, metrics: computeMetrics(v), el:null };
-    scenarios.push(scn);
-    document.getElementById('scenarios').appendChild(scnToDOM(scn));
-    refreshDeltaTable();
-  });
-
-  // Recent quick pick
-  document.getElementById('recentSelect').addEventListener('change', (e)=>{
-    const ts = Number(e.target.value||'');
-    if(!ts) return;
-    const row = loadLog().find(r=>r.ts===ts);
-    if(!row) return;
-    const vals = {impact:row.impact,cost:row.cost,risk:row.risk,urgency:row.urgency,confidence:row.confidence};
-    const scn = { id:'S'+(scenarioSeq++), name: (row.name||'Recent'), vals, metrics:computeMetrics(vals), el:null };
-    scenarios.push(scn);
-    document.getElementById('scenarios').appendChild(scnToDOM(scn));
-    e.target.value='';
-    refreshDeltaTable();
-  });
-
-  // More panel
-  document.getElementById('moreRecentBtn').addEventListener('click', ()=>{
-    const p = document.getElementById('morePanel');
-    p.style.display = (p.style.display==='none' || !p.style.display)?'block':'none';
-  });
-  document.getElementById('moreClose').addEventListener('click', ()=>{ document.getElementById('morePanel').style.display='none'; });
-  document.getElementById('moreList').addEventListener('click', (e)=>{
-    const btn = e.target.closest('button[data-ts]');
-    if(!btn) return;
-    const ts = Number(btn.dataset.ts||'');
-    const row = loadLog().find(r=>r.ts===ts);
-    if(!row) return;
-    const vals = {impact:row.impact,cost:row.cost,risk:row.risk,urgency:row.urgency,confidence:row.confidence};
-    const scn = { id:'S'+(scenarioSeq++), name: (row.name||'Recent'), vals, metrics:computeMetrics(vals), el:null };
-    scenarios.push(scn);
-    document.getElementById('scenarios').appendChild(scnToDOM(scn));
-    refreshDeltaTable();
-  });
-
-  // Delete from log (inline)
-  document.getElementById('logTable').addEventListener('click', (e)=>{
-    const btn = e.target.closest('button[data-del]');
-    if(!btn) return;
-    const ts = Number(btn.dataset.del);
-    const cur = loadLog().filter(r=>r.ts!==ts);
-    saveLog(cur); refreshHUD(); populateRecent();
   });
 
   refreshHUD();
