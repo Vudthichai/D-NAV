@@ -1187,6 +1187,22 @@ function narrativeFor(rowsAll){
   const avgR = mean(rows,r=>r.return);
   const avgS = mean(rows,r=>r.stability);
   const avgP = mean(rows,r=>r.pressure);
+// --- Energy ROI & Pressure Tax (portfolio-level) ---
+const avgE = mean(rows, r => Number(r.energy) || ((Number(r.urgency)||0) * (Number(r.confidence)||0)));
+const energyROI = avgE ? (avgR / avgE) : 0;   // return per unit energy
+const pressureTax = -avgP;                    // cost of pace: closer to 0 is better
+
+const legendEl = document.getElementById('narrativeLegend');
+if (legendEl){
+  const roiTxt = `Energy ROI ${energyROI.toFixed(2)} — ${energyRoiLabel(energyROI)} (efficiency of effort; higher is better, ~0.05–0.15 normal, ≥0.20 high leverage).`;
+  const taxSign = pressureTax >= 0 ? '+' : '';
+ const legendEl = document.getElementById('narrativeLegend');
+if (legendEl){
+  const roiTxt = `Energy ROI ${energyROI.toFixed(2)} — ${energyRoiLabel(energyROI)} (efficiency of effort; higher is better; ~0.05–0.15 normal; ≥0.20 high leverage).`;
+  const taxSign = pressureTax >= 0 ? '+' : '';
+  const taxTxt = `Pressure Tax ${taxSign}${pressureTax.toFixed(0)} — ${pressureTaxLabel(pressureTax)} (cost of pace; aim near 0; −1 to −5 healthy drive).`;
+  legendEl.textContent = `${roiTxt} ${taxTxt}`;
+}
 
   const toneR = avgR>0?'positive':(avgR<0?'negative':'flat');
   const toneS = avgS>0?'stable':(avgS<0?'fragile':'uncertain');
