@@ -244,6 +244,51 @@ tbody tr:nth-child(even){background:rgba(255,255,255,.02)}
 
 /* tiny label row below scenarios header */
 .scn-meta-line{display:flex;align-items:center;gap:10px;margin-top:6px}
+/* === DEMO ADDITIONS (v3.39g) — yellow caption + spotlight + bigger variable highlight === */
+:root{
+  --tour-yellow:#ffd866;
+  --tour-backdrop: rgba(0,0,0,.55);
+  --tour-outline:#ffd866;
+}
+
+/* Yellow demo caption (keeps your existing .tour-note, just overrides color and adds polish) */
+.tour-note{
+  color:var(--tour-yellow) !important;
+  border:1px solid rgba(255,216,102,.5);
+  box-shadow:0 12px 32px rgba(0,0,0,.6), inset 0 0 32px rgba(255,216,102,.18);
+}
+
+/* Fast typewriter caret */
+.tour-typing-caret{
+  display:inline-block; width:10px; height:1.1em; margin-left:4px;
+  border-right:3px solid var(--tour-yellow);
+  animation: tourCaret .6s steps(1,end) infinite;
+}
+@keyframes tourCaret { 50%{ border-right-color:transparent } }
+
+/* Spotlight ring element (new) */
+.tour-ring{
+  position:absolute;
+  border-radius:14px;
+  outline:3px solid var(--tour-outline);
+  box-shadow:
+    0 0 0 9999px var(--tour-backdrop),
+    0 8px 28px rgba(0,0,0,.55),
+    0 0 24px rgba(255,216,102,.25);
+  z-index:10002;
+  pointer-events:none;
+  transition:all .25s ease;
+}
+
+/* Bigger, safer rectangle around variable rows so the glow doesn’t crowd labels */
+.slider-row{ position:relative; border-radius:12px; }
+.slider-row.is-demo-focus{
+  outline:2px solid rgba(255,216,102,.65);
+  background:rgba(255,216,102,.06);
+  box-shadow:0 6px 18px rgba(0,0,0,.35), inset 0 0 0 9999px rgba(255,216,102,.02);
+  padding:10px 14px;
+  margin:6px -4px;
+}
 </style>
 </head>
 <body>
@@ -254,6 +299,7 @@ tbody tr:nth-child(even){background:rgba(255,255,255,.02)}
 <div id="tourNote" class="tour-note" hidden>Loading guided demo...</div>
 <div id="tourSpot" hidden></div>
 <div id="tourSpot" hidden></div>
+
 
   <!-- Page banner -->
   <div class="site-title">
@@ -287,27 +333,27 @@ tbody tr:nth-child(even){background:rgba(255,255,255,.02)}
       <div class="muted">Rate each variable from <i>1- 10</i>. Scores are relative to your current context.</div>
       <div class="scale-note">Scale: <span class="pill blue" style="padding:2px 8px;border:1px solid rgba(105,169,255,.35)">1 = minimal</span> <span class="pill blue" style="padding:2px 8px;border:1px solid rgba(105,169,255,.35)">10 = maximum</span> • judge how it feels <b>right now</b>.</div>
 
-      <div class="row">
+      <div class="row slider-row">
         <label><span class="label-main" data-default="Impact">Impact</span><span class="hint" data-default="Expected benefit / upside.">Expected benefit / upside.</span></label>
         <input id="impact" type="range" min="1" max="10" value="1" />
         <output id="o_impact">1</output>
       </div>
-      <div class="row">
+      <div class="row slider-row">
         <label><span class="label-main" data-default="Cost">Cost</span><span class="hint" data-default="Money, time, or effort required.">Money, time, or effort required.</span></label>
         <input id="cost" type="range" min="1" max="10" value="1" />
         <output id="o_cost">1</output>
       </div>
-      <div class="row">
+      <div class="row slider-row">
         <label><span class="label-main" data-default="Risk">Risk</span><span class="hint" data-default="Downside, what could go wrong.">Downside, what could go wrong.</span></label>
         <input id="risk" type="range" min="1" max="10" value="1" />
         <output id="o_risk">1</output>
       </div>
-      <div class="row">
+      <div class="row slider-row">
         <label><span class="label-main" data-default="Urgency">Urgency</span><span class="hint" data-default="How soon action is needed.">How soon action is needed.</span></label>
         <input id="urgency" type="range" min="1" max="10" value="1" />
         <output id="o_urgency">1</output>
       </div>
-      <div class="row">
+      <div class="row slider-row">
         <label><span class="label-main" data-default="Confidence">Confidence</span><span class="hint" data-default="Evidence, readiness, and conviction.">Evidence, readiness, and conviction.</span></label>
         <input id="confidence" type="range" min="1" max="10" value="1" />
         <output id="o_confidence">1</output>
@@ -1729,5 +1775,126 @@ document.addEventListener('DOMContentLoaded', ()=>{
   });
 })();
 </script>
-</body>
+<<script>
+/* === DEMO DRIVER (no markup changes needed) === */
+(function(){
+  const $all = s => Array.from(document.querySelectorAll(s));
+
+  // Find blocks by headings (so you don't have to add attributes)
+  function blockByHeading(match){
+    match = match.toLowerCase();
+    const h = $all('h1,h2,h3,h4').find(x => (x.textContent||'').toLowerCase().includes(match));
+    return h ? (h.closest('section,article,div,main') || h.parentElement) : null;
+  }
+
+  // Try to find the R-P-S block by locating Return/Stability/Pressure labels
+  function rpsBlock(){
+    const keys = ['return','stability','pressure'];
+    const hits = [];
+    $all('*').forEach(n=>{
+      const t = (n.textContent||'').toLowerCase().trim();
+      if(keys.some(k => t === k || t.startsWith(k+' ') || t.includes(k+' ('))) hits.push(n);
+    });
+    if(!hits.length) return null;
+    let a = hits[0];
+    while(a){
+      if(hits.every(h => a.contains(h))) return a.closest('section,article,div,main') || a;
+      a = a.parentElement;
+    }
+    return null;
+  }
+
+  // Find a variable row by its label text and ensure it has slider-row
+  function variableRow(name){
+    const target = name.toLowerCase();
+    const labels = $all('label, .label, .var-label, h5, strong, span');
+    let row = null;
+    for(const lab of labels){
+      const txt = (lab.textContent||'').toLowerCase();
+      if(txt.startsWith(target)){
+        row = lab.closest('.slider-row') || lab.closest('.row') || lab.parentElement;
+        break;
+      }
+    }
+    if(row){ row.classList.add('slider-row'); }
+    return row;
+  }
+
+  // Build spotlight ring and yellow note if not present
+  const ring = document.createElement('div'); ring.className='tour-ring';
+  const note = document.querySelector('.tour-note') || (()=>{
+    const n = document.createElement('div'); n.className='tour-note'; n.style.position='fixed'; n.style.left='50%'; n.style.bottom='28px'; n.style.transform='translateX(-50%)'; n.style.zIndex='10003'; document.body.appendChild(n); return n;
+  })();
+  const caret = document.createElement('span'); caret.className='tour-typing-caret';
+
+  function absRect(el){ const r = el.getBoundingClientRect(); return {top:r.top+scrollY,left:r.left+scrollX,width:r.width,height:r.height}; }
+  function spotlight(el, pad=14){
+    if(!el) return;
+    if(!document.body.contains(ring)) document.body.appendChild(ring);
+    const r = absRect(el);
+    ring.style.top = (r.top - pad) + 'px';
+    ring.style.left = (r.left - pad) + 'px';
+    ring.style.width = (r.width + pad*2) + 'px';
+    ring.style.height = (r.height + pad*2) + 'px';
+  }
+
+  async function typeInto(el, text){
+    el.textContent = '';
+    el.appendChild(caret);
+    let i=0, chunk=6;
+    return new Promise(resolve=>{
+      const tick=()=>{
+        const next = text.slice(i, i+chunk);
+        caret.before(document.createTextNode(next));
+        i += chunk;
+        if(i < text.length) setTimeout(tick, 20); else resolve();
+      };
+      tick();
+    });
+  }
+
+  const STEPS = [
+    {
+      find: () => (variableRow('urgency') || blockByHeading('variables')),
+      pad: 18,
+      before: el => el && el.classList && el.classList.add('is-demo-focus'),
+      after:  el => el && el.classList && el.classList.remove('is-demo-focus'),
+      text: "Rate your variables 1–10 — Impact, Cost, Risk, Urgency, Confidence. These five knobs are your inputs. Judge honestly."
+    },
+    {
+      find: () => rpsBlock(),
+      pad: 14,
+      text: "R-P-S: Return (Impact–Cost), Stability (Confidence–Risk), Pressure (Urgency–Confidence). Footing, fuel, and heat at a glance."
+    },
+    {
+      find: () => blockByHeading('composite'),
+      pad: 14,
+      text: "Composite D-NAV compresses the picture into one momentum number. Low = conserve energy. High = press the advantage."
+    },
+    {
+      find: () => blockByHeading('coach'),
+      pad: 14,
+      text: "Coach Readout explains the why — footing, pressure, scope, and evidence — so your story matches the math."
+    }
+  ];
+
+  async function run(){
+    for(const s of STEPS){
+      const el = s.find();
+      if(!el) continue;
+      const y = el.getBoundingClientRect().top + scrollY - 120;
+      scrollTo({ top:y, behavior:'smooth' });
+      if(s.before) s.before(el);
+      spotlight(el, s.pad||14);
+      await typeInto(note, s.text);
+      await new Promise(r=>setTimeout(r, 1400));
+      if(s.after) s.after(el);
+    }
+  }
+
+  window.addEventListener('DOMContentLoaded', run);
+  window.DNAV_DEMO = run; // replay from console if needed
+})();
+</script>
+/body>
 </html>
