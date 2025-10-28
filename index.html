@@ -654,7 +654,7 @@ function scoreTagText(n){return n>=80?"Very high D-NAV":n>=50?"High D-NAV":n>=25
 /* Energy tiers */
 function energyTier(u, c){
   const e = (u||0) * (c||0);
-  if (e >= 71) return {e, name:"OverEnergy energy", short:"overEnergy"};
+  if (e >= 71) return {e, name:"Over-energy", short:"overEnergy"};
   if (e >= 41) return {e, name:"High energy", short:"high"};
   if (e >= 16) return {e, name:"Moderate energy", short:"moderate"};
   return {e, name:"Low energy", short:"low"};
@@ -1630,7 +1630,7 @@ document.addEventListener('DOMContentLoaded', ()=>{
   function setNote(text){
     const n = $('tourNote'); if(!n) return;
     if (text === null){ n.classList.add('hide'); setTimeout(()=>{n.hidden=true;},250); return; }
-    n.textContent = text;
+    n.textContent = n.innerHTML = text;
     n.hidden = false;
     n.classList.remove('hide');
     n.classList.add('show');
@@ -1639,7 +1639,7 @@ document.addEventListener('DOMContentLoaded', ()=>{
     const s = $('tourSpot'); if(!s || !el) return;
     const r = el.getBoundingClientRect();
     const cx = r.left + r.width/2;
-    const cy = r.top + r.height/2;
+    const cy = r.top + r.height/2 + window.scrollY;
     const dia = Math.min(Math.max(Math.hypot(r.width+pad*2, r.height+pad*2), 160), 380);
     s.hidden = false;
     s.classList.add('show');
@@ -1672,50 +1672,50 @@ document.addEventListener('DOMContentLoaded', ()=>{
     showMask(true);
 
     // Step 1: Impact
-    moveSpotTo($('#impact')); pulse($('#impact'), true);
+    moveSpotTo($('impact')); pulse($('impact'), true);
     setNote('Start by rating <b>Impact</b> — expected upside.'); 
     await setSlider('impact', 9); await wait(4000);
-    pulse($('#impact'), false);
+    pulse($('impact'), false);
 
     // Step 2: Cost & Risk
-    moveSpotTo($('#cost')); pulse($('#cost'), true);
+    moveSpotTo($('cost')); pulse($('cost'), true);
     setNote('Now set <b>Cost</b> (money/time/effort)…');
     await setSlider('cost', 2); await wait(2500);
-    pulse($('#cost'), false);
+    pulse($('cost'), false);
 
-    moveSpotTo($('#risk')); pulse($('#risk'), true);
+    moveSpotTo($('risk')); pulse($('risk'), true);
     setNote('…and <b>Risk</b> — what could go wrong.');
     await setSlider('risk', 3); await wait(3000);
-    pulse($('#risk'), false);
+    pulse($('risk'), false);
 
     // Step 3: Urgency & Confidence
-    moveSpotTo($('#urgency')); pulse($('#urgency'), true);
+    moveSpotTo($('urgency')); pulse($('urgency'), true);
     setNote('<b>Urgency</b>: how soon action is needed.');
     await setSlider('urgency', 6); await wait(2500);
-    pulse($('#urgency'), false);
+    pulse($('urgency'), false);
 
-    moveSpotTo($('#confidence')); pulse($('#confidence'), true);
+    moveSpotTo($('confidence')); pulse($('confidence'), true);
     setNote('<b>Confidence</b>: evidence & readiness.');
     await setSlider('confidence', 7); await wait(3000);
-    pulse($('#confidence'), false);
+    pulse($('confidence'), false);
 
     // Step 4: R|P|S signals
-    moveSpotTo($('#ret')); pulse($('#ret'), true);
+    moveSpotTo($('ret')); pulse($('ret'), true);
     setNote('Note the derived signals — <b>Return</b> (Impact − Cost)…');
-    await wait(2000); pulse($('#ret'), false);
+    await wait(2000); pulse($('ret'), false);
 
-    moveSpotTo($('#stab')); pulse($('#stab'), true);
+    moveSpotTo($('stab')); pulse($('stab'), true);
     setNote('<b>Stability</b> (Confidence − Risk)…');
-    await wait(1500); pulse($('#stab'), false);
+    await wait(1500); pulse($('stab'), false);
 
-    moveSpotTo($('#press')); pulse($('#press'), true);
+    moveSpotTo($('press')); pulse($('press'), true);
     setNote('<b>Pressure</b> (Urgency − Confidence).');
-    await wait(1500); pulse($('#press'), false);
+    await wait(1500); pulse($('press'), false);
 
     // Step 5: Archetype & Coach
-    moveSpotTo($('#score')); pulse($('#score'), true);
+    moveSpotTo($('score')); pulse($('score'), true);
     setNote('Composite <b>D-NAV</b> updates live. Read the <b>Archetype</b> & the <b>Coach Readout</b> for directives.');
-    await wait(4000); pulse($('#score'), false);
+    await wait(4000); pulse($('score'), false);
 
     // Done
     hideSpot();
@@ -1735,7 +1735,7 @@ document.addEventListener('DOMContentLoaded', ()=>{
   window.addEventListener('DOMContentLoaded', () => {
     // autorun once on first visit
     startDemo(false);
-    // header button (already in your DOM)
+    // header button
     qs('#runDemoBtn')?.addEventListener('click', () => startDemo(true));
   });
 })();
