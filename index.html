@@ -198,6 +198,16 @@ tbody tr:nth-child(even){background:rgba(255,255,255,.02)}
     <h1>The Decision NAVigator</h1>
     <div class="sub">Bring clarity to complex decisions instantly.</div>
     <p>Adjust the sliders below — your decision’s profile updates in real time.</p>
+<div style="margin-top:8px;display:flex;gap:8px;flex-wrap:wrap">
+  <a id="openDefsBtn"
+     href="/definitions.html"
+     class="btn secondary"
+     style="padding:8px 12px;font-weight:700"
+     target="_blank" rel="noopener noreferrer"
+     aria-label="Open Definitions and Archetypes in a new tab">
+    Definitions & Archetypes
+  </a>
+</div>
 
   </div>
 
@@ -1192,6 +1202,12 @@ function renderLogTable(rows){
     </tr>
   `).join('');
 }
+// Quick keyboard shortcut: "?" opens Definitions in a new tab
+document.addEventListener('keydown', (e)=>{
+  if (e.key === '?' || (e.shiftKey && e.key === '/')) {
+    window.open('/definitions.html', '_blank', 'noopener,noreferrer');
+  }
+});
 
 /* HUD refresh */
 function refreshHUD(){
