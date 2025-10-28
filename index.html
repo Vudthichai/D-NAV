@@ -288,7 +288,21 @@ tbody tr:nth-child(even){background:rgba(255,255,255,.02)}
   box-shadow:0 6px 18px rgba(0,0,0,.35), inset 0 0 0 9999px rgba(255,216,102,.02);
   padding:10px 14px;
   margin:6px -4px;
+}/* === Demo controls === */
+.tour-skip{
+  position:fixed; right:18px; bottom:22px;
+  z-index:10004;
+  padding:8px 12px; border-radius:10px;
+  font-weight:800; font-size:12px; letter-spacing:.2px;
+  background:rgba(18,24,33,.92);
+  color:#ffd866; border:1px solid rgba(255,216,102,.45);
+  cursor:pointer;
 }
+.tour-skip:hover{ background:rgba(18,24,33,1); }
+
+/* Ensure our caption can be clicked */
+.tour-note{ pointer-events:auto !important; }
+
 </style>
 </head>
 <body>
@@ -1896,5 +1910,153 @@ document.addEventListener('DOMContentLoaded', ()=>{
   window.DNAV_DEMO = run; // replay from console if needed
 })();
 </script>
-/body>
+/<script>
+/* === D-NAV Demo v2: visible caption, start @ Impact, Skip/Close, full cleanup === */
+(function(){
+  const $ = s => document.querySelector(s);
+  const $$ = s => Array.from(document.querySelectorAll(s));
+
+  // ——— helpers ———
+  function absRect(el){ const r = el.getBoundingClientRect(); return {top:r.top+scrollY,left:r.left+scrollX,width:r.width,height:r.height}; }
+  function scrollToEl(el, offset=120){
+    const y = el.getBoundingClientRect().top + scrollY - offset;
+    scrollTo({ top:y, behavior:'smooth' });
+  }
+
+  function blockByHeading(match){
+    match = match.toLowerCase();
+    const h = $$('h1,h2,h3,h4').find(n => (n.textContent||'').toLowerCase().includes(match));
+    return h ? (h.closest('section,article,div,main') || h.parentElement) : null;
+  }
+
+  function rpsBlock(){
+    const keys = ['return','stability','pressure'];
+    const hits = [];
+    $$('*').forEach(n=>{
+      const t=(n.textContent||'').toLowerCase().trim();
+      if(keys.some(k => t===k || t.startsWith(k+' ') || t.includes(k+' ('))) hits.push(n);
+    });
+    if(!hits.length) return null;
+    let a = hits[0];
+    while(a){
+      if(hits.every(h=>a.contains(h))) return a.closest('section,article,div,main')||a;
+      a = a.parentElement;
+    }
+    return null;
+  }
+
+  function variableRow(name){
+    const target = name.toLowerCase();
+    const labels = $$('label, .label, .var-label, h5, strong, span');
+    let row=null;
+    for(const lab of labels){
+      const txt=(lab.textContent||'').toLowerCase();
+      if(txt.startsWith(target)){ row = lab.closest('.slider-row')||lab.closest('.row')||lab.parentElement; break; }
+    }
+    if(row){ row.classList.add('slider-row'); }
+    return row;
+  }
+
+  // ——— dom nodes ———
+  const ring = document.createElement('div'); ring.className='tour-ring';
+  const note = $('.tour-note') || (()=>{ const n=document.createElement('div'); n.className='tour-note'; n.style.position='fixed'; n.style.left='50%'; n.style.bottom='28px'; n.style.transform='translateX(-50%)'; n.style.zIndex='10003'; document.body.appendChild(n); return n; })();
+  const caret = document.createElement('span'); caret.className='tour-typing-caret';
+  const skip  = document.createElement('button'); skip.className='tour-skip'; skip.textContent='Skip demo';
+
+  // timers so we can cleanly cancel on skip
+  let timers = [];
+  function wait(ms){ return new Promise(r=> timers.push(setTimeout(r, ms))); }
+  function clearTimers(){ timers.forEach(clearTimeout); timers=[]; }
+
+  function spotlight(el, pad=14){
+    if(!el) return;
+    if(!document.body.contains(ring)) document.body.appendChild(ring);
+    const r = absRect(el);
+    ring.style.top    = (r.top - pad)  + 'px';
+    ring.style.left   = (r.left - pad) + 'px';
+    ring.style.width  = (r.width + pad*2)  + 'px';
+    ring.style.height = (r.height + pad*2) + 'px';
+  }
+
+  async function typeInto(el, text){
+    el.classList.add('show');        // <-- uses your existing .tour-note.show style
+    el.textContent = '';
+    el.appendChild(caret);
+    let i=0, chunk=6;
+    await new Promise(resolve=>{
+      const tick=()=>{
+        const next=text.slice(i, i+chunk);
+        caret.before(document.createTextNode(next));
+        i+=chunk;
+        if(i<text.length) timers.push(setTimeout(tick, 20));
+        else resolve();
+      };
+      tick();
+    });
+  }
+
+  function focusOn(row){ row && row.classList.add('is-demo-focus'); }
+  function unfocus(row){ row && row.classList.remove('is-demo-focus'); }
+
+  // ——— steps ———
+  const STEPS = [
+    {
+      find: () => (variableRow('impact') || blockByHeading('variables')), // start at Impact
+      pad: 18,
+      before: el => focusOn(el),
+      after:  el => unfocus(el),
+      text: "Rate 1–10: Impact, Cost, Risk, Urgency, Confidence. These five knobs are your inputs. Judge honestly."
+    },
+    {
+      find: () => rpsBlock(),
+      pad: 14,
+      text: "R-P-S: Return (Impact–Cost), Stability (Confidence–Risk), Pressure (Urgency–Confidence). Footing, fuel, and heat."
+    },
+    {
+      find: () => blockByHeading('composite'),
+      pad: 14,
+      text: "Composite D-NAV compresses everything to one momentum number. Low = conserve energy. High = press the advantage."
+    },
+    {
+      find: () => blockByHeading('coach'),
+      pad: 14,
+      text: "Coach Readout explains the why — footing, pressure, scope, evidence — so your story matches the math."
+    }
+  ];
+
+  // ——— lifecycle ———
+  async function run(){
+    // mount controls
+    document.body.appendChild(skip);
+    skip.onclick = end; // allow instant skip/close
+
+    for(const s of STEPS){
+      const el = s.find();
+      if(!el) continue;
+      scrollToEl(el);
+      if(s.before) s.before(el);
+      spotlight(el, s.pad||14);
+      await typeInto(note, s.text);
+      await wait(1400);
+      if(s.after) s.after(el);
+    }
+    await end(); // auto-close at the end
+  }
+
+  async function end(){
+    clearTimers();
+    // cleanup ui
+    ring.remove();
+    skip.remove();
+    note.classList.remove('show');
+    // remove any lingering focus
+    $$('.slider-row.is-demo-focus').forEach(n=>n.classList.remove('is-demo-focus'));
+  }
+
+  window.addEventListener('DOMContentLoaded', run);
+  window.DNAV_DEMO = run;   // replay
+  window.DNAV_DEMO_END = end; // manual close from console if needed
+})();
+</script>
+body>
 </html>
