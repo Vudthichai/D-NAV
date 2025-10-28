@@ -4,43 +4,59 @@
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <title>The Decision NAVigator — D-NAV Mini (v3.39g)</title>
-<style>/* === Demo Mode helpers === */
-/* === Demo Mode helpers (smooth + spotlight) === */
+<style>/* === Demo Mode helpers (smooth + spotlight + refined captions) === */
 .tour-note{
-  position:fixed;left:50%;transform:translateX(-50%);
-  bottom:24px;max-width:min(680px,90vw);
-  background:#0f1620; border:1px solid #2a3b52; border-radius:12px;
-  padding:12px 16px; font-size:13px; line-height:1.5; color:#e9eef5;
-  z-index:10001; box-shadow:0 12px 28px rgba(0,0,0,.55);
-  opacity:0; pointer-events:none; transition:opacity .25s ease, transform .25s ease;
+  position:fixed;
+  left:50%;
+  top:24px;
+  transform:translateX(-50%);
+  background:#0f1720;
+  border:1px solid #2a3b52;
+  border-radius:12px;
+  padding:10px 18px;
+  font-size:14px;
+  font-weight:600;
+  line-height:1.4;
+  color:#e9eef5;
+  text-align:center;
+  z-index:10001;
+  box-shadow:0 8px 24px rgba(0,0,0,.55);
+  text-shadow:0 0 8px rgba(255,255,255,.35), 0 0 16px rgba(255,255,255,.22);
+  opacity:0;
+  pointer-events:none;
+  transition:opacity .35s ease, transform .35s ease;
 }
-.tour-note.show{ opacity:1; transform:translateX(-50%) translateY(0) }
-.tour-note.hide{ opacity:0; transform:translateX(-50%) translateY(6px) }
+.tour-note.show{ opacity:1; transform:translateX(-50%) translateY(0); }
+.tour-note.hide{ opacity:0; transform:translateX(-50%) translateY(6px); }
 
 .tour-mask{
-  position:fixed; inset:0; background:rgba(0,0,0,.45);
-  opacity:0; z-index:10000; transition:opacity .25s ease;
+  position:fixed;
+  inset:0;
+  background:rgba(0,0,0,.45);
+  z-index:10000;
+  opacity:0;
+  transition:opacity .25s ease;
 }
-.tour-mask.show{ opacity:1 }
+.tour-mask.show{ opacity:1; }
 
-#tourSpot{
-  position:fixed; width:220px; height:220px; border-radius:999px;
-  pointer-events:none; z-index:10002; opacity:.0; transform:translate(-50%,-50%) scale(.96);
-  box-shadow:0 0 0 9999px rgba(0,0,0,.55), 0 0 28px 10px rgba(105,169,255,.18);
-  border:2px solid rgba(105,169,255,.55);
-  transition: left .35s ease, top .35s ease, width .25s ease, height .25s ease,
-             opacity .25s ease, transform .25s ease;
+/* Keep the main D-NAV card untinted */
+.primary-focus{
+  position:relative;
+  z-index:10002;
 }
-#tourSpot.show{ opacity:1; transform:translate(-50%,-50%) scale(1) }
 
-.tour-pulse{
+/* Highlight active slider */
+.tour-pulse-target{
   outline:2px solid rgba(105,169,255,.55);
-  box-shadow:0 0 0 0 rgba(105,169,255,.35);
-  animation:tourPulse 1.8s ease-in-out infinite;
+  box-shadow:0 0 18px 6px rgba(105,169,255,.22);
+  border-radius:10px;
 }
+
+/* Subtle pulse ring */
 @keyframes tourPulse{
-  50%{ box-shadow:0 0 18px 6px rgba(105,169,255,.22) }
+  50%{ box-shadow:0 0 18px 6px rgba(105,169,255,.22); }
 }
+
 
 
 :root{--bg:#0b0f14;--card:#121821;--muted:#8fa1b7;--text:#e9eef5;--green:#3ecf8e;--red:#ff6b6b;--amber:#f3b431;--blue:#69a9ff;--ink:#cfe1ff}
@@ -234,6 +250,9 @@ tbody tr:nth-child(even){background:rgba(255,255,255,.02)}
   <!-- Demo helpers -->
 <div id="tourMask" class="tour-mask" hidden></div>
 <div id="tourNote" class="tour-note" hidden>Welcome — running a quick 10-second demo…</div>
+<div id="tourMask" class="tour-mask" hidden></div>
+<div id="tourNote" class="tour-note" hidden>Loading guided demo...</div>
+<div id="tourSpot" hidden></div>
 <div id="tourSpot" hidden></div>
 
   <!-- Page banner -->
@@ -1614,20 +1633,21 @@ document.addEventListener('DOMContentLoaded', ()=>{
 });
 </script>
 <script>
-/* === Guided Demo v2 (slower, smoother, spotlight) === */
+/* === Guided Demo v3 (refined pacing, clean captions, untinted D-NAV) === */
 (function () {
-  const STORAGE_KEY = 'dnv_demo_seen_v2';
+  const STORAGE_KEY = 'dnv_demo_seen_v3';
   const $ = (id) => document.getElementById(id);
   const qs = (sel) => document.querySelector(sel);
 
-  // ——— helpers
+  // --- Helpers ---
   function showMask(show){
     const m = $('tourMask'); if(!m) return;
     m.hidden = !show;
     m.classList.toggle('show', show);
     document.body.classList.toggle('no-scroll', show);
   }
-  function setNote(text){
+
+  function note(text){
     const n = $('tourNote'); if(!n) return;
     if (text === null){ n.classList.add('hide'); setTimeout(()=>{n.hidden=true;},250); return; }
     n.textContent = text;
@@ -1635,111 +1655,79 @@ document.addEventListener('DOMContentLoaded', ()=>{
     n.classList.remove('hide');
     n.classList.add('show');
   }
-  function moveSpotTo(el, pad=10){
-    const s = $('tourSpot'); if(!s || !el) return;
-    const r = el.getBoundingClientRect();
-    const cx = r.left + r.width/2;
-    const cy = r.top + r.height/2;
-    const dia = Math.min(Math.max(Math.hypot(r.width+pad*2, r.height+pad*2), 160), 380);
-    s.hidden = false;
-    s.classList.add('show');
-    s.style.left = `${cx}px`;
-    s.style.top  = `${cy}px`;
-    s.style.width = `${dia}px`;
-    s.style.height= `${dia}px`;
+
+  function pulseTarget(id, on=true){
+    const el = $(id);
+    if(!el) return;
+    const row = el.closest('.row') || el;
+    row.classList.toggle('tour-pulse-target', !!on);
   }
-  function hideSpot(){
-    const s = $('tourSpot'); if(!s) return;
-    s.classList.remove('show');
-    setTimeout(()=>{ s.hidden = true; }, 250);
-  }
-  function pulse(el, on=true){
-    if(!el) return; el.classList.toggle('tour-pulse', on);
-  }
-  function setSlider(id, value){
+
+  function setSlider(id, value, waitMs=2000){
     return new Promise((resolve)=>{
       const el = $(id); if(!el) return resolve();
+      pulseTarget(id, true);
       el.value = value;
-      el.dispatchEvent(new Event('input', { bubbles:true }));
-      el.dispatchEvent(new Event('change',{ bubbles:true }));
-      resolve();
+      el.dispatchEvent(new Event('input',{bubbles:true}));
+      el.dispatchEvent(new Event('change',{bubbles:true}));
+      setTimeout(()=>{ pulseTarget(id,false); resolve(); }, waitMs);
     });
   }
+
   const wait = (ms)=> new Promise(r=>setTimeout(r,ms));
 
-  // ——— steps
-  async function run(){
+  // --- Guided Sequence ---
+  async function runDemo(){
     showMask(true);
 
-    // Step 1: Impact
-    moveSpotTo($('#impact')); pulse($('#impact'), true);
-    setNote('Start by rating <b>Impact</b> — expected upside.'); 
-    await setSlider('impact', 9); await wait(4000);
-    pulse($('#impact'), false);
+    note("Let's explore how D-NAV translates intuition into numbers.");
+    await wait(2000);
 
-    // Step 2: Cost & Risk
-    moveSpotTo($('#cost')); pulse($('#cost'), true);
-    setNote('Now set <b>Cost</b> (money/time/effort)…');
-    await setSlider('cost', 2); await wait(2500);
-    pulse($('#cost'), false);
+    note("First, we’ll rate <Impact> — how much upside this decision could bring.");
+    await setSlider('impact', 9, 2500);
 
-    moveSpotTo($('#risk')); pulse($('#risk'), true);
-    setNote('…and <b>Risk</b> — what could go wrong.');
-    await setSlider('risk', 3); await wait(3000);
-    pulse($('#risk'), false);
+    note("Now adjust <Cost> — the effort or resources required.");
+    await setSlider('cost', 2, 2500);
 
-    // Step 3: Urgency & Confidence
-    moveSpotTo($('#urgency')); pulse($('#urgency'), true);
-    setNote('<b>Urgency</b>: how soon action is needed.');
-    await setSlider('urgency', 6); await wait(2500);
-    pulse($('#urgency'), false);
+    note("Next, <Risk> — what could realistically go wrong.");
+    await setSlider('risk', 3, 2500);
 
-    moveSpotTo($('#confidence')); pulse($('#confidence'), true);
-    setNote('<b>Confidence</b>: evidence & readiness.');
-    await setSlider('confidence', 7); await wait(3000);
-    pulse($('#confidence'), false);
+    note("Then, <Urgency> — how soon action is needed.");
+    await setSlider('urgency', 6, 2500);
 
-    // Step 4: R|P|S signals
-    moveSpotTo($('#ret')); pulse($('#ret'), true);
-    setNote('Note the derived signals — <b>Return</b> (Impact − Cost)…');
-    await wait(2000); pulse($('#ret'), false);
+    note("Finally, <Confidence> — how ready or certain you feel about this move.");
+    await setSlider('confidence', 7, 2500);
 
-    moveSpotTo($('#stab')); pulse($('#stab'), true);
-    setNote('<b>Stability</b> (Confidence − Risk)…');
-    await wait(1500); pulse($('#stab'), false);
+    note("Notice how the D-NAV metrics respond in real time — Return, Stability, and Pressure recalibrate with each shift.");
+    await wait(4000);
 
-    moveSpotTo($('#press')); pulse($('#press'), true);
-    setNote('<b>Pressure</b> (Urgency − Confidence).');
-    await wait(1500); pulse($('#press'), false);
+    note("Return reflects gain versus cost. Stability shows emotional footing. Pressure tracks timing tension.");
+    await wait(4500);
 
-    // Step 5: Archetype & Coach
-    moveSpotTo($('#score')); pulse($('#score'), true);
-    setNote('Composite <b>D-NAV</b> updates live. Read the <b>Archetype</b> & the <b>Coach Readout</b> for directives.');
-    await wait(4000); pulse($('#score'), false);
+    note("Your Composite D-NAV score updates instantly, revealing your current archetype and readiness profile.");
+    await wait(4000);
 
-    // Done
-    hideSpot();
-    setNote('All yours. Tweak the sliders or open Compare to model scenarios.');
-    await wait(1200);
-    setNote(null);
+    note("That’s it — this decision’s shape is now visible. Adjust sliders anytime to refine alignment.");
+    await wait(3000);
+
+    note(null);
     showMask(false);
   }
 
-  // ——— wire-up
+  // --- Entry point ---
   window.startDemo = async function startDemo(force=false){
-    if(!force && localStorage.getItem(STORAGE_KEY)) return;
-    if(!force) localStorage.setItem(STORAGE_KEY,'1');
-    await run();
+    if (!force && localStorage.getItem(STORAGE_KEY)) return;
+    if (!force) localStorage.setItem(STORAGE_KEY,'1');
+    await runDemo();
   };
 
   window.addEventListener('DOMContentLoaded', () => {
-    // autorun once on first visit
+    // Run automatically once on first visit
     startDemo(false);
-    // header button (already in your DOM)
+    // Allow manual replay
     qs('#runDemoBtn')?.addEventListener('click', () => startDemo(true));
   });
 })();
 </script>
-
 </body>
 </html>
