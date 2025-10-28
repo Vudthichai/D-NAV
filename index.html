@@ -4,56 +4,11 @@
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <title>The Decision NAVigator — D-NAV Mini (v3.39g)</title>
-<style>/* === Demo Mode helpers === */
-/* === Demo Mode helpers (smooth + spotlight) === */
-.tour-note{
-  position:fixed;left:50%;transform:translateX(-50%);
-  bottom:24px;max-width:min(680px,90vw);
-  background:#0f1620; border:1px solid #2a3b52; border-radius:12px;
-  padding:12px 16px; font-size:13px; line-height:1.5; color:#e9eef5;
-  z-index:10001; box-shadow:0 12px 28px rgba(0,0,0,.55);
-  opacity:0; pointer-events:none; transition:opacity .25s ease, transform .25s ease;
-}
-.tour-note.show{ opacity:1; transform:translateX(-50%) translateY(0) }
-.tour-note.hide{ opacity:0; transform:translateX(-50%) translateY(6px) }
-
-.tour-mask{
-  position:fixed; inset:0; background:rgba(0,0,0,.45);
-  opacity:0; z-index:10000; transition:opacity .25s ease;
-}
-.tour-mask.show{ opacity:1 }
-
-#tourSpot{
-  position:fixed; width:220px; height:220px; border-radius:999px;
-  pointer-events:none; z-index:10002; opacity:.0; transform:translate(-50%,-50%) scale(.96);
-  box-shadow:0 0 0 9999px rgba(0,0,0,.55), 0 0 28px 10px rgba(105,169,255,.18);
-  border:2px solid rgba(105,169,255,.55);
-  transition: left .35s ease, top .35s ease, width .25s ease, height .25s ease,
-             opacity .25s ease, transform .25s ease;
-}
-#tourSpot.show{ opacity:1; transform:translate(-50%,-50%) scale(1) }
-
-.tour-pulse{
-  outline:2px solid rgba(105,169,255,.55);
-  box-shadow:0 0 0 0 rgba(105,169,255,.35);
-  animation:tourPulse 1.8s ease-in-out infinite;
-}
-@keyframes tourPulse{
-  50%{ box-shadow:0 0 18px 6px rgba(105,169,255,.22) }
-}
-
-
+<style>
 :root{--bg:#0b0f14;--card:#121821;--muted:#8fa1b7;--text:#e9eef5;--green:#3ecf8e;--red:#ff6b6b;--amber:#f3b431;--blue:#69a9ff;--ink:#cfe1ff}
 *{box-sizing:border-box;font-family:Inter,ui-sans-serif,system-ui,-apple-system,Segoe UI,Roboto,Arial}
 body{background:var(--bg);color:var(--text);margin:0;padding:24px;overflow-x:hidden}
 body.no-scroll{overflow:hidden}
-.subhint {
-  margin-top: 4px;
-  color: #a7b4c7;
-  font-size: 11px;
-  letter-spacing: .2px;
-}
-
 
 /* Page banner */
 .site-title{max-width:1200px;margin:0 auto 12px auto;padding:8px 2px;font-weight:900;letter-spacing:.2px}
@@ -231,33 +186,11 @@ tbody tr:nth-child(even){background:rgba(255,255,255,.02)}
 </style>
 </head>
 <body>
-  <!-- Demo helpers -->
-<div id="tourMask" class="tour-mask" hidden></div>
-<div id="tourNote" class="tour-note" hidden>Welcome — running a quick 10-second demo…</div>
-<div id="tourSpot" hidden></div>
-
   <!-- Page banner -->
   <div class="site-title">
     <h1>The Decision NAVigator</h1>
     <div class="sub">Bring clarity to complex decisions instantly.</div>
     <p>Adjust the sliders below — your decision’s profile updates in real time.</p>
-<div style="margin-top:4px;display:flex;justify-content:flex-end;">
-  <a id="openDefsBtn"
-     href="/definitions.html"
-     style="font-size:13px;font-weight:600;color:#cfe1ff;text-decoration:none;opacity:.8;"
-     onmouseover="this.style.opacity=1"
-     onmouseout="this.style.opacity=.8"
-     target="_blank" rel="noopener noreferrer">
-     Definitions & Archetypes
-  </a><a id="runDemoBtn"
-   style="font-size:13px;font-weight:600;color:#cfe1ff;text-decoration:none;cursor:pointer;opacity:.8;margin-left:12px;"
-   onmouseover="this.style.opacity=1"
-   onmouseout="this.style.opacity=.8">
-   ▶ Run Demo
-</a>
-
-</div>
-
 
   </div>
 
@@ -297,29 +230,11 @@ tbody tr:nth-child(even){background:rgba(255,255,255,.02)}
       <div class="muted" style="margin-top:6px;">Formula: <span class="mono">(Impact − Cost − Risk) + (Urgency × Confidence)</span></div>
     </div>
 
-   <div class="card stats">
-  <div class="stat">
-    <h3>Return</h3>
-    <div class="subhint">Impact − Cost</div>
-    <div class="val" id="ret">0</div>
-    <span id="retPill" class="pill amber">Neutral</span>
-  </div>
-
-  <div class="stat">
-    <h3>Stability</h3>
-    <div class="subhint">Confidence − Risk</div>
-    <div class="val" id="stab">0</div>
-    <span id="stabPill" class="pill amber">Uncertain</span>
-  </div>
-
-  <div class="stat">
-    <h3>Pressure</h3>
-    <div class="subhint">Urgency − Confidence</div>
-    <div class="val" id="press">0</div>
-    <span id="pressPill" class="pill amber">Balanced</span>
-  </div>
-</div>
-
+    <div class="card stats">
+      <div class="stat"><h3>Return</h3><div class="val" id="ret">0</div><span id="retPill" class="pill amber">Neutral</span></div>
+      <div class="stat"><h3>Stability</h3><div class="val" id="stab">0</div><span id="stabPill" class="pill amber">Uncertain</span></div>
+      <div class="stat"><h3>Pressure</h3><div class="val" id="press">0</div><span id="pressPill" class="pill amber">Balanced</span></div>
+    </div>
 
     <div class="card summary">
       <div class="arch">
@@ -331,7 +246,7 @@ tbody tr:nth-child(even){background:rgba(255,255,255,.02)}
         <h3>Composite (D-NAV)</h3>
         <div id="score" class="big">0</div>
         <div id="scoreTag" class="tag">Low D-NAV — Low energy</div>
-        <div class="breakdown">Merit: <span id="meritVal" class="mono">0</span> + Energy: <span id="EnergyVal" class="mono">0</span></div>
+        <div class="breakdown">Merit: <span id="meritVal" class="mono">0</span> • Drive: <span id="driveVal" class="mono">0</span></div>
         <div class="compare-inline"><button id="openCompareBtnA" class="btn open-compare">Open Compare</button></div>
       </div>
       <div class="coach">
@@ -399,7 +314,7 @@ tbody tr:nth-child(even){background:rgba(255,255,255,.02)}
         <div class="kpi" id="tile_avg">
           <h4>Avg D-NAV</h4>
           <div class="big" id="k_avgdnav" data-val="0">0</div>
-          <div class="mini">Composite (Merit + Energy)</div>
+          <div class="mini">Composite (Merit + Drive)</div>
         </div>
         <div class="kpi" id="tile_mom">
           <h4>Trend</h4>
@@ -654,7 +569,7 @@ function scoreTagText(n){return n>=80?"Very high D-NAV":n>=50?"High D-NAV":n>=25
 /* Energy tiers */
 function energyTier(u, c){
   const e = (u||0) * (c||0);
-  if (e >= 71) return {e, name:"Over-energy", short:"overEnergy"};
+  if (e >= 71) return {e, name:"Overdrive energy", short:"overdrive"};
   if (e >= 41) return {e, name:"High energy", short:"high"};
   if (e >= 16) return {e, name:"Moderate energy", short:"moderate"};
   return {e, name:"Low energy", short:"low"};
@@ -669,7 +584,7 @@ function coachHint({ret, stab, press, urg, conf, impact, cost, risk}){
   const needLowerRisks = (risk >= conf);
   const needAddEvidence = (stab <= 0);
   const needNarrowScope = (press > 0);
-  const needAddCapacity = (press > 0 && (et.short === "overEnergy" || et.short === "high"));
+  const needAddCapacity = (press > 0 && (et.short === "overdrive" || et.short === "high"));
   if (needRaiseImpact) sugs.push("raise impact");
   if (needLowerCosts) sugs.push("lower costs");
   if (needLowerRisks) sugs.push("lower risks");
@@ -685,7 +600,7 @@ function coachHint({ret, stab, press, urg, conf, impact, cost, risk}){
   sugs = [...new Set(sugs)].slice(0,2);
   const leverLine = sugs.length ? " — " + sugs.join("; ") + "." : ".";
   if (ret < 0){
-    const base = (et.short==="high"||et.short==="overEnergy") ? "High energy chasing negative return — stop or pivot" : "Negative return — improve unit economics";
+    const base = (et.short==="high"||et.short==="overdrive") ? "High energy chasing negative return — stop or pivot" : "Negative return — improve unit economics";
     return base + leverLine;
   }
   if (ret === 0){
@@ -739,7 +654,7 @@ function compute(){
   document.getElementById('score').textContent=composite;
   document.getElementById('scoreTag').textContent = `${scoreTagText(composite)} — ${energyTier(urgency, confidence).name}`;
   document.getElementById('meritVal').textContent = merit;
-  document.getElementById('EnergyVal').textContent = eInfo.e;
+  document.getElementById('driveVal').textContent = eInfo.e;
   document.getElementById('coach').textContent = coachHint({ ret, stab, press, urg: urgency, conf: confidence, impact, cost, risk });
 
   // Live-update Compare base if modal is open and locked
@@ -1252,12 +1167,6 @@ function renderLogTable(rows){
     </tr>
   `).join('');
 }
-// Quick keyboard shortcut: "?" opens Definitions in a new tab
-document.addEventListener('keydown', (e)=>{
-  if (e.key === '?' || (e.shiftKey && e.key === '/')) {
-    window.open('/definitions.html', '_blank', 'noopener,noreferrer');
-  }
-});
 
 /* HUD refresh */
 function refreshHUD(){
@@ -1613,133 +1522,5 @@ document.addEventListener('DOMContentLoaded', ()=>{
   refreshHUD();
 });
 </script>
-<script>
-/* === Guided Demo v2 (slower, smoother, spotlight) === */
-(function () {
-  const STORAGE_KEY = 'dnv_demo_seen_v2';
-  const $ = (id) => document.getElementById(id);
-  const qs = (sel) => document.querySelector(sel);
-
-  // ——— helpers
-  function showMask(show){
-    const m = $('tourMask'); if(!m) return;
-    m.hidden = !show;
-    m.classList.toggle('show', show);
-    document.body.classList.toggle('no-scroll', show);
-  }
-  function setNote(text){
-    const n = $('tourNote'); if(!n) return;
-    if (text === null){ n.classList.add('hide'); setTimeout(()=>{n.hidden=true;},250); return; }
-    n.textContent = n.innerHTML = text;
-    n.hidden = false;
-    n.classList.remove('hide');
-    n.classList.add('show');
-  }
-  function moveSpotTo(el, pad=10){
-    const s = $('tourSpot'); if(!s || !el) return;
-    const r = el.getBoundingClientRect();
-    const cx = r.left + r.width/2;
-    const cy = r.top + r.height/2 + window.scrollY;
-    const dia = Math.min(Math.max(Math.hypot(r.width+pad*2, r.height+pad*2), 160), 380);
-    s.hidden = false;
-    s.classList.add('show');
-    s.style.left = `${cx}px`;
-    s.style.top  = `${cy}px`;
-    s.style.width = `${dia}px`;
-    s.style.height= `${dia}px`;
-  }
-  function hideSpot(){
-    const s = $('tourSpot'); if(!s) return;
-    s.classList.remove('show');
-    setTimeout(()=>{ s.hidden = true; }, 250);
-  }
-  function pulse(el, on=true){
-    if(!el) return; el.classList.toggle('tour-pulse', on);
-  }
-  function setSlider(id, value){
-    return new Promise((resolve)=>{
-      const el = $(id); if(!el) return resolve();
-      el.value = value;
-      el.dispatchEvent(new Event('input', { bubbles:true }));
-      el.dispatchEvent(new Event('change',{ bubbles:true }));
-      resolve();
-    });
-  }
-  const wait = (ms)=> new Promise(r=>setTimeout(r,ms));
-
-  // ——— steps
-  async function run(){
-    showMask(true);
-
-    // Step 1: Impact
-    moveSpotTo($('impact')); pulse($('impact'), true);
-    setNote('Start by rating <b>Impact</b> — expected upside.'); 
-    await setSlider('impact', 9); await wait(4000);
-    pulse($('impact'), false);
-
-    // Step 2: Cost & Risk
-    moveSpotTo($('cost')); pulse($('cost'), true);
-    setNote('Now set <b>Cost</b> (money/time/effort)…');
-    await setSlider('cost', 2); await wait(2500);
-    pulse($('cost'), false);
-
-    moveSpotTo($('risk')); pulse($('risk'), true);
-    setNote('…and <b>Risk</b> — what could go wrong.');
-    await setSlider('risk', 3); await wait(3000);
-    pulse($('risk'), false);
-
-    // Step 3: Urgency & Confidence
-    moveSpotTo($('urgency')); pulse($('urgency'), true);
-    setNote('<b>Urgency</b>: how soon action is needed.');
-    await setSlider('urgency', 6); await wait(2500);
-    pulse($('urgency'), false);
-
-    moveSpotTo($('confidence')); pulse($('confidence'), true);
-    setNote('<b>Confidence</b>: evidence & readiness.');
-    await setSlider('confidence', 7); await wait(3000);
-    pulse($('confidence'), false);
-
-    // Step 4: R|P|S signals
-    moveSpotTo($('ret')); pulse($('ret'), true);
-    setNote('Note the derived signals — <b>Return</b> (Impact − Cost)…');
-    await wait(2000); pulse($('ret'), false);
-
-    moveSpotTo($('stab')); pulse($('stab'), true);
-    setNote('<b>Stability</b> (Confidence − Risk)…');
-    await wait(1500); pulse($('stab'), false);
-
-    moveSpotTo($('press')); pulse($('press'), true);
-    setNote('<b>Pressure</b> (Urgency − Confidence).');
-    await wait(1500); pulse($('press'), false);
-
-    // Step 5: Archetype & Coach
-    moveSpotTo($('score')); pulse($('score'), true);
-    setNote('Composite <b>D-NAV</b> updates live. Read the <b>Archetype</b> & the <b>Coach Readout</b> for directives.');
-    await wait(4000); pulse($('score'), false);
-
-    // Done
-    hideSpot();
-    setNote('All yours. Tweak the sliders or open Compare to model scenarios.');
-    await wait(1200);
-    setNote(null);
-    showMask(false);
-  }
-
-  // ——— wire-up
-  window.startDemo = async function startDemo(force=false){
-    if(!force && localStorage.getItem(STORAGE_KEY)) return;
-    if(!force) localStorage.setItem(STORAGE_KEY,'1');
-    await run();
-  };
-
-  window.addEventListener('DOMContentLoaded', () => {
-    // autorun once on first visit
-    startDemo(false);
-    // header button
-    qs('#runDemoBtn')?.addEventListener('click', () => startDemo(true));
-  });
-})();
-</script>
-
 </body>
 </html>
