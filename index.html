@@ -231,26 +231,16 @@ tbody tr:nth-child(even){background:rgba(255,255,255,.02)}
 </style>
 </head>
 <body>
+  <!-- Demo helpers -->
+<div id="tourMask" class="tour-mask" hidden></div>
+<div id="tourNote" class="tour-note" hidden>Welcome — running a quick 10-second demo…</div>
+<div id="tourSpot" hidden></div>
 
   <!-- Page banner -->
   <div class="site-title">
     <h1>The Decision NAVigator</h1>
     <div class="sub">Bring clarity to complex decisions instantly.</div>
     <p>Adjust the sliders below — your decision’s profile updates in real time.</p>
-
-    <!-- === Demo Bar === -->
-<div id="demoBar" class="demo-bar">
-  <div class="demo-bar__content">
-    <span id="demoCaption">👋 Want a 20-second tour?</span>
-    <div class="demo-bar__actions">
-      <button id="demoStart" class="btn-ghost">Run Demo</button>
-      <button id="demoSkip" class="btn-ghost" style="display:none;">Skip</button>
-      <button id="demoReplay" class="btn-ghost" style="display:none;">Replay</button>
-    </div>
-  </div>
-</div>
-<!-- === End Demo Bar === -->
-
 <div style="margin-top:4px;display:flex;justify-content:flex-end;">
   <a id="openDefsBtn"
      href="/definitions.html"
@@ -263,18 +253,7 @@ tbody tr:nth-child(even){background:rgba(255,255,255,.02)}
    style="font-size:13px;font-weight:600;color:#cfe1ff;text-decoration:none;cursor:pointer;opacity:.8;margin-left:12px;"
    onmouseover="this.style.opacity=1"
    onmouseout="this.style.opacity=.8">
-   <!-- Demo Bar -->
-<div id="demoBar" class="demo-bar">
-  <div class="demo-bar__content">
-    <span id="demoCaption">👋 Want a 20-second tour?</span>
-    <div class="demo-bar__actions">
-      <button id="demoStart" class="btn btn-ghost">Run Demo</button>
-      <button id="demoSkip" class="btn btn-ghost" style="display:none">Skip</button>
-      <button id="demoReplay" class="btn btn-ghost" style="display:none">Replay</button>
-    </div>
-  </div>
-</div>
-
+   ▶ Run Demo
 </a>
 
 </div>
@@ -986,35 +965,6 @@ h2{margin:${compact?'10px':'14px'} 0 ${compact?'6px':'8px'};font-size:${compact?
 .narrative p{line-height:1.5}
 @page{size:${compact?'Letter':'auto'};margin:${compact?'.5in':'1in'}}
 @media print{body{background:#fff;color:#000}.card{background:#fff;border:1px solid #ddd}.kpi,.stack{background:#eee}.g{background:#4caf50}.a{background:#ffb300}.r{background:#ef5350}}
-/* === Top Demo Bar === */
-.demo-bar {
-  position: sticky; top: 0; z-index: 10001;
-  margin-top: 10px;
-  border-radius: 12px;
-  padding: 10px 12px;
-  background: linear-gradient(90deg, rgba(243,180,49,.2), rgba(243,180,49,.1));
-  border: 1px solid rgba(243,180,49,.45);
-  box-shadow: 0 8px 24px rgba(0,0,0,.35), 0 0 22px rgba(243,180,49,.15);
-  backdrop-filter: blur(6px);
-}
-.demo-bar__content { display:flex; align-items:center; justify-content:space-between; gap:10px; flex-wrap:wrap }
-.demo-bar__actions { display:flex; gap:8px; align-items:center }
-.btn-ghost {
-  background: rgba(0,0,0,.25);
-  border: 1px solid rgba(255,255,255,.15);
-  border-radius:10px; padding:8px 12px; font-weight:700; cursor:pointer; color:#fff;
-}
-.btn-ghost:hover { background:rgba(255,255,255,.08) }
-
-/* === Demo spotlight / dim === */
-body.demo-active .card { opacity:.35; filter:saturate(.8) }
-.card.spotlit {
-  opacity:1 !important;
-  outline:1px solid rgba(243,180,49,.45);
-  box-shadow:0 10px 28px rgba(0,0,0,.45), 0 0 32px rgba(243,180,49,.22);
-  transition: box-shadow .25s ease, outline-color .25s ease;
-}
-
 </style>
 </head>
 <body>
@@ -1664,156 +1614,129 @@ document.addEventListener('DOMContentLoaded', ()=>{
 });
 </script>
 <script>
-</script>
-<script>
-/* ===== Demo Bar Controller (no auto-run) ===== */
+/* === Guided Demo v2 (slower, smoother, spotlight) === */
 (function () {
-  const $ = (s) => document.querySelector(s);
-  const on = (el, ev, fn) => el && el.addEventListener(ev, fn);
+  const STORAGE_KEY = 'dnv_demo_seen_v2';
+  const $ = (id) => document.getElementById(id);
+  const qs = (sel) => document.querySelector(sel);
 
-  // Cards we’ll spotlight
-  function cards() {
-    return {
-      vars: document.querySelector('.wrap .card'),               // first card (sliders)
-      rps:  document.querySelector('.wrap .card.stats'),         // R P S card
-      sum:  document.querySelector('.wrap .card.summary')        // summary / coach
-    };
+  // ——— helpers
+  function showMask(show){
+    const m = $('tourMask'); if(!m) return;
+    m.hidden = !show;
+    m.classList.toggle('show', show);
+    document.body.classList.toggle('no-scroll', show);
   }
-
-  // Simple spotlight using your existing .primary-focus look
-  function focusOnly(target) {
-    const { vars, rps, sum } = cards();
-    [vars, rps, sum].forEach(c => c && c.classList.remove('primary-focus'));
-    target && target.classList.add('primary-focus');
+  function setNote(text){
+    const n = $('tourNote'); if(!n) return;
+    if (text === null){ n.classList.add('hide'); setTimeout(()=>{n.hidden=true;},250); return; }
+    n.textContent = text;
+    n.hidden = false;
+    n.classList.remove('hide');
+    n.classList.add('show');
   }
-  function clearFocus() { focusOnly(null); }
-
-  // Smoothly move a slider and fire input events
-  function setSliderSmooth(id, target, ms = 600) {
-    return new Promise((resolve) => {
-      const el = document.getElementById(id);
-      if (!el) return resolve();
-      const start = Number(el.value || 1);
-      const steps = Math.max(1, Math.round(ms / 20));
-      let t = 0;
-      const tick = () => {
-        t++;
-        const v = Math.round(start + (target - start) * (t / steps));
-        el.value = String(v);
-        el.dispatchEvent(new Event('input', { bubbles: true }));
-        if (t >= steps) return resolve();
-        setTimeout(tick, 20);
-      };
-      tick();
+  function moveSpotTo(el, pad=10){
+    const s = $('tourSpot'); if(!s || !el) return;
+    const r = el.getBoundingClientRect();
+    const cx = r.left + r.width/2;
+    const cy = r.top + r.height/2;
+    const dia = Math.min(Math.max(Math.hypot(r.width+pad*2, r.height+pad*2), 160), 380);
+    s.hidden = false;
+    s.classList.add('show');
+    s.style.left = `${cx}px`;
+    s.style.top  = `${cy}px`;
+    s.style.width = `${dia}px`;
+    s.style.height= `${dia}px`;
+  }
+  function hideSpot(){
+    const s = $('tourSpot'); if(!s) return;
+    s.classList.remove('show');
+    setTimeout(()=>{ s.hidden = true; }, 250);
+  }
+  function pulse(el, on=true){
+    if(!el) return; el.classList.toggle('tour-pulse', on);
+  }
+  function setSlider(id, value){
+    return new Promise((resolve)=>{
+      const el = $(id); if(!el) return resolve();
+      el.value = value;
+      el.dispatchEvent(new Event('input', { bubbles:true }));
+      el.dispatchEvent(new Event('change',{ bubbles:true }));
+      resolve();
     });
   }
+  const wait = (ms)=> new Promise(r=>setTimeout(r,ms));
 
-  // Reset all sliders to 1 instantly
-  function resetSliders() {
-    ['impact','cost','risk','urgency','confidence'].forEach(id => {
-      const el = document.getElementById(id);
-      if (!el) return;
-      el.value = '1';
-      el.dispatchEvent(new Event('input', { bubbles: true }));
-    });
+  // ——— steps
+  async function run(){
+    showMask(true);
+
+    // Step 1: Impact
+    moveSpotTo($('#impact')); pulse($('#impact'), true);
+    setNote('Start by rating <b>Impact</b> — expected upside.'); 
+    await setSlider('impact', 9); await wait(4000);
+    pulse($('#impact'), false);
+
+    // Step 2: Cost & Risk
+    moveSpotTo($('#cost')); pulse($('#cost'), true);
+    setNote('Now set <b>Cost</b> (money/time/effort)…');
+    await setSlider('cost', 2); await wait(2500);
+    pulse($('#cost'), false);
+
+    moveSpotTo($('#risk')); pulse($('#risk'), true);
+    setNote('…and <b>Risk</b> — what could go wrong.');
+    await setSlider('risk', 3); await wait(3000);
+    pulse($('#risk'), false);
+
+    // Step 3: Urgency & Confidence
+    moveSpotTo($('#urgency')); pulse($('#urgency'), true);
+    setNote('<b>Urgency</b>: how soon action is needed.');
+    await setSlider('urgency', 6); await wait(2500);
+    pulse($('#urgency'), false);
+
+    moveSpotTo($('#confidence')); pulse($('#confidence'), true);
+    setNote('<b>Confidence</b>: evidence & readiness.');
+    await setSlider('confidence', 7); await wait(3000);
+    pulse($('#confidence'), false);
+
+    // Step 4: R|P|S signals
+    moveSpotTo($('#ret')); pulse($('#ret'), true);
+    setNote('Note the derived signals — <b>Return</b> (Impact − Cost)…');
+    await wait(2000); pulse($('#ret'), false);
+
+    moveSpotTo($('#stab')); pulse($('#stab'), true);
+    setNote('<b>Stability</b> (Confidence − Risk)…');
+    await wait(1500); pulse($('#stab'), false);
+
+    moveSpotTo($('#press')); pulse($('#press'), true);
+    setNote('<b>Pressure</b> (Urgency − Confidence).');
+    await wait(1500); pulse($('#press'), false);
+
+    // Step 5: Archetype & Coach
+    moveSpotTo($('#score')); pulse($('#score'), true);
+    setNote('Composite <b>D-NAV</b> updates live. Read the <b>Archetype</b> & the <b>Coach Readout</b> for directives.');
+    await wait(4000); pulse($('#score'), false);
+
+    // Done
+    hideSpot();
+    setNote('All yours. Tweak the sliders or open Compare to model scenarios.');
+    await wait(1200);
+    setNote(null);
+    showMask(false);
   }
 
-  // Utility: caption + button states
-  const demoBar = () => ({
-    bar:   document.getElementById('demoBar'),
-    cap:   document.getElementById('demoCaption'),
-    start: document.getElementById('demoStart'),
-    skip:  document.getElementById('demoSkip'),
-    replay:document.getElementById('demoReplay')
-  });
+  // ——— wire-up
+  window.startDemo = async function startDemo(force=false){
+    if(!force && localStorage.getItem(STORAGE_KEY)) return;
+    if(!force) localStorage.setItem(STORAGE_KEY,'1');
+    await run();
+  };
 
-  function showButtons({start=false, skip=false, replay=false}) {
-    const { start: s, skip: k, replay: r } = demoBar();
-    if (s) s.style.display = start ? '' : 'none';
-    if (k) k.style.display = skip  ? '' : 'none';
-    if (r) r.style.display = replay? '' : 'none';
-  }
-
-  // Timer management so Skip cancels everything
-  let canceled = false;
-  const waits = new Set();
-  const wait = (ms) => new Promise(res => {
-    const h = setTimeout(() => { waits.delete(h); res(); }, ms);
-    waits.add(h);
-  });
-  function cancelAll() {
-    canceled = true;
-    waits.forEach(h => clearTimeout(h));
-    waits.clear();
-    clearFocus();
-  }
-
-  // Pick clear, slightly randomized targets (or fix them if you prefer)
-  function pickTargets() {
-    const r = (min, max) => Math.floor(Math.random() * (max - min + 1)) + min;
-    return {
-      impact:     r(8,10),
-      cost:       r(1,3),
-      risk:       r(1,4),
-      urgency:    r(3,7),
-      confidence: r(5,9)
-    };
-  }
-
-  async function runDemo() {
-    const { cap } = demoBar();
-    canceled = false;
-    showButtons({ start:false, skip:true, replay:false });
-
-    // 1) Variables card — animate sliders
-    focusOnly(cards().vars);
-    cap.textContent = 'Evaluate the variables in your decision…';
-    resetSliders();
-    const t = pickTargets();
-    await setSliderSmooth('impact',     t.impact,     650); if (canceled) return;
-    await setSliderSmooth('cost',       t.cost,       500); if (canceled) return;
-    await setSliderSmooth('risk',       t.risk,       500); if (canceled) return;
-    await setSliderSmooth('urgency',    t.urgency,    500); if (canceled) return;
-    await setSliderSmooth('confidence', t.confidence, 500); if (canceled) return;
-
-    // 2) RPS card
-    focusOnly(cards().rps);
-    cap.textContent = 'Understand Return, Stability, and Pressure in real time.';
-    await wait(1600); if (canceled) return;
-
-    // 3) Composite + Coach card
-    focusOnly(cards().sum);
-    cap.textContent = 'Your D-NAV score and Coach Readout update instantly.';
-    await wait(1800); if (canceled) return;
-
-    // Finish
-    clearFocus();
-    cap.textContent = 'Demo complete — tweak anything or open Compare.';
-    showButtons({ start:false, skip:false, replay:true });
-  }
-
-  // Wire buttons
   window.addEventListener('DOMContentLoaded', () => {
-    const { start, skip, replay, cap } = demoBar();
-    if (!start) return; // demo bar not present
-
-    // Initial state
-    cap.textContent = '👋 Want a 20-second tour?';
-    showButtons({ start:true, skip:false, replay:false });
-
-    on(start, 'click', () => { cancelAll(); runDemo(); });
-    on(skip,  'click', () => {
-      cancelAll();
-      const { cap } = demoBar();
-      cap.textContent = 'Demo skipped — you’re in control.';
-      showButtons({ start:true, skip:false, replay:true });
-    });
-    on(replay,'click', () => { cancelAll(); runDemo(); });
-
-    // Optional: collapse the bar after replay finished / skip; leave it visible by default
-    // To auto-hide after demo: uncomment below
-    // const { bar } = demoBar();
-    // bar.classList.add('demo-bar--hidden'); // you can add a CSS rule if desired
+    // autorun once on first visit
+    startDemo(false);
+    // header button (already in your DOM)
+    qs('#runDemoBtn')?.addEventListener('click', () => startDemo(true));
   });
 })();
 </script>
