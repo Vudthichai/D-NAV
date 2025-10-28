@@ -246,7 +246,7 @@ tbody tr:nth-child(even){background:rgba(255,255,255,.02)}
         <h3>Composite (D-NAV)</h3>
         <div id="score" class="big">0</div>
         <div id="scoreTag" class="tag">Low D-NAV — Low energy</div>
-        <div class="breakdown">Merit: <span id="meritVal" class="mono">0</span> • Drive: <span id="driveVal" class="mono">0</span></div>
+        <div class="breakdown">Merit: <span id="meritVal" class="mono">0</span> • Energy: <span id="EnergyVal" class="mono">0</span></div>
         <div class="compare-inline"><button id="openCompareBtnA" class="btn open-compare">Open Compare</button></div>
       </div>
       <div class="coach">
@@ -314,7 +314,7 @@ tbody tr:nth-child(even){background:rgba(255,255,255,.02)}
         <div class="kpi" id="tile_avg">
           <h4>Avg D-NAV</h4>
           <div class="big" id="k_avgdnav" data-val="0">0</div>
-          <div class="mini">Composite (Merit + Drive)</div>
+          <div class="mini">Composite (Merit + Energy)</div>
         </div>
         <div class="kpi" id="tile_mom">
           <h4>Trend</h4>
@@ -569,7 +569,7 @@ function scoreTagText(n){return n>=80?"Very high D-NAV":n>=50?"High D-NAV":n>=25
 /* Energy tiers */
 function energyTier(u, c){
   const e = (u||0) * (c||0);
-  if (e >= 71) return {e, name:"Overdrive energy", short:"overdrive"};
+  if (e >= 71) return {e, name:"OverEnergy energy", short:"overEnergy"};
   if (e >= 41) return {e, name:"High energy", short:"high"};
   if (e >= 16) return {e, name:"Moderate energy", short:"moderate"};
   return {e, name:"Low energy", short:"low"};
@@ -584,7 +584,7 @@ function coachHint({ret, stab, press, urg, conf, impact, cost, risk}){
   const needLowerRisks = (risk >= conf);
   const needAddEvidence = (stab <= 0);
   const needNarrowScope = (press > 0);
-  const needAddCapacity = (press > 0 && (et.short === "overdrive" || et.short === "high"));
+  const needAddCapacity = (press > 0 && (et.short === "overEnergy" || et.short === "high"));
   if (needRaiseImpact) sugs.push("raise impact");
   if (needLowerCosts) sugs.push("lower costs");
   if (needLowerRisks) sugs.push("lower risks");
@@ -600,7 +600,7 @@ function coachHint({ret, stab, press, urg, conf, impact, cost, risk}){
   sugs = [...new Set(sugs)].slice(0,2);
   const leverLine = sugs.length ? " — " + sugs.join("; ") + "." : ".";
   if (ret < 0){
-    const base = (et.short==="high"||et.short==="overdrive") ? "High energy chasing negative return — stop or pivot" : "Negative return — improve unit economics";
+    const base = (et.short==="high"||et.short==="overEnergy") ? "High energy chasing negative return — stop or pivot" : "Negative return — improve unit economics";
     return base + leverLine;
   }
   if (ret === 0){
@@ -654,7 +654,7 @@ function compute(){
   document.getElementById('score').textContent=composite;
   document.getElementById('scoreTag').textContent = `${scoreTagText(composite)} — ${energyTier(urgency, confidence).name}`;
   document.getElementById('meritVal').textContent = merit;
-  document.getElementById('driveVal').textContent = eInfo.e;
+  document.getElementById('EnergyVal').textContent = eInfo.e;
   document.getElementById('coach').textContent = coachHint({ ret, stab, press, urg: urgency, conf: confidence, impact, cost, risk });
 
   // Live-update Compare base if modal is open and locked
