@@ -1579,66 +1579,51 @@ document.addEventListener('DOMContentLoaded', ()=>{
 });
 </script>
 <script>
-/* === D-NAV Auto Demo (first visit) === */
+/* === D-NAV Demo: autorun + replay === */
 (function () {
   const STORAGE_KEY = 'dnv_demo_seen_v1';
   const $ = (id) => document.getElementById(id);
 
-  // Move a slider and fire your existing listeners
-  function setSlider(id, value, waitMs = 450) {
-    return new Promise((resolve) => {
-      const el = $(id);
-      if (!el) return resolve();
+  function showMask(show){
+    const m = $('tourMask'); if(!m) return;
+    m.hidden = !show;
+    document.body.classList.toggle('no-scroll', show);
+  }
+  function note(text){
+    const n = $('tourNote'); if(!n) return;
+    n.textContent = text; n.hidden = false;
+    n.classList.add('tour-pulse'); setTimeout(()=>n.classList.remove('tour-pulse'),600);
+  }
+  function setSlider(id, value, waitMs = 450){
+    return new Promise((resolve)=>{
+      const el = $(id); if(!el) return resolve();
       el.value = value;
-      // Trigger your UI update logic
-      el.dispatchEvent(new Event('input', { bubbles: true }));
-      el.dispatchEvent(new Event('change', { bubbles: true }));
+      el.dispatchEvent(new Event('input', {bubbles:true}));
+      el.dispatchEvent(new Event('change',{bubbles:true}));
       setTimeout(resolve, waitMs);
     });
   }
 
-  function showMask(show) {
-    const m = $('tourMask');
-    if (!m) return;
-    m.hidden = !show;
-    document.body.classList.toggle('no-scroll', show);
-  }
-
-  function note(text) {
-    const n = $('tourNote');
-    if (!n) return;
-    n.textContent = text;
-    n.hidden = false;
-    n.classList.add('tour-pulse');
-    setTimeout(() => n.classList.remove('tour-pulse'), 600);
-  }
-
-  async function runDemoOnce() {
-    // Only run on true first visit for this browser
-    if (localStorage.getItem(STORAGE_KEY)) return;
-    localStorage.setItem(STORAGE_KEY, '1');
+  // Expose for manual/replay
+  window.startDemo = async function startDemo(force=false){
+    if (!force && localStorage.getItem(STORAGE_KEY)) return;
+    if (!force) localStorage.setItem(STORAGE_KEY,'1');
 
     showMask(true);
-    note('Demo: set Impact high, Cost low…');
-    await setSlider('impact', 9, 650);
-
-    note('Now adjust Cost and Risk…');
-    await setSlider('cost', 2, 550);
-    await setSlider('risk', 3, 550);
-
-    note('Urgency up a bit, Confidence solid…');
-    await setSlider('urgency', 6, 550);
-    await setSlider('confidence', 7, 750);
+    note('Demo: set Impact high, Cost low…'); await setSlider('impact', 9, 650);
+    note('Now adjust Cost and Risk…');       await setSlider('cost', 2, 550); await setSlider('risk', 3, 550);
+    note('Urgency up a bit, Confidence solid…'); await setSlider('urgency', 6, 550); await setSlider('confidence', 7, 750);
 
     note('All yours. Explore and tweak.');
-    setTimeout(() => {
-      const n = $('tourNote');
-      if (n) n.hidden = true;
-      showMask(false);
-    }, 900);
-  }
+    setTimeout(()=>{ const n=$('tourNote'); if(n) n.hidden = true; showMask(false); }, 900);
+  };
 
-  window.addEventListener('DOMContentLoaded', runDemoOnce);
+  window.addEventListener('DOMContentLoaded', () => {
+    // auto-run once on first visit
+    startDemo(false);
+    // hook up the header button
+    document.getElementById('runDemoBtn')?.addEventListener('click', () => startDemo(true));
+  });
 })();
 </script>
 </body>
