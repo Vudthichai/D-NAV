@@ -4,40 +4,7 @@
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <title>The Decision NAVigator — D-NAV Mini (v3.39g)</title>
-<style>/* --- Top action above Readout (col 3) --- */
-.top-actions{
-  grid-column: 3;                /* sits above the summary card column */
-  display: flex;
-  justify-content: flex-end;
-  align-items: center;
-  margin-bottom: -6px;           /* tucks closer to the card */
-}
-.link-btn{
-  display:inline-flex; gap:8px; align-items:center;
-  padding:8px 12px;
-  background: rgba(105,169,255,.08);
-  border:1px solid rgba(105,169,255,.35);
-  border-radius:10px;
-  color:#cfe1ff; text-decoration:none; font-weight:750; font-size:.9rem;
-  transition: transform .18s ease, box-shadow .18s ease, background .18s ease, border-color .18s ease;
-}
-.link-btn:hover{
-  background: rgba(105,169,255,.12);
-  border-color: rgba(105,169,255,.55);
-  box-shadow: 0 0 0 6px rgba(105,169,255,.10);
-  transform: translateY(-1px);
-}
-.link-btn .dot{
-  width:8px; height:8px; border-radius:999px;
-  background: rgba(105,169,255,.85);
-  box-shadow: 0 0 10px rgba(105,169,255,.6); /* subtle beacon */
-}
-
-/* Mobile: ensure it still sits just above the summary card */
-@media (max-width:900px){
-  .top-actions{ grid-column: 1; justify-content: flex-start; margin: 2px 0 0; }
-}
-
+<style>
 /* Always-on subtle glow */
 #runDemoBtn {
   box-shadow: 0 0 8px 1px rgba(255, 255, 255, 0.15); /* soft white halo */
@@ -323,12 +290,6 @@ tbody tr:nth-child(even){background:rgba(255,255,255,.02)}
       <div class="stat"><h3>Stability</h3><div class="val" id="stab">0</div><span id="stabPill" class="pill amber">Uncertain</span></div>
       <div class="stat"><h3>Pressure</h3><div class="val" id="press">0</div><span id="pressPill" class="pill amber">Balanced</span></div>
     </div>
-<!-- Quick link above the Readout card -->
-<div class="top-actions">
-  <a href="/definitions.html" class="link-btn" aria-label="Open Definitions and Archetypes">
-    <span class="dot" aria-hidden="true"></span> Definitions &amp; Archetypes
-  </a>
-</div>
 
     <div id="card_summary" class="card summary">
       <div class="arch">
