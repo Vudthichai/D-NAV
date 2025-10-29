@@ -139,6 +139,16 @@ tbody tr:nth-child(even){background:rgba(255,255,255,.02)}
 /* Compare readability */
 .kvline{font-size:13px;color:#cfe1ff;margin:6px 0 2px}
 .kvline b{font-weight:900}
+/* --- Compare: summary chips + accordion --- */
+.summary-chip{display:flex;align-items:center;gap:10px;margin-top:6px;font-size:12px;color:#cfe1ff}
+.summary-chip .spark{display:inline-flex;gap:6px}
+.spark .bar{height:8px;width:64px;border-radius:999px;background:rgba(255,255,255,.06);overflow:hidden}
+.spark .pos{display:block;height:100%;background:rgba(62,207,142,.9)}
+.spark .neg{display:block;height:100%;background:rgba(255,107,107,.9)}
+.tuneBtn{padding:6px 10px;border-radius:8px;border:1px solid rgba(255,255,255,.2);background:transparent;color:#cfe1ff;font-weight:700;cursor:pointer}
+.tuneBody{display:none;margin-top:8px}
+.tuneBody.open{display:block}
+.smalltag{display:inline-block;padding:2px 8px;border-radius:999px;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.12);font-size:11px;font-weight:800}
 
 /* Narrative (top) */
 .narrative-top h2{margin:0 0 6px 0}
@@ -646,6 +656,32 @@ function coachHint({ret, stab, press, urg, conf, impact, cost, risk}){
   if (stab <= 0) return "Upside but fragile — shore up footing before scaling" + leverLine;
   if (press > 0) return "Good profile, but pressured" + leverLine;
   return sugs.length ? "Greenlight profile" + leverLine : "Greenlight profile — execute with discipline.";
+}
+/* --- Compare: trade-off classifier + winner brief --- */
+function tradeoffTag(m, base){
+  const dR = Math.round(m.ret - base.ret);
+  const dS = Math.round(m.stability - base.stability);
+  const dP = Math.round(m.pressure - base.pressure);
+
+  if (dS > 4 && dR >= -2 && dP <= 0) return "Stability up with minor return cost";
+  if (dR > 4 && dS >= 0 && dP <= 0)  return "Upside up, footing safe, load calmer";
+  if (dR > 4 && dS < -2)             return "Chasing upside on fragile footing";
+  if (dP < -4 && dR >= 0)            return "Same/↑ return with lower load";
+  if (dR < 0 && dS > 6)              return "Sacrifice upside for resilience";
+  return "Balanced shift across metrics";
+}
+
+function decisionBrief(winner, base){
+  const dD = Math.round(winner.dnav - base.dnav);
+  const dR = Math.round(winner.ret - base.ret);
+  const dS = Math.round(winner.stability - base.stability);
+  const dP = Math.round(winner.pressure - base.pressure);
+  const why  = `Leads by ${dD>=0?'+':''}${dD} D-NAV (ΔR ${dR>=0?'+':''}${dR}, ΔS ${dS>=0?'+':''}${dS}, ΔP ${dP>=0?'+':''}${dP}).`;
+  const trade = tradeoffTag(winner, base);
+  const nudge = smallestNudge(baseSnapshot?.vals || readCurrent());
+  const how   = nudge ? `If staying with Base: ${nudge.dir>0?'+':'−'}1 ${nudge.key} → ΔD ${nudge.delta>=0?'+':''}${Math.round(nudge.delta)}.` : '';
+  const risk  = (winner.stability < 0) ? "Note: footing remains fragile — add evidence before scaling." : "";
+  return `${why} ${trade}. ${how} ${risk}`.trim();
 }
 
 /* Main calculator */
@@ -1380,6 +1416,20 @@ function refreshDeltaTable(){
       const lever = best ? `${best.dir>0?'+':'−'}1 ${best.key} → ΔD ${best.delta>0?'+':''}${Math.round(best.delta)}` : '—';
       meta.innerHTML = `ΔR ${dR>=0?'+':''}${Math.round(dR)} • ΔS ${dS>=0?'+':''}${Math.round(dS)} • ΔP ${dP>=0?'+':''}${Math.round(dP)} • ΔD ${dN>=0?'+':''}${Math.round(dN)} • <b>easiest nudge:</b> ${lever}`;
     }
+    // Build chip: tag + sparkline
+const chip = document.getElementById(`scn_chip_${s.id}`);
+if (chip){
+  const tag = tradeoffTag(s.metrics, B);
+  const dN = Math.round((s.metrics.dnav - B.dnav) || 0);
+  const width = Math.min(100, Math.abs(dN));
+  chip.innerHTML = `
+    <span class="smalltag">${escapeHtml(tag)}</span>
+    <span class="spark">
+      <span>ΔD ${dN>=0?'+':''}${dN}</span>
+      <span class="bar"><span class="${dN>=0?'pos':'neg'}" style="width:${width}%"></span></span>
+    </span>`;
+}
+
     return `<tr>
       <td style="text-align:left">${escapeHtml(s.name)}</td>
       <td>${dR>=0?'+':''}${Math.round(dR)}</td>
@@ -1389,18 +1439,16 @@ function refreshDeltaTable(){
     </tr>`;
   }).join('');
 
-  // Winner + blurb: why it wins + how to reach it from Base
-  const best = scenarios.slice().sort((a,b)=>b.metrics.dnav - a.metrics.dnav)[0];
-  const lead = best.metrics.dnav - B.dnav;
-  const winnerTag = document.getElementById('winnerTag');
-  winnerTag.className = 'win ' + (lead>=0?'a':'b');
-  winnerTag.textContent = lead>=0 ? 'Scenario leads' : 'Base leads';
+// Winner ribbon + brief
+const best = scenarios.slice().sort((a,b)=>b.metrics.dnav - a.metrics.dnav)[0];
+const lead = best.metrics.dnav - B.dnav;
+const winnerTag = document.getElementById('winnerTag');
+winnerTag.className = 'win ' + (lead>=0?'a':'b');
+winnerTag.textContent = (lead>=0 ? `${best.name} leads` : 'Base leads');
 
-  const why = `because ΔD=${lead>=0?'+':''}${Math.round(lead)} (ΔR ${best.metrics.ret-B.ret>=0?'+':''}${Math.round(best.metrics.ret-B.ret)}, ΔS ${best.metrics.stability-B.stability>=0?'+':''}${Math.round(best.metrics.stability-B.stability)}, ΔP ${best.metrics.pressure-B.pressure>=0?'+':''}${Math.round(best.metrics.pressure-B.pressure)})`;
-  const nudge = smallestNudge(baseSnapshot.vals);
-  const how = nudge ? `From Base, easiest shift: ${nudge.dir>0?'+':'−'}1 ${nudge.key} → ΔD ${nudge.delta>=0?'+':''}${Math.round(nudge.delta)}.` : '';
-  document.getElementById('winnerLine').textContent = `${best.name} is ${lead>=0?'+':''}${Math.round(lead)} D-NAV vs Base — ${why}. ${how}`;
-  document.getElementById('scn_blurb').textContent = `${scenarios.length} option${scenarios.length===1?'':'s'} ranked by ΔD-NAV.`;
+const brief = decisionBrief(best.metrics, B);
+document.getElementById('winnerLine').textContent = brief;
+document.getElementById('scn_blurb').textContent = `${scenarios.length} option${scenarios.length===1?'':'s'} ranked by ΔD-NAV.`;
 }
 
 /* Recent loader */
