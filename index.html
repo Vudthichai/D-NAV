@@ -180,6 +180,22 @@ tbody tr:nth-child(even){background:rgba(255,255,255,.02)}
   50%{box-shadow:0 10px 24px rgba(0,0,0,.35), 0 0 28px 8px rgba(105,169,255,.15)}
   100%{box-shadow:0 10px 24px rgba(0,0,0,.35), 0 0 0 0 rgba(105,169,255,.25)}
 }
+/* ===== Demo overlay & focus ===== */
+.dim { opacity:.28; filter:blur(.5px); pointer-events:none; transition:opacity .25s ease, filter .25s ease }
+.demo-ui{ position:fixed; inset:0; pointer-events:none; z-index:99990 }
+.demo-ui.hide{ display:none }
+.demo-caption{
+  position:fixed; left:50%; transform:translateX(-50%);
+  top:12px; background:rgba(14,20,28,.85); color:#e9eef5; 
+  padding:10px 14px; border:1px solid rgba(105,169,255,.35);
+  border-radius:10px; font-weight:700; letter-spacing:.2px; pointer-events:auto; z-index:99991
+}
+.demo-skip{
+  position:fixed; right:14px; top:10px; z-index:99992; 
+  background:transparent; color:#fff; border:1px solid rgba(255,255,255,.35);
+  padding:8px 12px; border-radius:10px; font-weight:700; cursor:pointer; opacity:.8
+}
+.demo-skip:hover{ opacity:1 }
 
 /* tiny label row below scenarios header */
 .scn-meta-line{display:flex;align-items:center;gap:10px;margin-top:6px}
@@ -187,16 +203,21 @@ tbody tr:nth-child(even){background:rgba(255,255,255,.02)}
 </head>
 <body>
   <!-- Page banner -->
-  <div class="site-title">
-    <h1>The Decision NAVigator</h1>
-    <div class="sub">Bring clarity to complex decisions instantly.</div>
-    <p>Adjust the sliders below — your decision’s profile updates in real time.</p>
+ <div class="site-title" style="position:relative;">
+  <h1>The Decision NAVigator</h1>
+  <div class="sub">Bring clarity to complex decisions instantly.</div>
+  <p>Adjust the sliders below — your decision’s profile updates in real time.</p>
 
-  </div>
+  <!-- Run Demo button (top-right) -->
+  <button id="runDemoBtn" class="btn" style="position:absolute;right:0;top:0;">
+    Run Demo
+  </button>
+</div>
+
 
   <!-- MAIN: D-NAV + Derived Signals + Readout -->
   <div class="wrap">
-    <div class="card primary-focus">
+    <div id="card_vars" class="card primary-focus">
       <h1>D-NAV Variables</h1>
       <div class="muted">Rate each variable from <i>1- 10</i>. Scores are relative to your current context.</div>
       <div class="scale-note">Scale: <span class="pill blue" style="padding:2px 8px;border:1px solid rgba(105,169,255,.35)">1 = minimal</span> <span class="pill blue" style="padding:2px 8px;border:1px solid rgba(105,169,255,.35)">10 = maximum</span> • judge how it feels <b>right now</b>.</div>
@@ -230,13 +251,13 @@ tbody tr:nth-child(even){background:rgba(255,255,255,.02)}
       <div class="muted" style="margin-top:6px;">Formula: <span class="mono">(Impact − Cost − Risk) + (Urgency × Confidence)</span></div>
     </div>
 
-    <div class="card stats">
+    <div id="card_rps" class="card stats">
       <div class="stat"><h3>Return</h3><div class="val" id="ret">0</div><span id="retPill" class="pill amber">Neutral</span></div>
       <div class="stat"><h3>Stability</h3><div class="val" id="stab">0</div><span id="stabPill" class="pill amber">Uncertain</span></div>
       <div class="stat"><h3>Pressure</h3><div class="val" id="press">0</div><span id="pressPill" class="pill amber">Balanced</span></div>
     </div>
 
-    <div class="card summary">
+    <div id="card_summary" class="card summary">
       <div class="arch">
         <h3>Archetype</h3>
         <div id="arch" class="name">Routine</div>
@@ -1392,7 +1413,134 @@ function populateRecent(){
 }
 
 /* ======== WIRING ======== */
+/* ======== DEMO ENGINE ======== */
+let demoTimer = null;
+let demoRunning = false;
+
+function qsAll(sel){ return Array.from(document.querySelectorAll(sel)); }
+
+/* Dims every .card except the one we’re spotlighting */
+function dimExcept(el){
+  qsAll('.card').forEach(c => { if(c!==el) c.classList.add('dim'); else c.classList.remove('dim'); });
+  document.body.classList.add('no-scroll');
+  document.getElementById('demoUI').classList.remove('hide');
+  document.getElementById('demoUI').setAttribute('aria-hidden','false');
+}
+function clearDim(){
+  qsAll('.card').forEach(c => c.classList.remove('dim'));
+  document.body.classList.remove('no-scroll');
+  document.getElementById('demoUI').classList.add('hide');
+  document.getElementById('demoUI').setAttribute('aria-hidden','true');
+}
+
+/* Smoothly slides a range input to a target value, calling compute() as it moves */
+function animateSliderTo(el, target, duration=900){
+  const start = performance.now();
+  const from = Number(el.value);
+  const dist = target - from;
+  return new Promise(resolve=>{
+    function step(t){
+      const p = Math.min(1, (t - start)/duration);
+      el.value = String(Math.round(from + dist*p));
+      compute();
+      if(p < 1 && demoRunning){ requestAnimationFrame(step); } else { resolve(); }
+    }
+    requestAnimationFrame(step);
+  });
+}
+
+/* Resets all sliders to 1 (quickly) */
+function resetSlidersToOne(){
+  ['impact','cost','risk','urgency','confidence'].forEach(id=>{
+    const el = document.getElementById(id);
+    el.value = '1';
+  });
+  compute();
+}
+
+/* Animates all sliders to random (or scripted) targets */
+function animateAllSliders(targets, durationEach=900){
+  // targets is an object like {impact:8, cost:3, risk:8, urgency:6, confidence:1}
+  const order = ['impact','cost','risk','urgency','confidence'];
+  const chain = order.reduce((p,id)=>{
+    return p.then(()=>animateSliderTo(document.getElementById(id), targets[id], durationEach));
+  }, Promise.resolve());
+  return chain;
+}
+
+/* Caption helper */
+function setCaption(txt){ const c = document.getElementById('demoCaption'); if(c) c.textContent = txt; }
+
+/* Stop/skip demo */
+function stopDemo(){
+  demoRunning = false;
+  clearTimeout(demoTimer); demoTimer = null;
+  clearDim();
+}
+
+/* Main 3-stage flow (≈30s total) */
+async function runDemo(){
+  // If user already watched, we still allow replay — but you can no-op if desired.
+  demoRunning = true;
+
+  const cardVars = document.getElementById('card_vars');
+  const cardRPS  = document.getElementById('card_rps');
+  const cardSum  = document.getElementById('card_summary');
+
+  // STAGE 1 — Variables (8s)
+  dimExcept(cardVars);
+  setCaption('Adjust each variable to describe your current decision.');
+  resetSlidersToOne();
+  // You can tweak these targets to produce a clear “Gamble” feel for the aha
+  await animateAllSliders({impact:8, cost:3, risk:8, urgency:6, confidence:1}, 900);
+  if(!demoRunning) return;
+
+  // STAGE 2 — R P S focus (10s)
+  dimExcept(cardRPS);
+  setCaption('See Return, Pressure, and Stability update in real time.');
+  resetSlidersToOne();
+  await animateAllSliders({impact:7, cost:2, risk:6, urgency:7, confidence:3}, 850);
+  if(!demoRunning) return;
+
+  // STAGE 3 — Coach + Archetype (10s)
+  dimExcept(cardSum);
+  setCaption('Instant coaching: archetype + next step.');
+  resetSlidersToOne();
+  await animateAllSliders({impact:6, cost:3, risk:3, urgency:5, confidence:8}, 800);
+  if(!demoRunning) return;
+
+  // Outro
+  setCaption('That’s one decision mapped in under 30 seconds. Try your own.');
+  // Give them a breath, then exit
+  demoTimer = setTimeout(()=>{ stopDemo(); }, 1200);
+}
+wi
 document.addEventListener('DOMContentLoaded', ()=>{
+
+    /* === Demo wiring === */
+  const runBtn = document.getElementById('runDemoBtn');
+  const skipBtn = document.getElementById('demoSkip');
+
+  // Show "Replay Demo" if user has completed it before (optional)
+  try{
+    if(localStorage.getItem('dnav_demo_seen')==='1'){ runBtn.textContent = 'Replay Demo'; }
+  }catch{}
+
+  runBtn.addEventListener('click', ()=>{
+    // delay skip button by ~1s so they see motion first
+    const sk = document.getElementById('demoSkip');
+    if(sk){ sk.style.visibility='hidden'; setTimeout(()=>{ sk.style.visibility='visible'; }, 1000); }
+
+    demoRunning = true;
+    runDemo().then(()=>{
+      try{ localStorage.setItem('dnav_demo_seen','1'); }catch{}
+    });
+  });
+
+  skipBtn.addEventListener('click', ()=>{
+    stopDemo();
+  });
+
   // Sliders
   SLIDER_IDS.forEach(id=>{ document.getElementById(id).addEventListener('input', compute); });
   compute();
@@ -1522,5 +1670,11 @@ document.addEventListener('DOMContentLoaded', ()=>{
   refreshHUD();
 });
 </script>
+<!-- Demo overlay & caption -->
+<div id="demoUI" class="demo-ui hide" aria-hidden="true">
+  <div class="demo-caption" id="demoCaption">Adjust each variable to describe your decision.</div>
+  <button id="demoSkip" class="demo-skip">Skip Demo</button>
+</div>
+
 </body>
 </html>
