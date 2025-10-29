@@ -184,12 +184,23 @@ tbody tr:nth-child(even){background:rgba(255,255,255,.02)}
 .dim { opacity:.28; filter:blur(.5px); pointer-events:none; transition:opacity .25s ease, filter .25s ease }
 .demo-ui{ position:fixed; inset:0; pointer-events:none; z-index:99990 }
 .demo-ui.hide{ display:none }
-.demo-caption{
-  position:fixed; left:50%; transform:translateX(-50%);
-  top:12px; background:rgba(14,20,28,.85); color:#e9eef5; 
-  padding:10px 14px; border:1px solid rgba(105,169,255,.35);
-  border-radius:10px; font-weight:700; letter-spacing:.2px; pointer-events:auto; z-index:99991
+.demo-caption.demo-caption {
+  position: fixed;
+  left: 50%;
+  transform: translateX(-50%);
+  top: 12px;
+  background: rgba(14, 20, 28, 0.85);
+  color: #ffd43b; /* bright yellow */
+  text-shadow: 0 0 12px rgba(255, 212, 59, 0.7); /* glowing effect */
+  padding: 10px 14px;
+  border: 1px solid rgba(105, 169, 255, .35);
+  border-radius: 10px;
+  font-weight: 700;
+  letter-spacing: .2px;
+  pointer-events: auto;
+  z-index: 99991;
 }
+
 .demo-skip{
   position:fixed; right:14px; top:10px; z-index:99992; 
   background:transparent; color:#fff; border:1px solid rgba(255,255,255,.35);
