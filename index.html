@@ -658,6 +658,15 @@ function coachHint({ret, stab, press, urg, conf, impact, cost, risk}){
   return sugs.length ? "Greenlight profile" + leverLine : "Greenlight profile — execute with discipline.";
 }
 /* --- Compare: trade-off classifier + winner brief --- */
+function deltaMood(dR, dS, dP){
+  // interprets the relationship between the deltas
+  if (dR < 0 && dS > 0 && dP <= 0) return "Sacrifices some upside for stronger footing.";
+  if (dR > 0 && dS < 0 && dP >= 0) return "Chases upside at the cost of stability and load.";
+  if (dS > 3 && dP < 0)           return "Gains footing and eases pressure — steadier execution.";
+  if (dP > 3 && dS <= 0)          return "Adds pressure — short-term strain likely.";
+  if (Math.abs(dR)+Math.abs(dS)+Math.abs(dP) <= 3) return "Near-parity — mostly lateral.";
+  return "Balanced shift across metrics.";
+}
 function tradeoffTag(m, base){
   const dR = Math.round(m.ret - base.ret);
   const dS = Math.round(m.stability - base.stability);
@@ -676,13 +685,19 @@ function decisionBrief(winner, base){
   const dR = Math.round(winner.ret - base.ret);
   const dS = Math.round(winner.stability - base.stability);
   const dP = Math.round(winner.pressure - base.pressure);
-  const why  = `Leads by ${dD>=0?'+':''}${dD} D-NAV (ΔR ${dR>=0?'+':''}${dR}, ΔS ${dS>=0?'+':''}${dS}, ΔP ${dP>=0?'+':''}${dP}).`;
+
+  const why   = `Leads by ${dD>=0?'+':''}${dD} D-NAV (ΔR ${dR>=0?'+':''}${dR}, ΔS ${dS>=0?'+':''}${dS}, ΔP ${dP>=0?'+':''}${dP}).`;
   const trade = tradeoffTag(winner, base);
+  const mood  = deltaMood(dR, dS, dP);
+
   const nudge = smallestNudge(baseSnapshot?.vals || readCurrent());
   const how   = nudge ? `If staying with Base: ${nudge.dir>0?'+':'−'}1 ${nudge.key} → ΔD ${nudge.delta>=0?'+':''}${Math.round(nudge.delta)}.` : '';
+
   const risk  = (winner.stability < 0) ? "Note: footing remains fragile — add evidence before scaling." : "";
-  return `${why} ${trade}. ${how} ${risk}`.trim();
+
+  return `${why} ${trade}. ${mood} ${how} ${risk}`.trim();
 }
+
 
 /* Main calculator */
 function compute(){
@@ -1361,6 +1376,17 @@ function scenarioCard(scn){
     grid.appendChild(wrap);
   });
   card.appendChild(grid);
+  // after: card.appendChild(grid);
+  const chip = document.createElement('div');
+  chip.className = 'summary-chip';
+  chip.id = `scn_chip_${scn.id}`;
+  chip.innerHTML = `
+    <span class="smalltag">—</span>
+    <span class="spark">
+      <span>ΔD —</span>
+      <span class="bar"><span class="neg" style="width:0%"></span></span>
+    </span>`;
+  card.appendChild(chip);
 
   const meta = document.createElement('div'); meta.className='mini'; meta.style.marginTop='6px'; meta.id = `scn_meta_${scn.id}`;
   card.appendChild(meta);
