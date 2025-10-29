@@ -1305,6 +1305,11 @@ function refreshHUD(){
 let baseSnapshot = null; // {vals, metrics}
 let scenarios = []; // [{id, name, vals, metrics, el}]
 let scenarioSeq = 1;
+let focusedId = null; // which scenario we’re reading deeply
+function setFocus(id){
+  focusedId = id;
+  refreshDeltaTable();
+}
 
 function currentMetricsFromSliders(){
   const v = readCurrent();
@@ -1363,7 +1368,13 @@ function scenarioCard(scn){
   setBase.addEventListener('click', ()=>{ baseSnapshot = {vals:{...scn.vals}, metrics:{...scn.metrics}, name:scn.name}; document.getElementById('baseLock').checked = false; renderBasePanel(); refreshDeltaTable(); });
   const del = document.createElement('button'); del.className='btn secondary'; del.textContent='Remove';
   del.addEventListener('click', ()=>{ scenarios = scenarios.filter(x=>x.id!==scn.id); card.remove(); refreshDeltaTable(); });
-  btns.appendChild(setBase); btns.appendChild(del);
+ // Focus button — lets user highlight a scenario for comparison
+const focusBtn = document.createElement('button');
+focusBtn.className = 'btn secondary';
+focusBtn.textContent = 'Focus';
+focusBtn.addEventListener('click', ()=> setFocus(scn.id));
+btns.appendChild(focusBtn);
+ btns.appendChild(setBase); btns.appendChild(del);
   head.appendChild(h); head.appendChild(btns);
   card.appendChild(head);
 
@@ -1442,6 +1453,23 @@ function refreshDeltaTable(){
       const lever = best ? `${best.dir>0?'+':'−'}1 ${best.key} → ΔD ${best.delta>0?'+':''}${Math.round(best.delta)}` : '—';
       meta.innerHTML = `ΔR ${dR>=0?'+':''}${Math.round(dR)} • ΔS ${dS>=0?'+':''}${Math.round(dS)} • ΔP ${dP>=0?'+':''}${Math.round(dP)} • ΔD ${dN>=0?'+':''}${Math.round(dN)} • <b>easiest nudge:</b> ${lever}`;
     }
+    // Keep the selected row visually in sync with the focused scenario
+[...tbody.querySelectorAll('tr[data-scn]')].forEach(tr => {
+  tr.classList.toggle('selected', tr.getAttribute('data-scn') == focusedId);
+});
+// One-click focus from rows in the delta table
+(function wireDeltaClickOnce(){
+  const tbody = document.querySelector('#deltaTable tbody');
+  if (!tbody || tbody._wired) return;
+  tbody._wired = true;
+
+  tbody.addEventListener('click', (e)=>{
+    const tr = e.target.closest('tr[data-scn]');
+    if (!tr) return;
+    setFocus(Number(tr.getAttribute('data-scn'))); // will re-render + highlight
+  });
+})();
+
     // Build chip: tag + sparkline
 const chip = document.getElementById(`scn_chip_${s.id}`);
 if (chip){
@@ -1456,7 +1484,7 @@ if (chip){
     </span>`;
 }
 
-    return `<tr>
+    return `<tr data-scn="${s.id}">
       <td style="text-align:left">${escapeHtml(s.name)}</td>
       <td>${dR>=0?'+':''}${Math.round(dR)}</td>
       <td>${dS>=0?'+':''}${Math.round(dS)}</td>
@@ -1475,6 +1503,12 @@ winnerTag.textContent = (lead>=0 ? `${best.name} leads` : 'Base leads');
 const brief = decisionBrief(best.metrics, B);
 document.getElementById('winnerLine').textContent = brief;
 document.getElementById('scn_blurb').textContent = `${scenarios.length} option${scenarios.length===1?'':'s'} ranked by ΔD-NAV.`;
+// Highlight the focused card; dim others a bit (optional)
+scenarios.forEach(s => {
+  if (!s.el) return;
+  if (focusedId && s.id === focusedId) s.el.classList.add('focused');
+  else s.el.classList.remove('focused');
+});
 }
 
 /* Recent loader */
