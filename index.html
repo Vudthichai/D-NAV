@@ -1639,9 +1639,9 @@ document.addEventListener('DOMContentLoaded', ()=>{
   const runBtn = document.getElementById('runDemoBtn');
   const skipBtn = document.getElementById('demoSkip');
 
-  // Show "Replay Demo" if user has completed it before (optional)
+  // Show "Play Demo" if user has completed it before (optional)
   try{
-    if(localStorage.getItem('dnav_demo_seen')==='1'){ runBtn.textContent = 'Replay Demo'; }
+    if(localStorage.getItem('dnav_demo_seen')==='1'){ runBtn.textContent = 'Play Demo'; }
   }catch{}
 
   runBtn.addEventListener('click', ()=>{
