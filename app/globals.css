@@ -175,6 +175,44 @@ body {
   letter-spacing: var(--tracking-normal);
 }
 
+@keyframes compass-needle-sway {
+  0%,
+  100% {
+    transform: rotate(-12deg);
+  }
+  50% {
+    transform: rotate(12deg);
+  }
+}
+
+@keyframes compass-ring-spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.compass-needle {
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: compass-needle-sway 6s ease-in-out infinite;
+}
+
+.compass-ring {
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: compass-ring-spin 24s linear infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .compass-needle,
+  .compass-ring {
+    animation: none !important;
+  }
+}
+
 @layer base {
   * {
     @apply border-border outline-ring/50;

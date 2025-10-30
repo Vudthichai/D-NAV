@@ -1,5 +1,6 @@
 "use client";
 
+import { AnimatedCompass } from "@/components/animated-compass";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -31,11 +32,7 @@ export default function Home() {
           <div className="text-center">
             {/* Logo and Title */}
             <div className="flex justify-center items-center gap-4 mb-8">
-              <img
-                src="/logo.PNG"
-                alt="D-NAV"
-                className="w-16 h-16 rounded-xl bg-primary/20 shadow-lg"
-              />
+              <AnimatedCompass className="h-20 w-20" />
               <div className="text-left">
                 <h1 className="text-6xl font-black tracking-tight text-foreground">D-NAV</h1>
                 <p className="text-xl text-muted-foreground font-medium">The Decision Navigator</p>
