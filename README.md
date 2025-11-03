@@ -10,7 +10,7 @@ This is a complete conversion of the original D-NAV HTML/CSS/JavaScript applicat
 
 ### Core Functionality
 - **Interactive Calculator**: Real-time D-NAV calculation with sliders for Impact, Cost, Risk, Urgency, and Confidence
-- **Decision Metrics**: Automatic calculation of Return, Stability, Pressure, Merit, Drive, and Composite D-NAV scores
+- **Decision Metrics**: Automatic calculation of Return, Stability, Pressure, Merit, Energy, and Composite D-NAV scores
 - **Archetype Classification**: 27 decision archetypes based on Pressure, Stability, and Return patterns
 - **Coach Readout**: Intelligent coaching suggestions based on current decision profile
 
@@ -67,7 +67,7 @@ D-NAV = (Impact − Cost − Risk) + (Urgency × Confidence)
 - **Stability**: Confidence - Risk  
 - **Pressure**: Urgency - Confidence
 - **Merit**: Impact - Cost - Risk
-- **Drive**: Urgency × Confidence
+- **Energy**: Urgency × Confidence
 
 ### Energy Tiers
 - **Overdrive**: 71+ (Urgency × Confidence)

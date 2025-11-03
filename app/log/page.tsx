@@ -7,8 +7,18 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Badge } from "@/components/ui/badge";
 import { DecisionEntry, computeMetrics, parseCSV } from "@/lib/calculations";
 import { loadLog, removeDecision, clearLog, saveLog } from "@/lib/storage";
-import { AlertTriangle, Download, FileSpreadsheet, FileText, Trash2, Upload } from "lucide-react";
-import { useEffect, useRef, useState } from "react";
+import {
+  AlertTriangle,
+  ArrowDown,
+  ArrowUp,
+  ArrowUpDown,
+  Download,
+  FileSpreadsheet,
+  FileText,
+  Trash2,
+  Upload,
+} from "lucide-react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import * as XLSX from "xlsx";
 
 export default function LogPage() {
@@ -50,7 +60,7 @@ export default function LogPage() {
     URL.revokeObjectURL(url);
   };
 
-  const handleExportCSV = () => {
+  const handleExportSpreadsheet = () => {
     if (decisions.length === 0) {
       alert("No decisions to export.");
       return;
@@ -73,28 +83,31 @@ export default function LogPage() {
       "D-NAV"
     ];
 
-    const csvContent = [
-      headers.join(","),
-      ...decisions.map(decision => [
-        new Date(decision.ts).toLocaleDateString(),
-        `"${decision.name}"`,
-        `"${decision.category}"`,
-        decision.impact,
-        decision.cost,
-        decision.risk,
-        decision.urgency,
-        decision.confidence,
-        decision.return.toFixed(2),
-        decision.stability.toFixed(2),
-        decision.pressure.toFixed(2),
-        decision.merit.toFixed(2),
-        decision.energy.toFixed(2),
-        decision.dnav.toFixed(2)
-      ].join(","))
-    ].join("\n");
+    const rows = decisions.map((decision) => ({
+      Date: new Date(decision.ts).toLocaleDateString(),
+      Name: decision.name,
+      Category: decision.category,
+      Impact: decision.impact,
+      Cost: decision.cost,
+      Risk: decision.risk,
+      Urgency: decision.urgency,
+      Confidence: decision.confidence,
+      Return: Number(decision.return.toFixed(2)),
+      Stability: Number(decision.stability.toFixed(2)),
+      Pressure: Number(decision.pressure.toFixed(2)),
+      Merit: Number(decision.merit.toFixed(2)),
+      Energy: Number(decision.energy.toFixed(2)),
+      "D-NAV": Number(decision.dnav.toFixed(2)),
+    }));
 
-    const blob = new Blob([csvContent], { type: "text/csv" });
-    downloadBlob(blob, `dnav-decisions-${new Date().toISOString().split('T')[0]}.csv`);
+    const worksheet = XLSX.utils.json_to_sheet(rows, { header: headers });
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, "Decisions");
+    const excelBuffer = XLSX.write(workbook, { bookType: "xlsx", type: "array" });
+    const blob = new Blob([excelBuffer], {
+      type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+    });
+    downloadBlob(blob, `dnav-decisions-${new Date().toISOString().split("T")[0]}.xlsx`);
   };
 
   const normalizeKey = (key: string = "") => key.toLowerCase().replace(/[^a-z0-9]/g, "");
@@ -193,6 +206,74 @@ export default function LogPage() {
     return records
       .map((record, index) => mapRecordToDecision(record, index, fallbackBase))
       .filter((decision): decision is DecisionEntry => Boolean(decision));
+  };
+
+  type SortKey = "category" | "return" | "stability" | "pressure" | "dnav";
+  const [sortConfig, setSortConfig] = useState<{ key: SortKey; direction: "asc" | "desc" } | null>(null);
+
+  const toggleSort = (key: SortKey) => {
+    setSortConfig((current) => {
+      if (current?.key === key) {
+        const nextDirection = current.direction === "asc" ? "desc" : "asc";
+        return { key, direction: nextDirection };
+      }
+      return { key, direction: "desc" };
+    });
+  };
+
+  const sortedDecisions = useMemo(() => {
+    if (!sortConfig) return [...decisions];
+    const list = [...decisions];
+    list.sort((a, b) => {
+      if (sortConfig.key === "category") {
+        const aCategory = a.category.toLowerCase();
+        const bCategory = b.category.toLowerCase();
+        if (aCategory === bCategory) return 0;
+        const comparison = aCategory.localeCompare(bCategory);
+        return sortConfig.direction === "asc" ? comparison : -comparison;
+      }
+
+      const getNumericValue = (entry: DecisionEntry, key: SortKey) => {
+        switch (key) {
+          case "return":
+            return entry.return;
+          case "stability":
+            return entry.stability;
+          case "pressure":
+            return entry.pressure;
+          case "dnav":
+            return entry.dnav;
+          default:
+            return 0;
+        }
+      };
+
+      const aValue = getNumericValue(a, sortConfig.key);
+      const bValue = getNumericValue(b, sortConfig.key);
+      if (aValue === bValue) return 0;
+      return sortConfig.direction === "asc" ? aValue - bValue : bValue - aValue;
+    });
+    return list;
+  }, [decisions, sortConfig]);
+
+  const renderSortButton = (label: string, column: SortKey, alignRight = false) => {
+    const isActive = sortConfig?.key === column;
+    const Icon = !isActive ? ArrowUpDown : sortConfig?.direction === "asc" ? ArrowUp : ArrowDown;
+    return (
+      <button
+        type="button"
+        onClick={() => toggleSort(column)}
+        className={`inline-flex items-center gap-1 text-xs font-semibold uppercase tracking-wide ${
+          isActive ? "text-foreground" : "text-muted-foreground"
+        } hover:text-foreground ${alignRight ? "ml-auto" : ""}`}
+      >
+        {label}
+        <Icon className="h-3.5 w-3.5" />
+        {isActive && (
+          <span className="sr-only">Sorted {sortConfig?.direction === "asc" ? "ascending" : "descending"}</span>
+        )}
+      </button>
+    );
   };
 
   const parseCsvRecords = (rows: string[][]): Record<string, unknown>[] => {
@@ -424,9 +505,13 @@ export default function LogPage() {
               <Upload className="h-4 w-4 mr-2" />
               Import Decisions
             </Button>
-            <Button variant="secondary" onClick={handleExportCSV} disabled={decisions.length === 0}>
+            <Button
+              variant="secondary"
+              onClick={handleExportSpreadsheet}
+              disabled={decisions.length === 0}
+            >
               <Download className="h-4 w-4 mr-2" />
-              Download CSV
+              Download Spreadsheet
             </Button>
             <Button variant="destructive" onClick={handleClearAll} disabled={decisions.length === 0}>
               <Trash2 className="h-4 w-4 mr-2" />
@@ -453,21 +538,29 @@ export default function LogPage() {
               <TableRow>
                 <TableHead>When</TableHead>
                 <TableHead>Name</TableHead>
-                <TableHead>Category</TableHead>
+                <TableHead>{renderSortButton("Category", "category")}</TableHead>
                 <TableHead className="text-right">Impact</TableHead>
                 <TableHead className="text-right">Cost</TableHead>
                 <TableHead className="text-right">Risk</TableHead>
                 <TableHead className="text-right">Urgency</TableHead>
                 <TableHead className="text-right">Confidence</TableHead>
-                <TableHead className="text-right">Return</TableHead>
-                <TableHead className="text-right">Pressure</TableHead>
-                <TableHead className="text-right">Stability</TableHead>
-                <TableHead className="text-right">D-NAV</TableHead>
+                <TableHead className="text-right">
+                  <div className="flex justify-end">{renderSortButton("Return", "return", true)}</div>
+                </TableHead>
+                <TableHead className="text-right">
+                  <div className="flex justify-end">{renderSortButton("Pressure", "pressure", true)}</div>
+                </TableHead>
+                <TableHead className="text-right">
+                  <div className="flex justify-end">{renderSortButton("Stability", "stability", true)}</div>
+                </TableHead>
+                <TableHead className="text-right">
+                  <div className="flex justify-end">{renderSortButton("D-NAV", "dnav", true)}</div>
+                </TableHead>
                 <TableHead className="text-center">✕</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
-              {decisions.length === 0 ? (
+              {sortedDecisions.length === 0 ? (
                 <TableRow>
                   <TableCell colSpan={13} className="text-center py-8 text-muted-foreground">
                     <div className="flex flex-col items-center gap-2">
@@ -478,7 +571,7 @@ export default function LogPage() {
                   </TableCell>
                 </TableRow>
               ) : (
-                decisions.map((decision) => (
+                sortedDecisions.map((decision) => (
                   <TableRow key={decision.ts}>
                     <TableCell className="font-medium">
                       {formatDate(decision.ts)}

@@ -8,7 +8,8 @@ import { Input } from "@/components/ui/input";
 import { useDemoController } from "@/hooks/use-demo-controller";
 import { DecisionEntry, DecisionMetrics, DecisionVariables } from "@/lib/calculations";
 import { addDecision } from "@/lib/storage";
-import { Check, Play, RotateCcw, Save } from "lucide-react";
+import { Check, Play, RotateCcw, Save, Upload } from "lucide-react";
+import Link from "next/link";
 import { useCallback, useState } from "react";
 
 export default function CalculatorPage() {
@@ -128,47 +129,6 @@ export default function CalculatorPage() {
               </Button>
             </div>
           </div>
-
-          {/* Quick Entry */}
-          <Card className="mb-6">
-            <CardHeader className="pb-4">
-              <CardTitle className="text-lg">Quick Entry</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                <Input
-                  type="text"
-                  placeholder="Decision name (e.g., 'Investor meetup solo')"
-                  value={decisionName}
-                  onChange={(e) => setDecisionName(e.target.value)}
-                />
-                <Input
-                  type="text"
-                  placeholder="Category (e.g., Career, Health, Relationships)"
-                  value={decisionCategory}
-                  onChange={(e) => setDecisionCategory(e.target.value)}
-                />
-                <Button
-                  onClick={handleSaveDecision}
-                  className="w-full"
-                  disabled={!decisionName || !decisionCategory}
-                  variant={isSaved ? "default" : "default"}
-                >
-                  {isSaved ? (
-                    <>
-                      <Check className="w-4 h-4 mr-2" />
-                      Saved!
-                    </>
-                  ) : (
-                    <>
-                      <Save className="w-4 h-4 mr-2" />
-                      Save Decision
-                    </>
-                  )}
-                </Button>
-              </div>
-            </CardContent>
-          </Card>
         </div>
 
         {/* Main Calculator */}
@@ -180,6 +140,52 @@ export default function CalculatorPage() {
           }}
           onDataChange={handleDataChange}
         />
+
+        {/* Quick Entry */}
+        <Card className="mt-8">
+          <CardHeader className="pb-4">
+            <CardTitle className="text-lg">Quick Entry</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-4">
+              <Input
+                type="text"
+                placeholder="Decision name (e.g., 'Investor meetup solo')"
+                value={decisionName}
+                onChange={(e) => setDecisionName(e.target.value)}
+              />
+              <Input
+                type="text"
+                placeholder="Category (e.g., Career, Health, Relationships)"
+                value={decisionCategory}
+                onChange={(e) => setDecisionCategory(e.target.value)}
+              />
+              <Button
+                onClick={handleSaveDecision}
+                className="w-full"
+                disabled={!decisionName || !decisionCategory}
+              >
+                {isSaved ? (
+                  <>
+                    <Check className="w-4 h-4 mr-2" />
+                    Saved!
+                  </>
+                ) : (
+                  <>
+                    <Save className="w-4 h-4 mr-2" />
+                    Save Decision
+                  </>
+                )}
+              </Button>
+              <Button variant="outline" className="w-full" asChild>
+                <Link href="/log#import">
+                  <Upload className="w-4 h-4 mr-2" />
+                  Import Decisions
+                </Link>
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
 
         {/* Action Buttons */}
         <div className="mt-8 flex justify-center gap-4">

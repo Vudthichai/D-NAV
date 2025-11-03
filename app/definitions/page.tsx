@@ -75,7 +75,7 @@ export default function DefinitionsPage() {
     { id: "overview", label: "Overview", icon: BookOpen },
     { id: "ingredients", label: "Core Ingredients", icon: Target },
     { id: "signals", label: "Derived Signals", icon: TrendingUp },
-    { id: "merit-drive", label: "Merit & Drive", icon: Zap },
+    { id: "merit-energy", label: "Merit & Energy", icon: Zap },
     { id: "composite", label: "D-NAV Formula", icon: Calculator },
     { id: "compare", label: "Compare Mode", icon: BarChart3 },
     { id: "learning", label: "Learning & Momentum", icon: Lightbulb },
@@ -481,13 +481,11 @@ export default function DefinitionsPage() {
                 </Card>
               </section>
 
-              {/* Merit & Drive */}
-              <section id="merit-drive" className="space-y-6">
+              {/* Merit & Energy */}
+              <section id="merit-energy" className="space-y-6">
                 <div>
-                  <h2 className="text-2xl font-bold tracking-tight mb-2">Merit & Drive</h2>
-                  <p className="text-muted-foreground">
-                    The two fundamental components that make up the D-NAV score
-                  </p>
+                  <h2 className="text-2xl font-bold tracking-tight mb-2">Merit & Energy</h2>
+                  <p className="text-muted-foreground">The two fundamental components that make up the D-NAV score</p>
                 </div>
 
                 <div className="grid md:grid-cols-2 gap-6">
@@ -522,7 +520,7 @@ export default function DefinitionsPage() {
                     <CardHeader>
                       <CardTitle className="flex items-center gap-2">
                         <Zap className="h-5 w-5 text-orange-500" />
-                        Drive
+                        Energy
                       </CardTitle>
                       <CardDescription className="font-mono text-sm">
                         Urgency × Confidence
@@ -534,11 +532,11 @@ export default function DefinitionsPage() {
                       </p>
                       <div className="space-y-2 text-sm">
                         <div className="flex justify-between">
-                          <span className="font-medium">High Drive:</span>
+                          <span className="font-medium">High Energy:</span>
                           <span className="text-muted-foreground">Ready to execute</span>
                         </div>
                         <div className="flex justify-between">
-                          <span className="font-medium">Low Drive:</span>
+                          <span className="font-medium">Low Energy:</span>
                           <span className="text-muted-foreground">Not ready or urgent</span>
                         </div>
                       </div>
@@ -552,7 +550,7 @@ export default function DefinitionsPage() {
                 <div>
                   <h2 className="text-2xl font-bold tracking-tight mb-2">D-NAV Formula</h2>
                   <p className="text-muted-foreground">
-                    The core calculation that combines Merit and Drive
+                    The core calculation that combines Merit and Energy
                   </p>
                 </div>
 
@@ -560,7 +558,7 @@ export default function DefinitionsPage() {
                   <CardContent className="pt-6">
                     <div className="text-center space-y-4">
                       <div className="text-2xl font-bold text-blue-900 dark:text-blue-100">
-                        D-NAV = Merit + Drive
+                        D-NAV = Merit + Energy
                       </div>
                       <div className="text-lg font-mono text-blue-800 dark:text-blue-200">
                         (Impact − Cost − Risk) + (Urgency × Confidence)
@@ -568,7 +566,7 @@ export default function DefinitionsPage() {
                       <Separator className="my-4" />
                       <p className="text-blue-800 dark:text-blue-200 max-w-2xl mx-auto">
                         D-NAV blends <strong>Merit</strong> (quality of the bet) with{" "}
-                        <strong>Drive</strong> (execution momentum). High D-NAV = a strong bet
+                        <strong>Energy</strong> (execution momentum). High D-NAV = a strong bet
                         and/or a strong push — always read <strong>Return</strong>,
                         <strong>Stability</strong>, and <strong>Pressure</strong> to avoid hidden
                         traps and slow bleeds.
