@@ -30,7 +30,7 @@ export default function SummaryCard({ metrics, urgency, confidence, onOpenCompar
           {scoreTag} — {energyInfo.name}
         </div>
         <div className="text-xs text-muted-foreground mt-1">
-          Merit: <span className="font-mono">{metrics.merit}</span> • Drive: <span className="font-mono">{metrics.energy}</span>
+          Merit: <span className="font-mono">{metrics.merit}</span> • Energy: <span className="font-mono">{metrics.energy}</span>
         </div>
         <div className="mt-4">
           <Button 

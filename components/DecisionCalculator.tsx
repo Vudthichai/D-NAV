@@ -2,9 +2,10 @@
 
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Separator } from "@/components/ui/separator";
 import { useHighlight } from "@/hooks/use-highlight";
 import { DecisionMetrics, DecisionVariables, coachHint, computeMetrics } from "@/lib/calculations";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import SliderRow from "./SliderRow";
 import StatCard from "./StatCard";
 import SummaryCard from "./SummaryCard";
@@ -47,6 +48,10 @@ export default function DecisionCalculator({
   const summaryRef = useHighlight("summary-section");
   const coachRef = useHighlight("coach-section");
 
+  const updateVariable = useCallback((key: keyof DecisionVariables, value: number) => {
+    setVariables((prev) => ({ ...prev, [key]: value }));
+  }, []);
+
   useEffect(() => {
     const newMetrics = computeMetrics(variables);
     setMetrics(newMetrics);
@@ -68,11 +73,7 @@ export default function DecisionCalculator({
       onDemoStep("urgency", (value: number) => updateVariable("urgency", value));
       onDemoStep("confidence", (value: number) => updateVariable("confidence", value));
     }
-  }, [onDemoStep]);
-
-  const updateVariable = (key: keyof DecisionVariables, value: number) => {
-    setVariables((prev) => ({ ...prev, [key]: value }));
-  };
+  }, [onDemoStep, updateVariable]);
 
   const getPillColor = (value: number, type: "return" | "stability" | "pressure") => {
     if (type === "pressure") {
@@ -90,10 +91,10 @@ export default function DecisionCalculator({
 
   return (
     <div className="space-y-6">
-      {/* Top Section: Variables and Metrics */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+      {/* Top Section: Variables, Metrics, and Summary */}
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
         {/* Variables Section */}
-        <Card ref={variablesRef} id="variables-section" className="lg:col-span-2">
+        <Card ref={variablesRef} id="variables-section" className="flex h-full flex-col">
           <CardHeader className="pb-4">
             <CardTitle className="text-xl font-bold">Decision Variables</CardTitle>
             <p className="text-sm text-muted-foreground">
@@ -153,11 +154,11 @@ export default function DecisionCalculator({
         </Card>
 
         {/* Metrics Section */}
-        <Card ref={metricsRef} id="metrics-section">
+        <Card ref={metricsRef} id="metrics-section" className="flex h-full flex-col">
           <CardHeader className="pb-3">
             <CardTitle className="text-lg">Key Metrics</CardTitle>
           </CardHeader>
-          <CardContent className="space-y-4">
+          <CardContent className="flex flex-1 flex-col gap-4">
             <StatCard
               title="Return"
               value={metrics.return}
@@ -175,32 +176,25 @@ export default function DecisionCalculator({
             />
           </CardContent>
         </Card>
-      </div>
-
-      {/* Bottom Section: Summary and Coach */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Summary Card */}
-        <Card ref={summaryRef} id="summary-section">
+        {/* Summary & Coach */}
+        <Card ref={summaryRef} id="summary-section" className="flex flex-col h-full">
           <CardHeader className="pb-3">
-            <CardTitle className="text-lg">Decision Summary</CardTitle>
+            <CardTitle className="text-lg">Archetype &amp; Coach</CardTitle>
           </CardHeader>
-          <CardContent>
+          <CardContent className="flex-1 space-y-4">
             <SummaryCard
               metrics={metrics}
               urgency={variables.urgency}
               confidence={variables.confidence}
               onOpenCompare={onOpenCompare}
             />
-          </CardContent>
-        </Card>
-
-        {/* Coach Readout */}
-        <Card ref={coachRef} id="coach-section">
-          <CardHeader className="pb-3">
-            <CardTitle className="text-lg">Coach Insight</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <p className="text-sm text-muted-foreground leading-relaxed">{coachText}</p>
+            <Separator />
+            <div ref={coachRef} id="coach-section" className="space-y-2">
+              <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">
+                Coach Insight
+              </h3>
+              <p className="text-sm text-muted-foreground leading-relaxed">{coachText}</p>
+            </div>
           </CardContent>
         </Card>
       </div>
