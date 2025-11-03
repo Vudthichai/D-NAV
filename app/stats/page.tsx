@@ -14,6 +14,7 @@ import { Separator } from "@/components/ui/separator";
 import { Skeleton } from "@/components/ui/skeleton";
 import { corr, ema, getArchetype, stdev } from "@/lib/calculations";
 import { loadLog } from "@/lib/storage";
+import jsPDF from "jspdf";
 import {
   Activity,
   AlertTriangle,
@@ -30,7 +31,6 @@ import {
   TrendingUp,
   Zap,
 } from "lucide-react";
-import jsPDF from "jspdf";
 import { useCallback, useEffect, useState } from "react";
 
 interface DashboardStats {
@@ -255,9 +255,10 @@ export default function StatsPage() {
 
   const buildNarrative = (current: DashboardStats): string => {
     const windowLabel = timeWindowLabels[timeWindow] ?? `Last ${timeWindow} days`;
-    const cadencePhrase = current.cadence > 0
-      ? `${formatNumber(current.cadence)} decisions per ${cadenceUnit}`
-      : "no meaningful cadence";
+    const cadencePhrase =
+      current.cadence > 0
+        ? `${formatNumber(current.cadence)} decisions per ${cadenceUnit}`
+        : "no meaningful cadence";
     const trendDescription =
       current.last5vsPrior5 > 0
         ? "momentum is improving versus the prior period"
@@ -278,12 +279,31 @@ export default function StatsPage() {
         : "pressure is balanced";
     const streakDescriptor =
       current.lossStreak.current > 0
-        ? `A loss streak of ${current.lossStreak.current} (${current.lossStreak.longest} max) is accruing ${formatNumber(current.returnDebt)} return debt.`
+        ? `A loss streak of ${current.lossStreak.current} (${
+            current.lossStreak.longest
+          } max) is accruing ${formatNumber(current.returnDebt)} return debt.`
         : "No active loss streak is present.";
 
     return [
-      `Across ${windowLabel.toLowerCase()}, you logged ${current.totalDecisions} decisions at ${cadencePhrase}. Average D-NAV sits at ${formatNumber(current.avgDnav)} with the portfolio presenting as a ${current.windowArchetype} pattern; ${trendDescription}.`,
-      `Returns are ${returnDescriptor} (${percent(current.returnDistribution.positive)} positive vs ${percent(current.returnDistribution.negative)} negative) while ${stabilityDescriptor} (${percent(current.stabilityDistribution.stable)} stable vs ${percent(current.stabilityDistribution.fragile)} fragile). ${pressureDescriptor}, and return on effort is ${formatNumber(current.returnOnEffort, 2)}. ${describeCalibration(current.calibration)}`,
+      `Across ${windowLabel.toLowerCase()}, you logged ${
+        current.totalDecisions
+      } decisions at ${cadencePhrase}. Average D-NAV sits at ${formatNumber(
+        current.avgDnav
+      )} with the portfolio presenting as a ${
+        current.windowArchetype
+      } pattern; ${trendDescription}.`,
+      `Returns are ${returnDescriptor} (${percent(
+        current.returnDistribution.positive
+      )} positive vs ${percent(
+        current.returnDistribution.negative
+      )} negative) while ${stabilityDescriptor} (${percent(
+        current.stabilityDistribution.stable
+      )} stable vs ${percent(
+        current.stabilityDistribution.fragile
+      )} fragile). ${pressureDescriptor}, and return on effort is ${formatNumber(
+        current.returnOnEffort,
+        2
+      )}. ${describeCalibration(current.calibration)}`,
       `${streakDescriptor} Payback ratio is ${formatNumber(current.paybackRatio)}.`,
       `Policy hint: ${current.policyHint}`,
     ].join("\n\n");
@@ -308,9 +328,15 @@ export default function StatsPage() {
         `Return on Effort: ${formatNumber(current.returnOnEffort, 2)}`,
       ],
       distribution: [
-        `Return split: ${percent(current.returnDistribution.positive)} positive / ${percent(current.returnDistribution.neutral)} neutral / ${percent(current.returnDistribution.negative)} negative`,
-        `Stability split: ${percent(current.stabilityDistribution.stable)} stable / ${percent(current.stabilityDistribution.uncertain)} uncertain / ${percent(current.stabilityDistribution.fragile)} fragile`,
-        `Pressure split: ${percent(current.pressureDistribution.pressured)} pressured / ${percent(current.pressureDistribution.balanced)} balanced / ${percent(current.pressureDistribution.calm)} calm`,
+        `Return split: ${percent(current.returnDistribution.positive)} positive / ${percent(
+          current.returnDistribution.neutral
+        )} neutral / ${percent(current.returnDistribution.negative)} negative`,
+        `Stability split: ${percent(current.stabilityDistribution.stable)} stable / ${percent(
+          current.stabilityDistribution.uncertain
+        )} uncertain / ${percent(current.stabilityDistribution.fragile)} fragile`,
+        `Pressure split: ${percent(current.pressureDistribution.pressured)} pressured / ${percent(
+          current.pressureDistribution.balanced
+        )} balanced / ${percent(current.pressureDistribution.calm)} calm`,
       ],
       risk: [
         `Loss streak: ${current.lossStreak.current} current / ${current.lossStreak.longest} longest`,
@@ -345,7 +371,7 @@ export default function StatsPage() {
 
       lines.forEach((line) => {
         const wrapped = doc.splitTextToSize(line, maxWidth);
-        wrapped.forEach((segment) => {
+        wrapped.forEach((segment: any) => {
           ensureSpace(18);
           doc.text(segment, margin, y);
           y += 18;
@@ -575,11 +601,7 @@ export default function StatsPage() {
               </SelectGroup>
             </SelectContent>
           </Select>
-          <Button
-            variant="outline"
-            onClick={handleDownloadStatsReport}
-            disabled={!hasData}
-          >
+          <Button variant="outline" onClick={handleDownloadStatsReport} disabled={!hasData}>
             <Download className="h-4 w-4 mr-2" />
             Stats Report
           </Button>
@@ -590,12 +612,7 @@ export default function StatsPage() {
       <Card>
         <CardHeader className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
           <CardTitle>Portfolio Narrative</CardTitle>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={handleDownloadNarrative}
-            disabled={!hasData}
-          >
+          <Button variant="outline" size="sm" onClick={handleDownloadNarrative} disabled={!hasData}>
             <FileText className="h-4 w-4 mr-2" />
             Download Narrative
           </Button>
