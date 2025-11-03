@@ -5,62 +5,64 @@ import { useDemo } from "./use-demo";
 
 export function useHighlight(elementId: string) {
   const elementRef = useRef<HTMLDivElement>(null);
+  const originalStyles = useRef<{ boxShadow: string; borderRadius: string; transform: string }>({
+    boxShadow: "",
+    borderRadius: "",
+    transform: "",
+  });
   const { demoState } = useDemo();
 
   useEffect(() => {
-    if (elementRef.current) {
-      if (demoState.highlightedElement === elementId) {
-        // Add highlight styles
-        elementRef.current.style.position = "relative";
-        elementRef.current.style.zIndex = "9999";
-        elementRef.current.style.transition = "all 0.3s ease";
+    const element = elementRef.current;
+    if (!element) return;
 
-        // Add a pulsing border effect
-        elementRef.current.classList.add("ring-4", "ring-blue-500/50", "ring-offset-2");
+    const isHighlighted = demoState.highlightedElement === elementId;
 
-        // Only scroll if this is a new highlight (not a re-render)
-        const shouldScroll = !elementRef.current.classList.contains("demo-highlighted");
-        elementRef.current.classList.add("demo-highlighted");
-
-        if (shouldScroll) {
-          // Scroll to element smoothly (scroll is already unlocked during demo)
-          setTimeout(() => {
-            if (elementRef.current) {
-              elementRef.current.scrollIntoView({
-                behavior: "smooth",
-                block: "center",
-                inline: "center",
-              });
-            }
-          }, 100);
-        }
-      } else {
-        // Remove highlight styles
-        elementRef.current.classList.remove(
-          "ring-4",
-          "ring-blue-500/50",
-          "ring-offset-2",
-          "demo-highlighted"
-        );
-        elementRef.current.style.zIndex = "";
-        elementRef.current.style.position = "";
+    if (isHighlighted) {
+      if (!element.classList.contains("demo-highlighted")) {
+        originalStyles.current = {
+          boxShadow: element.style.boxShadow,
+          borderRadius: element.style.borderRadius,
+          transform: element.style.transform,
+        };
       }
+
+      element.style.position = "relative";
+      element.style.zIndex = "9999";
+      element.style.transition = "transform 0.3s ease, box-shadow 0.3s ease";
+      element.style.boxShadow = "0 0 0 10px rgba(59, 130, 246, 0.25)";
+      element.style.borderRadius = "24px";
+      element.style.transform = "scale(1.02)";
+
+      const shouldScroll = !element.classList.contains("demo-highlighted");
+      element.classList.add("demo-highlighted");
+
+      if (shouldScroll) {
+        window.setTimeout(() => {
+          element.scrollIntoView({ behavior: "smooth", block: "center", inline: "center" });
+        }, 100);
+      }
+    } else {
+      element.classList.remove("demo-highlighted");
+      element.style.zIndex = "";
+      element.style.position = "";
+      element.style.boxShadow = originalStyles.current.boxShadow;
+      element.style.borderRadius = originalStyles.current.borderRadius;
+      element.style.transform = originalStyles.current.transform;
     }
   }, [demoState.highlightedElement, elementId]);
 
-  // Cleanup on unmount
   useEffect(() => {
     return () => {
-      if (elementRef.current) {
-        elementRef.current.classList.remove(
-          "ring-4",
-          "ring-blue-500/50",
-          "ring-offset-2",
-          "demo-highlighted"
-        );
-        elementRef.current.style.zIndex = "";
-        elementRef.current.style.position = "";
-      }
+      const element = elementRef.current;
+      if (!element) return;
+
+      element.classList.remove("demo-highlighted");
+      element.style.zIndex = "";
+      element.style.position = "";
+      element.style.boxShadow = originalStyles.current.boxShadow;
+      element.style.borderRadius = originalStyles.current.borderRadius;
+      element.style.transform = originalStyles.current.transform;
     };
   }, []);
 

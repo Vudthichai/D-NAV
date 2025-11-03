@@ -24,11 +24,11 @@ export default function DecisionCalculator({
   onDataChange,
 }: DecisionCalculatorProps) {
   const [variables, setVariables] = useState<DecisionVariables>({
-    impact: 1,
-    cost: 1,
-    risk: 1,
-    urgency: 1,
-    confidence: 1,
+    impact: 0,
+    cost: 0,
+    risk: 0,
+    urgency: 0,
+    confidence: 0,
   });
 
   const [metrics, setMetrics] = useState<DecisionMetrics>({
@@ -92,9 +92,9 @@ export default function DecisionCalculator({
   return (
     <div className="space-y-6">
       {/* Top Section: Variables, Metrics, and Summary */}
-      <div className="grid grid-cols-1 gap-6 lg:grid-cols-[minmax(0,1.4fr)_minmax(0,0.8fr)_minmax(0,1fr)]">
+      <div className="grid grid-cols-1 gap-6 lg:auto-rows-fr lg:grid-cols-[minmax(0,1.2fr)_minmax(0,0.85fr)_minmax(0,0.7fr)]">
         {/* Variables Section */}
-        <Card ref={variablesRef} id="variables-section">
+        <Card ref={variablesRef} id="variables-section" className="flex h-full flex-col">
           <CardHeader className="pb-4">
             <CardTitle className="text-xl font-bold">Decision Variables</CardTitle>
             <p className="text-sm text-muted-foreground">
@@ -102,7 +102,7 @@ export default function DecisionCalculator({
             </p>
             <div className="flex gap-2 mt-2">
               <Badge variant="outline" className="text-xs">
-                1 = minimal
+                0 = minimal
               </Badge>
               <Badge variant="outline" className="text-xs">
                 10 = maximum
@@ -154,11 +154,11 @@ export default function DecisionCalculator({
         </Card>
 
         {/* Metrics Section */}
-        <Card ref={metricsRef} id="metrics-section">
+        <Card ref={metricsRef} id="metrics-section" className="flex h-full flex-col">
           <CardHeader className="pb-3">
             <CardTitle className="text-lg">Key Metrics</CardTitle>
           </CardHeader>
-          <CardContent className="space-y-4">
+          <CardContent className="flex flex-1 flex-col justify-between space-y-4">
             <StatCard
               title="Return"
               value={metrics.return}
@@ -177,7 +177,7 @@ export default function DecisionCalculator({
           </CardContent>
         </Card>
         {/* Summary & Coach */}
-        <Card ref={summaryRef} id="summary-section" className="flex flex-col">
+        <Card ref={summaryRef} id="summary-section" className="flex h-full flex-col">
           <CardHeader className="pb-3">
             <CardTitle className="text-lg">Archetype &amp; Coach</CardTitle>
           </CardHeader>
