@@ -251,14 +251,6 @@ export default function Home() {
               >
                 Documentation
               </Link>
-              <a
-                href="https://decisionnavigator.gumroad.com/"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="text-muted-foreground hover:text-foreground transition-colors"
-              >
-                Get Started
-              </a>
             </div>
           </div>
         </div>

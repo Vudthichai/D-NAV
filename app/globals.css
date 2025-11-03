@@ -194,6 +194,45 @@ body {
   }
 }
 
+@keyframes compass-spin-slower {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes compass-spin-reverse {
+  from {
+    transform: rotate(360deg);
+  }
+  to {
+    transform: rotate(0deg);
+  }
+}
+
+@keyframes compass-spin-slowest {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.animate-spin-slower {
+  animation: compass-spin-slower 22s linear infinite;
+}
+
+.animate-spin-reverse {
+  animation: compass-spin-reverse 18s linear infinite;
+}
+
+.animate-spin-slowest {
+  animation: compass-spin-slowest 28s linear infinite;
+}
+
 .compass-needle {
   transform-box: fill-box;
   transform-origin: center;

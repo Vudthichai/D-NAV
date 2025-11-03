@@ -17,11 +17,11 @@ export default function CalculatorPage() {
   const [decisionCategory, setDecisionCategory] = useState("");
   const [showCompare, setShowCompare] = useState(false);
   const [variables, setVariables] = useState<DecisionVariables>({
-    impact: 1,
-    cost: 1,
-    risk: 1,
-    urgency: 1,
-    confidence: 1,
+    impact: 0,
+    cost: 0,
+    risk: 0,
+    urgency: 0,
+    confidence: 0,
   });
   const [metrics, setMetrics] = useState<DecisionMetrics>({
     return: 0,
@@ -49,7 +49,7 @@ export default function CalculatorPage() {
   };
 
   const handleRunDemo = () => {
-    // Reset to initial state
+    stopDemo();
     setDecisionName("Demo Decision");
     setDecisionCategory("Demo");
     startDemo();
@@ -85,11 +85,11 @@ export default function CalculatorPage() {
     setDecisionName("");
     setDecisionCategory("");
     setVariables({
-      impact: 1,
-      cost: 1,
-      risk: 1,
-      urgency: 1,
-      confidence: 1,
+      impact: 0,
+      cost: 0,
+      risk: 0,
+      urgency: 0,
+      confidence: 0,
     });
     setMetrics({
       return: 0,
@@ -113,15 +113,15 @@ export default function CalculatorPage() {
         <div className="mb-8">
           <div className="flex items-center justify-between mb-4">
             <div>
-              <h1 className="text-3xl font-bold text-foreground">Decision Calculator</h1>
+              <h1 className="text-3xl font-bold text-foreground">The Decision NAVigator</h1>
               <p className="text-muted-foreground mt-1">
-                Rate your decision variables and get instant insights
+                Rate your decision variables and watch the model respond in real time
               </p>
             </div>
             <div className="flex gap-2">
               <Button variant="outline" onClick={handleRunDemo}>
                 <Play className="w-4 h-4 mr-2" />
-                Run Demo
+                Run 30s Demo
               </Button>
               <Button variant="outline" onClick={handleReset}>
                 <RotateCcw className="w-4 h-4 mr-2" />

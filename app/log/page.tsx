@@ -410,35 +410,58 @@ export default function LogPage() {
 
   const handleDownloadTemplate = (type: "csv" | "xlsx") => {
     const header = [
-      "Date",
-      "Name",
-      "Category",
-      "Impact",
-      "Cost",
-      "Risk",
-      "Urgency",
-      "Confidence",
+      "Decision Date (YYYY-MM-DD)",
+      "Decision Name",
+      "Category / Domain",
+      "Impact (0-10)",
+      "Cost (0-10)",
+      "Risk (0-10)",
+      "Urgency (0-10)",
+      "Confidence (0-10)",
     ];
-    const sample = [
-      new Date().toISOString().split("T")[0],
-      "Investor update call",
-      "Growth",
-      "8",
-      "3",
-      "4",
-      "7",
-      "6",
+    const sampleRows = [
+      header,
+      [
+        new Date().toISOString().split("T")[0],
+        "Launch beta release",
+        "Product",
+        "8",
+        "3",
+        "4",
+        "7",
+        "6",
+      ],
+      [
+        "",
+        "Investor round prep",
+        "Capital",
+        "6",
+        "5",
+        "3",
+        "8",
+        "7",
+      ],
     ];
 
     if (type === "csv") {
-      const csvContent = [header.join(","), sample.join(",")].join("\n");
+      const csvContent = sampleRows.map((row) => row.join(",")).join("\n");
       const blob = new Blob([csvContent], { type: "text/csv" });
       downloadBlob(blob, "dnav-import-template.csv");
       return;
     }
 
     const workbook = XLSX.utils.book_new();
-    const worksheet = XLSX.utils.aoa_to_sheet([header, sample]);
+    const worksheet = XLSX.utils.aoa_to_sheet(sampleRows);
+    worksheet["!cols"] = [
+      { wch: 24 },
+      { wch: 30 },
+      { wch: 22 },
+      { wch: 16 },
+      { wch: 16 },
+      { wch: 16 },
+      { wch: 16 },
+      { wch: 16 },
+    ];
     XLSX.utils.book_append_sheet(workbook, worksheet, "Template");
     const arrayBuffer = XLSX.write(workbook, { bookType: "xlsx", type: "array" });
     const blob = new Blob([arrayBuffer], {

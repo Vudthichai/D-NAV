@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { useDemo } from "@/hooks/use-demo";
-import { ChevronLeft, ChevronRight, Info, Play, Square, X } from "lucide-react";
+import { ChevronLeft, ChevronRight, Info, Pause, Play, X } from "lucide-react";
 
 interface DemoOverlayProps {
   className?: string;
@@ -19,6 +19,11 @@ export default function DemoOverlay({ className }: DemoOverlayProps) {
 
   const currentStep = demoState.currentStep;
   const progress = demoState.progress;
+  const totalSeconds = Math.round(demoState.totalDuration / 1000);
+  const remainingSeconds = Math.max(
+    0,
+    Math.ceil((demoState.totalDuration - demoState.elapsed) / 1000),
+  );
 
   // Get tooltip position and content based on active element
   const getTooltipInfo = (): { side: "top" | "bottom" | "left" | "right"; content: string } => {
@@ -69,71 +74,92 @@ export default function DemoOverlay({ className }: DemoOverlayProps) {
 
   return (
     <TooltipProvider>
-      {/* Overlay backdrop */}
-      <div className="fixed inset-0 bg-black/20 z-40" />
+      <div className="fixed inset-0 z-40 bg-black/20 backdrop-blur-sm" />
 
-      {/* Highlighted element overlay */}
-      {demoState.highlightedElement && (
-        <div
-          className="fixed z-50 pointer-events-none"
-          style={{
-            // This will be positioned by the target element
-            border: "3px solid #3b82f6",
-            borderRadius: "8px",
-            boxShadow: "0 0 0 4px rgba(59, 130, 246, 0.3)",
-            animation: "pulse 2s infinite",
-          }}
-        />
-      )}
-
-      {/* Demo control panel */}
-      <div className="fixed bottom-6 left-1/2 transform -translate-x-1/2 z-10001">
-        <Card className="w-96 shadow-xl">
-          <CardContent className="p-4">
-            <div className="space-y-4">
-              {/* Header */}
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <Play className="h-4 w-4 text-blue-600" />
-                  <span className="font-semibold text-sm">Interactive Demo</span>
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <Button variant="ghost" size="sm" className="h-6 w-6 p-0 hover:bg-muted">
-                        <Info className="h-3 w-3" />
-                      </Button>
-                    </TooltipTrigger>
-                    <TooltipContent side={getTooltipInfo().side} className="max-w-xs p-2 z-10000">
-                      <p className="text-sm">{getTooltipInfo().content}</p>
-                    </TooltipContent>
-                  </Tooltip>
+      <div className="fixed left-1/2 top-6 z-50 w-[min(560px,calc(100vw-32px))] -translate-x-1/2">
+        <Card className="shadow-2xl border border-primary/15 bg-background/95 backdrop-blur">
+          <CardContent className="p-6 space-y-5">
+            <div className="flex flex-wrap items-start justify-between gap-4">
+              <div className="flex items-start gap-3">
+                <div className="mt-0.5 rounded-full bg-primary/10 p-2 text-primary">
+                  <Play className="h-4 w-4" />
                 </div>
-                <Button variant="ghost" size="sm" onClick={stopDemo} className="h-6 w-6 p-0">
+                <div>
+                  <p className="text-sm font-semibold leading-tight text-foreground">
+                    Auto demo in progress
+                  </p>
+                  <p className="text-xs text-muted-foreground">
+                    Step {demoState.currentStepIndex + 1} of {demoState.stepsCount || 1}
+                    {totalSeconds ? ` · ${remainingSeconds}s left` : ""}
+                  </p>
+                </div>
+              </div>
+              <div className="flex items-center gap-2">
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-8 w-8"
+                      aria-label="Explain this step"
+                    >
+                      <Info className="h-4 w-4" />
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent
+                    side={getTooltipInfo().side}
+                    className="max-w-sm text-xs leading-relaxed"
+                  >
+                    {getTooltipInfo().content}
+                  </TooltipContent>
+                </Tooltip>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  onClick={stopDemo}
+                  className="h-8 w-8"
+                  aria-label="Stop demo"
+                >
+                  <Pause className="h-4 w-4" />
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  onClick={stopDemo}
+                  className="h-8 w-8"
+                  aria-label="Close demo"
+                >
                   <X className="h-4 w-4" />
                 </Button>
               </div>
+            </div>
 
-              {/* Progress bar */}
-              <div className="space-y-2">
-                <div className="flex justify-between text-xs text-muted-foreground">
-                  <span>Step {demoState.currentStepIndex + 1} of 10</span>
-                  <span>{Math.round(progress)}%</span>
-                </div>
-                <div className="w-full bg-muted rounded-full h-2">
-                  <div
-                    className="bg-blue-600 h-2 rounded-full transition-all duration-300"
-                    style={{ width: `${progress}%` }}
-                  />
-                </div>
+            <div className="space-y-2">
+              <div className="flex items-center justify-between text-xs text-muted-foreground">
+                <span>{Math.round(progress)}% complete</span>
+                {totalSeconds > 0 && (
+                  <span>
+                    {totalSeconds}s tour · {remainingSeconds}s remaining
+                  </span>
+                )}
               </div>
-
-              {/* Current step content */}
-              <div className="space-y-2">
-                <h3 className="font-semibold text-sm">{currentStep.title}</h3>
-                <p className="text-sm text-muted-foreground">{currentStep.description}</p>
+              <div className="h-2 w-full overflow-hidden rounded-full bg-muted">
+                <div
+                  className="h-full rounded-full bg-primary transition-all duration-500"
+                  style={{ width: `${progress}%` }}
+                />
               </div>
+            </div>
 
-              {/* Controls */}
-              <div className="flex items-center justify-between">
+            <div className="space-y-2">
+              <h3 className="text-base font-semibold text-foreground">{currentStep.title}</h3>
+              <p className="text-sm leading-relaxed text-muted-foreground">
+                {currentStep.description}
+              </p>
+            </div>
+
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <div className="flex items-center gap-2">
                 <Button
                   variant="outline"
                   size="sm"
@@ -142,48 +168,27 @@ export default function DemoOverlay({ className }: DemoOverlayProps) {
                   className="flex items-center gap-1"
                 >
                   <ChevronLeft className="h-4 w-4" />
-                  Previous
+                  Back
                 </Button>
-
-                <div className="flex items-center gap-2">
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={stopDemo}
-                    className="flex items-center gap-1"
-                  >
-                    <Square className="h-4 w-4" />
-                    Stop
-                  </Button>
-
-                  <Button size="sm" onClick={nextStep} className="flex items-center gap-1">
-                    {demoState.currentStepIndex === 9 ? (
-                      "Finish"
-                    ) : (
-                      <>
-                        Next
-                        <ChevronRight className="h-4 w-4" />
-                      </>
-                    )}
-                  </Button>
-                </div>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={nextStep}
+                  disabled={demoState.currentStepIndex >= demoState.stepsCount - 1}
+                  className="flex items-center gap-1"
+                >
+                  Skip
+                  <ChevronRight className="h-4 w-4" />
+                </Button>
               </div>
+              <Button variant="ghost" size="sm" onClick={stopDemo} className="flex items-center gap-2">
+                <Pause className="h-4 w-4" />
+                Stop demo
+              </Button>
             </div>
           </CardContent>
         </Card>
       </div>
-
-      <style jsx>{`
-        @keyframes pulse {
-          0%,
-          100% {
-            opacity: 1;
-          }
-          50% {
-            opacity: 0.5;
-          }
-        }
-      `}</style>
     </TooltipProvider>
   );
 }
