@@ -15,8 +15,16 @@ import {
   SheetHeader,
   SheetTitle,
 } from "@/components/ui/sheet";
-import { computeMetrics, DecisionMetrics, DecisionVariables } from "@/lib/calculations";
+import { computeMetrics, DecisionEntry, DecisionMetrics, DecisionVariables } from "@/lib/calculations";
 import { cn } from "@/lib/utils";
+import { loadLog } from "@/lib/storage";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import SliderRow from "./SliderRow";
 
 interface CompareSheetProps {
@@ -48,6 +56,25 @@ function formatList(items: string[]): string {
   if (items.length === 1) return items[0];
   if (items.length === 2) return `${items[0]} and ${items[1]}`;
   return `${items.slice(0, -1).join(", ")}, and ${items.at(-1)}`;
+}
+
+function getDeltaPill(delta: number, invert = false) {
+  const isPositive = invert ? delta < 0 : delta > 0;
+
+  return (
+    <span
+      className={cn(
+        "inline-flex min-w-[2.5rem] items-center justify-center rounded-full border px-2 py-0.5 text-xs font-semibold",
+        delta === 0 && "border-muted bg-muted/40 text-muted-foreground",
+        delta !== 0 &&
+          (isPositive
+            ? "border-emerald-500/40 bg-emerald-500/10 text-emerald-600"
+            : "border-red-500/40 bg-red-500/10 text-red-600"),
+      )}
+    >
+      {formatDelta(delta)}
+    </span>
+  );
 }
 
 function buildScenarioFeedback(base: DecisionMetrics, scenario: DecisionMetrics, scenarioName: string): string {
@@ -118,7 +145,9 @@ export default function CompareSheet({
   baseMetrics,
 }: CompareSheetProps) {
   const [scenarios, setScenarios] = useState<ScenarioConfig[]>([]);
+  const [historyResetKey, setHistoryResetKey] = useState(0);
   const counter = useRef(1);
+  const history = useMemo(() => (open ? loadLog() : []), [open]);
 
   const baseSummary = useMemo(() => {
     return {
@@ -137,6 +166,24 @@ export default function CompareSheet({
         id: `scenario-${nextId}`,
         name: `Scenario ${nextId}`,
         variables: { ...baseVariables },
+      },
+    ]);
+  };
+
+  const addScenarioFromDecision = (decision: DecisionEntry) => {
+    const nextId = counter.current++;
+    setScenarios((prev) => [
+      ...prev,
+      {
+        id: `scenario-${nextId}`,
+        name: decision.name || `Logged decision ${nextId}`,
+        variables: {
+          impact: decision.impact,
+          cost: decision.cost,
+          risk: decision.risk,
+          urgency: decision.urgency,
+          confidence: decision.confidence,
+        },
       },
     ]);
   };
@@ -187,11 +234,36 @@ export default function CompareSheet({
     [scenarios],
   );
 
+  const scenarioDeltaLog = useMemo(
+    () =>
+      scenariosWithMetrics.map((scenario) => {
+        const { metrics, id, name } = scenario;
+        const label = name.trim() || "Unnamed scenario";
+        return {
+          id,
+          label,
+          deltas: {
+            return: metrics.return - baseMetrics.return,
+            stability: metrics.stability - baseMetrics.stability,
+            pressure: metrics.pressure - baseMetrics.pressure,
+            dnav: metrics.dnav - baseMetrics.dnav,
+          },
+        } as const;
+      }),
+    [baseMetrics, scenariosWithMetrics],
+  );
+
+  const handleAddScenarioFromHistory = (timestamp: string) => {
+    const decision = history.find((entry) => entry.ts.toString() === timestamp);
+    if (!decision) return;
+    addScenarioFromDecision(decision);
+  };
+
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
       <SheetContent
         side="right"
-        className="w-full overflow-y-auto sm:max-w-[92vw] lg:max-w-[88vw] xl:max-w-[80vw]"
+        className="w-full overflow-y-auto px-6 sm:max-w-[92vw] sm:px-8 lg:max-w-[88vw] lg:px-10 xl:max-w-[80vw]"
       >
         <SheetHeader>
           <SheetTitle>Compare Scenarios</SheetTitle>
@@ -202,16 +274,46 @@ export default function CompareSheet({
         </SheetHeader>
 
         <div className="space-y-6 py-6">
-          <div className="flex items-center justify-between gap-3">
+          <div className="flex flex-wrap items-center justify-between gap-3">
             <div>
               <h3 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">Scenarios</h3>
               <p className="text-sm text-muted-foreground">
                 Add a scenario to adjust variables and compare the resulting metrics side-by-side.
               </p>
             </div>
-            <Button onClick={addScenario} variant="outline" size="sm">
-              <Plus className="mr-2 h-4 w-4" /> Add scenario
-            </Button>
+            <div className="flex items-center gap-2">
+              {history.length > 0 && (
+                <Select
+                  key={historyResetKey}
+                  onValueChange={(value) => {
+                    handleAddScenarioFromHistory(value);
+                    setHistoryResetKey((prev) => prev + 1);
+                  }}
+                >
+                  <SelectTrigger size="sm" className="min-w-[180px]">
+                    <SelectValue placeholder="Add from log" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {history.map((entry) => {
+                      const date = new Date(entry.ts);
+                      return (
+                        <SelectItem key={entry.ts} value={entry.ts.toString()}>
+                          <span className="flex flex-col text-left">
+                            <span className="font-medium">{entry.name || "Untitled decision"}</span>
+                            <span className="text-[11px] text-muted-foreground">
+                              {date.toLocaleDateString()} • D-NAV {entry.dnav}
+                            </span>
+                          </span>
+                        </SelectItem>
+                      );
+                    })}
+                  </SelectContent>
+                </Select>
+              )}
+              <Button onClick={addScenario} variant="outline" size="sm">
+                <Plus className="mr-2 h-4 w-4" /> Add scenario
+              </Button>
+            </div>
           </div>
 
           <div className="overflow-x-auto">
@@ -225,31 +327,29 @@ export default function CompareSheet({
                     <h4 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
                       Decision variables
                     </h4>
-                    <div className="grid grid-cols-2 gap-3 text-sm">
-                      <div>
+                    <div className="flex flex-nowrap gap-4 overflow-x-auto text-sm">
+                      <div className="min-w-[96px]">
                         <div className="text-[11px] uppercase text-muted-foreground">Impact</div>
                         <div className="font-semibold text-foreground">{baseVariables.impact}</div>
                       </div>
-                      <div>
+                      <div className="min-w-[96px]">
                         <div className="text-[11px] uppercase text-muted-foreground">Cost</div>
                         <div className="font-semibold text-foreground">{baseVariables.cost}</div>
                       </div>
-                      <div>
+                      <div className="min-w-[96px]">
                         <div className="text-[11px] uppercase text-muted-foreground">Risk</div>
                         <div className="font-semibold text-foreground">{baseVariables.risk}</div>
                       </div>
-                      <div>
+                      <div className="min-w-[96px]">
                         <div className="text-[11px] uppercase text-muted-foreground">Urgency</div>
                         <div className="font-semibold text-foreground">{baseVariables.urgency}</div>
                       </div>
-                      <div>
+                      <div className="min-w-[110px]">
                         <div className="text-[11px] uppercase text-muted-foreground">Confidence</div>
                         <div className="font-semibold text-foreground">{baseVariables.confidence}</div>
                       </div>
                     </div>
                   </div>
-
-                  <Separator />
 
                   <div className="space-y-2">
                     <h4 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Metrics</h4>
@@ -271,6 +371,43 @@ export default function CompareSheet({
                         <div className="font-semibold text-foreground">{baseSummary.dnav}</div>
                       </div>
                     </div>
+                  </div>
+
+                  <Separator />
+
+                  <div className="space-y-2">
+                    <h4 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                      Scenario delta log
+                    </h4>
+                    {scenarioDeltaLog.length === 0 ? (
+                      <p className="text-xs text-muted-foreground">
+                        Deltas will appear here after you add scenarios.
+                      </p>
+                    ) : (
+                      <div className="overflow-hidden rounded-lg border">
+                        <div className="grid grid-cols-[minmax(0,1.2fr)_repeat(4,minmax(0,1fr))] items-center gap-2 border-b bg-muted/40 px-3 py-2 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+                          <span>Scenario</span>
+                          <span className="text-center">Return</span>
+                          <span className="text-center">Stability</span>
+                          <span className="text-center">Pressure</span>
+                          <span className="text-center">D-NAV</span>
+                        </div>
+                        {scenarioDeltaLog.map(({ id, label, deltas }) => (
+                          <div
+                            key={id}
+                            className="grid grid-cols-[minmax(0,1.2fr)_repeat(4,minmax(0,1fr))] items-center gap-2 px-3 py-2 text-sm"
+                          >
+                            <span className="truncate font-medium text-foreground" title={label}>
+                              {label}
+                            </span>
+                            <span className="flex justify-center">{getDeltaPill(deltas.return)}</span>
+                            <span className="flex justify-center">{getDeltaPill(deltas.stability)}</span>
+                            <span className="flex justify-center">{getDeltaPill(deltas.pressure, true)}</span>
+                            <span className="flex justify-center">{getDeltaPill(deltas.dnav)}</span>
+                          </div>
+                        ))}
+                      </div>
+                    )}
                   </div>
 
                   <p className="text-xs text-muted-foreground">
@@ -304,63 +441,63 @@ export default function CompareSheet({
                         <div className="flex flex-wrap items-center gap-3">
                           <CardTitle className="flex-1 text-base font-semibold">
                             <Input
-                            value={name}
-                            onChange={(event) => updateScenarioName(id, event.target.value)}
-                            placeholder="Scenario name"
-                            className="h-10"
-                          />
-                        </CardTitle>
-                        <Button
-                          type="button"
-                          variant="ghost"
-                          size="icon"
-                          onClick={() => removeScenario(id)}
-                          className="text-muted-foreground hover:text-destructive"
-                          aria-label={`Remove ${name}`}
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
-                      </div>
-                    </CardHeader>
+                              value={name}
+                              onChange={(event) => updateScenarioName(id, event.target.value)}
+                              placeholder="Scenario name"
+                              className="h-10"
+                            />
+                          </CardTitle>
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => removeScenario(id)}
+                            className="text-muted-foreground hover:text-destructive"
+                            aria-label={`Remove ${name}`}
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        </div>
+                      </CardHeader>
                       <CardContent className="space-y-6">
                         <div className="space-y-2">
                           <h4 className="text-sm font-semibold text-muted-foreground uppercase">Adjust variables</h4>
                           <div className="space-y-4">
-                          <SliderRow
-                            id={`${id}-impact`}
-                            label="Impact"
-                            hint="Expected benefit / upside"
-                            value={variables.impact}
-                            onChange={(value) => updateScenarioVariable(id, "impact", value)}
-                          />
-                          <SliderRow
-                            id={`${id}-cost`}
-                            label="Cost"
-                            hint="Money, time, or effort required"
-                            value={variables.cost}
-                            onChange={(value) => updateScenarioVariable(id, "cost", value)}
-                          />
-                          <SliderRow
-                            id={`${id}-risk`}
-                            label="Risk"
-                            hint="Downside, what could go wrong"
-                            value={variables.risk}
-                            onChange={(value) => updateScenarioVariable(id, "risk", value)}
-                          />
-                          <SliderRow
-                            id={`${id}-urgency`}
-                            label="Urgency"
-                            hint="How soon action is needed"
-                            value={variables.urgency}
-                            onChange={(value) => updateScenarioVariable(id, "urgency", value)}
-                          />
-                          <SliderRow
-                            id={`${id}-confidence`}
-                            label="Confidence"
-                            hint="Evidence, readiness, and conviction"
-                            value={variables.confidence}
-                            onChange={(value) => updateScenarioVariable(id, "confidence", value)}
-                          />
+                            <SliderRow
+                              id={`${id}-impact`}
+                              label="Impact"
+                              hint="Expected benefit / upside"
+                              value={variables.impact}
+                              onChange={(value) => updateScenarioVariable(id, "impact", value)}
+                            />
+                            <SliderRow
+                              id={`${id}-cost`}
+                              label="Cost"
+                              hint="Money, time, or effort required"
+                              value={variables.cost}
+                              onChange={(value) => updateScenarioVariable(id, "cost", value)}
+                            />
+                            <SliderRow
+                              id={`${id}-risk`}
+                              label="Risk"
+                              hint="Downside, what could go wrong"
+                              value={variables.risk}
+                              onChange={(value) => updateScenarioVariable(id, "risk", value)}
+                            />
+                            <SliderRow
+                              id={`${id}-urgency`}
+                              label="Urgency"
+                              hint="How soon action is needed"
+                              value={variables.urgency}
+                              onChange={(value) => updateScenarioVariable(id, "urgency", value)}
+                            />
+                            <SliderRow
+                              id={`${id}-confidence`}
+                              label="Confidence"
+                              hint="Evidence, readiness, and conviction"
+                              value={variables.confidence}
+                              onChange={(value) => updateScenarioVariable(id, "confidence", value)}
+                            />
                         </div>
                       </div>
 
@@ -398,8 +535,8 @@ export default function CompareSheet({
                       <div className="rounded-lg border border-amber-500/30 bg-amber-500/10 p-4 text-sm leading-relaxed text-amber-900 dark:text-amber-100">
                         {feedback}
                       </div>
-                      </CardContent>
-                    </Card>
+                    </CardContent>
+                  </Card>
                   );
                 })
               )}
