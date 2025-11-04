@@ -11,7 +11,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Separator } from "@/components/ui/separator";
-import { Skeleton } from "@/components/ui/skeleton";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { corr, ema, getArchetype, stdev } from "@/lib/calculations";
 import { loadLog } from "@/lib/storage";
 import jsPDF from "jspdf";
@@ -31,7 +31,7 @@ import {
   TrendingUp,
   Zap,
 } from "lucide-react";
-import { useCallback, useEffect, useState } from "react";
+import { ComponentType, ReactNode, useMemo, useState } from "react";
 
 interface DashboardStats {
   totalDecisions: number;
@@ -52,24 +52,261 @@ interface DashboardStats {
   policyHint: string;
 }
 
+const metricExplainers: Record<string, { description: string; example: string }> = {
+  "Total Decisions": {
+    description: "Count of decisions recorded in the selected window.",
+    example: "Logging 12 choices this month results in 12 total decisions.",
+  },
+  "Average D-NAV": {
+    description: "Average D-NAV score across the filtered decisions.",
+    example: "Scores of 40 and 60 yield an average D-NAV of 50.",
+  },
+  "Decision Cadence": {
+    description: "How frequently decisions are made, normalized to the selected cadence unit.",
+    example: "6 decisions across two weeks shows a cadence of 3 per week.",
+  },
+  "Consistency": {
+    description: "Standard deviation of D-NAV scores; lower values indicate steadier outcomes.",
+    example: "A consistency score of 8 means results are tightly clustered.",
+  },
+  "Calibration": {
+    description: "Correlation between confidence inputs and realized returns.",
+    example: "A calibration of 0.4 signals confidence generally tracks results.",
+  },
+  "Recent Trend": {
+    description: "Difference between the average of the last five decisions and the prior five.",
+    example: "Last five averaging 60 vs. prior five at 50 produces a +10 trend.",
+  },
+  "Return on Effort": {
+    description: "Total return divided by the total energy invested.",
+    example: "Generating 15 return from 5 energy equates to a 3.0 ratio.",
+  },
+  "Window Archetype": {
+    description: "Prevailing decision archetype across the selected window.",
+    example: "A Maverick window archetype highlights aggressive upside seeking.",
+  },
+  "Return Distribution": {
+    description: "Share of decisions landing as positive, neutral, or negative return.",
+    example: "60% positive / 20% neutral / 20% negative indicates upside skew.",
+  },
+  "Return Distribution|positive": {
+    description: "Portion of decisions that generated a net-positive return.",
+    example: "If 12 of 20 entries won, the positive slice is 60%.",
+  },
+  "Return Distribution|neutral": {
+    description: "Portion of decisions that broke even.",
+    example: "Two zero-return outcomes in ten decisions produce 20% neutral.",
+  },
+  "Return Distribution|negative": {
+    description: "Portion of decisions that finished in the red.",
+    example: "Three losses in a 15-decision sample equal 20% negative.",
+  },
+  "Stability Distribution": {
+    description: "Balance of decisions that landed stable, uncertain, or fragile.",
+    example: "Half of choices landing stable implies a resilient footing.",
+  },
+  "Stability Distribution|stable": {
+    description: "Percentage of decisions showing positive stability.",
+    example: "8 of 16 choices scoring above zero stability equals 50% stable.",
+  },
+  "Stability Distribution|uncertain": {
+    description: "Percentage of decisions with neutral stability.",
+    example: "Three neutral reads in a dozen decisions equals 25% uncertain.",
+  },
+  "Stability Distribution|fragile": {
+    description: "Percentage of decisions showing negative stability.",
+    example: "If four outcomes were fragile, the slice is 33%.",
+  },
+  "Pressure Distribution": {
+    description: "Mix of pressured, balanced, or calm operating conditions.",
+    example: "A 40% calm read means most executions feel controlled.",
+  },
+  "Pressure Distribution|pressured": {
+    description: "Percentage of decisions experiencing net pressure.",
+    example: "Five pressured calls out of ten equals 50% pressured.",
+  },
+  "Pressure Distribution|balanced": {
+    description: "Percentage of decisions landing at neutral pressure.",
+    example: "Three balanced reads in twelve decisions equals 25% balanced.",
+  },
+  "Pressure Distribution|calm": {
+    description: "Percentage of decisions where calm outweighed pressure.",
+    example: "If six entries were calm, the calm portion is 60%.",
+  },
+  "Loss Streak": {
+    description: "Active and longest chain of consecutive negative returns.",
+    example: "A 2 / 4 streak means two current losses and four at peak.",
+  },
+  "Return Debt": {
+    description: "Sum of returns needed to offset the active loss streak.",
+    example: "Three -2 losses accrue 6 units of return debt.",
+  },
+  "Payback Ratio": {
+    description: "Average positive return required to clear each loss in the streak.",
+    example: "Needing 9 upside to repay three losses implies a 3.0 ratio.",
+  },
+  "Policy Hint": {
+    description: "Contextual coaching cue derived from the stats mix.",
+    example: "High volatility may trigger a hint to tighten guardrails.",
+  },
+};
+
+const RETURN_SEGMENTS: Array<{
+  key: "positive" | "neutral" | "negative";
+  label: string;
+  rgb: [number, number, number];
+}> = [
+  { key: "positive", label: "Positive", rgb: [21, 128, 61] },
+  { key: "neutral", label: "Neutral", rgb: [245, 158, 11] },
+  { key: "negative", label: "Negative", rgb: [239, 68, 68] },
+];
+
+const InfoTooltip = ({
+  term,
+  children,
+  side = "top",
+}: {
+  term: string;
+  children: ReactNode;
+  side?: "top" | "bottom" | "left" | "right";
+}) => {
+  const info = metricExplainers[term];
+  if (!info) {
+    return <>{children}</>;
+  }
+
+  return (
+    <Tooltip>
+      <TooltipTrigger asChild>{children}</TooltipTrigger>
+      <TooltipContent side={side} className="max-w-xs space-y-2">
+        <p className="text-sm font-semibold leading-snug">{info.description}</p>
+        <p className="text-xs text-muted-foreground leading-snug">Example: {info.example}</p>
+      </TooltipContent>
+    </Tooltip>
+  );
+};
+
+interface StatCardProps {
+  title: string;
+  value: string | number;
+  subtitle: string;
+  icon: ComponentType<{ className?: string }>;
+  trend?: number;
+  color?: "default" | "positive" | "negative" | "warning";
+}
+
+const StatCard = ({ title, value, subtitle, icon: Icon, trend, color = "default" }: StatCardProps) => {
+  const colorClasses = {
+    default: "text-muted-foreground",
+    positive: "text-green-600",
+    negative: "text-red-600",
+    warning: "text-amber-600",
+  };
+
+  return (
+    <Card>
+      <CardContent className="p-6">
+        <div className="flex items-center justify-between">
+          <div>
+            <InfoTooltip term={title}>
+              <p className="text-sm font-medium text-muted-foreground cursor-help">{title}</p>
+            </InfoTooltip>
+            <InfoTooltip term={title} side="bottom">
+              <div className="flex items-center gap-2 mt-1 cursor-help">
+                <p className="text-2xl font-bold">{value}</p>
+                {trend !== undefined && (
+                  <div className="flex items-center gap-1">
+                    {trend > 0 ? (
+                      <TrendingUp className="h-4 w-4 text-green-600" />
+                    ) : trend < 0 ? (
+                      <TrendingDown className="h-4 w-4 text-red-600" />
+                    ) : (
+                      <Minus className="h-4 w-4 text-muted-foreground" />
+                    )}
+                    <span
+                      className={`text-sm ${
+                        trend > 0
+                          ? "text-green-600"
+                          : trend < 0
+                          ? "text-red-600"
+                          : "text-muted-foreground"
+                      }`}
+                    >
+                      {Math.abs(trend)}
+                    </span>
+                  </div>
+                )}
+              </div>
+            </InfoTooltip>
+            <p className={`text-xs mt-1 ${colorClasses[color]}`}>{subtitle}</p>
+          </div>
+          <Icon className="h-8 w-8 text-muted-foreground" />
+        </div>
+      </CardContent>
+    </Card>
+  );
+};
+
+interface DistributionChartProps {
+  title: string;
+  data: Record<string, number>;
+  colors: Record<string, string>;
+}
+
+const DistributionChart = ({ title, data, colors }: DistributionChartProps) => {
+  const total = Object.values(data).reduce((a, b) => a + b, 0);
+
+  return (
+    <Card>
+      <CardHeader>
+        <InfoTooltip term={title}>
+          <CardTitle className="text-lg cursor-help">{title}</CardTitle>
+        </InfoTooltip>
+      </CardHeader>
+      <CardContent>
+        <div className="space-y-4">
+          <div className="h-4 bg-muted rounded-full overflow-hidden">
+            {Object.entries(data).map(([key, value]) => (
+              <div
+                key={key}
+                className="h-full inline-block"
+                style={{
+                  width: `${total > 0 ? (value / total) * 100 : 0}%`,
+                  backgroundColor: colors[key],
+                }}
+              />
+            ))}
+          </div>
+          <div className="flex justify-between text-sm flex-wrap gap-2">
+            {Object.entries(data).map(([key, value]) => (
+              <InfoTooltip key={key} term={`${title}|${key}`} side="top">
+                <div className="flex items-center gap-2 cursor-help">
+                  <div className="w-3 h-3 rounded-full" style={{ backgroundColor: colors[key] }} />
+                  <span className="capitalize">
+                    {key}: {Math.round(value)}%
+                  </span>
+                </div>
+              </InfoTooltip>
+            ))}
+          </div>
+        </div>
+      </CardContent>
+    </Card>
+  );
+};
+
 export default function StatsPage() {
   const [timeWindow, setTimeWindow] = useState("30");
   const [cadenceUnit, setCadenceUnit] = useState("week");
-  const [stats, setStats] = useState<DashboardStats | null>(null);
-  const [loading, setLoading] = useState(true);
-
-  const calculateStats = useCallback(() => {
-    setLoading(true);
+  const stats = useMemo<DashboardStats>(() => {
     const decisions = loadLog();
-
-    // Filter by time window
-    const now = Date.now();
+    const now = decisions.length > 0 ? decisions[0].ts : 0;
     const windowMs = parseInt(timeWindow) * 24 * 60 * 60 * 1000;
     const filteredDecisions =
       timeWindow === "0" ? decisions : decisions.filter((d) => now - d.ts <= windowMs);
 
     if (filteredDecisions.length === 0) {
-      setStats({
+      return {
         totalDecisions: 0,
         avgDnav: 0,
         trend: 0,
@@ -86,12 +323,9 @@ export default function StatsPage() {
         returnDebt: 0,
         paybackRatio: 0,
         policyHint: "No data available",
-      });
-      setLoading(false);
-      return;
+      };
     }
 
-    // Calculate basic metrics
     const dnavScores = filteredDecisions.map((d) => d.dnav);
     const returnScores = filteredDecisions.map((d) => d.return);
     const stabilityScores = filteredDecisions.map((d) => d.stability);
@@ -103,12 +337,10 @@ export default function StatsPage() {
     const consistency = stdev(dnavScores);
     const calibration = corr(confidenceScores, returnScores) || 0;
 
-    // Calculate trend (EMA7 - EMA30 for last 30 decisions)
     const recentDecisions = decisions.slice(0, 30);
     const recentDnavs = recentDecisions.map((d) => d.dnav);
     const trend = recentDnavs.length >= 7 ? ema(recentDnavs, 7) - ema(recentDnavs, 30) : 0;
 
-    // Calculate cadence
     const timeSpanDays =
       timeWindow === "0"
         ? (now - Math.min(...decisions.map((d) => d.ts))) / (24 * 60 * 60 * 1000)
@@ -119,7 +351,6 @@ export default function StatsPage() {
           (cadenceUnit === "day" ? 1 : cadenceUnit === "week" ? 7 : 30)
         : 0;
 
-    // Calculate distributions
     const returnDistribution = {
       positive: (returnScores.filter((r) => r > 0).length / returnScores.length) * 100,
       neutral: (returnScores.filter((r) => r === 0).length / returnScores.length) * 100,
@@ -138,7 +369,6 @@ export default function StatsPage() {
       calm: (pressureScores.filter((p) => p < 0).length / pressureScores.length) * 100,
     };
 
-    // Calculate window archetype
     const avgReturn = returnScores.reduce((a, b) => a + b, 0) / returnScores.length;
     const avgStability = stabilityScores.reduce((a, b) => a + b, 0) / stabilityScores.length;
     const avgPressure = pressureScores.reduce((a, b) => a + b, 0) / pressureScores.length;
@@ -151,12 +381,10 @@ export default function StatsPage() {
       dnav: 0,
     }).name;
 
-    // Calculate return on effort
     const totalEnergy = energyScores.reduce((a, b) => a + b, 0);
     const totalReturn = returnScores.reduce((a, b) => a + b, 0);
     const returnOnEffort = totalEnergy > 0 ? totalReturn / totalEnergy : 0;
 
-    // Calculate last 5 vs prior 5
     const last5 = decisions.slice(0, 5).map((d) => d.dnav);
     const prior5 = decisions.slice(5, 10).map((d) => d.dnav);
     const last5vsPrior5 =
@@ -165,7 +393,6 @@ export default function StatsPage() {
           prior5.reduce((a, b) => a + b, 0) / prior5.length
         : 0;
 
-    // Calculate loss streak and return debt
     let currentStreak = 0;
     let longestStreak = 0;
     let tempStreak = 0;
@@ -173,7 +400,7 @@ export default function StatsPage() {
 
     for (const decision of decisions) {
       if (decision.return < 0) {
-        tempStreak++;
+        tempStreak += 1;
         returnDebt += Math.abs(decision.return);
         if (tempStreak === 1) currentStreak = tempStreak;
       } else {
@@ -181,11 +408,11 @@ export default function StatsPage() {
         tempStreak = 0;
       }
     }
+
     if (tempStreak > longestStreak) longestStreak = tempStreak;
 
     const paybackRatio = longestStreak > 0 ? returnDebt / longestStreak : 0;
 
-    // Generate policy hint
     let policyHint = "No specific recommendations";
     if (currentStreak > 3) {
       policyHint = "High loss streak - consider pausing to reassess";
@@ -197,7 +424,7 @@ export default function StatsPage() {
       policyHint = "Strong performance - maintain current approach";
     }
 
-    setStats({
+    return {
       totalDecisions: filteredDecisions.length,
       avgDnav: Math.round(avgDnav * 10) / 10,
       trend: Math.round(trend * 10) / 10,
@@ -214,14 +441,8 @@ export default function StatsPage() {
       returnDebt: Math.round(returnDebt * 10) / 10,
       paybackRatio: Math.round(paybackRatio * 10) / 10,
       policyHint,
-    });
-
-    setLoading(false);
+    };
   }, [cadenceUnit, timeWindow]);
-
-  useEffect(() => {
-    calculateStats();
-  }, [calculateStats]);
 
   const timeWindowLabels: Record<string, string> = {
     "0": "All time",
@@ -234,18 +455,6 @@ export default function StatsPage() {
     Number.isFinite(value) ? Number(value).toFixed(digits) : "0";
 
   const percent = (value: number) => `${Math.round(value)}%`;
-
-  const downloadTextFile = (content: string, filename: string, mime = "text/markdown") => {
-    const blob = new Blob([content], { type: mime });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = filename;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    URL.revokeObjectURL(url);
-  };
 
   const describeCalibration = (value: number) => {
     if (value > 0.3) return "Confidence is tracking outcomes well.";
@@ -371,7 +580,7 @@ export default function StatsPage() {
 
       lines.forEach((line) => {
         const wrapped = doc.splitTextToSize(line, maxWidth);
-        wrapped.forEach((segment: any) => {
+        wrapped.forEach((segment: string) => {
           ensureSpace(18);
           doc.text(segment, margin, y);
           y += 18;
@@ -388,6 +597,50 @@ export default function StatsPage() {
       doc.text(title, margin, y);
       y += 22;
       addParagraphs(lines.map((line) => `• ${line}`));
+    };
+
+    const addReturnDistributionVisual = () => {
+      const barHeight = 16;
+      const barWidth = pageWidth - margin * 2;
+      const total = RETURN_SEGMENTS.reduce(
+        (acc, segment) => acc + current.returnDistribution[segment.key],
+        0,
+      );
+
+      ensureSpace(barHeight + 80);
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(14);
+      doc.text("Return Distribution Visual", margin, y);
+      y += 20;
+
+      let currentX = margin;
+      RETURN_SEGMENTS.forEach((segment) => {
+        const segmentValue = current.returnDistribution[segment.key];
+        const width = total > 0 ? (segmentValue / total) * barWidth : 0;
+        const [r, g, b] = segment.rgb;
+        doc.setFillColor(r, g, b);
+        doc.rect(currentX, y, width, barHeight, "F");
+        currentX += width;
+      });
+
+      y += barHeight + 12;
+      doc.setFont("helvetica", "normal");
+      doc.setFontSize(11);
+      const legendSquare = 12;
+      RETURN_SEGMENTS.forEach((segment) => {
+        ensureSpace(legendSquare + 8);
+        const [r, g, b] = segment.rgb;
+        doc.setFillColor(r, g, b);
+        doc.rect(margin, y, legendSquare, legendSquare, "F");
+        doc.setTextColor(0, 0, 0);
+        doc.text(
+          `${segment.label}: ${percent(current.returnDistribution[segment.key])}`,
+          margin + legendSquare + 8,
+          y + legendSquare - 2,
+        );
+        y += legendSquare + 6;
+      });
+      y += 8;
     };
 
     doc.setFont("helvetica", "bold");
@@ -407,6 +660,7 @@ export default function StatsPage() {
 
     addSection("Key Metrics", sections.keyMetrics);
     addSection("Distribution Snapshot", sections.distribution);
+    addReturnDistributionVisual();
     addSection("Risk & Hygiene", sections.risk);
     addSection("Narrative Highlights", sections.narrative);
 
@@ -419,154 +673,140 @@ export default function StatsPage() {
     doc.save(filename);
   };
 
+  const createNarrativePdf = (current: DashboardStats) => {
+    const sections = getStatsReportSections(current);
+    const doc = new jsPDF({ unit: "pt", format: "letter" });
+    const margin = 48;
+    const pageWidth = doc.internal.pageSize.getWidth();
+    const pageHeight = doc.internal.pageSize.getHeight();
+    let y = margin;
+
+    const ensureSpace = (height: number) => {
+      if (y + height > pageHeight - margin) {
+        doc.addPage();
+        y = margin;
+      }
+    };
+
+    const addParagraphs = (lines: string[]) => {
+      doc.setFont("helvetica", "normal");
+      doc.setFontSize(11);
+      const maxWidth = pageWidth - margin * 2;
+
+      lines.forEach((line) => {
+        const wrapped = doc.splitTextToSize(line, maxWidth);
+        wrapped.forEach((segment: string) => {
+          ensureSpace(18);
+          doc.text(segment, margin, y);
+          y += 18;
+        });
+        y += 6;
+      });
+    };
+
+    const addSection = (title: string, lines: string[]) => {
+      if (lines.length === 0) return;
+      ensureSpace(30);
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(14);
+      doc.text(title, margin, y);
+      y += 22;
+      addParagraphs(lines.map((line) => `• ${line}`));
+    };
+
+    const addReturnDistributionVisual = () => {
+      const barHeight = 16;
+      const barWidth = pageWidth - margin * 2;
+      const total = RETURN_SEGMENTS.reduce(
+        (acc, segment) => acc + current.returnDistribution[segment.key],
+        0,
+      );
+
+      ensureSpace(barHeight + 80);
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(14);
+      doc.text("Return Distribution Visual", margin, y);
+      y += 20;
+
+      let currentX = margin;
+      RETURN_SEGMENTS.forEach((segment) => {
+        const segmentValue = current.returnDistribution[segment.key];
+        const width = total > 0 ? (segmentValue / total) * barWidth : 0;
+        const [r, g, b] = segment.rgb;
+        doc.setFillColor(r, g, b);
+        doc.rect(currentX, y, width, barHeight, "F");
+        currentX += width;
+      });
+
+      y += barHeight + 12;
+      doc.setFont("helvetica", "normal");
+      doc.setFontSize(11);
+      const legendSquare = 12;
+      RETURN_SEGMENTS.forEach((segment) => {
+        ensureSpace(legendSquare + 8);
+        const [r, g, b] = segment.rgb;
+        doc.setFillColor(r, g, b);
+        doc.rect(margin, y, legendSquare, legendSquare, "F");
+        doc.setTextColor(0, 0, 0);
+        doc.text(
+          `${segment.label}: ${percent(current.returnDistribution[segment.key])}`,
+          margin + legendSquare + 8,
+          y + legendSquare - 2,
+        );
+        y += legendSquare + 6;
+      });
+      y += 8;
+    };
+
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(20);
+    doc.text("D-NAV Narrative Brief", margin, y);
+    y += 26;
+
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(11);
+    const metadata = [
+      `Generated: ${sections.generated}`,
+      `Window: ${sections.windowLabel}`,
+      `Cadence basis: per ${sections.cadenceLabel}`,
+    ];
+    addParagraphs(metadata);
+    y += 6;
+
+    addSection("Narrative Highlights", sections.narrative);
+    addReturnDistributionVisual();
+    addSection("Key Metrics", sections.keyMetrics);
+    addSection("Distribution Snapshot", sections.distribution);
+    addSection("Risk & Hygiene", sections.risk);
+
+    ensureSpace(18);
+    doc.setFont("helvetica", "italic");
+    doc.setFontSize(10);
+    doc.text("Generated by D-NAV.", margin, y + 6);
+
+    const filename = `dnav-narrative-report-${new Date().toISOString().split("T")[0]}.pdf`;
+    doc.save(filename);
+  };
+
   const handleDownloadStatsReport = () => {
-    if (!stats || stats.totalDecisions === 0) return;
+    if (!hasData) return;
     createStatsReportPdf(stats);
   };
 
   const handleDownloadNarrative = () => {
-    if (!stats || stats.totalDecisions === 0) return;
-    const narrative = buildNarrative(stats);
-    const filename = `dnav-narrative-${new Date().toISOString().split("T")[0]}.md`;
-    downloadTextFile(narrative, filename);
+    if (!hasData) return;
+    createNarrativePdf(stats);
   };
 
-  const hasData = Boolean(stats && stats.totalDecisions > 0);
+  const hasData = stats.totalDecisions > 0;
 
-  const narrativeText =
-    hasData && stats
-      ? buildNarrative(stats)
-      : "No decisions logged in this window. Import or record decisions to unlock narrative insights.";
-
-  const StatCard = ({
-    title,
-    value,
-    subtitle,
-    icon: Icon,
-    trend,
-    color = "default",
-  }: {
-    title: string;
-    value: string | number;
-    subtitle: string;
-    icon: any;
-    trend?: number;
-    color?: "default" | "positive" | "negative" | "warning";
-  }) => {
-    const colorClasses = {
-      default: "text-muted-foreground",
-      positive: "text-green-600",
-      negative: "text-red-600",
-      warning: "text-amber-600",
-    };
-
-    return (
-      <Card>
-        <CardContent className="p-6">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm font-medium text-muted-foreground">{title}</p>
-              <div className="flex items-center gap-2 mt-1">
-                <p className="text-2xl font-bold">{value}</p>
-                {trend !== undefined && (
-                  <div className="flex items-center gap-1">
-                    {trend > 0 ? (
-                      <TrendingUp className="h-4 w-4 text-green-600" />
-                    ) : trend < 0 ? (
-                      <TrendingDown className="h-4 w-4 text-red-600" />
-                    ) : (
-                      <Minus className="h-4 w-4 text-muted-foreground" />
-                    )}
-                    <span
-                      className={`text-sm ${
-                        trend > 0
-                          ? "text-green-600"
-                          : trend < 0
-                          ? "text-red-600"
-                          : "text-muted-foreground"
-                      }`}
-                    >
-                      {Math.abs(trend)}
-                    </span>
-                  </div>
-                )}
-              </div>
-              <p className={`text-xs mt-1 ${colorClasses[color]}`}>{subtitle}</p>
-            </div>
-            <Icon className="h-8 w-8 text-muted-foreground" />
-          </div>
-        </CardContent>
-      </Card>
-    );
-  };
-
-  const DistributionChart = ({
-    title,
-    data,
-    colors,
-  }: {
-    title: string;
-    data: Record<string, number>;
-    colors: Record<string, string>;
-  }) => {
-    const total = Object.values(data).reduce((a, b) => a + b, 0);
-
-    return (
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-lg">{title}</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="space-y-4">
-            <div className="h-4 bg-muted rounded-full overflow-hidden">
-              {Object.entries(data).map(([key, value], index) => (
-                <div
-                  key={key}
-                  className="h-full inline-block"
-                  style={{
-                    width: `${total > 0 ? (value / total) * 100 : 0}%`,
-                    backgroundColor: colors[key],
-                  }}
-                />
-              ))}
-            </div>
-            <div className="flex justify-between text-sm">
-              {Object.entries(data).map(([key, value]) => (
-                <div key={key} className="flex items-center gap-2">
-                  <div className="w-3 h-3 rounded-full" style={{ backgroundColor: colors[key] }} />
-                  <span className="capitalize">
-                    {key}: {Math.round(value)}%
-                  </span>
-                </div>
-              ))}
-            </div>
-          </div>
-        </CardContent>
-      </Card>
-    );
-  };
-
-  if (loading) {
-    return (
-      <div className="space-y-6">
-        <div className="flex items-center justify-between">
-          <Skeleton className="h-8 w-48" />
-          <div className="flex gap-2">
-            <Skeleton className="h-10 w-32" />
-            <Skeleton className="h-10 w-40" />
-          </div>
-        </div>
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-          {Array.from({ length: 8 }).map((_, i) => (
-            <Skeleton key={i} className="h-32" />
-          ))}
-        </div>
-      </div>
-    );
-  }
+  const narrativeText = hasData
+    ? buildNarrative(stats)
+    : "No decisions logged in this window. Import or record decisions to unlock narrative insights.";
 
   return (
-    <div className="space-y-6">
+    <TooltipProvider>
+      <div className="space-y-6">
       {/* Header */}
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
         <div>
@@ -603,7 +843,7 @@ export default function StatsPage() {
           </Select>
           <Button variant="outline" onClick={handleDownloadStatsReport} disabled={!hasData}>
             <Download className="h-4 w-4 mr-2" />
-            Stats Report
+            Stats PDF
           </Button>
         </div>
       </div>
@@ -614,7 +854,7 @@ export default function StatsPage() {
           <CardTitle>Portfolio Narrative</CardTitle>
           <Button variant="outline" size="sm" onClick={handleDownloadNarrative} disabled={!hasData}>
             <FileText className="h-4 w-4 mr-2" />
-            Download Narrative
+            Download Narrative PDF
           </Button>
         </CardHeader>
         <CardContent>
@@ -738,28 +978,44 @@ export default function StatsPage() {
         <CardContent>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
             <div className="space-y-2">
-              <p className="text-sm font-medium text-muted-foreground">Loss Streak</p>
-              <div className="flex items-baseline gap-2">
-                <span className="text-2xl font-bold">{stats?.lossStreak.current || 0}</span>
-                <span className="text-sm text-muted-foreground">
-                  / {stats?.lossStreak.longest || 0}
-                </span>
-              </div>
+              <InfoTooltip term="Loss Streak">
+                <p className="text-sm font-medium text-muted-foreground cursor-help">Loss Streak</p>
+              </InfoTooltip>
+              <InfoTooltip term="Loss Streak" side="bottom">
+                <div className="flex items-baseline gap-2 cursor-help">
+                  <span className="text-2xl font-bold">{stats?.lossStreak.current || 0}</span>
+                  <span className="text-sm text-muted-foreground">
+                    / {stats?.lossStreak.longest || 0}
+                  </span>
+                </div>
+              </InfoTooltip>
               <p className="text-xs text-muted-foreground">Current / longest streak</p>
             </div>
             <div className="space-y-2">
-              <p className="text-sm font-medium text-muted-foreground">Return Debt</p>
-              <p className="text-2xl font-bold">{stats?.returnDebt || 0}</p>
+              <InfoTooltip term="Return Debt">
+                <p className="text-sm font-medium text-muted-foreground cursor-help">Return Debt</p>
+              </InfoTooltip>
+              <InfoTooltip term="Return Debt" side="bottom">
+                <p className="text-2xl font-bold cursor-help">{stats?.returnDebt || 0}</p>
+              </InfoTooltip>
               <p className="text-xs text-muted-foreground">Sum of losses in streak</p>
             </div>
             <div className="space-y-2">
-              <p className="text-sm font-medium text-muted-foreground">Payback Ratio</p>
-              <p className="text-2xl font-bold">{stats?.paybackRatio || 0}</p>
+              <InfoTooltip term="Payback Ratio">
+                <p className="text-sm font-medium text-muted-foreground cursor-help">Payback Ratio</p>
+              </InfoTooltip>
+              <InfoTooltip term="Payback Ratio" side="bottom">
+                <p className="text-2xl font-bold cursor-help">{stats?.paybackRatio || 0}</p>
+              </InfoTooltip>
               <p className="text-xs text-muted-foreground">Avg wins to clear debt</p>
             </div>
             <div className="space-y-2">
-              <p className="text-sm font-medium text-muted-foreground">Policy Hint</p>
-              <p className="text-sm font-medium">{stats?.policyHint || "No recommendations"}</p>
+              <InfoTooltip term="Policy Hint">
+                <p className="text-sm font-medium text-muted-foreground cursor-help">Policy Hint</p>
+              </InfoTooltip>
+              <InfoTooltip term="Policy Hint" side="bottom">
+                <p className="text-sm font-medium cursor-help">{stats?.policyHint || "No recommendations"}</p>
+              </InfoTooltip>
               <p className="text-xs text-muted-foreground">Guardrails, not handcuffs</p>
             </div>
           </div>
@@ -767,8 +1023,8 @@ export default function StatsPage() {
           <div className="flex items-start gap-2 p-4 bg-muted/50 rounded-lg">
             <CheckCircle className="h-5 w-5 text-green-600 mt-0.5 flex-shrink-0" />
             <p className="text-sm text-muted-foreground">
-              <strong>Remember:</strong> Losses aren't "bad." Unmanaged streaks are. Track them so
-              "learning" doesn't become a silent bleed.
+              <strong>Remember:</strong> Losses aren&rsquo;t &ldquo;bad.&rdquo; Unmanaged streaks are. Track them so
+              &ldquo;learning&rdquo; doesn&rsquo;t become a silent bleed.
             </p>
           </div>
         </CardContent>
@@ -788,7 +1044,7 @@ export default function StatsPage() {
               disabled={!hasData}
             >
               <Calendar className="h-4 w-4 mr-2" />
-              Export Data
+              Stats PDF
             </Button>
             <Button
               variant="outline"
@@ -797,7 +1053,7 @@ export default function StatsPage() {
               disabled={!hasData}
             >
               <BarChart3 className="h-4 w-4 mr-2" />
-              Narrative Report
+              Narrative PDF
             </Button>
             <Button variant="outline" size="sm">
               <Target className="h-4 w-4 mr-2" />
@@ -807,5 +1063,6 @@ export default function StatsPage() {
         </CardContent>
       </Card>
     </div>
+  </TooltipProvider>
   );
 }

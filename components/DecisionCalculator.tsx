@@ -3,26 +3,18 @@
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
-import { useHighlight } from "@/hooks/use-highlight";
 import { DecisionMetrics, DecisionVariables, coachHint, computeMetrics } from "@/lib/calculations";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import SliderRow from "./SliderRow";
 import StatCard from "./StatCard";
 import SummaryCard from "./SummaryCard";
 
 interface DecisionCalculatorProps {
   onOpenCompare: () => void;
-  isDemoMode?: boolean;
-  onDemoStep?: (step: string, action: (value: number) => void) => void;
   onDataChange?: (variables: DecisionVariables, metrics: DecisionMetrics) => void;
 }
 
-export default function DecisionCalculator({
-  onOpenCompare,
-  isDemoMode = false,
-  onDemoStep,
-  onDataChange,
-}: DecisionCalculatorProps) {
+export default function DecisionCalculator({ onOpenCompare, onDataChange }: DecisionCalculatorProps) {
   const [variables, setVariables] = useState<DecisionVariables>({
     impact: 0,
     cost: 0,
@@ -31,49 +23,18 @@ export default function DecisionCalculator({
     confidence: 0,
   });
 
-  const [metrics, setMetrics] = useState<DecisionMetrics>({
-    return: 0,
-    stability: 0,
-    pressure: 0,
-    merit: 0,
-    energy: 0,
-    dnav: 0,
-  });
-
-  const [coachText, setCoachText] = useState("");
-
-  // Highlight refs for demo mode
-  const variablesRef = useHighlight("variables-section");
-  const metricsRef = useHighlight("metrics-section");
-  const summaryRef = useHighlight("summary-section");
-  const coachRef = useHighlight("coach-section");
+  const metrics = useMemo(() => computeMetrics(variables), [variables]);
+  const coachText = useMemo(() => coachHint(variables, metrics), [variables, metrics]);
 
   const updateVariable = useCallback((key: keyof DecisionVariables, value: number) => {
     setVariables((prev) => ({ ...prev, [key]: value }));
   }, []);
 
   useEffect(() => {
-    const newMetrics = computeMetrics(variables);
-    setMetrics(newMetrics);
-    setCoachText(coachHint(variables, newMetrics));
-
-    // Notify parent component of data changes
     if (onDataChange) {
-      onDataChange(variables, newMetrics);
+      onDataChange(variables, metrics);
     }
-  }, [variables, onDataChange]);
-
-  // Demo mode setup
-  useEffect(() => {
-    if (onDemoStep) {
-      // Register demo steps
-      onDemoStep("impact", (value: number) => updateVariable("impact", value));
-      onDemoStep("cost", (value: number) => updateVariable("cost", value));
-      onDemoStep("risk", (value: number) => updateVariable("risk", value));
-      onDemoStep("urgency", (value: number) => updateVariable("urgency", value));
-      onDemoStep("confidence", (value: number) => updateVariable("confidence", value));
-    }
-  }, [onDemoStep, updateVariable]);
+  }, [variables, metrics, onDataChange]);
 
   const getPillColor = (value: number, type: "return" | "stability" | "pressure") => {
     if (type === "pressure") {
@@ -94,7 +55,7 @@ export default function DecisionCalculator({
       {/* Top Section: Variables, Metrics, and Summary */}
       <div className="grid grid-cols-1 gap-6 lg:auto-rows-fr lg:grid-cols-3 lg:items-stretch">
         {/* Variables Section */}
-        <Card ref={variablesRef} id="variables-section" className="flex h-full flex-col">
+        <Card id="variables-section" className="flex h-full flex-col">
           <CardHeader className="pb-4">
             <CardTitle className="text-xl font-bold">Decision Variables</CardTitle>
             <p className="text-sm text-muted-foreground">
@@ -116,7 +77,6 @@ export default function DecisionCalculator({
               hint="Expected benefit / upside"
               value={variables.impact}
               onChange={(value) => updateVariable("impact", value)}
-              isDemoMode={isDemoMode}
             />
             <SliderRow
               id="cost"
@@ -124,7 +84,6 @@ export default function DecisionCalculator({
               hint="Money, time, or effort required"
               value={variables.cost}
               onChange={(value) => updateVariable("cost", value)}
-              isDemoMode={isDemoMode}
             />
             <SliderRow
               id="risk"
@@ -132,7 +91,6 @@ export default function DecisionCalculator({
               hint="Downside, what could go wrong"
               value={variables.risk}
               onChange={(value) => updateVariable("risk", value)}
-              isDemoMode={isDemoMode}
             />
             <SliderRow
               id="urgency"
@@ -140,7 +98,6 @@ export default function DecisionCalculator({
               hint="How soon action is needed"
               value={variables.urgency}
               onChange={(value) => updateVariable("urgency", value)}
-              isDemoMode={isDemoMode}
             />
             <SliderRow
               id="confidence"
@@ -148,13 +105,12 @@ export default function DecisionCalculator({
               hint="Evidence, readiness, and conviction"
               value={variables.confidence}
               onChange={(value) => updateVariable("confidence", value)}
-              isDemoMode={isDemoMode}
             />
           </CardContent>
         </Card>
 
         {/* Metrics Section */}
-        <Card ref={metricsRef} id="metrics-section" className="flex h-full flex-col">
+        <Card id="metrics-section" className="flex h-full flex-col">
           <CardHeader className="pb-3">
             <CardTitle className="text-lg">Key Metrics</CardTitle>
           </CardHeader>
@@ -177,7 +133,7 @@ export default function DecisionCalculator({
           </CardContent>
         </Card>
         {/* Summary & Coach */}
-        <Card ref={summaryRef} id="summary-section" className="flex h-full flex-col">
+        <Card id="summary-section" className="flex h-full flex-col">
           <CardHeader className="pb-3">
             <CardTitle className="text-lg">Archetype &amp; Coach</CardTitle>
           </CardHeader>
@@ -189,7 +145,7 @@ export default function DecisionCalculator({
               onOpenCompare={onOpenCompare}
             />
             <Separator />
-            <div ref={coachRef} id="coach-section" className="space-y-2">
+            <div id="coach-section" className="space-y-2">
               <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">
                 Coach Insight
               </h3>
