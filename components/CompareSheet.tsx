@@ -189,7 +189,10 @@ export default function CompareSheet({
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
-      <SheetContent side="right" className="w-full overflow-y-auto sm:max-w-3xl">
+      <SheetContent
+        side="right"
+        className="w-full overflow-y-auto sm:max-w-[92vw] lg:max-w-[88vw] xl:max-w-[80vw]"
+      >
         <SheetHeader>
           <SheetTitle>Compare Scenarios</SheetTitle>
           <SheetDescription>
@@ -199,35 +202,6 @@ export default function CompareSheet({
         </SheetHeader>
 
         <div className="space-y-6 py-6">
-          <Card>
-            <CardHeader className="pb-3">
-              <CardTitle className="text-base font-semibold">Base decision</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <div className="text-xs uppercase text-muted-foreground">Return</div>
-                  <div className="text-2xl font-bold">{baseSummary.return}</div>
-                </div>
-                <div>
-                  <div className="text-xs uppercase text-muted-foreground">Stability</div>
-                  <div className="text-2xl font-bold">{baseSummary.stability}</div>
-                </div>
-                <div>
-                  <div className="text-xs uppercase text-muted-foreground">Pressure</div>
-                  <div className="text-2xl font-bold">{baseSummary.pressure}</div>
-                </div>
-                <div>
-                  <div className="text-xs uppercase text-muted-foreground">D-NAV</div>
-                  <div className="text-2xl font-bold">{baseSummary.dnav}</div>
-                </div>
-              </div>
-              <p className="text-sm text-muted-foreground">
-                These values reflect the sliders from the calculator. Use them as the baseline when crafting scenarios.
-              </p>
-            </CardContent>
-          </Card>
-
           <div className="flex items-center justify-between gap-3">
             <div>
               <h3 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">Scenarios</h3>
@@ -240,31 +214,96 @@ export default function CompareSheet({
             </Button>
           </div>
 
-          {scenariosWithMetrics.length === 0 ? (
-            <Card className="border-dashed">
-              <CardContent className="py-12 text-center text-sm text-muted-foreground">
-                No scenarios yet. Click <strong>Add scenario</strong> to start exploring alternatives.
-              </CardContent>
-            </Card>
-          ) : (
-            <div className="space-y-6">
-              {scenariosWithMetrics.map((scenario) => {
-                const { metrics, id, name, variables } = scenario;
-                const deltas = {
-                  return: metrics.return - baseMetrics.return,
-                  stability: metrics.stability - baseMetrics.stability,
-                  pressure: metrics.pressure - baseMetrics.pressure,
-                } as const;
+          <div className="overflow-x-auto">
+            <div className="flex items-start gap-4 pb-4">
+              <Card className="min-w-[320px] shrink-0">
+                <CardHeader className="pb-3">
+                  <CardTitle className="text-base font-semibold">Base decision</CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-5">
+                  <div className="space-y-2">
+                    <h4 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                      Decision variables
+                    </h4>
+                    <div className="grid grid-cols-2 gap-3 text-sm">
+                      <div>
+                        <div className="text-[11px] uppercase text-muted-foreground">Impact</div>
+                        <div className="font-semibold text-foreground">{baseVariables.impact}</div>
+                      </div>
+                      <div>
+                        <div className="text-[11px] uppercase text-muted-foreground">Cost</div>
+                        <div className="font-semibold text-foreground">{baseVariables.cost}</div>
+                      </div>
+                      <div>
+                        <div className="text-[11px] uppercase text-muted-foreground">Risk</div>
+                        <div className="font-semibold text-foreground">{baseVariables.risk}</div>
+                      </div>
+                      <div>
+                        <div className="text-[11px] uppercase text-muted-foreground">Urgency</div>
+                        <div className="font-semibold text-foreground">{baseVariables.urgency}</div>
+                      </div>
+                      <div>
+                        <div className="text-[11px] uppercase text-muted-foreground">Confidence</div>
+                        <div className="font-semibold text-foreground">{baseVariables.confidence}</div>
+                      </div>
+                    </div>
+                  </div>
 
-                const scenarioTitle = name.trim() || "This scenario";
-                const feedback = buildScenarioFeedback(baseMetrics, metrics, scenarioTitle);
+                  <Separator />
 
-                return (
-                  <Card key={id}>
-                    <CardHeader className="pb-4">
-                      <div className="flex flex-wrap items-center gap-3">
-                        <CardTitle className="flex-1 text-base font-semibold">
-                          <Input
+                  <div className="space-y-2">
+                    <h4 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Metrics</h4>
+                    <div className="grid grid-cols-2 gap-3 text-sm sm:grid-cols-4">
+                      <div>
+                        <div className="text-[11px] uppercase text-muted-foreground">Return</div>
+                        <div className="font-semibold text-foreground">{baseSummary.return}</div>
+                      </div>
+                      <div>
+                        <div className="text-[11px] uppercase text-muted-foreground">Stability</div>
+                        <div className="font-semibold text-foreground">{baseSummary.stability}</div>
+                      </div>
+                      <div>
+                        <div className="text-[11px] uppercase text-muted-foreground">Pressure</div>
+                        <div className="font-semibold text-foreground">{baseSummary.pressure}</div>
+                      </div>
+                      <div>
+                        <div className="text-[11px] uppercase text-muted-foreground">D-NAV</div>
+                        <div className="font-semibold text-foreground">{baseSummary.dnav}</div>
+                      </div>
+                    </div>
+                  </div>
+
+                  <p className="text-xs text-muted-foreground">
+                    These values reflect the sliders from the calculator. Use them as the baseline when crafting
+                    scenarios.
+                  </p>
+                </CardContent>
+              </Card>
+
+              {scenariosWithMetrics.length === 0 ? (
+                <Card className="min-w-[320px] shrink-0 border-dashed">
+                  <CardContent className="py-12 text-center text-sm text-muted-foreground">
+                    No scenarios yet. Click <strong>Add scenario</strong> to start exploring alternatives.
+                  </CardContent>
+                </Card>
+              ) : (
+                scenariosWithMetrics.map((scenario) => {
+                  const { metrics, id, name, variables } = scenario;
+                  const deltas = {
+                    return: metrics.return - baseMetrics.return,
+                    stability: metrics.stability - baseMetrics.stability,
+                    pressure: metrics.pressure - baseMetrics.pressure,
+                  } as const;
+
+                  const scenarioTitle = name.trim() || "This scenario";
+                  const feedback = buildScenarioFeedback(baseMetrics, metrics, scenarioTitle);
+
+                  return (
+                    <Card key={id} className="min-w-[320px] shrink-0">
+                      <CardHeader className="pb-4">
+                        <div className="flex flex-wrap items-center gap-3">
+                          <CardTitle className="flex-1 text-base font-semibold">
+                            <Input
                             value={name}
                             onChange={(event) => updateScenarioName(id, event.target.value)}
                             placeholder="Scenario name"
@@ -283,10 +322,10 @@ export default function CompareSheet({
                         </Button>
                       </div>
                     </CardHeader>
-                    <CardContent className="space-y-6">
-                      <div className="space-y-2">
-                        <h4 className="text-sm font-semibold text-muted-foreground uppercase">Adjust variables</h4>
-                        <div className="space-y-4">
+                      <CardContent className="space-y-6">
+                        <div className="space-y-2">
+                          <h4 className="text-sm font-semibold text-muted-foreground uppercase">Adjust variables</h4>
+                          <div className="space-y-4">
                           <SliderRow
                             id={`${id}-impact`}
                             label="Impact"
@@ -359,12 +398,13 @@ export default function CompareSheet({
                       <div className="rounded-lg border border-amber-500/30 bg-amber-500/10 p-4 text-sm leading-relaxed text-amber-900 dark:text-amber-100">
                         {feedback}
                       </div>
-                    </CardContent>
-                  </Card>
-                );
-              })}
+                      </CardContent>
+                    </Card>
+                  );
+                })
+              )}
             </div>
-          )}
+          </div>
         </div>
       </SheetContent>
     </Sheet>
