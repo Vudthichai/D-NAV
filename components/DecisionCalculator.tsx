@@ -92,7 +92,7 @@ export default function DecisionCalculator({
   return (
     <div className="space-y-6">
       {/* Top Section: Variables, Metrics, and Summary */}
-      <div className="grid grid-cols-1 gap-6 lg:auto-rows-fr lg:grid-cols-[minmax(0,1.2fr)_minmax(0,0.85fr)_minmax(0,0.7fr)]">
+      <div className="grid grid-cols-1 gap-6 lg:auto-rows-fr lg:grid-cols-3 lg:items-stretch">
         {/* Variables Section */}
         <Card ref={variablesRef} id="variables-section" className="flex h-full flex-col">
           <CardHeader className="pb-4">
