@@ -1,11 +1,9 @@
 "use client";
 
 import DecisionCalculator from "@/components/DecisionCalculator";
-import DemoOverlay from "@/components/DemoOverlay";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import { useDemoController } from "@/hooks/use-demo-controller";
 import { DecisionEntry, DecisionMetrics, DecisionVariables } from "@/lib/calculations";
 import { addDecision } from "@/lib/storage";
 import { Check, Play, RotateCcw, Save, Upload } from "lucide-react";
@@ -33,8 +31,6 @@ export default function CalculatorPage() {
   });
   const [isSaved, setIsSaved] = useState(false);
 
-  const { startDemo, stopDemo, isActive, registerSliderAction } = useDemoController();
-
   const handleDataChange = useCallback(
     (newVariables: DecisionVariables, newMetrics: DecisionMetrics) => {
       setVariables(newVariables);
@@ -46,13 +42,6 @@ export default function CalculatorPage() {
 
   const handleOpenCompare = () => {
     setShowCompare(true);
-  };
-
-  const handleRunDemo = () => {
-    stopDemo();
-    setDecisionName("Demo Decision");
-    setDecisionCategory("Demo");
-    startDemo();
   };
 
   const handleSaveDecision = () => {
@@ -104,9 +93,6 @@ export default function CalculatorPage() {
 
   return (
     <main className="min-h-screen">
-      {/* Demo Overlay */}
-      <DemoOverlay />
-
       {/* Streamlined Calculator Interface */}
       <div className="max-w-7xl mx-auto p-6">
         {/* Header Section */}
@@ -119,10 +105,6 @@ export default function CalculatorPage() {
               </p>
             </div>
             <div className="flex gap-2">
-              <Button variant="outline" onClick={handleRunDemo}>
-                <Play className="w-4 h-4 mr-2" />
-                Run 30s Demo
-              </Button>
               <Button variant="outline" onClick={handleReset}>
                 <RotateCcw className="w-4 h-4 mr-2" />
                 Reset
@@ -134,10 +116,6 @@ export default function CalculatorPage() {
         {/* Main Calculator */}
         <DecisionCalculator
           onOpenCompare={handleOpenCompare}
-          isDemoMode={isActive}
-          onDemoStep={(step, action) => {
-            registerSliderAction(step, action);
-          }}
           onDataChange={handleDataChange}
         />
 

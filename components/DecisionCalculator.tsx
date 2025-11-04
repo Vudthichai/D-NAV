@@ -12,15 +12,11 @@ import SummaryCard from "./SummaryCard";
 
 interface DecisionCalculatorProps {
   onOpenCompare: () => void;
-  isDemoMode?: boolean;
-  onDemoStep?: (step: string, action: (value: number) => void) => void;
   onDataChange?: (variables: DecisionVariables, metrics: DecisionMetrics) => void;
 }
 
 export default function DecisionCalculator({
   onOpenCompare,
-  isDemoMode = false,
-  onDemoStep,
   onDataChange,
 }: DecisionCalculatorProps) {
   const [variables, setVariables] = useState<DecisionVariables>({
@@ -42,7 +38,7 @@ export default function DecisionCalculator({
 
   const [coachText, setCoachText] = useState("");
 
-  // Highlight refs for demo mode
+  // Highlight refs for contextual emphasis
   const variablesRef = useHighlight("variables-section");
   const metricsRef = useHighlight("metrics-section");
   const summaryRef = useHighlight("summary-section");
@@ -63,18 +59,6 @@ export default function DecisionCalculator({
     }
   }, [variables, onDataChange]);
 
-  // Demo mode setup
-  useEffect(() => {
-    if (onDemoStep) {
-      // Register demo steps
-      onDemoStep("impact", (value: number) => updateVariable("impact", value));
-      onDemoStep("cost", (value: number) => updateVariable("cost", value));
-      onDemoStep("risk", (value: number) => updateVariable("risk", value));
-      onDemoStep("urgency", (value: number) => updateVariable("urgency", value));
-      onDemoStep("confidence", (value: number) => updateVariable("confidence", value));
-    }
-  }, [onDemoStep, updateVariable]);
-
   const getPillColor = (value: number, type: "return" | "stability" | "pressure") => {
     if (type === "pressure") {
       if (value > 0) return { text: "Pressured", color: "red" as const };
@@ -90,17 +74,17 @@ export default function DecisionCalculator({
   };
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-8">
       {/* Top Section: Variables, Metrics, and Summary */}
-      <div className="grid grid-cols-1 gap-6 lg:auto-rows-fr lg:grid-cols-[minmax(0,1.2fr)_minmax(0,0.85fr)_minmax(0,0.7fr)]">
+      <div className="grid grid-cols-1 gap-6 lg:auto-rows-fr lg:grid-cols-[minmax(0,0.95fr)_minmax(0,0.7fr)_minmax(0,1.2fr)]">
         {/* Variables Section */}
         <Card ref={variablesRef} id="variables-section" className="flex h-full flex-col">
-          <CardHeader className="pb-4">
+          <CardHeader className="space-y-3 pb-5">
             <CardTitle className="text-xl font-bold">Decision Variables</CardTitle>
-            <p className="text-sm text-muted-foreground">
+            <p className="text-sm text-muted-foreground leading-relaxed">
               Rate each variable from 1-10 based on your current context and feelings.
             </p>
-            <div className="flex gap-2 mt-2">
+            <div className="flex gap-2">
               <Badge variant="outline" className="text-xs">
                 0 = minimal
               </Badge>
@@ -116,7 +100,6 @@ export default function DecisionCalculator({
               hint="Expected benefit / upside"
               value={variables.impact}
               onChange={(value) => updateVariable("impact", value)}
-              isDemoMode={isDemoMode}
             />
             <SliderRow
               id="cost"
@@ -124,7 +107,6 @@ export default function DecisionCalculator({
               hint="Money, time, or effort required"
               value={variables.cost}
               onChange={(value) => updateVariable("cost", value)}
-              isDemoMode={isDemoMode}
             />
             <SliderRow
               id="risk"
@@ -132,7 +114,6 @@ export default function DecisionCalculator({
               hint="Downside, what could go wrong"
               value={variables.risk}
               onChange={(value) => updateVariable("risk", value)}
-              isDemoMode={isDemoMode}
             />
             <SliderRow
               id="urgency"
@@ -140,7 +121,6 @@ export default function DecisionCalculator({
               hint="How soon action is needed"
               value={variables.urgency}
               onChange={(value) => updateVariable("urgency", value)}
-              isDemoMode={isDemoMode}
             />
             <SliderRow
               id="confidence"
@@ -148,17 +128,16 @@ export default function DecisionCalculator({
               hint="Evidence, readiness, and conviction"
               value={variables.confidence}
               onChange={(value) => updateVariable("confidence", value)}
-              isDemoMode={isDemoMode}
             />
           </CardContent>
         </Card>
 
         {/* Metrics Section */}
         <Card ref={metricsRef} id="metrics-section" className="flex h-full flex-col">
-          <CardHeader className="pb-3">
-            <CardTitle className="text-lg">Key Metrics</CardTitle>
+          <CardHeader className="space-y-2.5 pb-4">
+            <CardTitle className="text-lg">RPS Signals</CardTitle>
           </CardHeader>
-          <CardContent className="flex flex-1 flex-col justify-between space-y-4">
+          <CardContent className="flex flex-1 flex-col space-y-5">
             <StatCard
               title="Return"
               value={metrics.return}
@@ -178,10 +157,10 @@ export default function DecisionCalculator({
         </Card>
         {/* Summary & Coach */}
         <Card ref={summaryRef} id="summary-section" className="flex h-full flex-col">
-          <CardHeader className="pb-3">
+          <CardHeader className="space-y-2.5 pb-5">
             <CardTitle className="text-lg">Archetype &amp; Coach</CardTitle>
           </CardHeader>
-          <CardContent className="flex-1 space-y-4">
+          <CardContent className="flex-1 space-y-6">
             <SummaryCard
               metrics={metrics}
               urgency={variables.urgency}
