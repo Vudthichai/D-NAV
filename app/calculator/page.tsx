@@ -1,5 +1,6 @@
 "use client";
 
+import CompareSheet from "@/components/CompareSheet";
 import DecisionCalculator from "@/components/DecisionCalculator";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -11,7 +12,7 @@ import Link from "next/link";
 import { useCallback, useState } from "react";
 
 export default function CalculatorPage() {
-  const [, setShowCompare] = useState(false);
+  const [showCompare, setShowCompare] = useState(false);
   const [decisionName, setDecisionName] = useState("");
   const [decisionCategory, setDecisionCategory] = useState("");
   const [variables, setVariables] = useState<DecisionVariables>({
@@ -169,6 +170,13 @@ export default function CalculatorPage() {
       >
         <BarChart3 className="w-5 h-5" />
       </Button>
+
+      <CompareSheet
+        open={showCompare}
+        onOpenChange={setShowCompare}
+        baseVariables={variables}
+        baseMetrics={metrics}
+      />
     </main>
   );
 }
