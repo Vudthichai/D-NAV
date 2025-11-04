@@ -38,12 +38,20 @@ interface ScenarioConfig {
   id: string;
   name: string;
   variables: DecisionVariables;
+  metrics: DecisionMetrics;
 }
 
-const METRIC_ROWS: { key: keyof Pick<DecisionMetrics, "return" | "stability" | "pressure">; label: string }[] = [
+const METRIC_ROWS: {
+  key: keyof Pick<DecisionMetrics, "return" | "stability" | "pressure" | "merit" | "energy" | "dnav">;
+  label: string;
+  invert?: boolean;
+}[] = [
   { key: "return", label: "Return" },
   { key: "stability", label: "Stability" },
-  { key: "pressure", label: "Pressure" },
+  { key: "pressure", label: "Pressure", invert: true },
+  { key: "merit", label: "Merit" },
+  { key: "energy", label: "Energy" },
+  { key: "dnav", label: "D-NAV" },
 ];
 
 function formatDelta(value: number): string {
@@ -116,15 +124,45 @@ function buildScenarioFeedback(base: DecisionMetrics, scenario: DecisionMetrics,
   return parts.join(" ");
 }
 
-function getDeltaBadge(delta: number, metric: "return" | "stability" | "pressure") {
-  const isImprovement =
-    metric === "pressure" ? delta < 0 : delta > 0;
+function getDeltaBadge(
+  delta: number,
+  metric: keyof Pick<DecisionMetrics, "return" | "stability" | "pressure" | "merit" | "energy" | "dnav">,
+  invert = false,
+) {
+  if (metric === "energy") {
+    const badgeClass = cn(
+      "px-2.5 py-1 text-xs font-semibold border",
+      delta === 0 && "border-muted bg-muted/40 text-muted-foreground",
+      delta > 0 && "border-sky-500/40 bg-sky-500/10 text-sky-700",
+      delta < 0 && "border-amber-500/40 bg-amber-500/10 text-amber-700",
+    );
+
+    const badgeText =
+      delta === 0
+        ? "Same energy"
+        : delta > 0
+          ? `More energy (${formatDelta(delta)})`
+          : `Less energy (${formatDelta(delta)})`;
+
+    return (
+      <Badge variant="outline" className={badgeClass}>
+        {badgeText}
+      </Badge>
+    );
+  }
+
+  const isImprovement = invert ? delta < 0 : delta > 0;
+
   const badgeText =
     delta === 0
       ? "No change"
-      : isImprovement
-        ? `Better (${formatDelta(delta)})`
-        : `Worse (${formatDelta(delta)})`;
+      : metric === "dnav"
+        ? isImprovement
+          ? `Higher D-NAV (${formatDelta(delta)})`
+          : `Lower D-NAV (${formatDelta(delta)})`
+        : isImprovement
+          ? `Better (${formatDelta(delta)})`
+          : `Worse (${formatDelta(delta)})`;
 
   const badgeClass = cn(
     "px-2.5 py-1 text-xs font-semibold border",
@@ -135,7 +173,11 @@ function getDeltaBadge(delta: number, metric: "return" | "stability" | "pressure
         : "border-red-500/40 bg-red-500/10 text-red-600"),
   );
 
-  return <Badge variant="outline" className={badgeClass}>{badgeText}</Badge>;
+  return (
+    <Badge variant="outline" className={badgeClass}>
+      {badgeText}
+    </Badge>
+  );
 }
 
 export default function CompareSheet({
@@ -154,6 +196,8 @@ export default function CompareSheet({
       return: baseMetrics.return,
       stability: baseMetrics.stability,
       pressure: baseMetrics.pressure,
+      merit: baseMetrics.merit,
+      energy: baseMetrics.energy,
       dnav: baseMetrics.dnav,
     };
   }, [baseMetrics]);
@@ -166,6 +210,7 @@ export default function CompareSheet({
         id: `scenario-${nextId}`,
         name: `Scenario ${nextId}`,
         variables: { ...baseVariables },
+        metrics: computeMetrics(baseVariables),
       },
     ]);
   };
@@ -184,6 +229,13 @@ export default function CompareSheet({
           urgency: decision.urgency,
           confidence: decision.confidence,
         },
+        metrics: computeMetrics({
+          impact: decision.impact,
+          cost: decision.cost,
+          risk: decision.risk,
+          urgency: decision.urgency,
+          confidence: decision.confidence,
+        }),
       },
     ]);
   };
@@ -211,46 +263,43 @@ export default function CompareSheet({
     value: number,
   ) => {
     setScenarios((prev) =>
-      prev.map((scenario) =>
-        scenario.id === id
-          ? {
-              ...scenario,
-              variables: {
-                ...scenario.variables,
-                [key]: value,
-              },
-            }
-          : scenario,
-      ),
+      prev.map((scenario) => {
+        if (scenario.id !== id) return scenario;
+
+        const updatedVariables = {
+          ...scenario.variables,
+          [key]: value,
+        };
+
+        return {
+          ...scenario,
+          variables: updatedVariables,
+          metrics: computeMetrics(updatedVariables),
+        };
+      }),
     );
   };
 
-  const scenariosWithMetrics = useMemo(
-    () =>
-      scenarios.map((scenario) => ({
-        ...scenario,
-        metrics: computeMetrics(scenario.variables),
-      })),
-    [scenarios],
-  );
-
   const scenarioDeltaLog = useMemo(
     () =>
-      scenariosWithMetrics.map((scenario) => {
+      scenarios.map((scenario) => {
         const { metrics, id, name } = scenario;
         const label = name.trim() || "Unnamed scenario";
         return {
           id,
           label,
+          metrics,
           deltas: {
             return: metrics.return - baseMetrics.return,
             stability: metrics.stability - baseMetrics.stability,
             pressure: metrics.pressure - baseMetrics.pressure,
+            merit: metrics.merit - baseMetrics.merit,
+            energy: metrics.energy - baseMetrics.energy,
             dnav: metrics.dnav - baseMetrics.dnav,
           },
         } as const;
       }),
-    [baseMetrics, scenariosWithMetrics],
+    [baseMetrics, scenarios],
   );
 
   const handleAddScenarioFromHistory = (timestamp: string) => {
@@ -353,7 +402,7 @@ export default function CompareSheet({
 
                   <div className="space-y-2">
                     <h4 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Metrics</h4>
-                    <div className="grid grid-cols-2 gap-3 text-sm sm:grid-cols-4">
+                    <div className="grid grid-cols-2 gap-3 text-sm sm:grid-cols-3">
                       <div>
                         <div className="text-[11px] uppercase text-muted-foreground">Return</div>
                         <div className="font-semibold text-foreground">{baseSummary.return}</div>
@@ -365,6 +414,14 @@ export default function CompareSheet({
                       <div>
                         <div className="text-[11px] uppercase text-muted-foreground">Pressure</div>
                         <div className="font-semibold text-foreground">{baseSummary.pressure}</div>
+                      </div>
+                      <div>
+                        <div className="text-[11px] uppercase text-muted-foreground">Merit</div>
+                        <div className="font-semibold text-foreground">{baseSummary.merit}</div>
+                      </div>
+                      <div>
+                        <div className="text-[11px] uppercase text-muted-foreground">Energy</div>
+                        <div className="font-semibold text-foreground">{baseSummary.energy}</div>
                       </div>
                       <div>
                         <div className="text-[11px] uppercase text-muted-foreground">D-NAV</div>
@@ -384,29 +441,65 @@ export default function CompareSheet({
                         Deltas will appear here after you add scenarios.
                       </p>
                     ) : (
-                      <div className="overflow-hidden rounded-lg border">
-                        <div className="grid grid-cols-[minmax(0,1.2fr)_repeat(4,minmax(0,1fr))] items-center gap-2 border-b bg-muted/40 px-3 py-2 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
-                          <span>Scenario</span>
-                          <span className="text-center">Return</span>
-                          <span className="text-center">Stability</span>
-                          <span className="text-center">Pressure</span>
-                          <span className="text-center">D-NAV</span>
+                      <>
+                        <div className="space-y-2">
+                          {scenarioDeltaLog.map(({ id, label, metrics, deltas }) => (
+                            <div key={id} className="space-y-2 rounded-lg border bg-muted/30 p-3">
+                              <div className="flex flex-wrap items-center justify-between gap-2">
+                                <span className="font-semibold text-foreground" title={label}>
+                                  {label}
+                                </span>
+                                <span className="text-sm font-mono text-muted-foreground">
+                                  Δ D-NAV {formatDelta(deltas.dnav)}
+                                </span>
+                              </div>
+                              <div className="grid gap-2 sm:grid-cols-3 xl:grid-cols-6">
+                                {METRIC_ROWS.map(({ key, label, invert }) => (
+                                  <div key={key} className="rounded-md border bg-background p-3">
+                                    <div className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+                                      {label}
+                                    </div>
+                                    <div className="mt-1 flex items-center justify-between gap-2 text-sm">
+                                      <span className="font-mono text-foreground">
+                                        {baseMetrics[key]} → {metrics[key]}
+                                      </span>
+                                      <span>{getDeltaPill(deltas[key], invert)}</span>
+                                    </div>
+                                  </div>
+                                ))}
+                              </div>
+                            </div>
+                          ))}
                         </div>
-                        {scenarioDeltaLog.map(({ id, label, deltas }) => (
-                          <div
-                            key={id}
-                            className="grid grid-cols-[minmax(0,1.2fr)_repeat(4,minmax(0,1fr))] items-center gap-2 px-3 py-2 text-sm"
-                          >
-                            <span className="truncate font-medium text-foreground" title={label}>
-                              {label}
-                            </span>
-                            <span className="flex justify-center">{getDeltaPill(deltas.return)}</span>
-                            <span className="flex justify-center">{getDeltaPill(deltas.stability)}</span>
-                            <span className="flex justify-center">{getDeltaPill(deltas.pressure, true)}</span>
-                            <span className="flex justify-center">{getDeltaPill(deltas.dnav)}</span>
+
+                        <div className="overflow-hidden rounded-lg border">
+                          <div className="grid grid-cols-[minmax(0,1.2fr)_repeat(6,minmax(0,1fr))] items-center gap-2 border-b bg-muted/40 px-3 py-2 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+                            <span>Scenario</span>
+                            <span className="text-center">Return</span>
+                            <span className="text-center">Stability</span>
+                            <span className="text-center">Pressure</span>
+                            <span className="text-center">Merit</span>
+                            <span className="text-center">Energy</span>
+                            <span className="text-center">D-NAV</span>
                           </div>
-                        ))}
-                      </div>
+                          {scenarioDeltaLog.map(({ id, label, deltas }) => (
+                            <div
+                              key={id}
+                              className="grid grid-cols-[minmax(0,1.2fr)_repeat(6,minmax(0,1fr))] items-center gap-2 px-3 py-2 text-sm"
+                            >
+                              <span className="truncate font-medium text-foreground" title={label}>
+                                {label}
+                              </span>
+                              <span className="flex justify-center">{getDeltaPill(deltas.return)}</span>
+                              <span className="flex justify-center">{getDeltaPill(deltas.stability)}</span>
+                              <span className="flex justify-center">{getDeltaPill(deltas.pressure, true)}</span>
+                              <span className="flex justify-center">{getDeltaPill(deltas.merit)}</span>
+                              <span className="flex justify-center">{getDeltaPill(deltas.energy)}</span>
+                              <span className="flex justify-center">{getDeltaPill(deltas.dnav)}</span>
+                            </div>
+                          ))}
+                        </div>
+                      </>
                     )}
                   </div>
 
@@ -417,128 +510,131 @@ export default function CompareSheet({
                 </CardContent>
               </Card>
 
-              {scenariosWithMetrics.length === 0 ? (
+              {scenarios.length === 0 ? (
                 <Card className="min-w-[320px] shrink-0 border-dashed">
                   <CardContent className="py-12 text-center text-sm text-muted-foreground">
                     No scenarios yet. Click <strong>Add scenario</strong> to start exploring alternatives.
                   </CardContent>
                 </Card>
               ) : (
-                scenariosWithMetrics.map((scenario) => {
+                scenarios.map((scenario) => {
                   const { metrics, id, name, variables } = scenario;
                   const deltas = {
                     return: metrics.return - baseMetrics.return,
                     stability: metrics.stability - baseMetrics.stability,
                     pressure: metrics.pressure - baseMetrics.pressure,
+                    merit: metrics.merit - baseMetrics.merit,
+                    energy: metrics.energy - baseMetrics.energy,
+                    dnav: metrics.dnav - baseMetrics.dnav,
                   } as const;
 
                   const scenarioTitle = name.trim() || "This scenario";
                   const feedback = buildScenarioFeedback(baseMetrics, metrics, scenarioTitle);
 
-                  return (
-                    <Card key={id} className="min-w-[320px] shrink-0">
-                      <CardHeader className="pb-4">
-                        <div className="flex flex-wrap items-center gap-3">
-                          <CardTitle className="flex-1 text-base font-semibold">
-                            <Input
-                              value={name}
-                              onChange={(event) => updateScenarioName(id, event.target.value)}
-                              placeholder="Scenario name"
-                              className="h-10"
-                            />
-                          </CardTitle>
-                          <Button
-                            type="button"
-                            variant="ghost"
-                            size="icon"
-                            onClick={() => removeScenario(id)}
-                            className="text-muted-foreground hover:text-destructive"
-                            aria-label={`Remove ${name}`}
-                          >
-                            <Trash2 className="h-4 w-4" />
-                          </Button>
-                        </div>
-                      </CardHeader>
-                      <CardContent className="space-y-6">
-                        <div className="space-y-2">
-                          <h4 className="text-sm font-semibold text-muted-foreground uppercase">Adjust variables</h4>
-                          <div className="space-y-4">
-                            <SliderRow
-                              id={`${id}-impact`}
-                              label="Impact"
-                              hint="Expected benefit / upside"
-                              value={variables.impact}
-                              onChange={(value) => updateScenarioVariable(id, "impact", value)}
-                            />
-                            <SliderRow
-                              id={`${id}-cost`}
-                              label="Cost"
-                              hint="Money, time, or effort required"
-                              value={variables.cost}
-                              onChange={(value) => updateScenarioVariable(id, "cost", value)}
-                            />
-                            <SliderRow
-                              id={`${id}-risk`}
-                              label="Risk"
-                              hint="Downside, what could go wrong"
-                              value={variables.risk}
-                              onChange={(value) => updateScenarioVariable(id, "risk", value)}
-                            />
-                            <SliderRow
-                              id={`${id}-urgency`}
-                              label="Urgency"
-                              hint="How soon action is needed"
-                              value={variables.urgency}
-                              onChange={(value) => updateScenarioVariable(id, "urgency", value)}
-                            />
-                            <SliderRow
-                              id={`${id}-confidence`}
-                              label="Confidence"
-                              hint="Evidence, readiness, and conviction"
-                              value={variables.confidence}
-                              onChange={(value) => updateScenarioVariable(id, "confidence", value)}
-                            />
-                        </div>
-                      </div>
-
-                      <Separator />
-
-                      <div className="space-y-3">
-                        <h4 className="text-sm font-semibold text-muted-foreground uppercase">Metric comparison</h4>
-                        <div className="overflow-hidden rounded-lg border">
-                          <div className="grid grid-cols-[1fr_auto_auto_auto] items-center gap-3 border-b bg-muted/40 px-4 py-2 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
-                            <span>Metric</span>
-                            <span className="text-right">Base</span>
-                            <span className="text-right">Scenario</span>
-                            <span className="text-right">Delta</span>
-                          </div>
-                          {METRIC_ROWS.map(({ key, label }) => (
-                            <div
-                              key={key}
-                              className="grid grid-cols-[1fr_auto_auto_auto] items-center gap-3 px-4 py-3 text-sm"
+                    return (
+                      <Card key={id} className="min-w-[320px] shrink-0">
+                        <CardHeader className="pb-4">
+                          <div className="flex flex-wrap items-center gap-3">
+                            <CardTitle className="flex-1 text-base font-semibold">
+                              <Input
+                                value={name}
+                                onChange={(event) => updateScenarioName(id, event.target.value)}
+                                placeholder="Scenario name"
+                                className="h-10"
+                              />
+                            </CardTitle>
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="icon"
+                              onClick={() => removeScenario(id)}
+                              className="text-muted-foreground hover:text-destructive"
+                              aria-label={`Remove ${name}`}
                             >
-                              <span className="font-medium text-foreground">{label}</span>
-                              <span className="text-right font-mono text-sm text-muted-foreground">
-                                {baseMetrics[key]}
-                              </span>
-                              <span className="text-right font-mono text-sm text-foreground">
-                                {metrics[key]}
-                              </span>
-                              <span className="flex justify-end">
-                                {getDeltaBadge(deltas[key], key)}
-                              </span>
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
+                          </div>
+                        </CardHeader>
+                        <CardContent className="space-y-6">
+                          <div className="space-y-2">
+                            <h4 className="text-sm font-semibold text-muted-foreground uppercase">Adjust variables</h4>
+                            <div className="space-y-4">
+                              <SliderRow
+                                id={`${id}-impact`}
+                                label="Impact"
+                                hint="Expected benefit / upside"
+                                value={variables.impact}
+                                onChange={(value) => updateScenarioVariable(id, "impact", value)}
+                              />
+                              <SliderRow
+                                id={`${id}-cost`}
+                                label="Cost"
+                                hint="Money, time, or effort required"
+                                value={variables.cost}
+                                onChange={(value) => updateScenarioVariable(id, "cost", value)}
+                              />
+                              <SliderRow
+                                id={`${id}-risk`}
+                                label="Risk"
+                                hint="Downside, what could go wrong"
+                                value={variables.risk}
+                                onChange={(value) => updateScenarioVariable(id, "risk", value)}
+                              />
+                              <SliderRow
+                                id={`${id}-urgency`}
+                                label="Urgency"
+                                hint="How soon action is needed"
+                                value={variables.urgency}
+                                onChange={(value) => updateScenarioVariable(id, "urgency", value)}
+                              />
+                              <SliderRow
+                                id={`${id}-confidence`}
+                                label="Confidence"
+                                hint="Evidence, readiness, and conviction"
+                                value={variables.confidence}
+                                onChange={(value) => updateScenarioVariable(id, "confidence", value)}
+                              />
                             </div>
-                          ))}
-                        </div>
-                      </div>
+                          </div>
 
-                      <div className="rounded-lg border border-amber-500/30 bg-amber-500/10 p-4 text-sm leading-relaxed text-amber-900 dark:text-amber-100">
-                        {feedback}
-                      </div>
-                    </CardContent>
-                  </Card>
-                  );
-                })
+                          <Separator />
+
+                          <div className="space-y-3">
+                            <h4 className="text-sm font-semibold text-muted-foreground uppercase">Metric comparison</h4>
+                            <div className="overflow-hidden rounded-lg border">
+                              <div className="grid grid-cols-[1fr_auto_auto_auto] items-center gap-3 border-b bg-muted/40 px-4 py-2 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+                                <span>Metric</span>
+                                <span className="text-right">Base</span>
+                                <span className="text-right">Scenario</span>
+                                <span className="text-right">Delta</span>
+                              </div>
+                              {METRIC_ROWS.map(({ key, label, invert }) => (
+                                <div
+                                  key={key}
+                                  className="grid grid-cols-[1fr_auto_auto_auto] items-center gap-3 px-4 py-3 text-sm"
+                                >
+                                  <span className="font-medium text-foreground">{label}</span>
+                                  <span className="text-right font-mono text-sm text-muted-foreground">
+                                    {baseMetrics[key]}
+                                  </span>
+                                  <span className="text-right font-mono text-sm text-foreground">
+                                    {metrics[key]}
+                                  </span>
+                                  <span className="flex justify-end">
+                                    {getDeltaBadge(deltas[key], key, invert)}
+                                  </span>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+
+                          <div className="rounded-lg border border-amber-500/30 bg-amber-500/10 p-4 text-sm leading-relaxed text-amber-900 dark:text-amber-100">
+                            {feedback}
+                          </div>
+                        </CardContent>
+                      </Card>
+                    );
+                    })
               )}
             </div>
           </div>
