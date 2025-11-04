@@ -1,6 +1,5 @@
 import ConditionalLayout from "@/components/layout/ConditionalLayout";
 import { ThemeProvider } from "@/components/theme-provider";
-import { DemoProvider } from "@/hooks/use-demo";
 import type { Metadata } from "next";
 import { Poppins } from "next/font/google";
 import "./globals.css";
@@ -30,9 +29,7 @@ export default function RootLayout({
           enableSystem
           disableTransitionOnChange
         >
-          <DemoProvider>
-            <ConditionalLayout>{children}</ConditionalLayout>
-          </DemoProvider>
+          <ConditionalLayout>{children}</ConditionalLayout>
         </ThemeProvider>
       </body>
     </html>

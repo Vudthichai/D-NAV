@@ -339,7 +339,7 @@ export default function DefinitionsPage() {
                           <code className="bg-blue-100 dark:bg-blue-900 px-1 rounded">
                             10 = maximum
                           </code>
-                          . You're rating how it <em>feels right now</em> — tomorrow's "10" might
+                          . You&rsquo;re rating how it <em>feels right now</em> — tomorrow&rsquo;s &ldquo;10&rdquo; might
                           change with new info or context.
                         </p>
                       </div>
@@ -528,7 +528,7 @@ export default function DefinitionsPage() {
                     </CardHeader>
                     <CardContent>
                       <p className="text-muted-foreground mb-4">
-                        Applied energy — how hard & how ready you'll push now
+                        Applied energy — how hard &amp; how ready you&rsquo;ll push now
                       </p>
                       <div className="space-y-2 text-sm">
                         <div className="flex justify-between">
@@ -681,8 +681,8 @@ export default function DefinitionsPage() {
                     <div className="bg-muted/50 p-4 rounded-lg">
                       <p className="text-sm">
                         <strong>Narrative insight</strong> explains <em>why</em> ΔD-NAV moved: e.g.,
-                        "Return ↑ via Impact (cost unchanged). Stability flat. Pressure +1 —
-                        acceptable short-term given clear upside."
+                        &ldquo;Return ↑ via Impact (cost unchanged). Stability flat. Pressure +1 —
+                        acceptable short-term given clear upside.&rdquo;
                       </p>
                     </div>
                   </CardContent>

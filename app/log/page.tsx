@@ -24,7 +24,6 @@ import * as XLSX from "xlsx";
 export default function LogPage() {
   const [decisions, setDecisions] = useState<DecisionEntry[]>([]);
   const [isCompact, setIsCompact] = useState(false);
-  const [selectedDecisions, setSelectedDecisions] = useState<Set<number>>(new Set());
   const [importStatus, setImportStatus] = useState<string | null>(null);
   const [importError, setImportError] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -45,8 +44,7 @@ export default function LogPage() {
     if (confirm("Are you sure you want to clear all decisions? This action cannot be undone.")) {
       clearLog();
       setDecisions([]);
-      setSelectedDecisions(new Set());
-    }
+      }
   };
 
   const downloadBlob = (blob: Blob, filename: string) => {

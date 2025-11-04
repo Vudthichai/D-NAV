@@ -1,21 +1,19 @@
 "use client";
 
 import DecisionCalculator from "@/components/DecisionCalculator";
-import DemoOverlay from "@/components/DemoOverlay";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import { useDemoController } from "@/hooks/use-demo-controller";
 import { DecisionEntry, DecisionMetrics, DecisionVariables } from "@/lib/calculations";
 import { addDecision } from "@/lib/storage";
-import { Check, Play, RotateCcw, Save, Upload } from "lucide-react";
+import { BarChart3, Check, RotateCcw, Save, Upload } from "lucide-react";
 import Link from "next/link";
 import { useCallback, useState } from "react";
 
 export default function CalculatorPage() {
+  const [, setShowCompare] = useState(false);
   const [decisionName, setDecisionName] = useState("");
   const [decisionCategory, setDecisionCategory] = useState("");
-  const [showCompare, setShowCompare] = useState(false);
   const [variables, setVariables] = useState<DecisionVariables>({
     impact: 0,
     cost: 0,
@@ -33,26 +31,17 @@ export default function CalculatorPage() {
   });
   const [isSaved, setIsSaved] = useState(false);
 
-  const { startDemo, stopDemo, isActive, registerSliderAction } = useDemoController();
-
   const handleDataChange = useCallback(
     (newVariables: DecisionVariables, newMetrics: DecisionMetrics) => {
       setVariables(newVariables);
       setMetrics(newMetrics);
-      setIsSaved(false); // Reset saved state when data changes
+      setIsSaved(false);
     },
-    []
+    [],
   );
 
   const handleOpenCompare = () => {
     setShowCompare(true);
-  };
-
-  const handleRunDemo = () => {
-    stopDemo();
-    setDecisionName("Demo Decision");
-    setDecisionCategory("Demo");
-    startDemo();
   };
 
   const handleSaveDecision = () => {
@@ -73,7 +62,6 @@ export default function CalculatorPage() {
       addDecision(decisionEntry);
       setIsSaved(true);
 
-      // Reset saved state after 3 seconds
       setTimeout(() => setIsSaved(false), 3000);
     } catch (error) {
       console.error("Failed to save decision:", error);
@@ -104,12 +92,7 @@ export default function CalculatorPage() {
 
   return (
     <main className="min-h-screen">
-      {/* Demo Overlay */}
-      <DemoOverlay />
-
-      {/* Streamlined Calculator Interface */}
       <div className="max-w-7xl mx-auto p-6">
-        {/* Header Section */}
         <div className="mb-8">
           <div className="flex items-center justify-between mb-4">
             <div>
@@ -119,10 +102,6 @@ export default function CalculatorPage() {
               </p>
             </div>
             <div className="flex gap-2">
-              <Button variant="outline" onClick={handleRunDemo}>
-                <Play className="w-4 h-4 mr-2" />
-                Run 30s Demo
-              </Button>
               <Button variant="outline" onClick={handleReset}>
                 <RotateCcw className="w-4 h-4 mr-2" />
                 Reset
@@ -131,17 +110,8 @@ export default function CalculatorPage() {
           </div>
         </div>
 
-        {/* Main Calculator */}
-        <DecisionCalculator
-          onOpenCompare={handleOpenCompare}
-          isDemoMode={isActive}
-          onDemoStep={(step, action) => {
-            registerSliderAction(step, action);
-          }}
-          onDataChange={handleDataChange}
-        />
+        <DecisionCalculator onOpenCompare={handleOpenCompare} onDataChange={handleDataChange} />
 
-        {/* Quick Entry */}
         <Card className="mt-8">
           <CardHeader className="pb-4">
             <CardTitle className="text-lg">Quick Entry</CardTitle>
@@ -160,11 +130,7 @@ export default function CalculatorPage() {
                 value={decisionCategory}
                 onChange={(e) => setDecisionCategory(e.target.value)}
               />
-              <Button
-                onClick={handleSaveDecision}
-                className="w-full"
-                disabled={!decisionName || !decisionCategory}
-              >
+              <Button onClick={handleSaveDecision} className="w-full" disabled={!decisionName || !decisionCategory}>
                 {isSaved ? (
                   <>
                     <Check className="w-4 h-4 mr-2" />
@@ -187,7 +153,6 @@ export default function CalculatorPage() {
           </CardContent>
         </Card>
 
-        {/* Action Buttons */}
         <div className="mt-8 flex justify-center gap-4">
           <Button size="lg" onClick={handleOpenCompare}>
             Compare Decisions
@@ -198,12 +163,11 @@ export default function CalculatorPage() {
         </div>
       </div>
 
-      {/* Floating Compare FAB */}
       <Button
         className="fixed right-6 bottom-6 bg-primary shadow-lg z-50 rounded-full w-14 h-14"
         onClick={handleOpenCompare}
       >
-        <Play className="w-5 h-5" />
+        <BarChart3 className="w-5 h-5" />
       </Button>
     </main>
   );
