@@ -1,12 +1,19 @@
 "use client";
 
-import { useMemo, useRef, useState } from "react";
 import { Plus, Trash2 } from "lucide-react";
+import { useMemo, useRef, useState } from "react";
 
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import { Badge } from "@/components/ui/badge";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Separator } from "@/components/ui/separator";
 import {
   Sheet,
@@ -15,16 +22,14 @@ import {
   SheetHeader,
   SheetTitle,
 } from "@/components/ui/sheet";
-import { computeMetrics, DecisionEntry, DecisionMetrics, DecisionVariables } from "@/lib/calculations";
-import { cn } from "@/lib/utils";
-import { loadLog } from "@/lib/storage";
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
+  computeMetrics,
+  DecisionEntry,
+  DecisionMetrics,
+  DecisionVariables,
+} from "@/lib/calculations";
+import { loadLog } from "@/lib/storage";
+import { cn } from "@/lib/utils";
 import SliderRow from "./SliderRow";
 
 interface CompareSheetProps {
@@ -42,7 +47,10 @@ interface ScenarioConfig {
 }
 
 const METRIC_ROWS: {
-  key: keyof Pick<DecisionMetrics, "return" | "stability" | "pressure" | "merit" | "energy" | "dnav">;
+  key: keyof Pick<
+    DecisionMetrics,
+    "return" | "stability" | "pressure" | "merit" | "energy" | "dnav"
+  >;
   label: string;
   invert?: boolean;
 }[] = [
@@ -72,12 +80,12 @@ function getDeltaPill(delta: number, invert = false) {
   return (
     <span
       className={cn(
-        "inline-flex min-w-[2.5rem] items-center justify-center rounded-full border px-2 py-0.5 text-xs font-semibold",
+        "inline-flex min-w-10 items-center justify-center rounded-full border px-2 py-0.5 text-xs font-semibold",
         delta === 0 && "border-muted bg-muted/40 text-muted-foreground",
         delta !== 0 &&
           (isPositive
             ? "border-emerald-500/40 bg-emerald-500/10 text-emerald-600"
-            : "border-red-500/40 bg-red-500/10 text-red-600"),
+            : "border-red-500/40 bg-red-500/10 text-red-600")
       )}
     >
       {formatDelta(delta)}
@@ -85,7 +93,11 @@ function getDeltaPill(delta: number, invert = false) {
   );
 }
 
-function buildScenarioFeedback(base: DecisionMetrics, scenario: DecisionMetrics, scenarioName: string): string {
+function buildScenarioFeedback(
+  base: DecisionMetrics,
+  scenario: DecisionMetrics,
+  scenarioName: string
+): string {
   const returnDelta = scenario.return - base.return;
   const stabilityDelta = scenario.stability - base.stability;
   const pressureDelta = scenario.pressure - base.pressure;
@@ -126,23 +138,26 @@ function buildScenarioFeedback(base: DecisionMetrics, scenario: DecisionMetrics,
 
 function getDeltaBadge(
   delta: number,
-  metric: keyof Pick<DecisionMetrics, "return" | "stability" | "pressure" | "merit" | "energy" | "dnav">,
-  invert = false,
+  metric: keyof Pick<
+    DecisionMetrics,
+    "return" | "stability" | "pressure" | "merit" | "energy" | "dnav"
+  >,
+  invert = false
 ) {
   if (metric === "energy") {
     const badgeClass = cn(
       "px-2.5 py-1 text-xs font-semibold border",
       delta === 0 && "border-muted bg-muted/40 text-muted-foreground",
       delta > 0 && "border-sky-500/40 bg-sky-500/10 text-sky-700",
-      delta < 0 && "border-amber-500/40 bg-amber-500/10 text-amber-700",
+      delta < 0 && "border-amber-500/40 bg-amber-500/10 text-amber-700"
     );
 
     const badgeText =
       delta === 0
         ? "Same energy"
         : delta > 0
-          ? `More energy (${formatDelta(delta)})`
-          : `Less energy (${formatDelta(delta)})`;
+        ? `More energy (${formatDelta(delta)})`
+        : `Less energy (${formatDelta(delta)})`;
 
     return (
       <Badge variant="outline" className={badgeClass}>
@@ -157,12 +172,12 @@ function getDeltaBadge(
     delta === 0
       ? "No change"
       : metric === "dnav"
-        ? isImprovement
-          ? `Higher D-NAV (${formatDelta(delta)})`
-          : `Lower D-NAV (${formatDelta(delta)})`
-        : isImprovement
-          ? `Better (${formatDelta(delta)})`
-          : `Worse (${formatDelta(delta)})`;
+      ? isImprovement
+        ? `Higher D-NAV (${formatDelta(delta)})`
+        : `Lower D-NAV (${formatDelta(delta)})`
+      : isImprovement
+      ? `Better (${formatDelta(delta)})`
+      : `Worse (${formatDelta(delta)})`;
 
   const badgeClass = cn(
     "px-2.5 py-1 text-xs font-semibold border",
@@ -170,7 +185,7 @@ function getDeltaBadge(
     delta !== 0 &&
       (isImprovement
         ? "border-emerald-500/40 bg-emerald-500/10 text-emerald-600"
-        : "border-red-500/40 bg-red-500/10 text-red-600"),
+        : "border-red-500/40 bg-red-500/10 text-red-600")
   );
 
   return (
@@ -252,16 +267,12 @@ export default function CompareSheet({
               ...scenario,
               name,
             }
-          : scenario,
-      ),
+          : scenario
+      )
     );
   };
 
-  const updateScenarioVariable = (
-    id: string,
-    key: keyof DecisionVariables,
-    value: number,
-  ) => {
+  const updateScenarioVariable = (id: string, key: keyof DecisionVariables, value: number) => {
     setScenarios((prev) =>
       prev.map((scenario) => {
         if (scenario.id !== id) return scenario;
@@ -276,7 +287,7 @@ export default function CompareSheet({
           variables: updatedVariables,
           metrics: computeMetrics(updatedVariables),
         };
-      }),
+      })
     );
   };
 
@@ -299,7 +310,7 @@ export default function CompareSheet({
           },
         } as const;
       }),
-    [baseMetrics, scenarios],
+    [baseMetrics, scenarios]
   );
 
   const handleAddScenarioFromHistory = (timestamp: string) => {
@@ -317,15 +328,17 @@ export default function CompareSheet({
         <SheetHeader>
           <SheetTitle>Compare Scenarios</SheetTitle>
           <SheetDescription>
-            Use your current decision as the base line, then explore alternative scenarios to see how return,
-            stability, and pressure shift.
+            Use your current decision as the base line, then explore alternative scenarios to see
+            how return, stability, and pressure shift.
           </SheetDescription>
         </SheetHeader>
 
         <div className="space-y-6 py-6">
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div>
-              <h3 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">Scenarios</h3>
+              <h3 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">
+                Scenarios
+              </h3>
               <p className="text-sm text-muted-foreground">
                 Add a scenario to adjust variables and compare the resulting metrics side-by-side.
               </p>
@@ -367,7 +380,7 @@ export default function CompareSheet({
 
           <div className="overflow-x-auto">
             <div className="flex items-start gap-4 pb-4">
-              <Card className="min-w-[320px] shrink-0">
+              <Card className="w-[1000px] shrink-0">
                 <CardHeader className="pb-3">
                   <CardTitle className="text-base font-semibold">Base decision</CardTitle>
                 </CardHeader>
@@ -377,31 +390,37 @@ export default function CompareSheet({
                       Decision variables
                     </h4>
                     <div className="flex flex-nowrap gap-4 overflow-x-auto text-sm">
-                      <div className="min-w-[96px]">
+                      <div className="w-[96px]">
                         <div className="text-[11px] uppercase text-muted-foreground">Impact</div>
                         <div className="font-semibold text-foreground">{baseVariables.impact}</div>
                       </div>
-                      <div className="min-w-[96px]">
+                      <div className="w-[96px]">
                         <div className="text-[11px] uppercase text-muted-foreground">Cost</div>
                         <div className="font-semibold text-foreground">{baseVariables.cost}</div>
                       </div>
-                      <div className="min-w-[96px]">
+                      <div className="w-[96px]">
                         <div className="text-[11px] uppercase text-muted-foreground">Risk</div>
                         <div className="font-semibold text-foreground">{baseVariables.risk}</div>
                       </div>
-                      <div className="min-w-[96px]">
+                      <div className="w-[96px]">
                         <div className="text-[11px] uppercase text-muted-foreground">Urgency</div>
                         <div className="font-semibold text-foreground">{baseVariables.urgency}</div>
                       </div>
-                      <div className="min-w-[110px]">
-                        <div className="text-[11px] uppercase text-muted-foreground">Confidence</div>
-                        <div className="font-semibold text-foreground">{baseVariables.confidence}</div>
+                      <div className="w-[110px]">
+                        <div className="text-[11px] uppercase text-muted-foreground">
+                          Confidence
+                        </div>
+                        <div className="font-semibold text-foreground">
+                          {baseVariables.confidence}
+                        </div>
                       </div>
                     </div>
                   </div>
 
                   <div className="space-y-2">
-                    <h4 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Metrics</h4>
+                    <h4 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                      Metrics
+                    </h4>
                     <div className="grid grid-cols-2 gap-3 text-sm sm:grid-cols-3">
                       <div>
                         <div className="text-[11px] uppercase text-muted-foreground">Return</div>
@@ -490,12 +509,24 @@ export default function CompareSheet({
                               <span className="truncate font-medium text-foreground" title={label}>
                                 {label}
                               </span>
-                              <span className="flex justify-center">{getDeltaPill(deltas.return)}</span>
-                              <span className="flex justify-center">{getDeltaPill(deltas.stability)}</span>
-                              <span className="flex justify-center">{getDeltaPill(deltas.pressure, true)}</span>
-                              <span className="flex justify-center">{getDeltaPill(deltas.merit)}</span>
-                              <span className="flex justify-center">{getDeltaPill(deltas.energy)}</span>
-                              <span className="flex justify-center">{getDeltaPill(deltas.dnav)}</span>
+                              <span className="flex justify-center">
+                                {getDeltaPill(deltas.return)}
+                              </span>
+                              <span className="flex justify-center">
+                                {getDeltaPill(deltas.stability)}
+                              </span>
+                              <span className="flex justify-center">
+                                {getDeltaPill(deltas.pressure, true)}
+                              </span>
+                              <span className="flex justify-center">
+                                {getDeltaPill(deltas.merit)}
+                              </span>
+                              <span className="flex justify-center">
+                                {getDeltaPill(deltas.energy)}
+                              </span>
+                              <span className="flex justify-center">
+                                {getDeltaPill(deltas.dnav)}
+                              </span>
                             </div>
                           ))}
                         </div>
@@ -504,16 +535,17 @@ export default function CompareSheet({
                   </div>
 
                   <p className="text-xs text-muted-foreground">
-                    These values reflect the sliders from the calculator. Use them as the baseline when crafting
-                    scenarios.
+                    These values reflect the sliders from the calculator. Use them as the baseline
+                    when crafting scenarios.
                   </p>
                 </CardContent>
               </Card>
 
               {scenarios.length === 0 ? (
-                <Card className="min-w-[320px] shrink-0 border-dashed">
+                <Card className="w-[480px] shrink-0 border-dashed">
                   <CardContent className="py-12 text-center text-sm text-muted-foreground">
-                    No scenarios yet. Click <strong>Add scenario</strong> to start exploring alternatives.
+                    No scenarios yet. Click <strong>Add scenario</strong> to start exploring
+                    alternatives.
                   </CardContent>
                 </Card>
               ) : (
@@ -531,110 +563,114 @@ export default function CompareSheet({
                   const scenarioTitle = name.trim() || "This scenario";
                   const feedback = buildScenarioFeedback(baseMetrics, metrics, scenarioTitle);
 
-                    return (
-                      <Card key={id} className="min-w-[320px] shrink-0">
-                        <CardHeader className="pb-4">
-                          <div className="flex flex-wrap items-center gap-3">
-                            <CardTitle className="flex-1 text-base font-semibold">
-                              <Input
-                                value={name}
-                                onChange={(event) => updateScenarioName(id, event.target.value)}
-                                placeholder="Scenario name"
-                                className="h-10"
-                              />
-                            </CardTitle>
-                            <Button
-                              type="button"
-                              variant="ghost"
-                              size="icon"
-                              onClick={() => removeScenario(id)}
-                              className="text-muted-foreground hover:text-destructive"
-                              aria-label={`Remove ${name}`}
-                            >
-                              <Trash2 className="h-4 w-4" />
-                            </Button>
+                  return (
+                    <Card key={id} className="w-[480px] shrink-0">
+                      <CardHeader className="pb-4">
+                        <div className="flex flex-wrap items-center gap-3">
+                          <CardTitle className="flex-1 text-base font-semibold">
+                            <Input
+                              value={name}
+                              onChange={(event) => updateScenarioName(id, event.target.value)}
+                              placeholder="Scenario name"
+                              className="h-10"
+                            />
+                          </CardTitle>
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => removeScenario(id)}
+                            className="text-muted-foreground hover:text-destructive"
+                            aria-label={`Remove ${name}`}
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        </div>
+                      </CardHeader>
+                      <CardContent className="space-y-6">
+                        <div className="space-y-2">
+                          <h4 className="text-sm font-semibold text-muted-foreground uppercase">
+                            Adjust variables
+                          </h4>
+                          <div className="space-y-4">
+                            <SliderRow
+                              id={`${id}-impact`}
+                              label="Impact"
+                              hint="Expected benefit / upside"
+                              value={variables.impact}
+                              onChange={(value) => updateScenarioVariable(id, "impact", value)}
+                            />
+                            <SliderRow
+                              id={`${id}-cost`}
+                              label="Cost"
+                              hint="Money, time, or effort required"
+                              value={variables.cost}
+                              onChange={(value) => updateScenarioVariable(id, "cost", value)}
+                            />
+                            <SliderRow
+                              id={`${id}-risk`}
+                              label="Risk"
+                              hint="Downside, what could go wrong"
+                              value={variables.risk}
+                              onChange={(value) => updateScenarioVariable(id, "risk", value)}
+                            />
+                            <SliderRow
+                              id={`${id}-urgency`}
+                              label="Urgency"
+                              hint="How soon action is needed"
+                              value={variables.urgency}
+                              onChange={(value) => updateScenarioVariable(id, "urgency", value)}
+                            />
+                            <SliderRow
+                              id={`${id}-confidence`}
+                              label="Confidence"
+                              hint="Evidence, readiness, and conviction"
+                              value={variables.confidence}
+                              onChange={(value) => updateScenarioVariable(id, "confidence", value)}
+                            />
                           </div>
-                        </CardHeader>
-                        <CardContent className="space-y-6">
-                          <div className="space-y-2">
-                            <h4 className="text-sm font-semibold text-muted-foreground uppercase">Adjust variables</h4>
-                            <div className="space-y-4">
-                              <SliderRow
-                                id={`${id}-impact`}
-                                label="Impact"
-                                hint="Expected benefit / upside"
-                                value={variables.impact}
-                                onChange={(value) => updateScenarioVariable(id, "impact", value)}
-                              />
-                              <SliderRow
-                                id={`${id}-cost`}
-                                label="Cost"
-                                hint="Money, time, or effort required"
-                                value={variables.cost}
-                                onChange={(value) => updateScenarioVariable(id, "cost", value)}
-                              />
-                              <SliderRow
-                                id={`${id}-risk`}
-                                label="Risk"
-                                hint="Downside, what could go wrong"
-                                value={variables.risk}
-                                onChange={(value) => updateScenarioVariable(id, "risk", value)}
-                              />
-                              <SliderRow
-                                id={`${id}-urgency`}
-                                label="Urgency"
-                                hint="How soon action is needed"
-                                value={variables.urgency}
-                                onChange={(value) => updateScenarioVariable(id, "urgency", value)}
-                              />
-                              <SliderRow
-                                id={`${id}-confidence`}
-                                label="Confidence"
-                                hint="Evidence, readiness, and conviction"
-                                value={variables.confidence}
-                                onChange={(value) => updateScenarioVariable(id, "confidence", value)}
-                              />
+                        </div>
+
+                        <Separator />
+
+                        <div className="space-y-3">
+                          <h4 className="text-sm font-semibold text-muted-foreground uppercase">
+                            Metric comparison
+                          </h4>
+                          <div className="overflow-hidden rounded-lg border">
+                            <div className="grid grid-cols-[1fr_auto_auto_auto] items-center gap-3 border-b bg-muted/40 px-4 py-2 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+                              <span>Metric</span>
+                              <span className="text-right">Base</span>
+                              <span className="text-right">Scenario</span>
+                              <span className="text-right">Delta</span>
                             </div>
-                          </div>
-
-                          <Separator />
-
-                          <div className="space-y-3">
-                            <h4 className="text-sm font-semibold text-muted-foreground uppercase">Metric comparison</h4>
-                            <div className="overflow-hidden rounded-lg border">
-                              <div className="grid grid-cols-[1fr_auto_auto_auto] items-center gap-3 border-b bg-muted/40 px-4 py-2 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
-                                <span>Metric</span>
-                                <span className="text-right">Base</span>
-                                <span className="text-right">Scenario</span>
-                                <span className="text-right">Delta</span>
+                            {METRIC_ROWS.map(({ key, label, invert }) => (
+                              <div
+                                key={key}
+                                className="grid grid-cols-[1fr_auto_auto_auto] items-center gap-3 px-4 py-3 text-sm"
+                              >
+                                <span className="font-medium text-foreground">{label}</span>
+                                <span className="text-right font-mono text-sm text-muted-foreground">
+                                  {baseMetrics[key]}
+                                </span>
+                                <span className="text-right font-mono text-sm text-foreground">
+                                  {metrics[key]}
+                                </span>
+                                <span className="flex justify-end">
+                                  {getDeltaBadge(deltas[key], key, invert)}
+                                </span>
                               </div>
-                              {METRIC_ROWS.map(({ key, label, invert }) => (
-                                <div
-                                  key={key}
-                                  className="grid grid-cols-[1fr_auto_auto_auto] items-center gap-3 px-4 py-3 text-sm"
-                                >
-                                  <span className="font-medium text-foreground">{label}</span>
-                                  <span className="text-right font-mono text-sm text-muted-foreground">
-                                    {baseMetrics[key]}
-                                  </span>
-                                  <span className="text-right font-mono text-sm text-foreground">
-                                    {metrics[key]}
-                                  </span>
-                                  <span className="flex justify-end">
-                                    {getDeltaBadge(deltas[key], key, invert)}
-                                  </span>
-                                </div>
-                              ))}
-                            </div>
+                            ))}
                           </div>
+                        </div>
 
-                          <div className="rounded-lg border border-amber-500/30 bg-amber-500/10 p-4 text-sm leading-relaxed text-amber-900 dark:text-amber-100">
-                            {feedback}
-                          </div>
-                        </CardContent>
-                      </Card>
-                    );
-                    })
+                        <div className="rounded-lg border border-amber-500/30 bg-amber-500/10 p-4 text-sm leading-relaxed text-amber-900 dark:text-amber-100">
+                          {feedback}
+                        </div>
+                      </CardContent>
+                    </Card>
+                  );
+                })
               )}
             </div>
           </div>
