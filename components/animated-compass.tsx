@@ -9,7 +9,7 @@ type AnimatedCompassProps = {
 };
 
 const ORANGE = "#ff7a2c";
-const DARK = "#050505";
+const CANVAS = "#ffffff";
 
 const toCartesian = (center: number, radius: number, angleDeg: number) => {
   const angle = ((angleDeg - 90) * Math.PI) / 180;
@@ -41,29 +41,20 @@ export function AnimatedCompass({ className }: AnimatedCompassProps) {
     [],
   );
 
-  const innerNeedle = useMemo(() => {
-    const base = toCartesian(60, 28, -6);
-    const tail = toCartesian(60, 18, 174);
-    const left = toCartesian(60, 8, 90);
-    const right = toCartesian(60, 8, 270);
-
-    return `${base.x},${base.y} ${right.x},${right.y} ${tail.x},${tail.y} ${left.x},${left.y}`;
-  }, []);
-
   return (
     <div
       className={cn(
-        "relative flex h-24 w-24 items-center justify-center rounded-[32px] bg-transparent p-3 text-[#ff7a2c]",
-        "before:absolute before:inset-1 before:rounded-[28px] before:bg-[radial-gradient(circle_at_30%_20%,rgba(255,122,44,0.35),rgba(5,5,5,0.65))] before:opacity-80 before:blur-lg before:content-['']",
+        "relative flex h-28 w-28 items-center justify-center rounded-[36px] bg-transparent p-3.5 text-[#ff7a2c]",
+        "before:absolute before:inset-1 before:rounded-[32px] before:bg-[radial-gradient(circle_at_30%_20%,rgba(255,122,44,0.35),rgba(255,255,255,0.75))] before:opacity-80 before:blur-lg before:content-['']",
         className,
       )}
     >
       <div className="relative h-full w-full">
         <svg
           viewBox="0 0 120 120"
-          className="h-full w-full drop-shadow-[0_16px_32px_rgba(15,15,15,0.45)]"
+          className="h-full w-full drop-shadow-[0_16px_32px_rgba(255,255,255,0.35)]"
           role="img"
-          aria-label="D-NAV animated compass"
+          aria-label="Animated compass"
         >
           <defs>
             <linearGradient id="compassBorder" x1="0%" x2="100%" y1="0%" y2="100%">
@@ -79,9 +70,9 @@ export function AnimatedCompass({ className }: AnimatedCompassProps) {
           </defs>
 
           <rect x="6" y="6" width="108" height="108" rx="26" fill="url(#compassBorder)" />
-          <rect x="14" y="14" width="92" height="92" rx="22" fill={DARK} />
+          <rect x="14" y="14" width="92" height="92" rx="22" fill={CANVAS} />
           <circle cx="60" cy="60" r="45" fill="url(#dialGlow)" />
-          <circle cx="60" cy="60" r="44" fill="#0f0f0f" stroke="rgba(255,255,255,0.08)" strokeWidth="1.5" />
+          <circle cx="60" cy="60" r="44" fill="#ffffff" stroke="rgba(255,122,44,0.16)" strokeWidth="1.5" />
 
           <g opacity="0.75">
             {ticks.map(({ major, start, end }, index) => (
@@ -103,44 +94,18 @@ export function AnimatedCompass({ className }: AnimatedCompassProps) {
             <circle cx="60" cy="60" r="24" fill="none" stroke="rgba(255,255,255,0.55)" strokeDasharray="6 10" />
           </g>
 
-          <g className="origin-center">
-            <polygon points="60,18 66,60 60,102 54,60" fill={ORANGE} opacity={0.8} />
-            <polygon points="60,24 64,60 60,96 56,60" fill="white" opacity={0.95} />
-            <polygon points="60,32 62.5,60 60,88 57.5,60" fill={ORANGE} opacity={0.9} />
-          </g>
-
-          <g className="origin-center" opacity="0.9">
-            <polygon points="60,16 69,60 60,104 51,60" fill="rgba(255,122,44,0.55)" />
-            <polygon points="60,24 66,60 60,96 54,60" fill="rgba(255,255,255,0.22)" />
-          </g>
-
-          <g className="origin-center">
-            <polygon points="60,14 70,60 60,106 50,60" fill="rgba(0,0,0,0.28)" />
-            <polygon points="60,20 66.5,60 60,100 53.5,60" fill="rgba(0,0,0,0.4)" />
-          </g>
-
-          <g className="origin-center" fill="white">
-            <polygon points="60,21 63.5,60 60,99 56.5,60" opacity={0.9} />
-            <polygon points="60,31 61.5,60 60,89 58.5,60" fill={ORANGE} opacity={0.9} />
-          </g>
-
-          <g className="origin-center" opacity={0.9}>
-            <polygon points="60,17 68,60 60,103 52,60" fill="rgba(0,0,0,0.48)" />
-          </g>
-
-          <g className="origin-center" fill="white" opacity="0.9">
-            <polygon points="60,28 63,60 60,92 57,60" opacity={0.92} />
-          </g>
-
           <g className={cn("origin-center", isReady ? "animate-compass-needle" : "")}
              style={{ transformOrigin: "60px 60px" }}>
-            <polygon points="60,10 74,60 60,110 46,60" fill={ORANGE} opacity={0.9} />
-            <polygon points="60,22 69,60 60,98 51,60" fill="white" opacity={0.95} />
-            <polygon points={innerNeedle} fill={ORANGE} opacity={0.92} />
-            <circle cx="60" cy="60" r="11" fill="rgba(0,0,0,0.45)" />
-            <circle cx="60" cy="60" r="8" fill="white" opacity={0.95} />
-            <circle cx="60" cy="60" r="4" fill={ORANGE} opacity={0.9} />
-            <circle cx="60" cy="60" r="2" fill="white" />
+            <polygon
+              points="60,8 78,60 60,112 42,60"
+              fill={ORANGE}
+              stroke="white"
+              strokeWidth={3.5}
+              strokeLinejoin="round"
+            />
+            <circle cx="60" cy="60" r="11" fill="rgba(255,255,255,0.6)" />
+            <circle cx="60" cy="60" r="7" fill={ORANGE} opacity={0.92} />
+            <circle cx="60" cy="60" r="3" fill="white" />
           </g>
 
           <g className="origin-center" fontFamily="'Inter', sans-serif" fontWeight={700} fontSize="10">
@@ -155,21 +120,6 @@ export function AnimatedCompass({ className }: AnimatedCompassProps) {
             </text>
             <text x="60" y="100" textAnchor="middle" fill={ORANGE} letterSpacing="4">
               S
-            </text>
-          </g>
-
-          <g fontFamily="'Inter', sans-serif" fontWeight={800} fontSize="14">
-            <text
-              x="60"
-              y="66"
-              textAnchor="middle"
-              fill="white"
-              letterSpacing="2"
-              stroke={ORANGE}
-              strokeWidth={0.6}
-              paintOrder="stroke"
-            >
-              D-NAV
             </text>
           </g>
 
