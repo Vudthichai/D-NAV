@@ -3,7 +3,7 @@
 import { Plus, Trash2 } from "lucide-react";
 import { useMemo, useRef, useState } from "react";
 
-import { Badge } from "@/components/ui/badge";
+import ComparePanel from "@/components/ComparePanel";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -22,14 +22,8 @@ import {
   SheetHeader,
   SheetTitle,
 } from "@/components/ui/sheet";
-import {
-  computeMetrics,
-  DecisionEntry,
-  DecisionMetrics,
-  DecisionVariables,
-} from "@/lib/calculations";
+import { DecisionEntry, DecisionMetrics, DecisionVariables } from "@/lib/calculations";
 import { loadLog } from "@/lib/storage";
-import { cn } from "@/lib/utils";
 import SliderRow from "./SliderRow";
 
 interface CompareSheetProps {
@@ -43,156 +37,6 @@ interface ScenarioConfig {
   id: string;
   name: string;
   variables: DecisionVariables;
-  metrics: DecisionMetrics;
-}
-
-const METRIC_ROWS: {
-  key: keyof Pick<
-    DecisionMetrics,
-    "return" | "stability" | "pressure" | "merit" | "energy" | "dnav"
-  >;
-  label: string;
-  invert?: boolean;
-}[] = [
-  { key: "return", label: "Return" },
-  { key: "stability", label: "Stability" },
-  { key: "pressure", label: "Pressure", invert: true },
-  { key: "merit", label: "Merit" },
-  { key: "energy", label: "Energy" },
-  { key: "dnav", label: "D-NAV" },
-];
-
-function formatDelta(value: number): string {
-  if (value === 0) return "0";
-  return value > 0 ? `+${value}` : `${value}`;
-}
-
-function formatList(items: string[]): string {
-  if (!items.length) return "";
-  if (items.length === 1) return items[0];
-  if (items.length === 2) return `${items[0]} and ${items[1]}`;
-  return `${items.slice(0, -1).join(", ")}, and ${items.at(-1)}`;
-}
-
-function getDeltaPill(delta: number, invert = false) {
-  const isPositive = invert ? delta < 0 : delta > 0;
-
-  return (
-    <span
-      className={cn(
-        "inline-flex min-w-10 items-center justify-center rounded-full border px-2 py-0.5 text-xs font-semibold",
-        delta === 0 && "border-muted bg-muted/40 text-muted-foreground",
-        delta !== 0 &&
-          (isPositive
-            ? "border-emerald-500/40 bg-emerald-500/10 text-emerald-600"
-            : "border-red-500/40 bg-red-500/10 text-red-600")
-      )}
-    >
-      {formatDelta(delta)}
-    </span>
-  );
-}
-
-function buildScenarioFeedback(
-  base: DecisionMetrics,
-  scenario: DecisionMetrics,
-  scenarioName: string
-): string {
-  const returnDelta = scenario.return - base.return;
-  const stabilityDelta = scenario.stability - base.stability;
-  const pressureDelta = scenario.pressure - base.pressure;
-  const dnavDelta = scenario.dnav - base.dnav;
-
-  const upsides: string[] = [];
-  const tradeoffs: string[] = [];
-
-  if (returnDelta > 0) upsides.push(`higher return (${formatDelta(returnDelta)})`);
-  if (stabilityDelta > 0) upsides.push(`stronger stability (${formatDelta(stabilityDelta)})`);
-  if (pressureDelta < 0) upsides.push(`lower pressure (${formatDelta(pressureDelta)})`);
-
-  if (returnDelta < 0) tradeoffs.push(`return drops (${formatDelta(returnDelta)})`);
-  if (stabilityDelta < 0) tradeoffs.push(`stability weakens (${formatDelta(stabilityDelta)})`);
-  if (pressureDelta > 0) tradeoffs.push(`pressure climbs (${formatDelta(pressureDelta)})`);
-
-  const parts: string[] = [];
-  if (upsides.length) parts.push(`Upsides: ${formatList(upsides)}.`);
-  if (tradeoffs.length) parts.push(`Trade-offs: ${formatList(tradeoffs)}.`);
-
-  let verdict: string;
-  if (dnavDelta > 5) {
-    verdict = `${scenarioName} is clearly stronger than the base decision (+${dnavDelta} D-NAV).`;
-  } else if (dnavDelta > 0) {
-    verdict = `${scenarioName} edges past the base decision (+${dnavDelta} D-NAV).`;
-  } else if (dnavDelta === 0) {
-    verdict = `${scenarioName} matches the base decision (no D-NAV change).`;
-  } else if (dnavDelta >= -5) {
-    verdict = `The base decision still holds a slight edge (${formatDelta(dnavDelta)} D-NAV).`;
-  } else {
-    verdict = `The base decision remains the better option (${formatDelta(dnavDelta)} D-NAV).`;
-  }
-
-  parts.push(verdict);
-
-  return parts.join(" ");
-}
-
-function getDeltaBadge(
-  delta: number,
-  metric: keyof Pick<
-    DecisionMetrics,
-    "return" | "stability" | "pressure" | "merit" | "energy" | "dnav"
-  >,
-  invert = false
-) {
-  if (metric === "energy") {
-    const badgeClass = cn(
-      "px-2.5 py-1 text-xs font-semibold border",
-      delta === 0 && "border-muted bg-muted/40 text-muted-foreground",
-      delta > 0 && "border-sky-500/40 bg-sky-500/10 text-sky-700",
-      delta < 0 && "border-amber-500/40 bg-amber-500/10 text-amber-700"
-    );
-
-    const badgeText =
-      delta === 0
-        ? "Same energy"
-        : delta > 0
-        ? `More energy (${formatDelta(delta)})`
-        : `Less energy (${formatDelta(delta)})`;
-
-    return (
-      <Badge variant="outline" className={badgeClass}>
-        {badgeText}
-      </Badge>
-    );
-  }
-
-  const isImprovement = invert ? delta < 0 : delta > 0;
-
-  const badgeText =
-    delta === 0
-      ? "No change"
-      : metric === "dnav"
-      ? isImprovement
-        ? `Higher D-NAV (${formatDelta(delta)})`
-        : `Lower D-NAV (${formatDelta(delta)})`
-      : isImprovement
-      ? `Better (${formatDelta(delta)})`
-      : `Worse (${formatDelta(delta)})`;
-
-  const badgeClass = cn(
-    "px-2.5 py-1 text-xs font-semibold border",
-    delta === 0 && "border-muted bg-muted/40 text-muted-foreground",
-    delta !== 0 &&
-      (isImprovement
-        ? "border-emerald-500/40 bg-emerald-500/10 text-emerald-600"
-        : "border-red-500/40 bg-red-500/10 text-red-600")
-  );
-
-  return (
-    <Badge variant="outline" className={badgeClass}>
-      {badgeText}
-    </Badge>
-  );
 }
 
 export default function CompareSheet({
@@ -225,7 +69,6 @@ export default function CompareSheet({
         id: `scenario-${nextId}`,
         name: `Scenario ${nextId}`,
         variables: { ...baseVariables },
-        metrics: computeMetrics(baseVariables),
       },
     ]);
   };
@@ -244,13 +87,6 @@ export default function CompareSheet({
           urgency: decision.urgency,
           confidence: decision.confidence,
         },
-        metrics: computeMetrics({
-          impact: decision.impact,
-          cost: decision.cost,
-          risk: decision.risk,
-          urgency: decision.urgency,
-          confidence: decision.confidence,
-        }),
       },
     ]);
   };
@@ -285,33 +121,10 @@ export default function CompareSheet({
         return {
           ...scenario,
           variables: updatedVariables,
-          metrics: computeMetrics(updatedVariables),
         };
       })
     );
   };
-
-  const scenarioDeltaLog = useMemo(
-    () =>
-      scenarios.map((scenario) => {
-        const { metrics, id, name } = scenario;
-        const label = name.trim() || "Unnamed scenario";
-        return {
-          id,
-          label,
-          metrics,
-          deltas: {
-            return: metrics.return - baseMetrics.return,
-            stability: metrics.stability - baseMetrics.stability,
-            pressure: metrics.pressure - baseMetrics.pressure,
-            merit: metrics.merit - baseMetrics.merit,
-            energy: metrics.energy - baseMetrics.energy,
-            dnav: metrics.dnav - baseMetrics.dnav,
-          },
-        } as const;
-      }),
-    [baseMetrics, scenarios]
-  );
 
   const handleAddScenarioFromHistory = (timestamp: string) => {
     const decision = history.find((entry) => entry.ts.toString() === timestamp);
@@ -449,91 +262,6 @@ export default function CompareSheet({
                     </div>
                   </div>
 
-                  <Separator />
-
-                  <div className="space-y-2">
-                    <h4 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                      Scenario delta log
-                    </h4>
-                    {scenarioDeltaLog.length === 0 ? (
-                      <p className="text-xs text-muted-foreground">
-                        Deltas will appear here after you add scenarios.
-                      </p>
-                    ) : (
-                      <>
-                        <div className="space-y-2">
-                          {scenarioDeltaLog.map(({ id, label, metrics, deltas }) => (
-                            <div key={id} className="space-y-2 rounded-lg border bg-muted/30 p-3">
-                              <div className="flex flex-wrap items-center justify-between gap-2">
-                                <span className="font-semibold text-foreground" title={label}>
-                                  {label}
-                                </span>
-                                <span className="text-sm font-mono text-muted-foreground">
-                                  Δ D-NAV {formatDelta(deltas.dnav)}
-                                </span>
-                              </div>
-                              <div className="grid gap-2 sm:grid-cols-3 xl:grid-cols-6">
-                                {METRIC_ROWS.map(({ key, label, invert }) => (
-                                  <div key={key} className="rounded-md border bg-background p-3">
-                                    <div className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
-                                      {label}
-                                    </div>
-                                    <div className="mt-1 flex items-center justify-between gap-2 text-sm">
-                                      <span className="font-mono text-foreground">
-                                        {baseMetrics[key]} → {metrics[key]}
-                                      </span>
-                                      <span>{getDeltaPill(deltas[key], invert)}</span>
-                                    </div>
-                                  </div>
-                                ))}
-                              </div>
-                            </div>
-                          ))}
-                        </div>
-
-                        <div className="overflow-hidden rounded-lg border">
-                          <div className="grid grid-cols-[minmax(0,1.2fr)_repeat(6,minmax(0,1fr))] items-center gap-2 border-b bg-muted/40 px-3 py-2 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
-                            <span>Scenario</span>
-                            <span className="text-center">Return</span>
-                            <span className="text-center">Stability</span>
-                            <span className="text-center">Pressure</span>
-                            <span className="text-center">Merit</span>
-                            <span className="text-center">Energy</span>
-                            <span className="text-center">D-NAV</span>
-                          </div>
-                          {scenarioDeltaLog.map(({ id, label, deltas }) => (
-                            <div
-                              key={id}
-                              className="grid grid-cols-[minmax(0,1.2fr)_repeat(6,minmax(0,1fr))] items-center gap-2 px-3 py-2 text-sm"
-                            >
-                              <span className="truncate font-medium text-foreground" title={label}>
-                                {label}
-                              </span>
-                              <span className="flex justify-center">
-                                {getDeltaPill(deltas.return)}
-                              </span>
-                              <span className="flex justify-center">
-                                {getDeltaPill(deltas.stability)}
-                              </span>
-                              <span className="flex justify-center">
-                                {getDeltaPill(deltas.pressure, true)}
-                              </span>
-                              <span className="flex justify-center">
-                                {getDeltaPill(deltas.merit)}
-                              </span>
-                              <span className="flex justify-center">
-                                {getDeltaPill(deltas.energy)}
-                              </span>
-                              <span className="flex justify-center">
-                                {getDeltaPill(deltas.dnav)}
-                              </span>
-                            </div>
-                          ))}
-                        </div>
-                      </>
-                    )}
-                  </div>
-
                   <p className="text-xs text-muted-foreground">
                     These values reflect the sliders from the calculator. Use them as the baseline
                     when crafting scenarios.
@@ -550,18 +278,8 @@ export default function CompareSheet({
                 </Card>
               ) : (
                 scenarios.map((scenario) => {
-                  const { metrics, id, name, variables } = scenario;
-                  const deltas = {
-                    return: metrics.return - baseMetrics.return,
-                    stability: metrics.stability - baseMetrics.stability,
-                    pressure: metrics.pressure - baseMetrics.pressure,
-                    merit: metrics.merit - baseMetrics.merit,
-                    energy: metrics.energy - baseMetrics.energy,
-                    dnav: metrics.dnav - baseMetrics.dnav,
-                  } as const;
-
+                  const { id, name, variables } = scenario;
                   const scenarioTitle = name.trim() || "This scenario";
-                  const feedback = buildScenarioFeedback(baseMetrics, metrics, scenarioTitle);
 
                   return (
                     <Card key={id} className="w-[480px] shrink-0">
@@ -588,6 +306,10 @@ export default function CompareSheet({
                         </div>
                       </CardHeader>
                       <CardContent className="space-y-6">
+                        <ComparePanel base={baseVariables} scenario={variables} title={scenarioTitle} />
+
+                        <Separator />
+
                         <div className="space-y-2">
                           <h4 className="text-sm font-semibold text-muted-foreground uppercase">
                             Adjust variables
@@ -629,43 +351,6 @@ export default function CompareSheet({
                               onChange={(value) => updateScenarioVariable(id, "confidence", value)}
                             />
                           </div>
-                        </div>
-
-                        <Separator />
-
-                        <div className="space-y-3">
-                          <h4 className="text-sm font-semibold text-muted-foreground uppercase">
-                            Metric comparison
-                          </h4>
-                          <div className="overflow-hidden rounded-lg border">
-                            <div className="grid grid-cols-[1fr_auto_auto_auto] items-center gap-3 border-b bg-muted/40 px-4 py-2 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
-                              <span>Metric</span>
-                              <span className="text-right">Base</span>
-                              <span className="text-right">Scenario</span>
-                              <span className="text-right">Delta</span>
-                            </div>
-                            {METRIC_ROWS.map(({ key, label, invert }) => (
-                              <div
-                                key={key}
-                                className="grid grid-cols-[1fr_auto_auto_auto] items-center gap-3 px-4 py-3 text-sm"
-                              >
-                                <span className="font-medium text-foreground">{label}</span>
-                                <span className="text-right font-mono text-sm text-muted-foreground">
-                                  {baseMetrics[key]}
-                                </span>
-                                <span className="text-right font-mono text-sm text-foreground">
-                                  {metrics[key]}
-                                </span>
-                                <span className="flex justify-end">
-                                  {getDeltaBadge(deltas[key], key, invert)}
-                                </span>
-                              </div>
-                            ))}
-                          </div>
-                        </div>
-
-                        <div className="rounded-lg border border-amber-500/30 bg-amber-500/10 p-4 text-sm leading-relaxed text-amber-900 dark:text-amber-100">
-                          {feedback}
                         </div>
                       </CardContent>
                     </Card>

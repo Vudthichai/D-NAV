@@ -1,0 +1,20 @@
+.compare-card { background: var(--card); border-radius: 14px; padding: 16px 18px; box-shadow: 0 1px 0 rgba(255,255,255,.04) inset, 0 8px 24px rgba(0,0,0,.24); }
+.compare-header { display:flex; align-items:center; justify-content:space-between; gap:12px; }
+.verdict { display:flex; align-items:center; gap:12px; }
+.verdict.win .verdict-label { color: var(--primary); }
+.verdict.loss .verdict-label { color: var(--destructive); }
+.verdict.flat .verdict-label { color: var(--muted-foreground); }
+.verdict-bar { width: 140px; height: 8px; background: rgba(255,255,255,.08); border-radius: 999px; overflow:hidden; }
+.verdict-fill { height:100%; background: linear-gradient(90deg, rgba(62,207,142,.9), rgba(105,169,255,.9)); }
+.verdict.loss .verdict-fill { background: linear-gradient(90deg, rgba(255,107,107,.9), rgba(243,180,49,.9)); }
+
+.narrative { margin: 8px 0 4px; color: var(--foreground); font-weight: 600; }
+.tradeoffs { display:flex; flex-wrap:wrap; gap:8px; padding:0; margin: 6px 0 10px; list-style:none; }
+.tradeoffs li { padding:4px 8px; border-radius: 10px; background: rgba(255,255,255,.06); font-size: 12px; letter-spacing:.2px; }
+.nudge { margin: 6px 0 12px; color: var(--muted-foreground); }
+
+.details summary { cursor:pointer; color: var(--muted); margin: 6px 0 10px; }
+.delta-table { width:100%; border-collapse:collapse; font-size: 13px; }
+.delta-table th, .delta-table td { padding: 8px 6px; border-bottom: 1px solid rgba(255,255,255,.06); text-align:left; }
+.delta-table td.pos { color: var(--primary); font-weight:600; }
+.delta-table td.neg { color: var(--destructive); font-weight:600; }
