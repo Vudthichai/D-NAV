@@ -3,6 +3,7 @@ import { ThemeProvider } from "@/components/theme-provider";
 import type { Metadata } from "next";
 import { Poppins } from "next/font/google";
 import "./globals.css";
+import "@/styles/compare.css";
 
 const poppins = Poppins({
   variable: "--font-poppins",
