@@ -31,7 +31,8 @@ import {
   TrendingUp,
   Zap,
 } from "lucide-react";
-import { ComponentType, ReactNode, useMemo, useState } from "react";
+import { ComponentType, ReactNode, useMemo, useRef, useState } from "react";
+import html2canvas from "html2canvas";
 
 interface DashboardStats {
   totalDecisions: number;
@@ -334,6 +335,8 @@ const DistributionChart = ({ title, data, colors }: DistributionChartProps) => {
 export default function StatsPage() {
   const [timeWindow, setTimeWindow] = useState("30");
   const [cadenceUnit, setCadenceUnit] = useState("week");
+  const [isGeneratingStatsPdf, setIsGeneratingStatsPdf] = useState(false);
+  const statsContainerRef = useRef<HTMLDivElement>(null);
   const stats = useMemo<DashboardStats>(() => {
     const decisions = loadLog();
     const now = decisions.length > 0 ? decisions[0].ts : 0;
@@ -606,125 +609,38 @@ export default function StatsPage() {
     };
   };
 
-  const createStatsReportPdf = (current: DashboardStats) => {
-    const sections = getStatsReportSections(current);
+  const createStatsReportPdf = async () => {
+    if (!statsContainerRef.current) return;
+
+    const element = statsContainerRef.current;
+    const scale = Math.min(3, window.devicePixelRatio || 2);
+    const backgroundColor = window.getComputedStyle(document.body).backgroundColor || "#ffffff";
+
+    const canvas = await html2canvas(element, {
+      scale,
+      backgroundColor,
+      ignoreElements: (node) => node.classList?.contains("pdf-ignore") ?? false,
+    });
+
+    const imgData = canvas.toDataURL("image/png");
     const doc = new jsPDF({ unit: "pt", format: "letter" });
-    const margin = 48;
     const pageWidth = doc.internal.pageSize.getWidth();
     const pageHeight = doc.internal.pageSize.getHeight();
-    let y = margin;
+    const margin = 36;
+    const renderWidth = pageWidth - margin * 2;
+    const renderHeight = (canvas.height * renderWidth) / canvas.width;
+    let heightLeft = renderHeight;
+    let position = margin;
 
-    const ensureSpace = (height: number) => {
-      if (y + height > pageHeight - margin) {
-        doc.addPage();
-        y = margin;
-      }
-    };
+    doc.addImage(imgData, "PNG", margin, position, renderWidth, renderHeight);
+    heightLeft -= pageHeight - margin * 2;
 
-    const addParagraphs = (lines: string[]) => {
-      doc.setFont("helvetica", "normal");
-      doc.setFontSize(11);
-      const maxWidth = pageWidth - margin * 2;
-
-      lines.forEach((line) => {
-        const wrapped = doc.splitTextToSize(line, maxWidth);
-        wrapped.forEach((segment: string) => {
-          ensureSpace(18);
-          doc.text(segment, margin, y);
-          y += 18;
-        });
-        y += 6;
-      });
-    };
-
-    const addSection = (title: string, lines: string[]) => {
-      if (lines.length === 0) return;
-      ensureSpace(30);
-      doc.setFont("helvetica", "bold");
-      doc.setFontSize(14);
-      doc.text(title, margin, y);
-      y += 22;
-      addParagraphs(lines.map((line) => `• ${line}`));
-    };
-
-    const addDistributionVisual = (
-      title: string,
-      segments: Array<{ key: string; label: string; rgb: [number, number, number] }>,
-      values: Record<string, number>,
-    ) => {
-      const barHeight = 16;
-      const barWidth = pageWidth - margin * 2;
-      const legendSquare = 12;
-      const estimatedHeight = barHeight + 20 + segments.length * (legendSquare + 6) + 20;
-      ensureSpace(estimatedHeight);
-
-      const total = segments.reduce((acc, segment) => acc + (values[segment.key] ?? 0), 0);
-
-      doc.setFont("helvetica", "bold");
-      doc.setFontSize(14);
-      doc.text(title, margin, y);
-      y += 20;
-
-      doc.setFillColor(229, 231, 235);
-      doc.rect(margin, y, barWidth, barHeight, "F");
-
-      let currentX = margin;
-      segments.forEach((segment) => {
-        const segmentValue = values[segment.key] ?? 0;
-        const width = total > 0 ? (segmentValue / total) * barWidth : 0;
-        const [r, g, b] = segment.rgb;
-        doc.setFillColor(r, g, b);
-        doc.rect(currentX, y, width, barHeight, "F");
-        currentX += width;
-      });
-
-      y += barHeight + 12;
-      doc.setFont("helvetica", "normal");
-      doc.setFontSize(11);
-      doc.setTextColor(0, 0, 0);
-
-      segments.forEach((segment) => {
-        ensureSpace(legendSquare + 8);
-        const [r, g, b] = segment.rgb;
-        doc.setFillColor(r, g, b);
-        doc.rect(margin, y, legendSquare, legendSquare, "F");
-        doc.text(
-          `${segment.label}: ${percent(values[segment.key] ?? 0)}`,
-          margin + legendSquare + 8,
-          y + legendSquare - 2,
-        );
-        y += legendSquare + 6;
-      });
-      y += 8;
-    };
-
-    doc.setFont("helvetica", "bold");
-    doc.setFontSize(20);
-    doc.text("D-NAV Analytics Report", margin, y);
-    y += 26;
-
-    doc.setFont("helvetica", "normal");
-    doc.setFontSize(11);
-    const metadata = [
-      `Generated: ${sections.generated}`,
-      `Window: ${sections.windowLabel}`,
-      `Cadence basis: per ${sections.cadenceLabel}`,
-    ];
-    addParagraphs(metadata);
-    y += 6;
-
-    addSection("Key Metrics", sections.keyMetrics);
-    addSection("Distribution Snapshot", sections.distribution);
-    addDistributionVisual("Return Distribution", RETURN_SEGMENTS, current.returnDistribution);
-    addDistributionVisual("Stability Distribution", STABILITY_SEGMENTS, current.stabilityDistribution);
-    addDistributionVisual("Pressure Distribution", PRESSURE_SEGMENTS, current.pressureDistribution);
-    addSection("Risk & Hygiene", sections.risk);
-    addSection("Narrative Highlights", sections.narrative);
-
-    ensureSpace(18);
-    doc.setFont("helvetica", "italic");
-    doc.setFontSize(10);
-    doc.text("Generated by D-NAV.", margin, y + 6);
+    while (heightLeft > 0) {
+      position = heightLeft - renderHeight + margin;
+      doc.addPage();
+      doc.addImage(imgData, "PNG", margin, position, renderWidth, renderHeight);
+      heightLeft -= pageHeight - margin * 2;
+    }
 
     const filename = `dnav-stats-report-${new Date().toISOString().split("T")[0]}.pdf`;
     doc.save(filename);
@@ -854,9 +770,16 @@ export default function StatsPage() {
     doc.save(filename);
   };
 
-  const handleDownloadStatsReport = () => {
+  const handleDownloadStatsReport = async () => {
     if (!hasData) return;
-    createStatsReportPdf(stats);
+    try {
+      setIsGeneratingStatsPdf(true);
+      await createStatsReportPdf();
+    } catch (error) {
+      console.error("Failed to generate stats PDF", error);
+    } finally {
+      setIsGeneratingStatsPdf(false);
+    }
   };
 
   const handleDownloadNarrative = () => {
@@ -872,7 +795,7 @@ export default function StatsPage() {
 
   return (
     <TooltipProvider>
-      <div className="space-y-6">
+      <div className="space-y-6" ref={statsContainerRef}>
       {/* Header */}
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
         <div>
@@ -907,9 +830,13 @@ export default function StatsPage() {
               </SelectGroup>
             </SelectContent>
           </Select>
-          <Button variant="outline" onClick={handleDownloadStatsReport} disabled={!hasData}>
+          <Button
+            variant="outline"
+            onClick={handleDownloadStatsReport}
+            disabled={!hasData || isGeneratingStatsPdf}
+          >
             <Download className="h-4 w-4 mr-2" />
-            Stats PDF
+            {isGeneratingStatsPdf ? "Preparing..." : "Stats PDF"}
           </Button>
         </div>
       </div>
@@ -1098,7 +1025,7 @@ export default function StatsPage() {
       </Card>
 
       {/* Quick Actions */}
-      <Card>
+      <Card className="pdf-ignore">
         <CardHeader>
           <CardTitle>Quick Actions</CardTitle>
         </CardHeader>
@@ -1108,10 +1035,10 @@ export default function StatsPage() {
               variant="outline"
               size="sm"
               onClick={handleDownloadStatsReport}
-              disabled={!hasData}
+              disabled={!hasData || isGeneratingStatsPdf}
             >
               <Calendar className="h-4 w-4 mr-2" />
-              Stats PDF
+              {isGeneratingStatsPdf ? "Preparing..." : "Stats PDF"}
             </Button>
             <Button
               variant="outline"
