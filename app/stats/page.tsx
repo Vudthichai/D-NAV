@@ -42,6 +42,12 @@ interface DashboardStats {
   calibration: number;
   last5vsPrior5: number;
   windowArchetype: string;
+  windowArchetypeDescription: string;
+  windowArchetypeBreakdown: {
+    returnType: string;
+    stabilityType: string;
+    pressureType: string;
+  };
   returnOnEffort: number;
   returnDistribution: { positive: number; neutral: number; negative: number };
   stabilityDistribution: { stable: number; uncertain: number; fragile: number };
@@ -152,13 +158,33 @@ const metricExplainers: Record<string, { description: string; example: string }>
 };
 
 const RETURN_SEGMENTS: Array<{
-  key: "positive" | "neutral" | "negative";
+  key: keyof DashboardStats["returnDistribution"];
   label: string;
   rgb: [number, number, number];
 }> = [
   { key: "positive", label: "Positive", rgb: [21, 128, 61] },
   { key: "neutral", label: "Neutral", rgb: [245, 158, 11] },
   { key: "negative", label: "Negative", rgb: [239, 68, 68] },
+];
+
+const STABILITY_SEGMENTS: Array<{
+  key: keyof DashboardStats["stabilityDistribution"];
+  label: string;
+  rgb: [number, number, number];
+}> = [
+  { key: "stable", label: "Stable", rgb: [21, 128, 61] },
+  { key: "uncertain", label: "Uncertain", rgb: [245, 158, 11] },
+  { key: "fragile", label: "Fragile", rgb: [239, 68, 68] },
+];
+
+const PRESSURE_SEGMENTS: Array<{
+  key: keyof DashboardStats["pressureDistribution"];
+  label: string;
+  rgb: [number, number, number];
+}> = [
+  { key: "pressured", label: "Pressured", rgb: [239, 68, 68] },
+  { key: "balanced", label: "Balanced", rgb: [245, 158, 11] },
+  { key: "calm", label: "Calm", rgb: [21, 128, 61] },
 ];
 
 const InfoTooltip = ({
@@ -193,9 +219,18 @@ interface StatCardProps {
   icon: ComponentType<{ className?: string }>;
   trend?: number;
   color?: "default" | "positive" | "negative" | "warning";
+  helper?: string;
 }
 
-const StatCard = ({ title, value, subtitle, icon: Icon, trend, color = "default" }: StatCardProps) => {
+const StatCard = ({
+  title,
+  value,
+  subtitle,
+  icon: Icon,
+  trend,
+  color = "default",
+  helper,
+}: StatCardProps) => {
   const colorClasses = {
     default: "text-muted-foreground",
     positive: "text-green-600",
@@ -239,6 +274,7 @@ const StatCard = ({ title, value, subtitle, icon: Icon, trend, color = "default"
               </div>
             </InfoTooltip>
             <p className={`text-xs mt-1 ${colorClasses[color]}`}>{subtitle}</p>
+            {helper ? <p className="text-xs text-muted-foreground mt-1">{helper}</p> : null}
           </div>
           <Icon className="h-8 w-8 text-muted-foreground" />
         </div>
@@ -315,6 +351,12 @@ export default function StatsPage() {
         calibration: 0,
         last5vsPrior5: 0,
         windowArchetype: "No Data",
+        windowArchetypeDescription: "No archetype available",
+        windowArchetypeBreakdown: {
+          returnType: "—",
+          stabilityType: "—",
+          pressureType: "—",
+        },
         returnOnEffort: 0,
         returnDistribution: { positive: 0, neutral: 0, negative: 0 },
         stabilityDistribution: { stable: 0, uncertain: 0, fragile: 0 },
@@ -372,14 +414,14 @@ export default function StatsPage() {
     const avgReturn = returnScores.reduce((a, b) => a + b, 0) / returnScores.length;
     const avgStability = stabilityScores.reduce((a, b) => a + b, 0) / stabilityScores.length;
     const avgPressure = pressureScores.reduce((a, b) => a + b, 0) / pressureScores.length;
-    const windowArchetype = getArchetype({
+    const archetypeInfo = getArchetype({
       return: avgReturn,
       stability: avgStability,
       pressure: avgPressure,
       merit: 0,
       energy: 0,
       dnav: 0,
-    }).name;
+    });
 
     const totalEnergy = energyScores.reduce((a, b) => a + b, 0);
     const totalReturn = returnScores.reduce((a, b) => a + b, 0);
@@ -432,7 +474,13 @@ export default function StatsPage() {
       cadence: Math.round(cadence * 10) / 10,
       calibration: Math.round(calibration * 100) / 100,
       last5vsPrior5: Math.round(last5vsPrior5 * 10) / 10,
-      windowArchetype,
+      windowArchetype: archetypeInfo.name,
+      windowArchetypeDescription: archetypeInfo.description,
+      windowArchetypeBreakdown: {
+        returnType: archetypeInfo.returnType,
+        stabilityType: archetypeInfo.stabilityType,
+        pressureType: archetypeInfo.pressureType,
+      },
       returnOnEffort: Math.round(returnOnEffort * 100) / 100,
       returnDistribution,
       stabilityDistribution,
@@ -551,7 +599,7 @@ export default function StatsPage() {
         `Loss streak: ${current.lossStreak.current} current / ${current.lossStreak.longest} longest`,
         `Return debt: ${formatNumber(current.returnDebt)}`,
         `Payback ratio: ${formatNumber(current.paybackRatio)}`,
-        `Window archetype: ${current.windowArchetype}`,
+        `Window archetype: ${current.windowArchetype} (Return: ${current.windowArchetypeBreakdown.returnType}, Stability: ${current.windowArchetypeBreakdown.stabilityType}, Pressure: ${current.windowArchetypeBreakdown.pressureType})`,
         `Policy hint: ${current.policyHint}`,
       ],
       narrative: buildNarrative(current).split("\n\n"),
@@ -599,23 +647,30 @@ export default function StatsPage() {
       addParagraphs(lines.map((line) => `• ${line}`));
     };
 
-    const addReturnDistributionVisual = () => {
+    const addDistributionVisual = (
+      title: string,
+      segments: Array<{ key: string; label: string; rgb: [number, number, number] }>,
+      values: Record<string, number>,
+    ) => {
       const barHeight = 16;
       const barWidth = pageWidth - margin * 2;
-      const total = RETURN_SEGMENTS.reduce(
-        (acc, segment) => acc + current.returnDistribution[segment.key],
-        0,
-      );
+      const legendSquare = 12;
+      const estimatedHeight = barHeight + 20 + segments.length * (legendSquare + 6) + 20;
+      ensureSpace(estimatedHeight);
 
-      ensureSpace(barHeight + 80);
+      const total = segments.reduce((acc, segment) => acc + (values[segment.key] ?? 0), 0);
+
       doc.setFont("helvetica", "bold");
       doc.setFontSize(14);
-      doc.text("Return Distribution Visual", margin, y);
+      doc.text(title, margin, y);
       y += 20;
 
+      doc.setFillColor(229, 231, 235);
+      doc.rect(margin, y, barWidth, barHeight, "F");
+
       let currentX = margin;
-      RETURN_SEGMENTS.forEach((segment) => {
-        const segmentValue = current.returnDistribution[segment.key];
+      segments.forEach((segment) => {
+        const segmentValue = values[segment.key] ?? 0;
         const width = total > 0 ? (segmentValue / total) * barWidth : 0;
         const [r, g, b] = segment.rgb;
         doc.setFillColor(r, g, b);
@@ -626,15 +681,15 @@ export default function StatsPage() {
       y += barHeight + 12;
       doc.setFont("helvetica", "normal");
       doc.setFontSize(11);
-      const legendSquare = 12;
-      RETURN_SEGMENTS.forEach((segment) => {
+      doc.setTextColor(0, 0, 0);
+
+      segments.forEach((segment) => {
         ensureSpace(legendSquare + 8);
         const [r, g, b] = segment.rgb;
         doc.setFillColor(r, g, b);
         doc.rect(margin, y, legendSquare, legendSquare, "F");
-        doc.setTextColor(0, 0, 0);
         doc.text(
-          `${segment.label}: ${percent(current.returnDistribution[segment.key])}`,
+          `${segment.label}: ${percent(values[segment.key] ?? 0)}`,
           margin + legendSquare + 8,
           y + legendSquare - 2,
         );
@@ -660,7 +715,9 @@ export default function StatsPage() {
 
     addSection("Key Metrics", sections.keyMetrics);
     addSection("Distribution Snapshot", sections.distribution);
-    addReturnDistributionVisual();
+    addDistributionVisual("Return Distribution", RETURN_SEGMENTS, current.returnDistribution);
+    addDistributionVisual("Stability Distribution", STABILITY_SEGMENTS, current.stabilityDistribution);
+    addDistributionVisual("Pressure Distribution", PRESSURE_SEGMENTS, current.pressureDistribution);
     addSection("Risk & Hygiene", sections.risk);
     addSection("Narrative Highlights", sections.narrative);
 
@@ -714,23 +771,30 @@ export default function StatsPage() {
       addParagraphs(lines.map((line) => `• ${line}`));
     };
 
-    const addReturnDistributionVisual = () => {
+    const addDistributionVisual = (
+      title: string,
+      segments: Array<{ key: string; label: string; rgb: [number, number, number] }>,
+      values: Record<string, number>,
+    ) => {
       const barHeight = 16;
       const barWidth = pageWidth - margin * 2;
-      const total = RETURN_SEGMENTS.reduce(
-        (acc, segment) => acc + current.returnDistribution[segment.key],
-        0,
-      );
+      const legendSquare = 12;
+      const estimatedHeight = barHeight + 20 + segments.length * (legendSquare + 6) + 20;
+      ensureSpace(estimatedHeight);
 
-      ensureSpace(barHeight + 80);
+      const total = segments.reduce((acc, segment) => acc + (values[segment.key] ?? 0), 0);
+
       doc.setFont("helvetica", "bold");
       doc.setFontSize(14);
-      doc.text("Return Distribution Visual", margin, y);
+      doc.text(title, margin, y);
       y += 20;
 
+      doc.setFillColor(229, 231, 235);
+      doc.rect(margin, y, barWidth, barHeight, "F");
+
       let currentX = margin;
-      RETURN_SEGMENTS.forEach((segment) => {
-        const segmentValue = current.returnDistribution[segment.key];
+      segments.forEach((segment) => {
+        const segmentValue = values[segment.key] ?? 0;
         const width = total > 0 ? (segmentValue / total) * barWidth : 0;
         const [r, g, b] = segment.rgb;
         doc.setFillColor(r, g, b);
@@ -741,15 +805,15 @@ export default function StatsPage() {
       y += barHeight + 12;
       doc.setFont("helvetica", "normal");
       doc.setFontSize(11);
-      const legendSquare = 12;
-      RETURN_SEGMENTS.forEach((segment) => {
+      doc.setTextColor(0, 0, 0);
+
+      segments.forEach((segment) => {
         ensureSpace(legendSquare + 8);
         const [r, g, b] = segment.rgb;
         doc.setFillColor(r, g, b);
         doc.rect(margin, y, legendSquare, legendSquare, "F");
-        doc.setTextColor(0, 0, 0);
         doc.text(
-          `${segment.label}: ${percent(current.returnDistribution[segment.key])}`,
+          `${segment.label}: ${percent(values[segment.key] ?? 0)}`,
           margin + legendSquare + 8,
           y + legendSquare - 2,
         );
@@ -774,7 +838,9 @@ export default function StatsPage() {
     y += 6;
 
     addSection("Narrative Highlights", sections.narrative);
-    addReturnDistributionVisual();
+    addDistributionVisual("Return Distribution", RETURN_SEGMENTS, current.returnDistribution);
+    addDistributionVisual("Stability Distribution", STABILITY_SEGMENTS, current.stabilityDistribution);
+    addDistributionVisual("Pressure Distribution", PRESSURE_SEGMENTS, current.pressureDistribution);
     addSection("Key Metrics", sections.keyMetrics);
     addSection("Distribution Snapshot", sections.distribution);
     addSection("Risk & Hygiene", sections.risk);
@@ -903,7 +969,7 @@ export default function StatsPage() {
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
         <StatCard
           title="Calibration"
-          value={stats?.calibration || 0}
+          value={formatNumber(stats?.calibration ?? 0, 2)}
           subtitle="Confidence ↔ Return correlation"
           icon={Target}
           color={
@@ -933,6 +999,7 @@ export default function StatsPage() {
           value={stats?.windowArchetype || "—"}
           subtitle="Average decision pattern"
           icon={Brain}
+          helper={`Return: ${stats.windowArchetypeBreakdown.returnType} • Stability: ${stats.windowArchetypeBreakdown.stabilityType} • Pressure: ${stats.windowArchetypeBreakdown.pressureType}`}
         />
       </div>
 
