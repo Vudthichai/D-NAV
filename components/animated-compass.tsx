@@ -54,14 +54,14 @@ export function AnimatedCompass({ className }: AnimatedCompassProps) {
     <div
       className={cn(
         "relative flex h-24 w-24 items-center justify-center rounded-[32px] bg-transparent p-3 text-[#ff7a2c]",
-        "before:absolute before:inset-1 before:rounded-[28px] before:bg-black before:opacity-80 before:blur-xl before:content-['']",
+        "before:absolute before:inset-1 before:rounded-[28px] before:bg-[radial-gradient(circle_at_30%_20%,rgba(255,122,44,0.35),rgba(5,5,5,0.65))] before:opacity-80 before:blur-lg before:content-['']",
         className,
       )}
     >
       <div className="relative h-full w-full">
         <svg
           viewBox="0 0 120 120"
-          className="h-full w-full drop-shadow-[0_10px_35px_rgba(0,0,0,0.55)]"
+          className="h-full w-full drop-shadow-[0_16px_32px_rgba(15,15,15,0.45)]"
           role="img"
           aria-label="D-NAV animated compass"
         >
@@ -137,9 +137,10 @@ export function AnimatedCompass({ className }: AnimatedCompassProps) {
             <polygon points="60,10 74,60 60,110 46,60" fill={ORANGE} opacity={0.9} />
             <polygon points="60,22 69,60 60,98 51,60" fill="white" opacity={0.95} />
             <polygon points={innerNeedle} fill={ORANGE} opacity={0.92} />
-            <circle cx="60" cy="60" r="10" fill="white" opacity={0.92} />
-            <circle cx="60" cy="60" r="6" fill={ORANGE} opacity={0.85} />
-            <circle cx="60" cy="60" r="3" fill="white" />
+            <circle cx="60" cy="60" r="11" fill="rgba(0,0,0,0.45)" />
+            <circle cx="60" cy="60" r="8" fill="white" opacity={0.95} />
+            <circle cx="60" cy="60" r="4" fill={ORANGE} opacity={0.9} />
+            <circle cx="60" cy="60" r="2" fill="white" />
           </g>
 
           <g className="origin-center" fontFamily="'Inter', sans-serif" fontWeight={700} fontSize="10">
@@ -157,8 +158,17 @@ export function AnimatedCompass({ className }: AnimatedCompassProps) {
             </text>
           </g>
 
-          <g fontFamily="'Inter', sans-serif" fontWeight={700} fontSize="12">
-            <text x="60" y="66" textAnchor="middle" fill={ORANGE}>
+          <g fontFamily="'Inter', sans-serif" fontWeight={800} fontSize="14">
+            <text
+              x="60"
+              y="66"
+              textAnchor="middle"
+              fill="white"
+              letterSpacing="2"
+              stroke={ORANGE}
+              strokeWidth={0.6}
+              paintOrder="stroke"
+            >
               D-NAV
             </text>
           </g>
@@ -171,27 +181,27 @@ export function AnimatedCompass({ className }: AnimatedCompassProps) {
 
       <style jsx>{`
         .animate-compass-needle {
-          animation: compass-needle-spin 2.4s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+          animation: compass-needle-spin 3.8s cubic-bezier(0.16, 1, 0.3, 1) forwards;
         }
 
         @keyframes compass-needle-spin {
           0% {
-            transform: rotate(-220deg);
+            transform: rotate(-260deg);
           }
-          20% {
-            transform: rotate(320deg);
+          25% {
+            transform: rotate(300deg);
           }
-          45% {
-            transform: rotate(180deg);
+          48% {
+            transform: rotate(170deg);
           }
           70% {
-            transform: rotate(40deg);
+            transform: rotate(52deg);
           }
           85% {
-            transform: rotate(20deg);
+            transform: rotate(28deg);
           }
           100% {
-            transform: rotate(12deg);
+            transform: rotate(16deg);
           }
         }
       `}</style>
