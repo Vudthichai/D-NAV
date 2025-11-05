@@ -19,7 +19,7 @@ export default function SliderRow({ id, label, hint, value, onChange }: SliderRo
       </label>
       <Slider
         id={id}
-        min={0}
+        min={1}
         max={10}
         step={1}
         value={[value]}

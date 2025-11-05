@@ -16,11 +16,11 @@ interface DecisionCalculatorProps {
 
 export default function DecisionCalculator({ onOpenCompare, onDataChange }: DecisionCalculatorProps) {
   const [variables, setVariables] = useState<DecisionVariables>({
-    impact: 0,
-    cost: 0,
-    risk: 0,
-    urgency: 0,
-    confidence: 0,
+    impact: 1,
+    cost: 1,
+    risk: 1,
+    urgency: 1,
+    confidence: 1,
   });
 
   const metrics = useMemo(() => computeMetrics(variables), [variables]);
@@ -63,7 +63,7 @@ export default function DecisionCalculator({ onOpenCompare, onDataChange }: Deci
             </p>
             <div className="flex gap-2 mt-2">
               <Badge variant="outline" className="text-xs">
-                0 = minimal
+                1 = minimal
               </Badge>
               <Badge variant="outline" className="text-xs">
                 10 = maximum

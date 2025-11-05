@@ -32,7 +32,7 @@ export function smallestNudge(baseSliders: Sliders, compute = computeMetrics) {
 
   for (const slider of sliders) {
     for (const direction of [1, -1] as const) {
-      const nextValue = Math.max(0, Math.min(10, baseSliders[slider] + direction));
+      const nextValue = Math.max(1, Math.min(10, baseSliders[slider] + direction));
       if (nextValue === baseSliders[slider]) continue;
       const trial = { ...baseSliders, [slider]: nextValue } as Sliders;
       const trialDnav = compute(trial).dnav;
