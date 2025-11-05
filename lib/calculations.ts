@@ -71,20 +71,34 @@ export function computeMetrics(vars: DecisionVariables): DecisionMetrics {
   };
 }
 
-export function getArchetype(metrics: DecisionMetrics): { name: string; description: string } {
+export interface ArchetypeInfo {
+  name: string;
+  description: string;
+  pressureType: string;
+  stabilityType: string;
+  returnType: string;
+}
+
+export function getArchetype(metrics: DecisionMetrics): ArchetypeInfo {
   const pS = sign3(metrics.pressure);
   const sS = sign3(metrics.stability);
   const rS = sign3(metrics.return);
   const key = [pS, sS, rS].join('|');
   const name = oneWordArchetypes[key] || 'Unclassified';
-  
+
   const Pword = (s: number) => s > 0 ? 'Pressured' : (s < 0 ? 'Calm' : 'Balanced');
   const Sword = (s: number) => s > 0 ? 'Stable' : (s < 0 ? 'Fragile' : 'Uncertain');
   const Rword = (s: number) => s > 0 ? 'Gain' : (s < 0 ? 'Loss' : 'Flat');
-  
+
   const description = `${Rword(rS)} with ${Sword(sS).toLowerCase()} footing — ${Pword(pS).toLowerCase()} execution.`;
-  
-  return { name, description };
+
+  return {
+    name,
+    description,
+    pressureType: Pword(pS),
+    stabilityType: Sword(sS),
+    returnType: Rword(rS),
+  };
 }
 
 export function getScoreTagText(n: number): string {
