@@ -39,6 +39,8 @@ interface ScenarioConfig {
   variables: DecisionVariables;
 }
 
+const clampVariable = (value: number) => Math.min(10, Math.max(1, Number.isFinite(value) ? value : 1));
+
 export default function CompareSheet({
   open,
   onOpenChange,
@@ -81,11 +83,11 @@ export default function CompareSheet({
         id: `scenario-${nextId}`,
         name: decision.name || `Logged decision ${nextId}`,
         variables: {
-          impact: decision.impact,
-          cost: decision.cost,
-          risk: decision.risk,
-          urgency: decision.urgency,
-          confidence: decision.confidence,
+          impact: clampVariable(decision.impact),
+          cost: clampVariable(decision.cost),
+          risk: clampVariable(decision.risk),
+          urgency: clampVariable(decision.urgency),
+          confidence: clampVariable(decision.confidence),
         },
       },
     ]);

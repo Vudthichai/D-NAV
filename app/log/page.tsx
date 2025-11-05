@@ -111,13 +111,22 @@ export default function LogPage() {
   const normalizeKey = (key: string = "") => key.toLowerCase().replace(/[^a-z0-9]/g, "");
 
   const parseNumeric = (value: unknown): number => {
-    if (typeof value === "number" && !Number.isNaN(value)) return value;
-    if (typeof value === "string") {
+    let numeric: number | null = null;
+    if (typeof value === "number" && Number.isFinite(value)) {
+      numeric = value;
+    } else if (typeof value === "string") {
       const cleaned = value.replace(/[^0-9.-]/g, "");
       const parsed = parseFloat(cleaned);
-      return Number.isFinite(parsed) ? parsed : 0;
+      if (Number.isFinite(parsed)) {
+        numeric = parsed;
+      }
     }
-    return 0;
+
+    if (numeric === null) {
+      return 1;
+    }
+
+    return Math.min(10, Math.max(1, numeric));
   };
 
   const parseTimestamp = (value: unknown, index: number, fallbackBase: number): number => {
@@ -411,11 +420,11 @@ export default function LogPage() {
       "Decision Date (YYYY-MM-DD)",
       "Decision Name",
       "Category / Domain",
-      "Impact (0-10)",
-      "Cost (0-10)",
-      "Risk (0-10)",
-      "Urgency (0-10)",
-      "Confidence (0-10)",
+      "Impact (1-10)",
+      "Cost (1-10)",
+      "Risk (1-10)",
+      "Urgency (1-10)",
+      "Confidence (1-10)",
     ];
     const sampleRows = [
       header,

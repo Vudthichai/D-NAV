@@ -16,11 +16,11 @@ export default function CalculatorPage() {
   const [decisionName, setDecisionName] = useState("");
   const [decisionCategory, setDecisionCategory] = useState("");
   const [variables, setVariables] = useState<DecisionVariables>({
-    impact: 0,
-    cost: 0,
-    risk: 0,
-    urgency: 0,
-    confidence: 0,
+    impact: 1,
+    cost: 1,
+    risk: 1,
+    urgency: 1,
+    confidence: 1,
   });
   const [metrics, setMetrics] = useState<DecisionMetrics>({
     return: 0,
@@ -74,11 +74,11 @@ export default function CalculatorPage() {
     setDecisionName("");
     setDecisionCategory("");
     setVariables({
-      impact: 0,
-      cost: 0,
-      risk: 0,
-      urgency: 0,
-      confidence: 0,
+      impact: 1,
+      cost: 1,
+      risk: 1,
+      urgency: 1,
+      confidence: 1,
     });
     setMetrics({
       return: 0,
