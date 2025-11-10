@@ -11,16 +11,26 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
-import {
-  Building2,
-  HeartPulse,
-  LineChart,
-  Palette,
-  Rocket,
-} from "lucide-react";
+import { Building2, HeartPulse, LineChart, Palette, Rocket } from "lucide-react";
+import type { LucideIcon } from "lucide-react";
 import Link from "next/link";
 
-const useCases = [
+type UseCase = {
+  id: string;
+  title: string;
+  label: string;
+  description: string;
+  highlights: string[];
+  cta: string;
+  icon: LucideIcon;
+  details: {
+    overview: string;
+    archetypes: Array<{ title: string; description: string }>;
+    outcomes: string[];
+  };
+};
+
+const useCases: UseCase[] = [
   {
     id: "founder",
     title: "Founder Edition",

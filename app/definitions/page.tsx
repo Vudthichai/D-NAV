@@ -24,6 +24,7 @@ import {
   XCircle,
   Zap,
 } from "lucide-react";
+import type { LucideIcon } from "lucide-react";
 
 const navigationItems = [
   { id: "overview", label: "Overview", icon: BookOpen },
@@ -35,7 +36,7 @@ const navigationItems = [
   { id: "learning", label: "Learning & Momentum", icon: Lightbulb },
   { id: "archetypes", label: "Decision Archetypes", icon: Shield },
   { id: "notation", label: "Notation Guide", icon: Info },
-] as const;
+] satisfies Array<{ id: string; label: string; icon: LucideIcon }>;
 
 export default function DefinitionsPage() {
   const [activeSection, setActiveSection] = useState<string>(navigationItems[0]?.id ?? "");
