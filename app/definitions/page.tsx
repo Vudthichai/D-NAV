@@ -1,9 +1,12 @@
 "use client";
 
+import { useEffect, useState } from "react";
+
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Separator } from "@/components/ui/separator";
+import { cn } from "@/lib/utils";
 import { oneWordArchetypes } from "@/lib/calculations";
 import {
   AlertTriangle,
@@ -22,7 +25,56 @@ import {
   Zap,
 } from "lucide-react";
 
+const navigationItems = [
+  { id: "overview", label: "Overview", icon: BookOpen },
+  { id: "ingredients", label: "Core Ingredients", icon: Target },
+  { id: "signals", label: "Derived Signals", icon: TrendingUp },
+  { id: "merit-energy", label: "Merit & Energy", icon: Zap },
+  { id: "composite", label: "D-NAV Formula", icon: Calculator },
+  { id: "compare", label: "Compare Mode", icon: BarChart3 },
+  { id: "learning", label: "Learning & Momentum", icon: Lightbulb },
+  { id: "archetypes", label: "Decision Archetypes", icon: Shield },
+  { id: "notation", label: "Notation Guide", icon: Info },
+] as const;
+
 export default function DefinitionsPage() {
+  const [activeSection, setActiveSection] = useState<string>(navigationItems[0]?.id ?? "");
+
+  useEffect(() => {
+    const sections = navigationItems
+      .map((item) => document.getElementById(item.id))
+      .filter((section): section is HTMLElement => Boolean(section));
+
+    if (!sections.length) {
+      return;
+    }
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        const visibleEntries = entries
+          .filter((entry) => entry.isIntersecting)
+          .sort(
+            (a, b) =>
+              a.target.getBoundingClientRect().top - b.target.getBoundingClientRect().top
+          );
+
+        if (visibleEntries.length > 0) {
+          setActiveSection(visibleEntries[0].target.id);
+        }
+      },
+      {
+        rootMargin: "-35% 0px -50% 0px",
+        threshold: [0, 0.25, 0.5, 0.75, 1],
+      }
+    );
+
+    sections.forEach((section) => observer.observe(section));
+
+    return () => {
+      observer.disconnect();
+    };
+  }, []);
+
   const renderArchetypes = () => {
     const combos: Array<{ p: number; s: number; r: number }> = [];
     [-1, 0, 1].forEach((p) =>
@@ -71,18 +123,6 @@ export default function DefinitionsPage() {
     return "secondary";
   };
 
-  const navigationItems = [
-    { id: "overview", label: "Overview", icon: BookOpen },
-    { id: "ingredients", label: "Core Ingredients", icon: Target },
-    { id: "signals", label: "Derived Signals", icon: TrendingUp },
-    { id: "merit-energy", label: "Merit & Energy", icon: Zap },
-    { id: "composite", label: "D-NAV Formula", icon: Calculator },
-    { id: "compare", label: "Compare Mode", icon: BarChart3 },
-    { id: "learning", label: "Learning & Momentum", icon: Lightbulb },
-    { id: "archetypes", label: "Decision Archetypes", icon: Shield },
-    { id: "notation", label: "Notation Guide", icon: Info },
-  ];
-
   return (
     <div className="min-h-screen bg-background">
       {/* Header */}
@@ -119,7 +159,12 @@ export default function DefinitionsPage() {
                       <a
                         key={item.id}
                         href={`#${item.id}`}
-                        className="flex items-center gap-3 px-3 py-2 text-sm font-medium text-muted-foreground hover:text-foreground hover:bg-muted rounded-md transition-colors"
+                        className={cn(
+                          "flex items-center gap-3 px-3 py-2 text-sm font-medium rounded-md transition-colors",
+                          activeSection === item.id
+                            ? "text-foreground font-semibold bg-muted"
+                            : "text-muted-foreground hover:text-foreground hover:bg-muted"
+                        )}
                       >
                         <Icon className="h-4 w-4" />
                         {item.label}
