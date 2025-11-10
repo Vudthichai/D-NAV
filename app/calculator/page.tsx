@@ -64,7 +64,6 @@ interface DashboardStats {
   lossStreak: { current: number; longest: number };
   returnDebt: number;
   paybackRatio: number;
-  policyHint: string;
 }
 
 const metricExplainers: Record<string, { description: string; example: string }> = {
@@ -159,10 +158,6 @@ const metricExplainers: Record<string, { description: string; example: string }>
   "Payback Ratio": {
     description: "Average positive return required to clear each loss in the streak.",
     example: "Needing 9 upside to repay three losses implies a 3.0 ratio.",
-  },
-  "Policy Hint": {
-    description: "Contextual coaching cue derived from the stats mix.",
-    example: "High variability may trigger a hint to tighten guardrails.",
   },
 };
 
@@ -369,7 +364,6 @@ const getStatsReportSections = (current: DashboardStats) => ({
     `Return debt: ${current.returnDebt}`,
     `Payback ratio: ${current.paybackRatio}`,
     `Window archetype: ${current.windowArchetype} (Return: ${current.windowArchetypeBreakdown.returnType}, Stability: ${current.windowArchetypeBreakdown.stabilityType}, Pressure: ${current.windowArchetypeBreakdown.pressureType})`,
-    `Policy hint: ${current.policyHint}`,
   ],
   narrative: [] as string[],
 });
@@ -489,7 +483,6 @@ export default function TheDNavPage() {
         lossStreak: { current: 0, longest: 0 },
         returnDebt: 0,
         paybackRatio: 0,
-        policyHint: "No data available",
       };
     }
 
@@ -580,17 +573,6 @@ export default function TheDNavPage() {
 
     const paybackRatio = longestStreak > 0 ? returnDebt / longestStreak : 0;
 
-    let policyHint = "No specific recommendations";
-    if (currentStreak > 3) {
-      policyHint = "High loss streak - consider pausing to reassess";
-    } else if (calibration < -0.3) {
-      policyHint = "Low confidence calibration - work on evidence gathering";
-    } else if (consistency > 20) {
-      policyHint = "High variability - focus on decision consistency";
-    } else if (avgDnav > 50) {
-      policyHint = "Strong performance - maintain current approach";
-    }
-
     return {
       totalDecisions: filteredDecisions.length,
       avgDnav: Math.round(avgDnav * 10) / 10,
@@ -613,7 +595,6 @@ export default function TheDNavPage() {
       lossStreak: { current: currentStreak, longest: longestStreak },
       returnDebt: Math.round(returnDebt * 10) / 10,
       paybackRatio: Math.round(paybackRatio * 10) / 10,
-      policyHint,
     };
   }, [cadenceUnit, timeWindow]);
 
@@ -648,16 +629,6 @@ export default function TheDNavPage() {
         ? `down ${formatNumber(Math.abs(current.last5vsPrior5))}`
         : "flat";
 
-    const returnMix = `${percent(current.returnDistribution.positive)} positive / ${percent(
-      current.returnDistribution.neutral,
-    )} neutral / ${percent(current.returnDistribution.negative)} negative`;
-    const stabilityMix = `${percent(current.stabilityDistribution.stable)} stable / ${percent(
-      current.stabilityDistribution.uncertain,
-    )} uncertain / ${percent(current.stabilityDistribution.fragile)} fragile`;
-    const pressureMix = `${percent(current.pressureDistribution.pressured)} pressured / ${percent(
-      current.pressureDistribution.balanced,
-    )} balanced / ${percent(current.pressureDistribution.calm)} calm`;
-
     const hygieneLines: string[] = [];
     if (current.lossStreak.current > 0) {
       hygieneLines.push(
@@ -674,16 +645,29 @@ export default function TheDNavPage() {
       hygieneLines.push("No active loss streaks detected.");
     }
 
+    const returnSummary = `Returns skewed ${percent(
+      current.returnDistribution.positive,
+    )} positive, ${percent(current.returnDistribution.neutral)} neutral, and ${percent(
+      current.returnDistribution.negative,
+    )} negative.`;
+    const stabilitySummary = `Stability leaned ${percent(current.stabilityDistribution.stable)} stable, ${percent(
+      current.stabilityDistribution.uncertain,
+    )} uncertain, and ${percent(current.stabilityDistribution.fragile)} fragile.`;
+    const pressureSummary = `Pressure readings showed ${percent(
+      current.pressureDistribution.pressured,
+    )} pressured, ${percent(current.pressureDistribution.balanced)} balanced, and ${percent(
+      current.pressureDistribution.calm,
+    )} calm decisions.`;
+
+    const archetypeSummary = `Those inputs create a ${current.windowArchetype} archetype — ${current.windowArchetypeDescription}`;
+
     return [
       `Over ${windowLabel}, you logged ${current.totalDecisions} decisions with an average D-NAV of ${formatNumber(
         current.avgDnav,
-      )}.`,
-      `Cadence is ${cadencePhrase}, with recent performance ${trendDescription}.`,
+      )}. Cadence is ${cadencePhrase}, and recent performance is ${trendDescription}.`,
+      `${archetypeSummary}. ${returnSummary} ${stabilitySummary} ${pressureSummary}`,
       `Calibration (${formatNumber(current.calibration, 2)}) suggests ${describeCalibration(current.calibration)}`,
-      `Return mix: ${returnMix}. Stability mix: ${stabilityMix}. Pressure mix: ${pressureMix}.`,
-      `Window archetype: ${current.windowArchetype} — ${current.windowArchetypeDescription}.`,
       `Risk hygiene: ${hygieneLines.join(" ")}`,
-      `Policy hint: ${current.policyHint}.`,
     ].join("\n\n");
   };
 
@@ -1117,7 +1101,7 @@ export default function TheDNavPage() {
               </CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                 <div className="space-y-2">
                   <InfoTooltip term="Loss Streak">
                     <p className="text-sm font-medium text-muted-foreground cursor-help">Loss Streak</p>
@@ -1147,15 +1131,6 @@ export default function TheDNavPage() {
                     <p className="text-2xl font-bold cursor-help">{stats?.paybackRatio || 0}</p>
                   </InfoTooltip>
                   <p className="text-xs text-muted-foreground">Avg wins to clear debt</p>
-                </div>
-                <div className="space-y-2">
-                  <InfoTooltip term="Policy Hint">
-                    <p className="text-sm font-medium text-muted-foreground cursor-help">Policy Hint</p>
-                  </InfoTooltip>
-                  <InfoTooltip term="Policy Hint" side="bottom">
-                    <p className="text-sm font-medium cursor-help">{stats?.policyHint || "No recommendations"}</p>
-                  </InfoTooltip>
-                  <p className="text-xs text-muted-foreground">Guardrails, not handcuffs</p>
                 </div>
               </div>
               <Separator className="my-4" />
