@@ -12,7 +12,14 @@ import {
   SidebarMenuItem,
   SidebarRail,
 } from "@/components/ui/sidebar";
-import { BookOpen, Calculator, FileText, Gauge, ListOrdered } from "lucide-react";
+import {
+  BookOpen,
+  Calculator,
+  FileText,
+  Gauge,
+  ListOrdered,
+  MessageSquare,
+} from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
@@ -23,6 +30,7 @@ const items = [
   { href: "/log", label: "Log", icon: ListOrdered },
   { href: "/definitions", label: "Definitions", icon: BookOpen },
   { href: "/reports", label: "Reports", icon: FileText },
+  { href: "/contact", label: "Contact", icon: MessageSquare },
 ];
 
 export default function AppSidebar() {
