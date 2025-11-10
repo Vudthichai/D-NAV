@@ -3,6 +3,7 @@
 import { usePathname } from "next/navigation";
 import AppSidebar from "./Sidebar";
 import Header from "./Header";
+import Footer from "./Footer";
 import { SidebarInset, SidebarProvider } from "@/components/ui/sidebar";
 
 interface ConditionalLayoutProps {
@@ -16,8 +17,9 @@ export default function ConditionalLayout({ children }: ConditionalLayoutProps) 
   if (isHomePage) {
     // For home page, render without sidebar
     return (
-      <div className="min-h-screen">
-        <main>{children}</main>
+      <div className="flex min-h-screen flex-col">
+        <main className="flex-1">{children}</main>
+        <Footer />
       </div>
     );
   }
@@ -26,9 +28,12 @@ export default function ConditionalLayout({ children }: ConditionalLayoutProps) 
   return (
     <SidebarProvider>
       <AppSidebar />
-      <SidebarInset>
-        <Header />
-        <main className="p-6">{children}</main>
+      <SidebarInset className="min-h-screen">
+        <div className="flex min-h-screen flex-col">
+          <Header />
+          <main className="flex-1 p-6">{children}</main>
+          <Footer />
+        </div>
       </SidebarInset>
     </SidebarProvider>
   );
