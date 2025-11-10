@@ -75,7 +75,7 @@ export default function Home() {
             <div className="flex flex-col sm:flex-row gap-4 justify-center items-center">
               <Button size="lg" className="text-lg px-8 py-6" asChild>
                 <Link href="/calculator">
-                  Start Calculating
+                  Launch The D-NAV
                   <ArrowRight className="ml-2 w-5 h-5" />
                 </Link>
               </Button>
@@ -218,7 +218,7 @@ export default function Home() {
           <div className="flex flex-col sm:flex-row gap-4 justify-center">
             <Button size="lg" className="text-lg px-8 py-6" asChild>
               <Link href="/calculator">
-                Try D-NAV Now
+                Open The D-NAV
                 <ArrowRight className="ml-2 w-5 h-5" />
               </Link>
             </Button>

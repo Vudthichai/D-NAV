@@ -11,9 +11,10 @@ interface StatCardProps {
     text: string;
     color: 'green' | 'amber' | 'red' | 'blue';
   };
+  description?: string;
 }
 
-export default function StatCard({ title, value, pill }: StatCardProps) {
+export default function StatCard({ title, value, pill, description }: StatCardProps) {
   const formatValue = (val: number) => val > 0 ? `+${val}` : val < 0 ? val.toString() : '0';
   
   const pillVariants = {
@@ -32,8 +33,8 @@ export default function StatCard({ title, value, pill }: StatCardProps) {
         <div className="text-4xl font-black leading-tight">
           {formatValue(value)}
         </div>
-        <Badge 
-          variant="outline" 
+        <Badge
+          variant="outline"
           className={cn(
             "inline-block px-1.5 py-0.5 rounded-full font-extrabold text-[9px] leading-tight whitespace-nowrap w-fit",
             pillVariants[pill.color]
@@ -41,6 +42,11 @@ export default function StatCard({ title, value, pill }: StatCardProps) {
         >
           {pill.text}
         </Badge>
+        {description ? (
+          <p className="mt-2 text-[10px] uppercase tracking-wide text-muted-foreground/80">
+            {description}
+          </p>
+        ) : null}
       </CardContent>
     </Card>
   );
