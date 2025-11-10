@@ -16,6 +16,7 @@ import {
   Target,
   Zap,
 } from "lucide-react";
+import Image from "next/image";
 import Link from "next/link";
 
 export default function Home() {
@@ -237,7 +238,13 @@ export default function Home() {
         <div className="max-w-7xl mx-auto px-6">
           <div className="flex flex-col md:flex-row justify-between items-center gap-6">
             <div className="flex items-center gap-3">
-              <img src="/logo.PNG" alt="D-NAV" className="w-10 h-10 rounded-lg bg-primary/20" />
+              <Image
+                src="/logo.PNG"
+                alt="D-NAV logo"
+                width={40}
+                height={40}
+                className="h-10 w-10 rounded-lg bg-primary/20 object-cover"
+              />
               <div>
                 <div className="font-bold text-lg">D-NAV</div>
                 <div className="text-sm text-muted-foreground">The Decision Navigator</div>

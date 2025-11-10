@@ -12,7 +12,8 @@ import {
   SidebarMenuItem,
   SidebarRail,
 } from "@/components/ui/sidebar";
-import { BookOpen, Calculator, Gauge, ListOrdered } from "lucide-react";
+import { BookOpen, Calculator, FileText, Gauge, ListOrdered } from "lucide-react";
+import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 
@@ -21,6 +22,7 @@ const items = [
   { href: "/calculator", label: "The D-NAV", icon: Calculator },
   { href: "/log", label: "Log", icon: ListOrdered },
   { href: "/definitions", label: "Definitions", icon: BookOpen },
+  { href: "/reports", label: "Reports", icon: FileText },
 ];
 
 export default function AppSidebar() {
@@ -30,10 +32,13 @@ export default function AppSidebar() {
     <Sidebar collapsible="icon">
       <SidebarHeader>
         <Link href="/" className="flex items-center gap-2 cursor-pointer">
-          <img
+          <Image
             src="/logo.PNG"
-            alt="D-NAV"
-            className="w-8 h-8 rounded-md bg-primary/20 group-data-[collapsible=icon]:w-8 group-data-[collapsible=icon]:h-8"
+            alt="D-NAV logo"
+            width={32}
+            height={32}
+            className="h-8 w-8 rounded-md bg-primary/20 object-cover group-data-[collapsible=icon]:h-8 group-data-[collapsible=icon]:w-8"
+            priority
           />
           <div className="font-bold text-lg group-data-[collapsible=icon]:hidden">D-NAV</div>
         </Link>
