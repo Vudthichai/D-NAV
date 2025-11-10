@@ -119,16 +119,19 @@ export default function DecisionCalculator({ onOpenCompare, onDataChange }: Deci
               title="Return"
               value={metrics.return}
               pill={getPillColor(metrics.return, "return")}
+              description="Impact − Cost"
             />
             <StatCard
               title="Stability"
               value={metrics.stability}
               pill={getPillColor(metrics.stability, "stability")}
+              description="Confidence − Risk"
             />
             <StatCard
               title="Pressure"
               value={metrics.pressure}
               pill={getPillColor(metrics.pressure, "pressure")}
+              description="Urgency − Confidence"
             />
           </CardContent>
         </Card>

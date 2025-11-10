@@ -596,7 +596,7 @@ export default function LogPage() {
                     <div className="flex flex-col items-center gap-2">
                       <AlertTriangle className="h-8 w-8" />
                       <p>No decisions saved yet</p>
-                      <p className="text-sm">Go to the Calculator to create your first decision</p>
+                      <p className="text-sm">Open The D-NAV to create your first decision</p>
                     </div>
                   </TableCell>
                 </TableRow>

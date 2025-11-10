@@ -12,14 +12,13 @@ import {
   SidebarMenuItem,
   SidebarRail,
 } from "@/components/ui/sidebar";
-import { BarChart3, BookOpen, Calculator, Gauge, ListOrdered } from "lucide-react";
+import { BookOpen, Calculator, Gauge, ListOrdered } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 
 const items = [
   { href: "/", label: "Home", icon: Gauge },
-  { href: "/calculator", label: "Calculator", icon: Calculator },
-  { href: "/stats", label: "Stats", icon: BarChart3 },
+  { href: "/calculator", label: "The D-NAV", icon: Calculator },
   { href: "/log", label: "Log", icon: ListOrdered },
   { href: "/definitions", label: "Definitions", icon: BookOpen },
 ];

@@ -13,9 +13,7 @@ export default function Header() {
       case "/":
         return "Decision Navigator";
       case "/calculator":
-        return "Calculator";
-      case "/stats":
-        return "Stats";
+        return "The D-NAV";
       case "/log":
         return "Decision Log";
       case "/definitions":
