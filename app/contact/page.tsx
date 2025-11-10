@@ -11,14 +11,6 @@ import {
 } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
 
 const inquiryMessages = {
   workshop:
@@ -37,7 +29,6 @@ export default function ContactPage() {
     organization: "",
     message: "",
   });
-  const [showConfirmation, setShowConfirmation] = useState(false);
   const formAnchorRef = useRef<HTMLDivElement | null>(null);
 
   const placeholder = useMemo(() => {
@@ -61,13 +52,6 @@ export default function ContactPage() {
     value: string
   ) => {
     setFormValues((prev) => ({ ...prev, [field]: value }));
-  };
-
-  const handleSubmit = (event: React.FormEvent<HTMLFormElement>) => {
-    event.preventDefault();
-    setShowConfirmation(true);
-    setFormValues({ name: "", email: "", organization: "", message: "" });
-    setInquiryType(null);
   };
 
   return (
@@ -133,7 +117,19 @@ export default function ContactPage() {
           )}
         </div>
 
-        <form onSubmit={handleSubmit} className="space-y-5">
+        <form
+          name="contact"
+          method="POST"
+          data-netlify="true"
+          netlify-honeypot="bot-field"
+          action="/thanks"
+          className="space-y-5"
+        >
+          <input type="hidden" name="form-name" value="contact" />
+          <div className="hidden">
+            <label htmlFor="bot-field">Don&apos;t fill this out if you&apos;re human</label>
+            <input id="bot-field" name="bot-field" />
+          </div>
           <div className="grid gap-4 md:grid-cols-2">
             <div className="flex flex-col gap-2">
               <label htmlFor="name" className="text-sm font-medium text-foreground">
@@ -141,6 +137,7 @@ export default function ContactPage() {
               </label>
               <Input
                 id="name"
+                name="name"
                 value={formValues.name}
                 onChange={(event) => handleChange("name", event.target.value)}
                 required
@@ -154,6 +151,7 @@ export default function ContactPage() {
               <Input
                 id="email"
                 type="email"
+                name="email"
                 value={formValues.email}
                 onChange={(event) => handleChange("email", event.target.value)}
                 required
@@ -168,6 +166,7 @@ export default function ContactPage() {
             </label>
             <Input
               id="organization"
+              name="organization"
               value={formValues.organization}
               onChange={(event) => handleChange("organization", event.target.value)}
               placeholder="Company or team name"
@@ -180,6 +179,7 @@ export default function ContactPage() {
             </label>
             <Textarea
               id="message"
+              name="message"
               value={formValues.message}
               onChange={(event) => handleChange("message", event.target.value)}
               placeholder={placeholder}
@@ -192,18 +192,6 @@ export default function ContactPage() {
           </div>
         </form>
       </section>
-
-      <Dialog open={showConfirmation} onOpenChange={setShowConfirmation}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Thanks!</DialogTitle>
-            <DialogDescription>You&apos;ll hear from us soon.</DialogDescription>
-          </DialogHeader>
-          <DialogFooter>
-            <Button onClick={() => setShowConfirmation(false)}>Close</Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
     </div>
   );
 }
