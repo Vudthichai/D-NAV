@@ -2,11 +2,11 @@
 
 import { useMemo, useState } from "react";
 
-import { AnimatedCompass } from "@/components/animated-compass";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
+import { PDFDocument, PDFFont, StandardFonts, rgb } from "pdf-lib";
 import {
   BarChart3,
   FileChartColumn,
@@ -24,76 +24,79 @@ const TIMEFRAMES = [
 
 type Timeframe = (typeof TIMEFRAMES)[number]["value"];
 
+type ReportFormat = {
+  type: "pdf" | "csv";
+  label: string;
+};
+
 type Report = {
   id: string;
   title: string;
   description: string;
-  actionLabel: string;
   icon: LucideIcon;
-  previewAccent: string;
   highlights: Record<Timeframe, string>;
+  formats: ReportFormat[];
 };
 
 const reports: Report[] = [
   {
     id: "narrative",
-    title: "Download Narrative PDF",
+    title: "Narrative Summary",
     description:
-      "A polished summary of your qualitative inputs, sentiment, and key takeaways for stakeholder-ready storytelling.",
-    actionLabel: "Download Narrative PDF",
+      "Stakeholder-ready storytelling that captures sentiment, context, and emerging decision themes.",
     icon: FileText,
-    previewAccent: "from-primary/70 via-primary/40 to-primary/10",
     highlights: {
       "7": "Captures the latest narratives so you can brief teams quickly on emerging decisions.",
       "30": "Spot evolving themes across the month with highlighted momentum indicators.",
       quarter: "Quarterly rollups spotlight strategic inflection points and narrative shifts.",
       all: "Comprehensive historical narrative library with filters for author, topic, and archetype.",
     },
+    formats: [{ type: "pdf", label: "Download PDF" }],
   },
   {
     id: "stats",
-    title: "Download Stats PDF",
+    title: "Performance Dashboard",
     description:
-      "Dive into quantitative performance, portfolio health, and pattern recognition with visual dashboards.",
-    actionLabel: "Download Stats PDF",
+      "Quantitative insights, benchmarks, and trends that illuminate overall portfolio health.",
     icon: BarChart3,
-    previewAccent: "from-orange-500/60 via-orange-400/30 to-transparent",
     highlights: {
       "7": "Weekly pulse charts reveal fresh volatility and stability ratings.",
       "30": "Monthly deltas surface wins, risks, and ROI momentum.",
       quarter: "Quarterly benchmarks compare team, initiative, and strategic outcomes.",
       all: "Full history with trend lines, z-scores, and benchmark overlays for every metric.",
     },
+    formats: [
+      { type: "pdf", label: "Download PDF" },
+      { type: "csv", label: "Export CSV" },
+    ],
   },
   {
     id: "csv",
-    title: "Export CSV",
+    title: "Raw Data Export",
     description:
       "Flexible data export for custom analysis. Load into spreadsheets, BI tools, or automate workflows.",
-    actionLabel: "Export CSV",
     icon: FileDown,
-    previewAccent: "from-emerald-500/60 via-emerald-400/30 to-transparent",
     highlights: {
       "7": "Grab the freshest entries for quick ad-hoc exploration.",
       "30": "Review month-to-month shifts with calculated columns included.",
       quarter: "Bundle quarter-to-date portfolio moves with metadata fields intact.",
       all: "Download the full historical dataset with schema documentation.",
     },
+    formats: [{ type: "csv", label: "Download CSV" }],
   },
   {
     id: "summary",
-    title: "Download Portfolio Summary One Pager",
+    title: "Executive One-Pager",
     description:
-      "A crisp executive snapshot with decision posture, pressure index, and recommended next steps.",
-    actionLabel: "Download One Pager",
+      "A crisp executive snapshot outlining decision posture, pressure index, and recommended next steps.",
     icon: FileChartColumn,
-    previewAccent: "from-sky-500/60 via-sky-400/30 to-transparent",
     highlights: {
       "7": "Surface immediate opportunities and blockers from the past week.",
       "30": "Show momentum, resourcing asks, and confidence trends for the month.",
       quarter: "Quarterly spotlight on portfolio allocation, returns, and strategic bets.",
       all: "Full program overview with evergreen guidance and highlight reel.",
     },
+    formats: [{ type: "pdf", label: "Download PDF" }],
   },
 ];
 
@@ -104,42 +107,238 @@ const timeframeDescriptions: Record<Timeframe, string> = {
   all: "Complete historical view across your entire decision portfolio.",
 };
 
+const slugify = (value: string) =>
+  value
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/(^-|-$)/g, "");
+
+const downloadBlob = (blob: Blob, filename: string) => {
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = filename;
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+  URL.revokeObjectURL(url);
+};
+
+const createCsvContent = ({
+  report,
+  timeframeLabel,
+  highlight,
+}: {
+  report: Report;
+  timeframeLabel: string;
+  highlight: string;
+}) => {
+  const rows = [
+    ["Report", report.title],
+    ["Timeframe", timeframeLabel],
+    [],
+    ["Key Highlight"],
+    [highlight],
+  ];
+
+  return rows
+    .map((row) =>
+      row
+        .map((cell) => {
+          const value = cell ?? "";
+          const escaped = value.replace(/"/g, '""');
+          return `"${escaped}"`;
+        })
+        .join(","),
+    )
+    .join("\n");
+};
+
+const wrapText = (text: string, font: PDFFont, size: number, maxWidth: number) => {
+  const words = text.split(/\s+/);
+  const lines: string[] = [];
+  let currentLine = "";
+
+  words.forEach((word) => {
+    const candidate = currentLine ? `${currentLine} ${word}` : word;
+    const candidateWidth = font.widthOfTextAtSize(candidate, size);
+
+    if (candidateWidth > maxWidth && currentLine) {
+      lines.push(currentLine);
+      currentLine = word;
+    } else {
+      currentLine = candidate;
+    }
+  });
+
+  if (currentLine) {
+    lines.push(currentLine);
+  }
+
+  return lines;
+};
+
+const createPdfContent = async ({
+  report,
+  timeframeLabel,
+  highlight,
+}: {
+  report: Report;
+  timeframeLabel: string;
+  highlight: string;
+}) => {
+  const pdfDoc = await PDFDocument.create();
+  const page = pdfDoc.addPage([612, 792]);
+  const { height, width } = page.getSize();
+
+  const [regularFont, boldFont] = await Promise.all([
+    pdfDoc.embedFont(StandardFonts.Helvetica),
+    pdfDoc.embedFont(StandardFonts.HelveticaBold),
+  ]);
+
+  page.drawText("D-NAV Report", {
+    x: 48,
+    y: height - 64,
+    size: 12,
+    font: regularFont,
+    color: rgb(0.4, 0.4, 0.4),
+  });
+
+  page.drawText(report.title, {
+    x: 48,
+    y: height - 92,
+    size: 26,
+    font: boldFont,
+    color: rgb(0.09, 0.09, 0.13),
+  });
+
+  page.drawText(`Timeframe: ${timeframeLabel}`, {
+    x: 48,
+    y: height - 124,
+    size: 14,
+    font: regularFont,
+    color: rgb(0.22, 0.22, 0.24),
+  });
+
+  const bodyStartY = height - 170;
+  const bodySize = 12;
+  const maxWidth = width - 96;
+  const highlightLines = wrapText(highlight, regularFont, bodySize, maxWidth);
+  let cursorY = bodyStartY;
+
+  page.drawText("Highlight", {
+    x: 48,
+    y: cursorY,
+    size: 14,
+    font: boldFont,
+    color: rgb(0.09, 0.34, 0.61),
+  });
+
+  cursorY -= 22;
+
+  highlightLines.forEach((line) => {
+    page.drawText(line, {
+      x: 48,
+      y: cursorY,
+      size: bodySize,
+      font: regularFont,
+      color: rgb(0.18, 0.18, 0.2),
+    });
+    cursorY -= 18;
+  });
+
+  cursorY -= 10;
+
+  const checklist = [
+    "Stakeholder-ready formatting",
+    "Automated download from D-NAV",
+    `Context tailored to ${timeframeLabel.toLowerCase()}`,
+  ];
+
+  page.drawText("Quick Facts", {
+    x: 48,
+    y: cursorY,
+    size: 14,
+    font: boldFont,
+    color: rgb(0.09, 0.34, 0.61),
+  });
+
+  cursorY -= 24;
+
+  checklist.forEach((item) => {
+    page.drawText(`• ${item}`, {
+      x: 52,
+      y: cursorY,
+      size: bodySize,
+      font: regularFont,
+      color: rgb(0.18, 0.18, 0.2),
+    });
+    cursorY -= 18;
+  });
+
+  return pdfDoc.save();
+};
+
 export default function ReportsPage() {
   const [selectedTimeframe, setSelectedTimeframe] = useState<Timeframe>("7");
+  const [downloading, setDownloading] = useState<string | null>(null);
 
   const timeframeLabel = useMemo(
     () => TIMEFRAMES.find(({ value }) => value === selectedTimeframe)?.label ?? "Last 7 Days",
     [selectedTimeframe],
   );
 
+  const handleDownload = async (report: Report, format: ReportFormat["type"]) => {
+    const key = `${report.id}-${format}`;
+    setDownloading(key);
+
+    try {
+      const highlight = report.highlights[selectedTimeframe];
+
+      if (format === "csv") {
+        const csvContent = createCsvContent({
+          report,
+          timeframeLabel,
+          highlight,
+        });
+        const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8" });
+        const filename = `dnav-${slugify(report.title)}-${selectedTimeframe}.csv`;
+        downloadBlob(blob, filename);
+      } else {
+        const pdfBytes = await createPdfContent({
+          report,
+          timeframeLabel,
+          highlight,
+        });
+        const blob = new Blob([pdfBytes], { type: "application/pdf" });
+        const filename = `dnav-${slugify(report.title)}-${selectedTimeframe}.pdf`;
+        downloadBlob(blob, filename);
+      }
+    } finally {
+      setDownloading(null);
+    }
+  };
+
   return (
-    <div className="flex flex-col gap-10">
+    <div className="flex flex-col gap-8">
       <section className="rounded-2xl border bg-card/80 p-6 shadow-sm">
-        <div className="flex flex-col gap-6 lg:flex-row lg:items-center lg:justify-between">
-          <div className="flex items-center gap-4">
-            <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-primary/10">
-              <AnimatedCompass className="h-12 w-12" />
-            </div>
-            <div>
-              <p className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">
-                The Decision NAVigator
-              </p>
-              <h1 className="text-3xl font-bold">Reports &amp; Exports Command Center</h1>
-            </div>
-          </div>
-          <Badge variant="secondary" className="w-fit">Centralize every downloadable insight in one place.</Badge>
+        <div className="flex flex-col gap-3">
+          <Badge variant="secondary" className="w-fit uppercase tracking-wide">
+            Reports Hub
+          </Badge>
+          <h1 className="text-3xl font-semibold">Download the report you need in a single click</h1>
+          <p className="text-sm text-muted-foreground">
+            Pick a timeframe, then grab the narrative, performance, or raw data export that best supports your next
+            decision review.
+          </p>
         </div>
-        <p className="mt-6 max-w-3xl text-base text-muted-foreground">
-          Access curated deliverables that translate your D-NAV intelligence into shareable assets. Choose a timeframe to
-          instantly tailor the narrative, stats, data tables, and executive-ready overviews.
-        </p>
       </section>
 
-      <section className="flex flex-col gap-4">
-        <div className="flex flex-wrap items-center justify-between gap-4">
+      <section className="flex flex-col gap-4 rounded-2xl border bg-card/80 p-6 shadow-sm">
+        <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
-            <h2 className="text-xl font-semibold">Filter by timeframe</h2>
-            <p className="text-sm text-muted-foreground">{timeframeDescriptions[selectedTimeframe]}</p>
+            <h2 className="text-lg font-semibold">Filter by timeframe</h2>
+            <p className="text-xs text-muted-foreground">{timeframeDescriptions[selectedTimeframe]}</p>
           </div>
           <div className="flex flex-wrap gap-2">
             {TIMEFRAMES.map(({ value, label }) => (
@@ -156,89 +355,42 @@ export default function ReportsPage() {
         </div>
       </section>
 
-      <section className="grid gap-6">
-        {reports.map(({ id, title, description, actionLabel, icon: Icon, previewAccent, highlights }) => (
-          <Card key={id} className="overflow-hidden border-muted/60 bg-card/90 shadow-sm">
-            <CardHeader className="border-b bg-muted/40">
-              <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
-                <div className="space-y-1">
-                  <CardTitle className="text-2xl font-semibold">{title}</CardTitle>
-                  <p className="text-sm text-muted-foreground">{description}</p>
-                </div>
-                <Badge variant="outline" className="self-start">
-                  {timeframeLabel}
-                </Badge>
-              </div>
-            </CardHeader>
-            <CardContent className="grid gap-6 p-6 lg:grid-cols-[minmax(0,1fr)_220px]">
-              <div className="space-y-5">
-                <div className="rounded-xl border border-dashed border-muted bg-background/40 p-4 text-sm text-muted-foreground">
-                  {highlights[selectedTimeframe]}
-                </div>
-                <div className="flex flex-wrap items-center gap-3 text-sm text-muted-foreground">
-                  <span className="font-medium text-foreground">What this includes:</span>
-                  <ul className="flex flex-wrap items-center gap-x-4 gap-y-1">
-                    <li className="flex items-center gap-2">
-                      <span className="h-2.5 w-2.5 rounded-full bg-primary" /> Tailored to {timeframeLabel.toLowerCase()}
-                    </li>
-                    <li className="flex items-center gap-2">
-                      <span className="h-2.5 w-2.5 rounded-full bg-muted-foreground/70" />
-                      Seamless download in one click
-                    </li>
-                    <li className="flex items-center gap-2">
-                      <span className="h-2.5 w-2.5 rounded-full bg-orange-400/80" /> Ready for stakeholder sharing
-                    </li>
-                  </ul>
-                </div>
-                <Button className="w-full sm:w-auto" size="lg">
-                  <Icon className="mr-2 h-5 w-5" />
-                  {actionLabel}
-                </Button>
-              </div>
-              <div className="relative hidden rounded-xl border border-muted/50 bg-muted/40 p-4 lg:block">
-                <div
-                  className={cn(
-                    "relative flex aspect-[3/4] w-full items-center justify-center overflow-hidden rounded-lg bg-gradient-to-br",
-                    previewAccent,
-                  )}
-                >
-                  <div className="absolute inset-0 bg-background/70" />
-                  <div className="relative flex h-full w-full flex-col justify-between rounded-lg border border-muted bg-background/80 p-4 text-[10px] shadow-inner">
-                    <div className="space-y-1">
-                      <div className="flex items-center gap-2">
-                        <div className="h-6 w-6 rounded-md bg-primary/10" />
-                        <div className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
-                          The Decision NAVigator
-                        </div>
-                      </div>
-                      <div className="h-2 w-3/4 rounded bg-muted" />
-                      <div className="h-2 w-2/3 rounded bg-muted/70" />
-                    </div>
-                    <div className="space-y-2">
-                      <div className="h-2 rounded bg-muted/80" />
-                      <div className="h-2 rounded bg-muted/60" />
-                      <div className="h-2 rounded bg-muted/40" />
-                    </div>
-                    <div className="space-y-2">
-                      <div className="flex gap-2">
-                        <div className="h-10 flex-1 rounded bg-primary/20" />
-                        <div className="h-10 flex-1 rounded bg-orange-200/40" />
-                      </div>
-                      <div className="h-2 rounded bg-muted/50" />
-                    </div>
-                    <div className="flex items-center justify-between text-[9px] text-muted-foreground">
-                      <span>{title}</span>
-                      <span>{timeframeLabel}</span>
-                    </div>
+      <section className="grid gap-4 lg:grid-cols-2">
+        {reports.map((report) => {
+          const Icon = report.icon;
+          const isDownloading = (format: ReportFormat["type"]) => downloading === `${report.id}-${format}`;
+
+          return (
+            <Card key={report.id} className="border-muted/60 bg-card/90 shadow-sm">
+              <CardHeader className="space-y-2">
+                <div className="flex items-center gap-3">
+                  <div className="flex h-10 w-10 items-center justify-center rounded-md bg-primary/10 text-primary">
+                    <Icon className="h-5 w-5" />
                   </div>
+                  <CardTitle className="text-xl">{report.title}</CardTitle>
                 </div>
-                <div className="mt-3 text-center text-xs text-muted-foreground">
-                  Preview mockup – actual export reflects live data
+                <p className="text-sm text-muted-foreground">{report.description}</p>
+              </CardHeader>
+              <CardContent className="flex flex-col gap-4">
+                <div className="rounded-lg border border-dashed border-muted/70 bg-background/60 p-4 text-sm text-muted-foreground">
+                  {report.highlights[selectedTimeframe]}
                 </div>
-              </div>
-            </CardContent>
-          </Card>
-        ))}
+                <div className="flex flex-wrap gap-2">
+                  {report.formats.map(({ type, label }) => (
+                    <Button
+                      key={type}
+                      variant={type === "csv" ? "outline" : "default"}
+                      disabled={isDownloading(type)}
+                      onClick={() => handleDownload(report, type)}
+                    >
+                      {isDownloading(type) ? "Preparing..." : label}
+                    </Button>
+                  ))}
+                </div>
+              </CardContent>
+            </Card>
+          );
+        })}
       </section>
     </div>
   );
