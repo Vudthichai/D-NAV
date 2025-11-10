@@ -310,7 +310,8 @@ export default function ReportsPage() {
           timeframeLabel,
           highlight,
         });
-        const blob = new Blob([pdfBytes], { type: "application/pdf" });
+        const ab = pdfBytes.buffer.slice(pdfBytes.byteOffset, pdfBytes.byteOffset + pdfBytes.byteLength);
+        const blob = new Blob([ab], { type: "application/pdf" });
         const filename = `dnav-${slugify(report.title)}-${selectedTimeframe}.pdf`;
         downloadBlob(blob, filename);
       }
