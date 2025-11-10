@@ -17,24 +17,30 @@ import { Separator } from "@/components/ui/separator";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { DecisionEntry, DecisionMetrics, DecisionVariables, corr, ema, getArchetype, stdev } from "@/lib/calculations";
 import { addDecision, loadLog } from "@/lib/storage";
-import { BarChart3, Check, RotateCcw, Save, Upload } from "lucide-react";
 import {
   Activity,
   AlertTriangle,
+  BarChart3,
+  Brain,
+  Check,
   CheckCircle,
   Download,
   FileText,
   Gauge,
   Minus,
+  RotateCcw,
+  Save,
   Target,
   TrendingDown,
   TrendingUp,
+  Upload,
   Zap,
 } from "lucide-react";
+import type { LucideIcon } from "lucide-react";
 import jsPDF from "jspdf";
 import html2canvas from "html2canvas";
 import Link from "next/link";
-import { ComponentType, useCallback, useMemo, useRef, useState } from "react";
+import { useCallback, useMemo, useRef, useState } from "react";
 
 interface DashboardStats {
   totalDecisions: number;
@@ -219,7 +225,7 @@ interface DashboardStatCardProps {
   title: string;
   value: string | number;
   subtitle: string;
-  icon: ComponentType<{ className?: string }>;
+  icon: LucideIcon;
   trend?: number;
   color?: "default" | "positive" | "negative" | "warning";
   helper?: string;
