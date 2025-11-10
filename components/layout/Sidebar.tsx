@@ -21,11 +21,12 @@ import {
   MessageSquare,
   Users,
 } from "lucide-react";
+import type { LucideIcon } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 
-const items = [
+const items: Array<{ href: string; label: string; icon: LucideIcon }> = [
   { href: "/", label: "Home", icon: Gauge },
   { href: "/calculator", label: "The D-NAV", icon: Calculator },
   { href: "/log", label: "Log", icon: ListOrdered },

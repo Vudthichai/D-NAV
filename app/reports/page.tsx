@@ -7,13 +7,8 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
 import { PDFDocument, PDFFont, StandardFonts, rgb } from "pdf-lib";
-import {
-  BarChart3,
-  FileChartColumn,
-  FileDown,
-  FileText,
-  type LucideIcon,
-} from "lucide-react";
+import { BarChart3, FileChartColumn, FileDown, FileText } from "lucide-react";
+import type { LucideIcon } from "lucide-react";
 
 const TIMEFRAMES = [
   { value: "7", label: "Last 7 Days" },
@@ -310,7 +305,10 @@ export default function ReportsPage() {
           timeframeLabel,
           highlight,
         });
-        const ab = pdfBytes.buffer.slice(pdfBytes.byteOffset, pdfBytes.byteOffset + pdfBytes.byteLength);
+        const ab = pdfBytes.buffer.slice(
+          pdfBytes.byteOffset,
+          pdfBytes.byteOffset + pdfBytes.byteLength,
+        ) as ArrayBuffer;
         const blob = new Blob([ab], { type: "application/pdf" });
         const filename = `dnav-${slugify(report.title)}-${selectedTimeframe}.pdf`;
         downloadBlob(blob, filename);
