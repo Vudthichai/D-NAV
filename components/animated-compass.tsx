@@ -94,18 +94,20 @@ export function AnimatedCompass({ className }: AnimatedCompassProps) {
             <circle cx="60" cy="60" r="24" fill="none" stroke="rgba(255,255,255,0.55)" strokeDasharray="6 10" />
           </g>
 
-          <g className={cn("origin-center", isReady ? "animate-compass-needle" : "")}
-             style={{ transformOrigin: "60px 60px" }}>
+          <g
+            className={cn("origin-center", isReady ? "animate-compass-needle" : "")}
+            style={{ transformOrigin: "center", transformBox: "fill-box" }}
+          >
             <polygon
-              points="60,8 78,60 60,112 42,60"
+              points="60,14 75,60 60,106 45,60"
               fill={ORANGE}
               stroke="white"
-              strokeWidth={3.5}
+              strokeWidth={3}
               strokeLinejoin="round"
             />
-            <circle cx="60" cy="60" r="11" fill="rgba(255,255,255,0.6)" />
-            <circle cx="60" cy="60" r="7" fill={ORANGE} opacity={0.92} />
-            <circle cx="60" cy="60" r="3" fill="white" />
+            <circle cx="60" cy="60" r="9.5" fill="rgba(255,255,255,0.6)" />
+            <circle cx="60" cy="60" r="6" fill={ORANGE} opacity={0.92} />
+            <circle cx="60" cy="60" r="2.5" fill="white" />
           </g>
 
           <g className="origin-center" fontFamily="'Inter', sans-serif" fontWeight={700} fontSize="10">
@@ -131,27 +133,27 @@ export function AnimatedCompass({ className }: AnimatedCompassProps) {
 
       <style jsx>{`
         .animate-compass-needle {
-          animation: compass-needle-spin 3.8s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+          animation: compass-needle-spin 4.6s cubic-bezier(0.22, 1, 0.36, 1) forwards;
         }
 
         @keyframes compass-needle-spin {
           0% {
-            transform: rotate(-260deg);
+            transform: rotate(-540deg);
           }
-          25% {
-            transform: rotate(300deg);
-          }
-          48% {
-            transform: rotate(170deg);
+          55% {
+            transform: rotate(60deg);
           }
           70% {
-            transform: rotate(52deg);
+            transform: rotate(-20deg);
           }
-          85% {
-            transform: rotate(28deg);
+          82% {
+            transform: rotate(18deg);
+          }
+          90% {
+            transform: rotate(-6deg);
           }
           100% {
-            transform: rotate(16deg);
+            transform: rotate(10deg);
           }
         }
       `}</style>
