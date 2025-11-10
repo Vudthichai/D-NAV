@@ -24,12 +24,11 @@ const inquiryCopy = {
 
 const mailtoLink = (type: keyof typeof inquiryCopy) => {
   const { subject, body } = inquiryCopy[type];
-  const params = new URLSearchParams({
-    subject,
-    body,
-  });
 
-  return `mailto:${contactEmail}?${params.toString()}`;
+  const encodedSubject = encodeURIComponent(subject);
+  const encodedBody = encodeURIComponent(body);
+
+  return `mailto:${contactEmail}?subject=${encodedSubject}&body=${encodedBody}`;
 };
 
 export default function ContactPage() {
