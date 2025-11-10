@@ -19,6 +19,7 @@ import {
   Gauge,
   ListOrdered,
   MessageSquare,
+  Users,
 } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
@@ -29,6 +30,7 @@ const items = [
   { href: "/calculator", label: "The D-NAV", icon: Calculator },
   { href: "/log", label: "Log", icon: ListOrdered },
   { href: "/definitions", label: "Definitions", icon: BookOpen },
+  { href: "/use-cases", label: "Use Cases", icon: Users },
   { href: "/reports", label: "Reports", icon: FileText },
   { href: "/contact", label: "Contact", icon: MessageSquare },
 ];
