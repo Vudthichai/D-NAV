@@ -130,7 +130,18 @@ const ExecutiveOnePager = forwardRef<HTMLDivElement, ExecutiveOnePagerProps>(
     const narrativeParagraphs = narrative.split("\n\n");
 
     return (
-      <div ref={ref} className="space-y-6 rounded-3xl border bg-card p-6 shadow-xl">
+      <div
+        ref={ref}
+        className="relative overflow-hidden space-y-6 rounded-3xl border bg-card p-6 shadow-xl"
+      >
+        <div className="pointer-events-none absolute inset-0 flex select-none items-center justify-center opacity-10">
+          <span className="text-6xl font-black tracking-[0.8rem] text-primary/20">
+            DECISION NAVIGATOR
+          </span>
+        </div>
+        <div className="pointer-events-none absolute bottom-6 right-6 select-none text-[10px] font-semibold uppercase tracking-[0.4em] text-primary/70">
+          The Decision NAVigator
+        </div>
         <header className="flex flex-col gap-3">
           <Badge variant="outline" className="w-fit uppercase tracking-wide">
             Executive One-Pager

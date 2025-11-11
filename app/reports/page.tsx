@@ -202,19 +202,23 @@ export default function ReportsPage() {
       const pageWidth = doc.internal.pageSize.getWidth();
       const pageHeight = doc.internal.pageSize.getHeight();
       const margin = 36;
-      const renderWidth = pageWidth - margin * 2;
-      const renderHeight = (canvas.height * renderWidth) / canvas.width;
-
-      let position = margin;
-      doc.addImage(imgData, "PNG", margin, position, renderWidth, renderHeight);
-
-      let heightLeft = renderHeight - (pageHeight - margin * 2);
-      while (heightLeft > 0) {
-        position = heightLeft * -1 + margin;
-        doc.addPage();
-        doc.addImage(imgData, "PNG", margin, position, renderWidth, renderHeight);
-        heightLeft -= pageHeight - margin * 2;
+      const maxWidth = pageWidth - margin * 2;
+      const maxHeight = pageHeight - margin * 2;
+      const rgb = backgroundColor.match(/\d+/g);
+      if (rgb && rgb.length >= 3) {
+        const [r, g, b] = rgb.map((value) => parseInt(value, 10));
+        doc.setFillColor(r, g, b);
+        doc.rect(0, 0, pageWidth, pageHeight, "F");
       }
+      const widthRatio = maxWidth / canvas.width;
+      const heightRatio = maxHeight / canvas.height;
+      const renderRatio = Math.min(widthRatio, heightRatio);
+      const renderWidth = canvas.width * renderRatio;
+      const renderHeight = canvas.height * renderRatio;
+      const offsetX = (pageWidth - renderWidth) / 2;
+      const offsetY = (pageHeight - renderHeight) / 2;
+
+      doc.addImage(imgData, "PNG", offsetX, offsetY, renderWidth, renderHeight, undefined, "FAST");
 
       const filename = `dnav-executive-one-pager-${slugify(timeframeConfig.label)}.pdf`;
       doc.save(filename);
