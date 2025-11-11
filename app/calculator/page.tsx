@@ -867,7 +867,6 @@ export default function TheDNavPage() {
   };
 
   const hasData = stats.totalDecisions > 0;
-  const distributionInsights = useMemo(() => buildDistributionInsights(stats), [stats]);
   const returnDebtSummary = buildReturnDebtSummary(stats);
 
   const narrativeText = hasData
@@ -993,21 +992,6 @@ export default function TheDNavPage() {
             </CardHeader>
             <CardContent>
               <p className="text-sm text-muted-foreground whitespace-pre-line">{narrativeText}</p>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader className="pb-2">
-              <CardTitle>Distribution Insights</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <ul className="space-y-3 text-sm text-muted-foreground">
-                {distributionInsights.map(({ label, message }) => (
-                  <li key={label} className="leading-snug">
-                    <span className="font-medium text-foreground">{label}:</span> {message}
-                  </li>
-                ))}
-              </ul>
             </CardContent>
           </Card>
 
