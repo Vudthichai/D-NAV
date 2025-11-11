@@ -1,106 +1,40 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 
+import ExecutiveOnePager from "@/components/reports/ExecutiveOnePager";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
-import { PDFDocument, PDFFont, StandardFonts, rgb } from "pdf-lib";
-import { BarChart3, FileChartColumn, FileDown, FileText } from "lucide-react";
-import type { LucideIcon } from "lucide-react";
+import { loadLog, type DecisionEntry } from "@/lib/storage";
+import {
+  buildDistributionInsights,
+  buildReturnDebtSummary,
+  computeDashboardStats,
+} from "@/utils/dashboardStats";
+import html2canvas from "html2canvas";
+import jsPDF from "jspdf";
+import { FileDown, FileSpreadsheet, FileText } from "lucide-react";
+import * as XLSX from "xlsx";
 
 const TIMEFRAMES = [
   { value: "7", label: "Last 7 Days" },
   { value: "30", label: "Last 30 Days" },
-  { value: "quarter", label: "Quarter" },
-  { value: "all", label: "All-Time" },
+  { value: "quarter", label: "Quarter to Date" },
+  { value: "all", label: "All Time" },
 ] as const;
 
-type Timeframe = (typeof TIMEFRAMES)[number]["value"];
+type TimeframeValue = (typeof TIMEFRAMES)[number]["value"];
 
-type ReportFormat = {
-  type: "pdf" | "csv";
-  label: string;
+const timeframeDescriptions: Record<TimeframeValue, string> = {
+  "7": "Focus on the last seven days of logged decisions.",
+  "30": "Aggregate view across the most recent thirty days.",
+  quarter: "Quarter-to-date rollup of your decision portfolio.",
+  all: "Complete historical view across every decision recorded.",
 };
 
-type Report = {
-  id: string;
-  title: string;
-  description: string;
-  icon: LucideIcon;
-  highlights: Record<Timeframe, string>;
-  formats: ReportFormat[];
-};
-
-const reports: Report[] = [
-  {
-    id: "narrative",
-    title: "Narrative Summary",
-    description:
-      "Stakeholder-ready storytelling that captures sentiment, context, and emerging decision themes.",
-    icon: FileText,
-    highlights: {
-      "7": "Captures the latest narratives so you can brief teams quickly on emerging decisions.",
-      "30": "Spot evolving themes across the month with highlighted momentum indicators.",
-      quarter: "Quarterly rollups spotlight strategic inflection points and narrative shifts.",
-      all: "Comprehensive historical narrative library with filters for author, topic, and archetype.",
-    },
-    formats: [{ type: "pdf", label: "Download PDF" }],
-  },
-  {
-    id: "stats",
-    title: "Performance Dashboard",
-    description:
-      "Quantitative insights, benchmarks, and trends that illuminate overall portfolio health.",
-    icon: BarChart3,
-    highlights: {
-      "7": "Weekly pulse charts reveal fresh volatility and stability ratings.",
-      "30": "Monthly deltas surface wins, risks, and ROI momentum.",
-      quarter: "Quarterly benchmarks compare team, initiative, and strategic outcomes.",
-      all: "Full history with trend lines, z-scores, and benchmark overlays for every metric.",
-    },
-    formats: [
-      { type: "pdf", label: "Download PDF" },
-      { type: "csv", label: "Export CSV" },
-    ],
-  },
-  {
-    id: "csv",
-    title: "Raw Data Export",
-    description:
-      "Flexible data export for custom analysis. Load into spreadsheets, BI tools, or automate workflows.",
-    icon: FileDown,
-    highlights: {
-      "7": "Grab the freshest entries for quick ad-hoc exploration.",
-      "30": "Review month-to-month shifts with calculated columns included.",
-      quarter: "Bundle quarter-to-date portfolio moves with metadata fields intact.",
-      all: "Download the full historical dataset with schema documentation.",
-    },
-    formats: [{ type: "csv", label: "Download CSV" }],
-  },
-  {
-    id: "summary",
-    title: "Executive One-Pager",
-    description:
-      "A crisp executive snapshot outlining decision posture, pressure index, and recommended next steps.",
-    icon: FileChartColumn,
-    highlights: {
-      "7": "Surface immediate opportunities and blockers from the past week.",
-      "30": "Show momentum, resourcing asks, and confidence trends for the month.",
-      quarter: "Quarterly spotlight on portfolio allocation, returns, and strategic bets.",
-      all: "Full program overview with evergreen guidance and highlight reel.",
-    },
-    formats: [{ type: "pdf", label: "Download PDF" }],
-  },
-];
-
-const timeframeDescriptions: Record<Timeframe, string> = {
-  "7": "Focused on the last seven days of decisions and outcomes.",
-  "30": "Aggregated insights from the previous thirty days.",
-  quarter: "Rollup of the current quarter's activity and learnings.",
-  all: "Complete historical view across your entire decision portfolio.",
-};
+const CADENCE_LABEL = "week";
 
 const slugify = (value: string) =>
   value
@@ -119,200 +53,172 @@ const downloadBlob = (blob: Blob, filename: string) => {
   URL.revokeObjectURL(url);
 };
 
-const createCsvContent = ({
-  report,
-  timeframeLabel,
-  highlight,
-}: {
-  report: Report;
-  timeframeLabel: string;
-  highlight: string;
-}) => {
-  const rows = [
-    ["Report", report.title],
-    ["Timeframe", timeframeLabel],
-    [],
-    ["Key Highlight"],
-    [highlight],
+const mapTimeframeToDays = (value: TimeframeValue): number | null => {
+  if (value === "all") return null;
+  if (value === "quarter") return 90;
+  return Number.parseInt(value, 10);
+};
+
+const buildDecisionRows = (decisions: DecisionEntry[]) =>
+  decisions.map((decision) => ({
+    Date: new Date(decision.ts).toLocaleDateString(),
+    Name: decision.name,
+    Category: decision.category,
+    Impact: decision.impact,
+    Cost: decision.cost,
+    Risk: decision.risk,
+    Urgency: decision.urgency,
+    Confidence: decision.confidence,
+    Return: Number(decision.return.toFixed(2)),
+    Stability: Number(decision.stability.toFixed(2)),
+    Pressure: Number(decision.pressure.toFixed(2)),
+    Merit: Number(decision.merit.toFixed(2)),
+    Energy: Number(decision.energy.toFixed(2)),
+    "D-NAV": Number(decision.dnav.toFixed(2)),
+  }));
+
+const createCsvContent = (decisions: DecisionEntry[]) => {
+  const headers = [
+    "Date",
+    "Name",
+    "Category",
+    "Impact",
+    "Cost",
+    "Risk",
+    "Urgency",
+    "Confidence",
+    "Return",
+    "Stability",
+    "Pressure",
+    "Merit",
+    "Energy",
+    "D-NAV",
   ];
 
-  return rows
-    .map((row) =>
-      row
-        .map((cell) => {
-          const value = cell ?? "";
-          const escaped = value.replace(/"/g, '""');
-          return `"${escaped}"`;
-        })
-        .join(","),
-    )
-    .join("\n");
-};
-
-const wrapText = (text: string, font: PDFFont, size: number, maxWidth: number) => {
-  const words = text.split(/\s+/);
-  const lines: string[] = [];
-  let currentLine = "";
-
-  words.forEach((word) => {
-    const candidate = currentLine ? `${currentLine} ${word}` : word;
-    const candidateWidth = font.widthOfTextAtSize(candidate, size);
-
-    if (candidateWidth > maxWidth && currentLine) {
-      lines.push(currentLine);
-      currentLine = word;
-    } else {
-      currentLine = candidate;
-    }
-  });
-
-  if (currentLine) {
-    lines.push(currentLine);
-  }
-
-  return lines;
-};
-
-const createPdfContent = async ({
-  report,
-  timeframeLabel,
-  highlight,
-}: {
-  report: Report;
-  timeframeLabel: string;
-  highlight: string;
-}) => {
-  const pdfDoc = await PDFDocument.create();
-  const page = pdfDoc.addPage([612, 792]);
-  const { height, width } = page.getSize();
-
-  const [regularFont, boldFont] = await Promise.all([
-    pdfDoc.embedFont(StandardFonts.Helvetica),
-    pdfDoc.embedFont(StandardFonts.HelveticaBold),
+  const rows = decisions.map((decision) => [
+    new Date(decision.ts).toLocaleDateString(),
+    decision.name,
+    decision.category,
+    decision.impact.toString(),
+    decision.cost.toString(),
+    decision.risk.toString(),
+    decision.urgency.toString(),
+    decision.confidence.toString(),
+    decision.return.toFixed(2),
+    decision.stability.toFixed(2),
+    decision.pressure.toFixed(2),
+    decision.merit.toFixed(2),
+    decision.energy.toFixed(2),
+    decision.dnav.toFixed(2),
   ]);
 
-  page.drawText("D-NAV Report", {
-    x: 48,
-    y: height - 64,
-    size: 12,
-    font: regularFont,
-    color: rgb(0.4, 0.4, 0.4),
-  });
+  const serialize = (value: string) => `"${value.replace(/"/g, '""')}"`;
+  return [headers.map(serialize).join(","), ...rows.map((row) => row.map(serialize).join(","))].join("\n");
+};
 
-  page.drawText(report.title, {
-    x: 48,
-    y: height - 92,
-    size: 26,
-    font: boldFont,
-    color: rgb(0.09, 0.09, 0.13),
-  });
+const filterDecisionsByTimeframe = (decisions: DecisionEntry[], timeframeDays: number | null) => {
+  if (!timeframeDays) return decisions;
+  if (decisions.length === 0) return [];
 
-  page.drawText(`Timeframe: ${timeframeLabel}`, {
-    x: 48,
-    y: height - 124,
-    size: 14,
-    font: regularFont,
-    color: rgb(0.22, 0.22, 0.24),
-  });
-
-  const bodyStartY = height - 170;
-  const bodySize = 12;
-  const maxWidth = width - 96;
-  const highlightLines = wrapText(highlight, regularFont, bodySize, maxWidth);
-  let cursorY = bodyStartY;
-
-  page.drawText("Highlight", {
-    x: 48,
-    y: cursorY,
-    size: 14,
-    font: boldFont,
-    color: rgb(0.09, 0.34, 0.61),
-  });
-
-  cursorY -= 22;
-
-  highlightLines.forEach((line) => {
-    page.drawText(line, {
-      x: 48,
-      y: cursorY,
-      size: bodySize,
-      font: regularFont,
-      color: rgb(0.18, 0.18, 0.2),
-    });
-    cursorY -= 18;
-  });
-
-  cursorY -= 10;
-
-  const checklist = [
-    "Stakeholder-ready formatting",
-    "Automated download from D-NAV",
-    `Context tailored to ${timeframeLabel.toLowerCase()}`,
-  ];
-
-  page.drawText("Quick Facts", {
-    x: 48,
-    y: cursorY,
-    size: 14,
-    font: boldFont,
-    color: rgb(0.09, 0.34, 0.61),
-  });
-
-  cursorY -= 24;
-
-  checklist.forEach((item) => {
-    page.drawText(`• ${item}`, {
-      x: 52,
-      y: cursorY,
-      size: bodySize,
-      font: regularFont,
-      color: rgb(0.18, 0.18, 0.2),
-    });
-    cursorY -= 18;
-  });
-
-  return pdfDoc.save();
+  const now = decisions[0]?.ts ?? Date.now();
+  const msInDay = 24 * 60 * 60 * 1000;
+  return decisions.filter((decision) => now - decision.ts <= timeframeDays * msInDay);
 };
 
 export default function ReportsPage() {
-  const [selectedTimeframe, setSelectedTimeframe] = useState<Timeframe>("7");
+  const [selectedTimeframe, setSelectedTimeframe] = useState<TimeframeValue>("7");
+  const [decisions, setDecisions] = useState<DecisionEntry[]>([]);
   const [downloading, setDownloading] = useState<string | null>(null);
+  const [generatedAt, setGeneratedAt] = useState(() => new Date().toLocaleString());
+  const onePagerRef = useRef<HTMLDivElement>(null);
 
-  const timeframeLabel = useMemo(
-    () => TIMEFRAMES.find(({ value }) => value === selectedTimeframe)?.label ?? "Last 7 Days",
+  useEffect(() => {
+    setDecisions(loadLog());
+  }, []);
+
+  useEffect(() => {
+    const handleStorage = () => setDecisions(loadLog());
+    window.addEventListener("storage", handleStorage);
+    return () => window.removeEventListener("storage", handleStorage);
+  }, []);
+
+  const timeframeConfig = useMemo(
+    () => TIMEFRAMES.find((timeframe) => timeframe.value === selectedTimeframe) ?? TIMEFRAMES[0],
     [selectedTimeframe],
   );
+  const timeframeDays = useMemo(() => mapTimeframeToDays(selectedTimeframe), [selectedTimeframe]);
+  const filteredDecisions = useMemo(
+    () => filterDecisionsByTimeframe(decisions, timeframeDays),
+    [decisions, timeframeDays],
+  );
 
-  const handleDownload = async (report: Report, format: ReportFormat["type"]) => {
-    const key = `${report.id}-${format}`;
-    setDownloading(key);
+  const stats = useMemo(
+    () => computeDashboardStats(decisions, { timeframeDays, cadenceUnit: CADENCE_LABEL }),
+    [decisions, timeframeDays],
+  );
+  const distributionInsights = useMemo(() => buildDistributionInsights(stats), [stats]);
+  const returnDebtSummary = useMemo(() => buildReturnDebtSummary(stats), [stats]);
+  const hasData = stats.totalDecisions > 0;
+  useEffect(() => {
+    setGeneratedAt(new Date().toLocaleString());
+  }, [selectedTimeframe, stats.totalDecisions]);
+
+  const dataHighlight = hasData
+    ? `Exports ${stats.totalDecisions} decision${stats.totalDecisions === 1 ? "" : "s"} with full variables, returns, stability, pressure, and D-NAV.`
+    : "No decisions logged in this window yet.";
+
+  const handleExportCsv = () => {
+    if (filteredDecisions.length === 0) return;
+    const csvContent = createCsvContent(filteredDecisions);
+    const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8" });
+    const filename = `dnav-decision-log-${slugify(timeframeConfig.label)}.csv`;
+    downloadBlob(blob, filename);
+  };
+
+  const handleExportExcel = () => {
+    if (filteredDecisions.length === 0) return;
+    const rows = buildDecisionRows(filteredDecisions);
+    const worksheet = XLSX.utils.json_to_sheet(rows);
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, "Decisions");
+    const arrayBuffer = XLSX.write(workbook, { bookType: "xlsx", type: "array" });
+    const blob = new Blob([arrayBuffer], {
+      type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+    });
+    const filename = `dnav-decision-log-${slugify(timeframeConfig.label)}.xlsx`;
+    downloadBlob(blob, filename);
+  };
+
+  const handleDownloadOnePager = async () => {
+    if (!onePagerRef.current || !hasData) return;
+    setDownloading("summary-pdf");
 
     try {
-      const highlight = report.highlights[selectedTimeframe];
+      const element = onePagerRef.current;
+      const scale = Math.min(3, window.devicePixelRatio || 2);
+      const backgroundColor = window.getComputedStyle(document.body).backgroundColor || "#ffffff";
+      const canvas = await html2canvas(element, { scale, backgroundColor });
+      const imgData = canvas.toDataURL("image/png");
+      const doc = new jsPDF({ unit: "pt", format: "letter" });
+      const pageWidth = doc.internal.pageSize.getWidth();
+      const pageHeight = doc.internal.pageSize.getHeight();
+      const margin = 36;
+      const renderWidth = pageWidth - margin * 2;
+      const renderHeight = (canvas.height * renderWidth) / canvas.width;
 
-      if (format === "csv") {
-        const csvContent = createCsvContent({
-          report,
-          timeframeLabel,
-          highlight,
-        });
-        const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8" });
-        const filename = `dnav-${slugify(report.title)}-${selectedTimeframe}.csv`;
-        downloadBlob(blob, filename);
-      } else {
-        const pdfBytes = await createPdfContent({
-          report,
-          timeframeLabel,
-          highlight,
-        });
-        const ab = pdfBytes.buffer.slice(
-          pdfBytes.byteOffset,
-          pdfBytes.byteOffset + pdfBytes.byteLength,
-        ) as ArrayBuffer;
-        const blob = new Blob([ab], { type: "application/pdf" });
-        const filename = `dnav-${slugify(report.title)}-${selectedTimeframe}.pdf`;
-        downloadBlob(blob, filename);
+      let position = margin;
+      doc.addImage(imgData, "PNG", margin, position, renderWidth, renderHeight);
+
+      let heightLeft = renderHeight - (pageHeight - margin * 2);
+      while (heightLeft > 0) {
+        position = heightLeft * -1 + margin;
+        doc.addPage();
+        doc.addImage(imgData, "PNG", margin, position, renderWidth, renderHeight);
+        heightLeft -= pageHeight - margin * 2;
       }
+
+      const filename = `dnav-executive-one-pager-${slugify(timeframeConfig.label)}.pdf`;
+      doc.save(filename);
     } finally {
       setDownloading(null);
     }
@@ -325,10 +231,9 @@ export default function ReportsPage() {
           <Badge variant="secondary" className="w-fit uppercase tracking-wide">
             Reports Hub
           </Badge>
-          <h1 className="text-3xl font-semibold">Download the report you need in a single click</h1>
+          <h1 className="text-3xl font-semibold">Export ready-to-share intelligence</h1>
           <p className="text-sm text-muted-foreground">
-            Pick a timeframe, then grab the narrative, performance, or raw data export that best supports your next
-            decision review.
+            Download structured decision data or generate the Executive One-Pager without leaving D-NAV.
           </p>
         </div>
       </section>
@@ -354,42 +259,79 @@ export default function ReportsPage() {
         </div>
       </section>
 
-      <section className="grid gap-4 lg:grid-cols-2">
-        {reports.map((report) => {
-          const Icon = report.icon;
-          const isDownloading = (format: ReportFormat["type"]) => downloading === `${report.id}-${format}`;
+      <section className="grid gap-4">
+        <Card className="border-muted/60 bg-card/90 shadow-sm">
+          <CardHeader className="space-y-2">
+            <div className="flex items-center gap-3">
+              <div className="flex h-10 w-10 items-center justify-center rounded-md bg-primary/10 text-primary">
+                <FileDown className="h-5 w-5" />
+              </div>
+              <div>
+                <CardTitle className="text-xl">Raw Data Export</CardTitle>
+                <p className="text-sm text-muted-foreground">
+                  Download the full decision log with variables, calculated metrics, and D-NAV.
+                </p>
+              </div>
+            </div>
+          </CardHeader>
+          <CardContent className="flex flex-col gap-4">
+            <div className="rounded-lg border border-dashed border-muted/70 bg-background/60 p-4 text-sm text-muted-foreground">
+              {dataHighlight}
+            </div>
+            <div className="flex flex-wrap gap-2">
+              <Button
+                onClick={handleExportCsv}
+                disabled={filteredDecisions.length === 0}
+              >
+                <FileDown className="mr-2 h-4 w-4" />
+                Export CSV
+              </Button>
+              <Button
+                variant="outline"
+                onClick={handleExportExcel}
+                disabled={filteredDecisions.length === 0}
+              >
+                <FileSpreadsheet className="mr-2 h-4 w-4" />
+                Export Excel
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
 
-          return (
-            <Card key={report.id} className="border-muted/60 bg-card/90 shadow-sm">
-              <CardHeader className="space-y-2">
-                <div className="flex items-center gap-3">
-                  <div className="flex h-10 w-10 items-center justify-center rounded-md bg-primary/10 text-primary">
-                    <Icon className="h-5 w-5" />
-                  </div>
-                  <CardTitle className="text-xl">{report.title}</CardTitle>
-                </div>
-                <p className="text-sm text-muted-foreground">{report.description}</p>
-              </CardHeader>
-              <CardContent className="flex flex-col gap-4">
-                <div className="rounded-lg border border-dashed border-muted/70 bg-background/60 p-4 text-sm text-muted-foreground">
-                  {report.highlights[selectedTimeframe]}
-                </div>
-                <div className="flex flex-wrap gap-2">
-                  {report.formats.map(({ type, label }) => (
-                    <Button
-                      key={type}
-                      variant={type === "csv" ? "outline" : "default"}
-                      disabled={isDownloading(type)}
-                      onClick={() => handleDownload(report, type)}
-                    >
-                      {isDownloading(type) ? "Preparing..." : label}
-                    </Button>
-                  ))}
-                </div>
-              </CardContent>
-            </Card>
-          );
-        })}
+        <Card className="border-muted/60 bg-card/90 shadow-sm">
+          <CardHeader className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+            <div className="flex items-start gap-3">
+              <div className="flex h-10 w-10 items-center justify-center rounded-md bg-primary/10 text-primary">
+                <FileText className="h-5 w-5" />
+              </div>
+              <div>
+                <CardTitle className="text-xl">Executive One-Pager</CardTitle>
+                <p className="text-sm text-muted-foreground">
+                  A polished one-page brief mirroring the in-app analytics beneath The D-NAV dashboard.
+                </p>
+              </div>
+            </div>
+            <Button
+              variant="outline"
+              onClick={handleDownloadOnePager}
+              disabled={!hasData || downloading === "summary-pdf"}
+            >
+              {downloading === "summary-pdf" ? "Preparing..." : "Download PDF"}
+            </Button>
+          </CardHeader>
+          <CardContent className="p-0">
+            <ExecutiveOnePager
+              ref={onePagerRef}
+              stats={stats}
+              timeframeLabel={timeframeConfig.label}
+              cadenceLabel={CADENCE_LABEL}
+              generatedAt={generatedAt}
+              distributionInsights={distributionInsights}
+              returnDebtSummary={returnDebtSummary}
+              hasData={hasData}
+            />
+          </CardContent>
+        </Card>
       </section>
     </div>
   );
