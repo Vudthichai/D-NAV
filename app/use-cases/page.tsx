@@ -33,7 +33,7 @@ type UseCase = {
 const useCases: UseCase[] = [
   {
     id: "founder",
-    title: "Founder Edition",
+    title: "Founders",
     label: "Founders & Solopreneurs",
     description:
       "Turn ambiguous founder intuition into investor-ready narratives and portfolio clarity.",
@@ -42,7 +42,7 @@ const useCases: UseCase[] = [
       "Stress test investor updates with quantified story arcs",
       "Compare venture bets with repeatable evaluation criteria",
     ],
-    cta: "Explore Founder Edition",
+    cta: "Explore Founders",
     icon: Rocket,
     details: {
       overview:
@@ -73,7 +73,7 @@ const useCases: UseCase[] = [
   },
   {
     id: "corporate",
-    title: "Corporate Edition",
+    title: "Corporate",
     label: "Corporate Leadership",
     description:
       "Align leadership teams on hiring, resource planning, and strategic initiatives without endless slide decks.",
@@ -82,7 +82,7 @@ const useCases: UseCase[] = [
       "Run scenario plans that integrate finance and talent inputs",
       "Document decision trails for org-wide accountability",
     ],
-    cta: "Explore Corporate Edition",
+    cta: "Explore Corporate",
     icon: Building2,
     details: {
       overview:
@@ -113,7 +113,7 @@ const useCases: UseCase[] = [
   },
   {
     id: "trading",
-    title: "Trading Edition",
+    title: "Investing",
     label: "Investing Analysis",
     description:
       "Quantify conviction in complex trades by incorporating qualitative signals into disciplined execution.",
@@ -122,7 +122,7 @@ const useCases: UseCase[] = [
       "Expose hidden pressure points before capital is deployed",
       "Review post-trade outcomes with structured narratives",
     ],
-    cta: "Explore Trading Edition",
+    cta: "Explore Investing",
     icon: LineChart,
     details: {
       overview:
