@@ -158,6 +158,61 @@ export const buildReturnDebtSummary = (current: DashboardStats): string => {
   )} D-NAV. Stack quality wins to offset the streak.`;
 };
 
+export interface PortfolioNarrativeOptions {
+  timeframeLabel: string;
+  cadenceLabel: string;
+}
+
+export const buildPortfolioNarrative = (
+  current: DashboardStats,
+  { timeframeLabel, cadenceLabel }: PortfolioNarrativeOptions,
+): string => {
+  const cadencePhrase =
+    current.cadence > 0
+      ? `${formatValue(current.cadence)} decisions per ${cadenceLabel}`
+      : "no meaningful cadence";
+
+  const performanceStatement =
+    current.last5vsPrior5 > 0
+      ? `Performance is up by ${formatValue(current.last5vsPrior5)} D-NAV versus the prior window.`
+      : current.last5vsPrior5 < 0
+      ? `Performance is down ${formatValue(Math.abs(current.last5vsPrior5))} D-NAV versus the prior window.`
+      : "Performance is flat versus the prior window.";
+
+  const hygieneLines: string[] = [];
+
+  if (current.lossStreak.current > 0) {
+    hygieneLines.push(
+      `Currently on a ${current.lossStreak.current} loss streak (longest ${current.lossStreak.longest}).`,
+    );
+  } else {
+    hygieneLines.push("No active loss streaks detected.");
+  }
+
+  hygieneLines.push(buildReturnDebtSummary(current));
+
+  const distributionInsights = buildDistributionInsights(current)
+    .map(({ label, message }) => `${label}: ${message}`)
+    .join("\n");
+
+  const normalizedTimeframe = timeframeLabel.trim().length > 0 ? timeframeLabel.trim().toLowerCase() : "the selected window";
+  const archetypeDescription = (() => {
+    const description = current.windowArchetypeDescription.trim();
+    if (!description) return "No archetype description available.";
+    const endsWithPeriod = /[.!?]$/.test(description);
+    return `${description}${endsWithPeriod ? "" : "."}`;
+  })();
+
+  return [
+    `Over ${normalizedTimeframe}, you logged ${current.totalDecisions} decisions with an average D-NAV of ${formatValue(
+      current.avgDnav,
+    )}. Cadence is ${cadencePhrase}. ${performanceStatement}`,
+    `Archetype: ${current.windowArchetype} — ${archetypeDescription}`,
+    `Distribution signals:\n${distributionInsights}`,
+    `Return hygiene: ${hygieneLines.join(" ")}`,
+  ].join("\n\n");
+};
+
 export const computeDashboardStats = (
   decisions: DecisionEntry[],
   { timeframeDays = null, cadenceUnit = "week" }: ComputeDashboardStatsOptions = {},

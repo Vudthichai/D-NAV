@@ -1,6 +1,6 @@
 "use client";
 
-import { forwardRef } from "react";
+import { Fragment, forwardRef } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
@@ -17,7 +17,12 @@ import {
   Zap,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
-import { DashboardStats, DistributionInsight, formatValue } from "@/utils/dashboardStats";
+import {
+  DashboardStats,
+  DistributionInsight,
+  buildPortfolioNarrative,
+  formatValue,
+} from "@/utils/dashboardStats";
 
 interface ExecutiveOnePagerProps {
   stats: DashboardStats;
@@ -119,6 +124,11 @@ const ExecutiveOnePager = forwardRef<HTMLDivElement, ExecutiveOnePagerProps>(
     returnDebtSummary,
     hasData,
   }, ref) => {
+    const narrative = hasData
+      ? buildPortfolioNarrative(stats, { timeframeLabel, cadenceLabel })
+      : "Log decisions in D-NAV to unlock the executive snapshot.";
+    const narrativeParagraphs = narrative.split("\n\n");
+
     return (
       <div ref={ref} className="space-y-6 rounded-3xl border bg-card p-6 shadow-xl">
         <header className="flex flex-col gap-3">
@@ -137,11 +147,35 @@ const ExecutiveOnePager = forwardRef<HTMLDivElement, ExecutiveOnePagerProps>(
         {!hasData ? (
           <Card className="border bg-background/80">
             <CardContent className="p-6 text-center text-sm text-muted-foreground">
-              Log decisions in D-NAV to unlock the executive snapshot.
+              {narrative}
             </CardContent>
           </Card>
         ) : (
           <div className="space-y-6">
+            <section className="rounded-xl border bg-background/80 p-5 shadow-sm">
+              <div className="flex items-center justify-between gap-3">
+                <h3 className="text-base font-semibold text-foreground">Portfolio Narrative</h3>
+                <Badge variant="secondary" className="bg-primary/10 text-primary">
+                  Snapshot
+                </Badge>
+              </div>
+              <div className="mt-4 space-y-3 text-sm leading-relaxed text-muted-foreground">
+                {narrativeParagraphs.map((paragraph, index) => {
+                  const lines = paragraph.split("\n");
+                  return (
+                    <p key={index} className="whitespace-pre-wrap">
+                      {lines.map((line, lineIndex) => (
+                        <Fragment key={lineIndex}>
+                          {line}
+                          {lineIndex < lines.length - 1 && <br />}
+                        </Fragment>
+                      ))}
+                    </p>
+                  );
+                })}
+              </div>
+            </section>
+
             <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
               <MetricCard
                 label="Average D-NAV"
@@ -300,7 +334,7 @@ const ExecutiveOnePager = forwardRef<HTMLDivElement, ExecutiveOnePagerProps>(
             </section>
 
             <section className="rounded-xl border bg-background/80 p-4 shadow-sm">
-              <h3 className="text-sm font-semibold text-foreground">Signal Highlights</h3>
+              <h3 className="text-sm font-semibold text-foreground">Feedback Loops</h3>
               <div className="mt-3 grid gap-3 text-sm text-muted-foreground md:grid-cols-3">
                 {distributionInsights.map((insight) => (
                   <div key={insight.label} className="flex gap-2">
