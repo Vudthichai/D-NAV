@@ -187,16 +187,19 @@ export const computeDashboardStats = (
     };
   }
 
-  const now = decisions[0]?.ts ?? Date.now();
   const msInDay = 24 * 60 * 60 * 1000;
+  const referenceTimestamp = decisions[0]?.ts ?? Date.now();
 
   const filteredDecisions = timeframeDays
-    ? decisions.filter((decision) => now - decision.ts <= timeframeDays * msInDay)
+    ? decisions.filter((decision) => referenceTimestamp - decision.ts <= timeframeDays * msInDay)
     : decisions;
 
   if (filteredDecisions.length === 0) {
     return computeDashboardStats([], { cadenceUnit });
   }
+
+  const now = filteredDecisions[0]?.ts ?? referenceTimestamp;
+  const earliestTimestamp = filteredDecisions[filteredDecisions.length - 1]?.ts ?? now;
 
   const dnavScores = filteredDecisions.map((d) => d.dnav);
   const returnScores = filteredDecisions.map((d) => d.return);
@@ -209,11 +212,12 @@ export const computeDashboardStats = (
   const avgDnav = avg(dnavScores);
   const consistency = stdev(dnavScores);
 
-  const recentDecisions = decisions.slice(0, 30);
+  const recentDecisions = filteredDecisions.slice(0, 30);
   const recentDnavs = recentDecisions.map((d) => d.dnav);
   const trend = recentDnavs.length >= 7 ? ema(recentDnavs, 7) - ema(recentDnavs, 30) : 0;
 
-  const timeSpanDays = timeframeDays ? timeframeDays : (now - decisions[decisions.length - 1].ts) / msInDay;
+  const observedSpanDays = Math.max((now - earliestTimestamp) / msInDay, 1);
+  const timeSpanDays = timeframeDays ?? observedSpanDays;
   const cadenceBase = cadenceUnit === "day" ? 1 : cadenceUnit === "week" ? 7 : 30;
   const cadence = timeSpanDays > 0 ? (filteredDecisions.length / timeSpanDays) * cadenceBase : 0;
 
@@ -252,8 +256,8 @@ export const computeDashboardStats = (
   const totalReturn = returnScores.reduce((a, b) => a + b, 0);
   const returnOnEffort = totalEnergy > 0 ? totalReturn / totalEnergy : 0;
 
-  const last5 = decisions.slice(0, 5).map((d) => d.dnav);
-  const prior5 = decisions.slice(5, 10).map((d) => d.dnav);
+  const last5 = filteredDecisions.slice(0, 5).map((d) => d.dnav);
+  const prior5 = filteredDecisions.slice(5, 10).map((d) => d.dnav);
   const last5vsPrior5 =
     last5.length > 0 && prior5.length > 0
       ? last5.reduce((a, b) => a + b, 0) / last5.length - prior5.reduce((a, b) => a + b, 0) / prior5.length
@@ -264,7 +268,7 @@ export const computeDashboardStats = (
   let tempStreak = 0;
   let returnDebt = 0;
 
-  for (const decision of decisions) {
+  for (const decision of filteredDecisions) {
     if (decision.return < 0) {
       tempStreak += 1;
       returnDebt += Math.abs(decision.return);

@@ -13,15 +13,13 @@ import {
   buildReturnDebtSummary,
   computeDashboardStats,
 } from "@/utils/dashboardStats";
-import html2canvas from "html2canvas";
-import jsPDF from "jspdf";
 import { FileDown, FileSpreadsheet, FileText } from "lucide-react";
 import * as XLSX from "xlsx";
 
 const TIMEFRAMES = [
   { value: "7", label: "Last 7 Days" },
   { value: "30", label: "Last 30 Days" },
-  { value: "quarter", label: "Quarter to Date" },
+  { value: "90", label: "Last 90 Days" },
   { value: "all", label: "All Time" },
 ] as const;
 
@@ -30,7 +28,7 @@ type TimeframeValue = (typeof TIMEFRAMES)[number]["value"];
 const timeframeDescriptions: Record<TimeframeValue, string> = {
   "7": "Focus on the last seven days of logged decisions.",
   "30": "Aggregate view across the most recent thirty days.",
-  quarter: "Quarter-to-date rollup of your decision portfolio.",
+  "90": "Quarter-scale perspective across the most recent ninety days.",
   all: "Complete historical view across every decision recorded.",
 };
 
@@ -55,7 +53,6 @@ const downloadBlob = (blob: Blob, filename: string) => {
 
 const mapTimeframeToDays = (value: TimeframeValue): number | null => {
   if (value === "all") return null;
-  if (value === "quarter") return 90;
   return Number.parseInt(value, 10);
 };
 
@@ -194,6 +191,8 @@ export default function ReportsPage() {
     setDownloading("summary-pdf");
 
     try {
+      const html2canvas = (await import("html2canvas")).default;
+      const { jsPDF } = await import("jspdf");
       const element = onePagerRef.current;
       const scale = Math.min(3, window.devicePixelRatio || 2);
       const backgroundColor = window.getComputedStyle(document.body).backgroundColor || "#ffffff";
@@ -219,6 +218,8 @@ export default function ReportsPage() {
 
       const filename = `dnav-executive-one-pager-${slugify(timeframeConfig.label)}.pdf`;
       doc.save(filename);
+    } catch (error) {
+      console.error("Failed to download one-pager", error);
     } finally {
       setDownloading(null);
     }
