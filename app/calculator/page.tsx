@@ -368,6 +368,91 @@ const DashboardStatCard = ({
   );
 };
 
+interface DistributionSegment {
+  label: string;
+  value: number;
+  color: string;
+  metricKey: string;
+}
+
+interface DistributionCardProps {
+  title: string;
+  segments: DistributionSegment[];
+}
+
+const DistributionCard = ({ title, segments }: DistributionCardProps) => {
+  const safeSegments = segments.map((segment) => ({
+    ...segment,
+    value: Number.isFinite(segment.value) ? Math.max(segment.value, 0) : 0,
+  }));
+  const hasData = safeSegments.some((segment) => segment.value > 0);
+
+  return (
+    <Card>
+      <CardContent className="p-6 space-y-4">
+        <div className="flex items-center justify-between">
+          <InfoTooltip term={title}>
+            <p className="text-sm font-medium text-muted-foreground cursor-help">{title}</p>
+          </InfoTooltip>
+          {hasData && (
+            <p className="text-xs text-muted-foreground">
+              {safeSegments
+                .map((segment) => `${segment.label} ${formatValue(segment.value)}%`)
+                .join(" / ")}
+            </p>
+          )}
+        </div>
+
+        {hasData ? (
+          <>
+            <div className="h-3 rounded-full bg-muted overflow-hidden flex">
+              {safeSegments.map((segment) => (
+                <InfoTooltip
+                  key={`${title}-${segment.metricKey}-bar`}
+                  term={`${title}|${segment.metricKey}`}
+                  side="bottom"
+                >
+                  <div
+                    className="h-full cursor-help"
+                    style={{
+                      flexGrow: segment.value,
+                      flexBasis: 0,
+                      backgroundColor: segment.color,
+                    }}
+                  />
+                </InfoTooltip>
+              ))}
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 text-xs text-muted-foreground">
+              {safeSegments.map((segment) => (
+                <InfoTooltip
+                  key={`${title}-${segment.metricKey}-legend`}
+                  term={`${title}|${segment.metricKey}`}
+                  side="bottom"
+                >
+                  <div className="flex items-center gap-2 cursor-help">
+                    <span
+                      className="h-2 w-2 rounded-full"
+                      style={{ backgroundColor: segment.color }}
+                    />
+                    <span className="text-foreground">{segment.label}</span>
+                    <span className="ml-auto font-medium text-foreground">
+                      {formatValue(segment.value)}%
+                    </span>
+                  </div>
+                </InfoTooltip>
+              ))}
+            </div>
+          </>
+        ) : (
+          <p className="text-sm text-muted-foreground">No logged decisions to display yet.</p>
+        )}
+      </CardContent>
+    </Card>
+  );
+};
+
 const getStatsReportSections = (current: DashboardStats) => ({
   generated: new Date().toLocaleString(),
   windowLabel: "",
@@ -654,7 +739,11 @@ export default function TheDNavPage() {
       `Over ${windowLabel}, you logged ${current.totalDecisions} decisions with an average D-NAV of ${formatValue(
         current.avgDnav,
       )}. Cadence is ${cadencePhrase}. ${performanceStatement}`,
-      `Archetype: ${current.windowArchetype} — ${current.windowArchetypeDescription}.`,
+      (() => {
+        const description = current.windowArchetypeDescription.trim();
+        const endsWithPeriod = description.endsWith('.');
+        return `Archetype: ${current.windowArchetype} — ${description}${endsWithPeriod ? '' : '.'}`;
+      })(),
       `Distribution signals:\n${distributionInsights}`,
       `Return hygiene: ${hygieneLines.join(" ")}`,
     ].join("\n\n");
@@ -932,6 +1021,78 @@ export default function TheDNavPage() {
               </ul>
             </CardContent>
           </Card>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            <DistributionCard
+              title="Return Distribution"
+              segments={[
+                {
+                  label: "Positive",
+                  value: stats.returnDistribution.positive,
+                  color: "#22c55e",
+                  metricKey: "positive",
+                },
+                {
+                  label: "Neutral",
+                  value: stats.returnDistribution.neutral,
+                  color: "#64748b",
+                  metricKey: "neutral",
+                },
+                {
+                  label: "Negative",
+                  value: stats.returnDistribution.negative,
+                  color: "#ef4444",
+                  metricKey: "negative",
+                },
+              ]}
+            />
+            <DistributionCard
+              title="Stability Distribution"
+              segments={[
+                {
+                  label: "Stable",
+                  value: stats.stabilityDistribution.stable,
+                  color: "#3b82f6",
+                  metricKey: "stable",
+                },
+                {
+                  label: "Uncertain",
+                  value: stats.stabilityDistribution.uncertain,
+                  color: "#f59e0b",
+                  metricKey: "uncertain",
+                },
+                {
+                  label: "Fragile",
+                  value: stats.stabilityDistribution.fragile,
+                  color: "#f43f5e",
+                  metricKey: "fragile",
+                },
+              ]}
+            />
+            <DistributionCard
+              title="Pressure Distribution"
+              segments={[
+                {
+                  label: "Pressured",
+                  value: stats.pressureDistribution.pressured,
+                  color: "#ef4444",
+                  metricKey: "pressured",
+                },
+                {
+                  label: "Balanced",
+                  value: stats.pressureDistribution.balanced,
+                  color: "#64748b",
+                  metricKey: "balanced",
+                },
+                {
+                  label: "Calm",
+                  value: stats.pressureDistribution.calm,
+                  color: "#14b8a6",
+                  metricKey: "calm",
+                },
+              ]}
+            />
+          </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
             <DashboardStatCard
