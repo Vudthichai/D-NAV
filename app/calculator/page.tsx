@@ -15,7 +15,7 @@ import {
 } from "@/components/ui/select";
 import { Separator } from "@/components/ui/separator";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
-import { DecisionEntry, DecisionMetrics, DecisionVariables, corr, ema, getArchetype, stdev } from "@/lib/calculations";
+import { DecisionEntry, DecisionMetrics, DecisionVariables, ema, getArchetype, stdev } from "@/lib/calculations";
 import { addDecision, loadLog } from "@/lib/storage";
 import {
   Activity,
@@ -48,7 +48,6 @@ interface DashboardStats {
   trend: number;
   consistency: number;
   cadence: number;
-  calibration: number;
   last5vsPrior5: number;
   windowArchetype: string;
   windowArchetypeDescription: string;
@@ -82,10 +81,6 @@ const metricExplainers: Record<string, { description: string; example: string }>
   "Consistency": {
     description: "Standard deviation of D-NAV scores; lower values indicate steadier outcomes.",
     example: "A consistency score of 8 means results are tightly clustered.",
-  },
-  "Calibration": {
-    description: "Correlation between confidence inputs and realized returns.",
-    example: "A calibration of 0.4 signals confidence generally tracks results.",
   },
   "Recent Trend": {
     description: "Difference between the average of the last five decisions and the prior five.",
@@ -161,36 +156,6 @@ const metricExplainers: Record<string, { description: string; example: string }>
   },
 };
 
-const RETURN_SEGMENTS: Array<{
-  key: keyof DashboardStats["returnDistribution"];
-  label: string;
-  rgb: [number, number, number];
-}> = [
-  { key: "positive", label: "Positive", rgb: [21, 128, 61] },
-  { key: "neutral", label: "Neutral", rgb: [245, 158, 11] },
-  { key: "negative", label: "Negative", rgb: [239, 68, 68] },
-];
-
-const STABILITY_SEGMENTS: Array<{
-  key: keyof DashboardStats["stabilityDistribution"];
-  label: string;
-  rgb: [number, number, number];
-}> = [
-  { key: "stable", label: "Stable", rgb: [21, 128, 61] },
-  { key: "uncertain", label: "Uncertain", rgb: [245, 158, 11] },
-  { key: "fragile", label: "Fragile", rgb: [239, 68, 68] },
-];
-
-const PRESSURE_SEGMENTS: Array<{
-  key: keyof DashboardStats["pressureDistribution"];
-  label: string;
-  rgb: [number, number, number];
-}> = [
-  { key: "pressured", label: "Pressured", rgb: [239, 68, 68] },
-  { key: "balanced", label: "Balanced", rgb: [245, 158, 11] },
-  { key: "calm", label: "Calm", rgb: [21, 128, 61] },
-];
-
 const InfoTooltip = ({
   term,
   children,
@@ -214,6 +179,122 @@ const InfoTooltip = ({
       </TooltipContent>
     </Tooltip>
   );
+};
+
+interface DistributionInsight {
+  label: string;
+  message: string;
+}
+
+const formatValue = (value: number, digits = 1) =>
+  Number.isFinite(value) ? Number(value).toFixed(digits) : "0";
+
+const describeReturnDistribution = (
+  distribution: DashboardStats["returnDistribution"],
+): DistributionInsight => {
+  const total = distribution.positive + distribution.neutral + distribution.negative;
+  if (total <= 0) {
+    return { label: "Return", message: "No meaningful read — log a few more decisions." };
+  }
+
+  if (distribution.positive >= 50) {
+    return { label: "Return", message: "Mostly positive — decisions are paying off." };
+  }
+
+  if (distribution.negative >= 50) {
+    return { label: "Return", message: "Skewed negative — tighten risk filters before committing." };
+  }
+
+  if (distribution.neutral >= 50) {
+    return { label: "Return", message: "Largely neutral — upside is stalling." };
+  }
+
+  return { label: "Return", message: "Mixed picture — monitor the next set of calls for clarity." };
+};
+
+const describeStabilityDistribution = (
+  distribution: DashboardStats["stabilityDistribution"],
+): DistributionInsight => {
+  const total = distribution.stable + distribution.uncertain + distribution.fragile;
+  if (total <= 0) {
+    return { label: "Stability", message: "No meaningful read — log a few more decisions." };
+  }
+
+  if (distribution.stable >= 50) {
+    return {
+      label: "Stability",
+      message: "Confidence outweighs doubt — execution remains steady.",
+    };
+  }
+
+  if (distribution.fragile >= 50) {
+    return {
+      label: "Stability",
+      message: "Fragility showing — shore up conviction before scaling.",
+    };
+  }
+
+  if (distribution.uncertain >= 50) {
+    return {
+      label: "Stability",
+      message: "Uneven footing — clarify signals before the next swing.",
+    };
+  }
+
+  return { label: "Stability", message: "Mixed footing — stability signal is split." };
+};
+
+const describePressureDistribution = (
+  distribution: DashboardStats["pressureDistribution"],
+): DistributionInsight => {
+  const total = distribution.pressured + distribution.balanced + distribution.calm;
+  if (total <= 0) {
+    return { label: "Pressure", message: "No meaningful read — log a few more decisions." };
+  }
+
+  if (distribution.calm >= 50) {
+    return { label: "Pressure", message: "Majority calm — low reactivity during action." };
+  }
+
+  if (distribution.pressured >= 50) {
+    return {
+      label: "Pressure",
+      message: "Elevated tension — pace decisions to avoid overtrading.",
+    };
+  }
+
+  if (distribution.balanced >= 50) {
+    return {
+      label: "Pressure",
+      message: "Evenly balanced — stay alert for momentum shifts.",
+    };
+  }
+
+  return { label: "Pressure", message: "Mixed tempo — pressure signal is split." };
+};
+
+const buildDistributionInsights = (current: DashboardStats): DistributionInsight[] => [
+  describeReturnDistribution(current.returnDistribution),
+  describeStabilityDistribution(current.stabilityDistribution),
+  describePressureDistribution(current.pressureDistribution),
+];
+
+const buildReturnDebtSummary = (current: DashboardStats): string => {
+  if (current.returnDebt <= 0) {
+    return "No active return debt — keep compounding disciplined entries.";
+  }
+
+  if (current.paybackRatio > 0) {
+    const winsNeeded = current.returnDebt / current.paybackRatio;
+    return `${formatValue(current.returnDebt)} D-NAV of return debt requires about ${formatValue(
+      winsNeeded,
+      1,
+    )} positive decisions averaging +${formatValue(current.paybackRatio)} D-NAV each to reset.`;
+  }
+
+  return `Return debt sits at ${formatValue(
+    current.returnDebt,
+  )} D-NAV. Stack quality wins to offset the streak.`;
 };
 
 interface DashboardStatCardProps {
@@ -287,54 +368,6 @@ const DashboardStatCard = ({
   );
 };
 
-interface DistributionChartProps {
-  title: string;
-  data: Record<string, number>;
-  colors: Record<string, string>;
-}
-
-const DistributionChart = ({ title, data, colors }: DistributionChartProps) => {
-  const total = Object.values(data).reduce((a, b) => a + b, 0);
-
-  return (
-    <Card>
-      <CardHeader>
-        <InfoTooltip term={title}>
-          <CardTitle className="text-lg cursor-help">{title}</CardTitle>
-        </InfoTooltip>
-      </CardHeader>
-      <CardContent>
-        <div className="space-y-4">
-          <div className="h-4 bg-muted rounded-full overflow-hidden">
-            {Object.entries(data).map(([key, value]) => (
-              <div
-                key={key}
-                className="h-full inline-block"
-                style={{
-                  width: `${total > 0 ? (value / total) * 100 : 0}%`,
-                  backgroundColor: colors[key],
-                }}
-              />
-            ))}
-          </div>
-          <div className="flex justify-between text-sm flex-wrap gap-2">
-            {Object.entries(data).map(([key, value]) => (
-              <InfoTooltip key={key} term={`${title}|${key}`} side="top">
-                <div className="flex items-center gap-2 cursor-help">
-                  <div className="w-3 h-3 rounded-full" style={{ backgroundColor: colors[key] }} />
-                  <span className="capitalize">
-                    {key}: {Math.round(value)}%
-                  </span>
-                </div>
-              </InfoTooltip>
-            ))}
-          </div>
-        </div>
-      </CardContent>
-    </Card>
-  );
-};
-
 const getStatsReportSections = (current: DashboardStats) => ({
   generated: new Date().toLocaleString(),
   windowLabel: "",
@@ -344,25 +377,13 @@ const getStatsReportSections = (current: DashboardStats) => ({
     `Average D-NAV: ${current.avgDnav}`,
     `Decision cadence: ${current.cadence}`,
     `Consistency: ${current.consistency}`,
-    `Calibration: ${current.calibration}`,
     `Recent trend: ${current.last5vsPrior5}`,
     `Return on effort: ${current.returnOnEffort}`,
   ],
-  distribution: [
-    `Return — Positive: ${Math.round(current.returnDistribution.positive)}%`,
-    `Return — Neutral: ${Math.round(current.returnDistribution.neutral)}%`,
-    `Return — Negative: ${Math.round(current.returnDistribution.negative)}%`,
-    `Stability — Stable: ${Math.round(current.stabilityDistribution.stable)}%`,
-    `Stability — Uncertain: ${Math.round(current.stabilityDistribution.uncertain)}%`,
-    `Stability — Fragile: ${Math.round(current.stabilityDistribution.fragile)}%`,
-    `Pressure — Pressured: ${Math.round(current.pressureDistribution.pressured)}%`,
-    `Pressure — Balanced: ${Math.round(current.pressureDistribution.balanced)}%`,
-    `Pressure — Calm: ${Math.round(current.pressureDistribution.calm)}%`,
-  ],
+  distribution: buildDistributionInsights(current).map(({ label, message }) => `${label}: ${message}`),
   risk: [
     `Loss streak: ${current.lossStreak.current} current / ${current.lossStreak.longest} longest`,
-    `Return debt: ${current.returnDebt}`,
-    `Payback ratio: ${current.paybackRatio}`,
+    buildReturnDebtSummary(current),
     `Window archetype: ${current.windowArchetype} (Return: ${current.windowArchetypeBreakdown.returnType}, Stability: ${current.windowArchetypeBreakdown.stabilityType}, Pressure: ${current.windowArchetypeBreakdown.pressureType})`,
   ],
   narrative: [] as string[],
@@ -467,7 +488,6 @@ export default function TheDNavPage() {
         trend: 0,
         consistency: 0,
         cadence: 0,
-        calibration: 0,
         last5vsPrior5: 0,
         windowArchetype: "No Data",
         windowArchetypeDescription: "No archetype available",
@@ -490,12 +510,10 @@ export default function TheDNavPage() {
     const returnScores = filteredDecisions.map((d) => d.return);
     const stabilityScores = filteredDecisions.map((d) => d.stability);
     const pressureScores = filteredDecisions.map((d) => d.pressure);
-    const confidenceScores = filteredDecisions.map((d) => d.confidence);
     const energyScores = filteredDecisions.map((d) => d.energy);
 
     const avgDnav = dnavScores.reduce((a, b) => a + b, 0) / dnavScores.length;
     const consistency = stdev(dnavScores);
-    const calibration = corr(confidenceScores, returnScores) || 0;
 
     const recentDecisions = decisions.slice(0, 30);
     const recentDnavs = recentDecisions.map((d) => d.dnav);
@@ -579,7 +597,6 @@ export default function TheDNavPage() {
       trend: Math.round(trend * 10) / 10,
       consistency: Math.round(consistency * 10) / 10,
       cadence: Math.round(cadence * 10) / 10,
-      calibration: Math.round(calibration * 100) / 100,
       last5vsPrior5: Math.round(last5vsPrior5 * 10) / 10,
       windowArchetype: archetypeInfo.name,
       windowArchetypeDescription: archetypeInfo.description,
@@ -605,69 +622,41 @@ export default function TheDNavPage() {
     "90": "Last 90 days",
   };
 
-  const formatNumber = (value: number, digits = 1) =>
-    Number.isFinite(value) ? Number(value).toFixed(digits) : "0";
-
-  const percent = (value: number) => `${Math.round(value)}%`;
-
-  const describeCalibration = (value: number) => {
-    if (value > 0.3) return "Confidence is tracking outcomes well.";
-    if (value < -0.3) return "Confidence is inverted versus results — pressure-test assumptions.";
-    return "Confidence and outcomes are roughly aligned.";
-  };
-
   const buildNarrative = (current: DashboardStats): string => {
     const windowLabel = timeWindowLabels[timeWindow] ?? `Last ${timeWindow} days`;
     const cadencePhrase =
       current.cadence > 0
-        ? `${formatNumber(current.cadence)} decisions per ${cadenceUnit}`
+        ? `${formatValue(current.cadence)} decisions per ${cadenceUnit}`
         : "no meaningful cadence";
-    const trendDescription =
+    const performanceStatement =
       current.last5vsPrior5 > 0
-        ? `up by ${formatNumber(current.last5vsPrior5)}`
+        ? `Performance is up by ${formatValue(current.last5vsPrior5)} D-NAV versus the prior window.`
         : current.last5vsPrior5 < 0
-        ? `down ${formatNumber(Math.abs(current.last5vsPrior5))}`
-        : "flat";
+        ? `Performance is down ${formatValue(Math.abs(current.last5vsPrior5))} D-NAV versus the prior window.`
+        : "Performance is flat versus the prior window.";
 
     const hygieneLines: string[] = [];
     if (current.lossStreak.current > 0) {
       hygieneLines.push(
         `Currently on a ${current.lossStreak.current} loss streak (longest ${current.lossStreak.longest}).`,
       );
-    }
-    if (current.returnDebt > 0) {
-      hygieneLines.push(`Return debt sits at ${formatNumber(current.returnDebt)} units.`);
-    }
-    if (current.paybackRatio > 0) {
-      hygieneLines.push(`Need average wins of ${formatNumber(current.paybackRatio)} to clear debt.`);
-    }
-    if (hygieneLines.length === 0) {
+    } else {
       hygieneLines.push("No active loss streaks detected.");
     }
 
-    const returnSummary = `Returns skewed ${percent(
-      current.returnDistribution.positive,
-    )} positive, ${percent(current.returnDistribution.neutral)} neutral, and ${percent(
-      current.returnDistribution.negative,
-    )} negative.`;
-    const stabilitySummary = `Stability leaned ${percent(current.stabilityDistribution.stable)} stable, ${percent(
-      current.stabilityDistribution.uncertain,
-    )} uncertain, and ${percent(current.stabilityDistribution.fragile)} fragile.`;
-    const pressureSummary = `Pressure readings showed ${percent(
-      current.pressureDistribution.pressured,
-    )} pressured, ${percent(current.pressureDistribution.balanced)} balanced, and ${percent(
-      current.pressureDistribution.calm,
-    )} calm decisions.`;
+    hygieneLines.push(buildReturnDebtSummary(current));
 
-    const archetypeSummary = `Those inputs create a ${current.windowArchetype} archetype — ${current.windowArchetypeDescription}`;
+    const distributionInsights = buildDistributionInsights(current)
+      .map(({ label, message }) => `${label}: ${message}`)
+      .join("\n");
 
     return [
-      `Over ${windowLabel}, you logged ${current.totalDecisions} decisions with an average D-NAV of ${formatNumber(
+      `Over ${windowLabel}, you logged ${current.totalDecisions} decisions with an average D-NAV of ${formatValue(
         current.avgDnav,
-      )}. Cadence is ${cadencePhrase}, and recent performance is ${trendDescription}.`,
-      `${archetypeSummary}. ${returnSummary} ${stabilitySummary} ${pressureSummary}`,
-      `Calibration (${formatNumber(current.calibration, 2)}) suggests ${describeCalibration(current.calibration)}`,
-      `Risk hygiene: ${hygieneLines.join(" ")}`,
+      )}. Cadence is ${cadencePhrase}. ${performanceStatement}`,
+      `Archetype: ${current.windowArchetype} — ${current.windowArchetypeDescription}.`,
+      `Distribution signals:\n${distributionInsights}`,
+      `Return hygiene: ${hygieneLines.join(" ")}`,
     ].join("\n\n");
   };
 
@@ -753,53 +742,6 @@ export default function TheDNavPage() {
       addParagraphs(lines.map((line) => `• ${line}`));
     };
 
-    const addDistributionVisual = (
-      title: string,
-      segments: Array<{ key: string; label: string; rgb: [number, number, number] }>,
-      values: Record<string, number>,
-    ) => {
-      const barHeight = 16;
-      const barWidth = pageWidth - margin * 2;
-      const legendSquare = 12;
-      const estimatedHeight = barHeight + 20 + segments.length * (legendSquare + 6) + 20;
-      ensureSpace(estimatedHeight);
-
-      const total = segments.reduce((acc, segment) => acc + (values[segment.key] ?? 0), 0);
-
-      doc.setFont("helvetica", "bold");
-      doc.setFontSize(14);
-      doc.text(title, margin, y);
-      y += 20;
-
-      doc.setFillColor(229, 231, 235);
-      doc.rect(margin, y, barWidth, barHeight, "F");
-
-      let currentX = margin;
-      segments.forEach((segment) => {
-        const segmentValue = values[segment.key] ?? 0;
-        const width = total > 0 ? (segmentValue / total) * barWidth : 0;
-        const [r, g, b] = segment.rgb;
-        doc.setFillColor(r, g, b);
-        doc.rect(currentX, y, width, barHeight, "F");
-        currentX += width;
-      });
-
-      y += barHeight + 12;
-      doc.setFont("helvetica", "normal");
-      doc.setFontSize(11);
-      doc.setTextColor(0, 0, 0);
-
-      segments.forEach((segment) => {
-        ensureSpace(legendSquare + 8);
-        const [r, g, b] = segment.rgb;
-        doc.setFillColor(r, g, b);
-        doc.rect(margin, y, legendSquare, legendSquare, "F");
-        doc.text(`${segment.label}: ${percent(values[segment.key] ?? 0)}`, margin + legendSquare + 8, y + legendSquare - 2);
-        y += legendSquare + 6;
-      });
-      y += 8;
-    };
-
     doc.setFont("helvetica", "bold");
     doc.setFontSize(20);
     doc.text("D-NAV Narrative Brief", margin, y);
@@ -816,11 +758,8 @@ export default function TheDNavPage() {
     y += 6;
 
     addSection("Narrative Highlights", sections.narrative);
-    addDistributionVisual("Return Distribution", RETURN_SEGMENTS, current.returnDistribution);
-    addDistributionVisual("Stability Distribution", STABILITY_SEGMENTS, current.stabilityDistribution);
-    addDistributionVisual("Pressure Distribution", PRESSURE_SEGMENTS, current.pressureDistribution);
+    addSection("Distribution Insights", sections.distribution);
     addSection("Key Metrics", sections.keyMetrics);
-    addSection("Distribution Snapshot", sections.distribution);
     addSection("Risk & Hygiene", sections.risk);
 
     ensureSpace(18);
@@ -850,6 +789,8 @@ export default function TheDNavPage() {
   };
 
   const hasData = stats.totalDecisions > 0;
+  const distributionInsights = useMemo(() => buildDistributionInsights(stats), [stats]);
+  const returnDebtSummary = buildReturnDebtSummary(stats);
 
   const narrativeText = hasData
     ? buildNarrative(stats)
@@ -977,35 +918,20 @@ export default function TheDNavPage() {
             </CardContent>
           </Card>
 
-          <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
-            <DistributionChart
-              title="Return Distribution"
-              data={stats?.returnDistribution || { positive: 0, neutral: 0, negative: 0 }}
-              colors={{
-                positive: "hsl(142, 76%, 36%)",
-                neutral: "hsl(45, 93%, 47%)",
-                negative: "hsl(0, 84%, 60%)",
-              }}
-            />
-            <DistributionChart
-              title="Stability Distribution"
-              data={stats?.stabilityDistribution || { stable: 0, uncertain: 0, fragile: 0 }}
-              colors={{
-                stable: "hsl(142, 76%, 36%)",
-                uncertain: "hsl(45, 93%, 47%)",
-                fragile: "hsl(0, 84%, 60%)",
-              }}
-            />
-            <DistributionChart
-              title="Pressure Distribution"
-              data={stats?.pressureDistribution || { pressured: 0, balanced: 0, calm: 0 }}
-              colors={{
-                pressured: "hsl(0, 84%, 60%)",
-                balanced: "hsl(45, 93%, 47%)",
-                calm: "hsl(142, 76%, 36%)",
-              }}
-            />
-          </div>
+          <Card>
+            <CardHeader className="pb-2">
+              <CardTitle>Distribution Insights</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <ul className="space-y-3 text-sm text-muted-foreground">
+                {distributionInsights.map(({ label, message }) => (
+                  <li key={label} className="leading-snug">
+                    <span className="font-medium text-foreground">{label}:</span> {message}
+                  </li>
+                ))}
+              </ul>
+            </CardContent>
+          </Card>
 
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
             <DashboardStatCard
@@ -1044,20 +970,6 @@ export default function TheDNavPage() {
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-            <DashboardStatCard
-              title="Calibration"
-              value={formatNumber(stats?.calibration ?? 0, 2)}
-              subtitle="Confidence ↔ Return correlation"
-              icon={Target}
-              color={
-                stats?.calibration && stats.calibration > 0.3
-                  ? "positive"
-                  : stats?.calibration && stats.calibration < -0.3
-                  ? "negative"
-                  : "default"
-              }
-              helper={describeCalibration(stats?.calibration ?? 0)}
-            />
             <DashboardStatCard
               title="Recent Trend"
               value={stats?.last5vsPrior5 || 0}
@@ -1119,20 +1031,21 @@ export default function TheDNavPage() {
                     <p className="text-sm font-medium text-muted-foreground cursor-help">Return Debt</p>
                   </InfoTooltip>
                   <InfoTooltip term="Return Debt" side="bottom">
-                    <p className="text-2xl font-bold cursor-help">{stats?.returnDebt || 0}</p>
+                    <p className="text-2xl font-bold cursor-help">{formatValue(stats?.returnDebt ?? 0)}</p>
                   </InfoTooltip>
-                  <p className="text-xs text-muted-foreground">Sum of losses in streak</p>
+                  <p className="text-xs text-muted-foreground">Return debt (D-NAV units)</p>
                 </div>
                 <div className="space-y-2">
                   <InfoTooltip term="Payback Ratio">
                     <p className="text-sm font-medium text-muted-foreground cursor-help">Payback Ratio</p>
                   </InfoTooltip>
                   <InfoTooltip term="Payback Ratio" side="bottom">
-                    <p className="text-2xl font-bold cursor-help">{stats?.paybackRatio || 0}</p>
+                    <p className="text-2xl font-bold cursor-help">{formatValue(stats?.paybackRatio ?? 0)}</p>
                   </InfoTooltip>
-                  <p className="text-xs text-muted-foreground">Avg wins to clear debt</p>
+                  <p className="text-xs text-muted-foreground">Avg +return per win in streak</p>
                 </div>
               </div>
+              <p className="text-sm text-muted-foreground mt-4 leading-snug">{returnDebtSummary}</p>
               <Separator className="my-4" />
               <div className="flex items-start gap-2 p-4 bg-muted/50 rounded-lg">
                 <CheckCircle className="h-5 w-5 text-green-600 mt-0.5 flex-shrink-0" />
