@@ -3,6 +3,7 @@
 import CompareSheet from "@/components/CompareSheet";
 import DecisionCalculator from "@/components/DecisionCalculator";
 import FeedbackLoops from "@/components/FeedbackLoops";
+import { InfoTooltip } from "@/components/InfoTooltip";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -15,19 +16,19 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Separator } from "@/components/ui/separator";
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import { TooltipProvider } from "@/components/ui/tooltip";
 import { DecisionEntry, DecisionMetrics, DecisionVariables, ema, getArchetype, stdev } from "@/lib/calculations";
 import { addDecision, loadLog } from "@/lib/storage";
 import {
   Activity,
   AlertTriangle,
   BarChart3,
-  Brain,
   Check,
   CheckCircle,
   Download,
   FileText,
   Gauge,
+  LineChart,
   Minus,
   RotateCcw,
   Save,
@@ -67,122 +68,6 @@ interface DashboardStats {
 }
 
 const FLAGS = { showFeedbackLoops: true };
-
-const metricExplainers: Record<string, { description: string; example: string }> = {
-  "Total Decisions": {
-    description: "Count of decisions recorded in the selected window.",
-    example: "Logging 12 choices this month results in 12 total decisions.",
-  },
-  "Average D-NAV": {
-    description: "Average D-NAV score across the filtered decisions.",
-    example: "Scores of 40 and 60 yield an average D-NAV of 50.",
-  },
-  "Decision Cadence": {
-    description: "How frequently decisions are made, normalized to the selected cadence unit.",
-    example: "6 decisions across two weeks shows a cadence of 3 per week.",
-  },
-  "Consistency": {
-    description: "Standard deviation of D-NAV scores; lower values indicate steadier outcomes.",
-    example: "A consistency score of 8 means results are tightly clustered.",
-  },
-  "Recent Trend": {
-    description: "Difference between the average of the last five decisions and the prior five.",
-    example: "Last five averaging 60 vs. prior five at 50 produces a +10 trend.",
-  },
-  "Return on Effort": {
-    description: "Total return divided by the total energy invested.",
-    example: "Generating 15 return from 5 energy equates to a 3.0 ratio.",
-  },
-  "Window Archetype": {
-    description: "Prevailing decision archetype across the selected window.",
-    example: "A Maverick window archetype highlights aggressive upside seeking.",
-  },
-  "Return Distribution": {
-    description: "Share of decisions landing as positive, neutral, or negative return.",
-    example: "60% positive / 20% neutral / 20% negative indicates upside skew.",
-  },
-  "Return Distribution|positive": {
-    description: "Portion of decisions that generated a net-positive return.",
-    example: "If 12 of 20 entries won, the positive slice is 60%.",
-  },
-  "Return Distribution|neutral": {
-    description: "Portion of decisions that broke even.",
-    example: "Two zero-return outcomes in ten decisions produce 20% neutral.",
-  },
-  "Return Distribution|negative": {
-    description: "Portion of decisions that finished in the red.",
-    example: "Three losses in a 15-decision sample equal 20% negative.",
-  },
-  "Stability Distribution": {
-    description: "Balance of decisions that landed stable, uncertain, or fragile.",
-    example: "Half of choices landing stable implies a resilient footing.",
-  },
-  "Stability Distribution|stable": {
-    description: "Percentage of decisions showing positive stability.",
-    example: "8 of 16 choices scoring above zero stability equals 50% stable.",
-  },
-  "Stability Distribution|uncertain": {
-    description: "Percentage of decisions with neutral stability.",
-    example: "Three neutral reads in a dozen decisions equals 25% uncertain.",
-  },
-  "Stability Distribution|fragile": {
-    description: "Percentage of decisions showing negative stability.",
-    example: "If four outcomes were fragile, the slice is 33%.",
-  },
-  "Pressure Distribution": {
-    description: "Mix of pressured, balanced, or calm operating conditions.",
-    example: "A 40% calm read means most executions feel controlled.",
-  },
-  "Pressure Distribution|pressured": {
-    description: "Percentage of decisions experiencing net pressure.",
-    example: "Five pressured calls out of ten equals 50% pressured.",
-  },
-  "Pressure Distribution|balanced": {
-    description: "Percentage of decisions landing at neutral pressure.",
-    example: "Three balanced reads in twelve decisions equals 25% balanced.",
-  },
-  "Pressure Distribution|calm": {
-    description: "Percentage of decisions where calm outweighed pressure.",
-    example: "If six entries were calm, the calm portion is 60%.",
-  },
-  "Loss Streak": {
-    description: "Active and longest chain of consecutive negative returns.",
-    example: "A 2 / 4 streak means two current losses and four at peak.",
-  },
-  "Return Debt": {
-    description: "Sum of returns needed to offset the active loss streak.",
-    example: "Three -2 losses accrue 6 units of return debt.",
-  },
-  "Payback Ratio": {
-    description: "Average positive return required to clear each loss in the streak.",
-    example: "Needing 9 upside to repay three losses implies a 3.0 ratio.",
-  },
-};
-
-const InfoTooltip = ({
-  term,
-  children,
-  side = "top",
-}: {
-  term: string;
-  children: React.ReactNode;
-  side?: "top" | "bottom" | "left" | "right";
-}) => {
-  const info = metricExplainers[term];
-  if (!info) {
-    return <>{children}</>;
-  }
-
-  return (
-    <Tooltip>
-      <TooltipTrigger asChild>{children}</TooltipTrigger>
-      <TooltipContent side={side} className="max-w-xs space-y-2">
-        <p className="text-sm font-semibold leading-snug">{info.description}</p>
-        <p className="text-xs text-muted-foreground leading-snug">Example: {info.example}</p>
-      </TooltipContent>
-    </Tooltip>
-  );
-};
 
 interface DistributionInsight {
   label: string;
@@ -328,15 +213,15 @@ const DashboardStatCard = ({
 
   return (
     <Card>
-      <CardContent className="p-6">
-        <div className="flex items-center justify-between">
+      <CardContent className="p-4 sm:p-5">
+        <div className="flex items-start justify-between gap-3">
           <div>
             <InfoTooltip term={title}>
               <p className="text-sm font-medium text-muted-foreground cursor-help">{title}</p>
             </InfoTooltip>
             <InfoTooltip term={title} side="bottom">
               <div className="flex items-center gap-2 mt-1 cursor-help">
-                <p className="text-2xl font-bold">{value}</p>
+                <p className="text-xl font-bold sm:text-2xl">{value}</p>
                 {trend !== undefined && (
                   <div className="flex items-center gap-1">
                     {trend > 0 ? (
@@ -364,7 +249,7 @@ const DashboardStatCard = ({
             <p className={`text-xs mt-1 ${colorClasses[color]}`}>{subtitle}</p>
             {helper ? <p className="text-xs text-muted-foreground mt-1">{helper}</p> : null}
           </div>
-          <Icon className="h-8 w-8 text-muted-foreground" />
+          <Icon className="h-6 w-6 text-muted-foreground sm:h-7 sm:w-7" />
         </div>
       </CardContent>
     </Card>
@@ -453,7 +338,7 @@ const getStatsReportSections = (current: DashboardStats) => ({
     `Total decisions: ${current.totalDecisions}`,
     `Average D-NAV: ${current.avgDnav}`,
     `Decision cadence: ${current.cadence}`,
-    `Consistency: ${current.consistency}`,
+    `Recent trend: ${current.last5vsPrior5}`,
     `Return on effort: ${current.returnOnEffort}`,
   ],
   distribution: buildDistributionInsights(current).map(({ label, message }) => `${label}: ${message}`),
@@ -1076,7 +961,7 @@ export default function TheDNavPage() {
             />
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-4">
             <DashboardStatCard
               title="Total Decisions"
               value={stats?.totalDecisions || 0}
@@ -1104,22 +989,29 @@ export default function TheDNavPage() {
               icon={Activity}
             />
             <DashboardStatCard
-              title="Consistency"
-              value={stats?.consistency || 0}
-              subtitle="Lower = more steady"
-              icon={Brain}
-              color={stats?.consistency && stats.consistency > 20 ? "warning" : "positive"}
-            />
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            <DashboardStatCard
               title="Return on Effort"
               value={stats?.returnOnEffort || 0}
               subtitle="Return per unit energy"
               icon={Zap}
               color={stats?.returnOnEffort && stats.returnOnEffort > 0 ? "positive" : "default"}
             />
+            <DashboardStatCard
+              title="Recent Trend"
+              value={formatValue(stats?.last5vsPrior5 ?? 0)}
+              subtitle="D-NAV change"
+              icon={LineChart}
+              color={
+                stats?.last5vsPrior5 && stats.last5vsPrior5 > 0
+                  ? "positive"
+                  : stats?.last5vsPrior5 && stats.last5vsPrior5 < 0
+                  ? "negative"
+                  : "default"
+              }
+              helper="Last 5 decisions vs. prior 5"
+            />
+          </div>
+
+          <div className="grid grid-cols-1 gap-4">
             <Card>
               <CardHeader className="pb-2">
                 <InfoTooltip term="Window Archetype">
