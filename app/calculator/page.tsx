@@ -386,11 +386,12 @@ const DistributionCard = ({ title, segments }: DistributionCardProps) => {
     value: Number.isFinite(segment.value) ? Math.max(segment.value, 0) : 0,
   }));
   const hasData = safeSegments.some((segment) => segment.value > 0);
+  const displayTitle = title.replace(/ Distribution$/i, "");
 
   return (
     <Card>
       <CardContent className="p-6 space-y-4">
-        <span className="sr-only">{title}</span>
+        <h3 className="text-sm font-semibold text-foreground">{displayTitle}</h3>
         {hasData ? (
           <>
             <div className="h-3 rounded-full bg-muted overflow-hidden flex">
