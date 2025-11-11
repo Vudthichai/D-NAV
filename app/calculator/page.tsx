@@ -2,6 +2,7 @@
 
 import CompareSheet from "@/components/CompareSheet";
 import DecisionCalculator from "@/components/DecisionCalculator";
+import FeedbackLoops from "@/components/FeedbackLoops";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -40,7 +41,7 @@ import type { LucideIcon } from "lucide-react";
 import jsPDF from "jspdf";
 import html2canvas from "html2canvas";
 import Link from "next/link";
-import { useCallback, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 interface DashboardStats {
   totalDecisions: number;
@@ -64,6 +65,8 @@ interface DashboardStats {
   returnDebt: number;
   paybackRatio: number;
 }
+
+const FLAGS = { showFeedbackLoops: true };
 
 const metricExplainers: Record<string, { description: string; example: string }> = {
   "Total Decisions": {
@@ -451,7 +454,6 @@ const getStatsReportSections = (current: DashboardStats) => ({
     `Average D-NAV: ${current.avgDnav}`,
     `Decision cadence: ${current.cadence}`,
     `Consistency: ${current.consistency}`,
-    `Recent trend: ${current.last5vsPrior5}`,
     `Return on effort: ${current.returnOnEffort}`,
   ],
   distribution: buildDistributionInsights(current).map(({ label, message }) => `${label}: ${message}`),
@@ -548,8 +550,13 @@ export default function TheDNavPage() {
     setIsSaved(false);
   };
 
+  const [decisions, setDecisions] = useState<DecisionEntry[]>(() => loadLog());
+
+  useEffect(() => {
+    setDecisions(loadLog());
+  }, [isSaved]);
+
   const stats = useMemo<DashboardStats>(() => {
-    const decisions = loadLog();
     const now = decisions.length > 0 ? decisions[0].ts : 0;
     const windowMs = parseInt(timeWindow) * 24 * 60 * 60 * 1000;
     const filteredDecisions =
@@ -687,7 +694,9 @@ export default function TheDNavPage() {
       returnDebt: Math.round(returnDebt * 10) / 10,
       paybackRatio: Math.round(paybackRatio * 10) / 10,
     };
-  }, [cadenceUnit, timeWindow]);
+  }, [cadenceUnit, decisions, timeWindow]);
+
+  const dnavSeries = useMemo(() => decisions.map((d) => d.dnav).slice().reverse(), [decisions]);
 
   const timeWindowLabels: Record<string, string> = {
     "0": "All time",
@@ -1103,14 +1112,7 @@ export default function TheDNavPage() {
             />
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-            <DashboardStatCard
-              title="Recent Trend"
-              value={stats?.last5vsPrior5 || 0}
-              subtitle="Last 5 vs Prior 5"
-              icon={stats?.last5vsPrior5 && stats.last5vsPrior5 > 0 ? TrendingUp : TrendingDown}
-              trend={stats?.last5vsPrior5}
-            />
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
             <DashboardStatCard
               title="Return on Effort"
               value={stats?.returnOnEffort || 0}
@@ -1138,6 +1140,8 @@ export default function TheDNavPage() {
               </CardContent>
             </Card>
           </div>
+
+          {FLAGS.showFeedbackLoops !== false && <FeedbackLoops series={dnavSeries} />}
 
           <Card>
             <CardHeader>
