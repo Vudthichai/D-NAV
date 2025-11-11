@@ -390,19 +390,7 @@ const DistributionCard = ({ title, segments }: DistributionCardProps) => {
   return (
     <Card>
       <CardContent className="p-6 space-y-4">
-        <div className="flex items-center justify-between">
-          <InfoTooltip term={title}>
-            <p className="text-sm font-medium text-muted-foreground cursor-help">{title}</p>
-          </InfoTooltip>
-          {hasData && (
-            <p className="text-xs text-muted-foreground">
-              {safeSegments
-                .map((segment) => `${segment.label} ${formatValue(segment.value)}%`)
-                .join(" / ")}
-            </p>
-          )}
-        </div>
-
+        <span className="sr-only">{title}</span>
         {hasData ? (
           <>
             <div className="h-3 rounded-full bg-muted overflow-hidden flex">
