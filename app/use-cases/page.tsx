@@ -11,7 +11,7 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
-import { Building2, HeartPulse, LineChart, Palette, Rocket } from "lucide-react";
+import { Building2, LineChart, Rocket } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import Link from "next/link";
 
@@ -34,7 +34,7 @@ const useCases: UseCase[] = [
   {
     id: "founder",
     title: "Founder Edition",
-    label: "Startup & Investment Decisions",
+    label: "Founders & Solopreneurs",
     description:
       "Turn ambiguous founder intuition into investor-ready narratives and portfolio clarity.",
     highlights: [
@@ -74,7 +74,7 @@ const useCases: UseCase[] = [
   {
     id: "corporate",
     title: "Corporate Edition",
-    label: "Leadership & Hiring",
+    label: "Corporate Leadership",
     description:
       "Align leadership teams on hiring, resource planning, and strategic initiatives without endless slide decks.",
     highlights: [
@@ -112,49 +112,9 @@ const useCases: UseCase[] = [
     },
   },
   {
-    id: "creative",
-    title: "Creative Edition",
-    label: "Artists & Creators",
-    description:
-      "Channel creative energy toward the right projects by mapping inspiration, risk, and audience resonance.",
-    highlights: [
-      "Compare commissions, collaborations, or drops with clarity",
-      "Translate intuition about timing into measurable signals",
-      "Protect momentum by balancing risk and creative pressure",
-    ],
-    cta: "Explore Creative Edition",
-    icon: Palette,
-    details: {
-      overview:
-        "Creators capture the intangible spark around projects and turn it into an actionable release plan. D-NAV keeps teams aligned on what to ship next and why.",
-      archetypes: [
-        {
-          title: "Momentum Curator",
-          description:
-            "Track which ideas deserve the next sprint based on stability and audience expectations.",
-        },
-        {
-          title: "Collaboration Director",
-          description:
-            "Evaluate partnership offers by balancing reach potential with creative risk.",
-        },
-        {
-          title: "Launch Composer",
-          description:
-            "Sequence drops, tours, or exhibitions to maintain narrative and revenue cadence.",
-        },
-      ],
-      outcomes: [
-        "Confidence on which project earns center stage",
-        "Shared creative language across collaborators and producers",
-        "Historical view of bets that drove audience growth",
-      ],
-    },
-  },
-  {
     id: "trading",
     title: "Trading Edition",
-    label: "Financial & Risk-Return",
+    label: "Investing Analysis",
     description:
       "Quantify conviction in complex trades by incorporating qualitative signals into disciplined execution.",
     highlights: [
@@ -188,46 +148,6 @@ const useCases: UseCase[] = [
         "Clear go/no-go criteria before capital is at risk",
         "Faster iteration on playbooks with shared decision memory",
         "Quantified lessons that de-bias future positioning",
-      ],
-    },
-  },
-  {
-    id: "wellness",
-    title: "Wellness Edition",
-    label: "Life Balance & Personal Navigation",
-    description:
-      "Navigate personal transitions, routines, and commitments with the same rigor as professional choices.",
-    highlights: [
-      "Balance competing priorities without losing momentum",
-      "See which habits return the highest stability and energy",
-      "Align personal decisions with long-term narrative arcs",
-    ],
-    cta: "Explore Wellness Edition",
-    icon: HeartPulse,
-    details: {
-      overview:
-        "D-NAV helps individuals visualize how commitments, energy, and confidence interact. Make choices that protect wellbeing while advancing personal missions.",
-      archetypes: [
-        {
-          title: "Rhythm Designer",
-          description:
-            "Structure routines by measuring how each habit influences pressure and stability.",
-        },
-        {
-          title: "Transition Navigator",
-          description:
-            "Navigate life pivots—moves, career shifts, family planning—with clarity on impact and confidence.",
-        },
-        {
-          title: "Balance Steward",
-          description:
-            "Keep wellbeing front and center by spotting overload early and rebalancing commitments.",
-        },
-      ],
-      outcomes: [
-        "Sustainable routines anchored in measurable feedback",
-        "Greater confidence during major life decisions",
-        "Personal growth narrative that stays aligned with values",
       ],
     },
   },
