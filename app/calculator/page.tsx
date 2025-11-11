@@ -46,6 +46,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   DashboardStats,
   buildDistributionInsights,
+  buildPortfolioNarrative,
   buildReturnDebtSummary,
   computeDashboardStats,
   formatValue,
@@ -323,48 +324,6 @@ export default function TheDNavPage() {
     "90": "Last 90 days",
   };
 
-  const buildNarrative = (current: DashboardStats): string => {
-    const windowLabel = timeWindowLabels[timeWindow] ?? `Last ${timeWindow} days`;
-    const cadencePhrase =
-      current.cadence > 0
-        ? `${formatValue(current.cadence)} decisions per ${cadenceUnit}`
-        : "no meaningful cadence";
-    const performanceStatement =
-      current.last5vsPrior5 > 0
-        ? `Performance is up by ${formatValue(current.last5vsPrior5)} D-NAV versus the prior window.`
-        : current.last5vsPrior5 < 0
-        ? `Performance is down ${formatValue(Math.abs(current.last5vsPrior5))} D-NAV versus the prior window.`
-        : "Performance is flat versus the prior window.";
-
-    const hygieneLines: string[] = [];
-    if (current.lossStreak.current > 0) {
-      hygieneLines.push(
-        `Currently on a ${current.lossStreak.current} loss streak (longest ${current.lossStreak.longest}).`,
-      );
-    } else {
-      hygieneLines.push("No active loss streaks detected.");
-    }
-
-    hygieneLines.push(buildReturnDebtSummary(current));
-
-    const distributionInsights = buildDistributionInsights(current)
-      .map(({ label, message }) => `${label}: ${message}`)
-      .join("\n");
-
-    return [
-      `Over ${windowLabel}, you logged ${current.totalDecisions} decisions with an average D-NAV of ${formatValue(
-        current.avgDnav,
-      )}. Cadence is ${cadencePhrase}. ${performanceStatement}`,
-      (() => {
-        const description = current.windowArchetypeDescription.trim();
-        const endsWithPeriod = description.endsWith('.');
-        return `Archetype: ${current.windowArchetype} — ${description}${endsWithPeriod ? '' : '.'}`;
-      })(),
-      `Distribution signals:\n${distributionInsights}`,
-      `Return hygiene: ${hygieneLines.join(" ")}`,
-    ].join("\n\n");
-  };
-
   const createStatsReportPdf = async () => {
     if (!statsContainerRef.current) return;
 
@@ -406,7 +365,10 @@ export default function TheDNavPage() {
     const sections = getStatsReportSections(current);
     sections.windowLabel = timeWindowLabels[timeWindow] ?? `Last ${timeWindow} days`;
     sections.cadenceLabel = cadenceUnit;
-    sections.narrative = buildNarrative(current).split("\n\n");
+    sections.narrative = buildPortfolioNarrative(current, {
+      timeframeLabel: sections.windowLabel,
+      cadenceLabel: cadenceUnit,
+    }).split("\n\n");
 
     const doc = new jsPDF({ unit: "pt", format: "letter" });
     const margin = 48;
@@ -497,7 +459,10 @@ export default function TheDNavPage() {
   const returnDebtSummary = buildReturnDebtSummary(stats);
 
   const narrativeText = hasData
-    ? buildNarrative(stats)
+    ? buildPortfolioNarrative(stats, {
+        timeframeLabel: timeWindowLabels[timeWindow] ?? `Last ${timeWindow} days`,
+        cadenceLabel: cadenceUnit,
+      })
     : "No decisions logged in this window. Import or record decisions to unlock narrative insights.";
 
   return (
