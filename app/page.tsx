@@ -16,7 +16,6 @@ import {
   Target,
   Zap,
 } from "lucide-react";
-import Image from "next/image";
 import Link from "next/link";
 
 export default function Home() {
@@ -32,9 +31,9 @@ export default function Home() {
         <div className="max-w-7xl mx-auto px-6 w-full">
           <div className="text-center">
             {/* Logo and Title */}
-            <div className="flex justify-center items-center gap-4 mb-8">
+            <div className="flex flex-col items-center gap-4 mb-8">
               <AnimatedCompass className="h-20 w-20" />
-              <div className="text-left">
+              <div className="space-y-2 text-center">
                 <h1 className="text-6xl font-black tracking-tight text-foreground">D-NAV</h1>
                 <p className="text-xl text-muted-foreground font-medium">
                   Human progress happens where data runs out. D-NAV measures the quality of that leap.
@@ -399,13 +398,7 @@ export default function Home() {
         <div className="max-w-7xl mx-auto px-6">
           <div className="flex flex-col md:flex-row justify-between items-center gap-6">
             <div className="flex items-center gap-3">
-              <Image
-                src="/logo.PNG"
-                alt="D-NAV logo"
-                width={40}
-                height={40}
-                className="h-10 w-10 rounded-lg bg-primary/20 object-cover"
-              />
+              <AnimatedCompass className="h-10 w-10" />
               <div>
                 <div className="font-bold text-lg">D-NAV</div>
                 <div className="text-sm text-muted-foreground">
