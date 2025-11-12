@@ -44,8 +44,8 @@ export function AnimatedCompass({ className }: AnimatedCompassProps) {
   return (
     <div
       className={cn(
-        "relative flex h-28 w-28 items-center justify-center rounded-[36px] bg-transparent p-3.5 text-[#ff7a2c]",
-        "before:absolute before:inset-1 before:rounded-[32px] before:bg-[radial-gradient(circle_at_30%_20%,rgba(255,122,44,0.35),rgba(255,255,255,0.75))] before:opacity-80 before:blur-lg before:content-['']",
+        "relative flex h-44 w-44 items-center justify-center rounded-[48px] bg-transparent p-6 text-[#ff7a2c]",
+        "before:absolute before:inset-1 before:rounded-[44px] before:bg-[radial-gradient(circle_at_30%_20%,rgba(255,122,44,0.35),rgba(255,255,255,0.75))] before:opacity-80 before:blur-lg before:content-['']",
         className,
       )}
     >
@@ -69,8 +69,8 @@ export function AnimatedCompass({ className }: AnimatedCompassProps) {
             </radialGradient>
           </defs>
 
-          <rect x="6" y="6" width="108" height="108" rx="26" fill="url(#compassBorder)" />
-          <rect x="14" y="14" width="92" height="92" rx="22" fill={CANVAS} />
+          <rect x="6" y="6" width="108" height="108" rx="36" fill="url(#compassBorder)" />
+          <rect x="14" y="14" width="92" height="92" rx="32" fill={CANVAS} />
           <circle cx="60" cy="60" r="45" fill="url(#dialGlow)" />
           <circle cx="60" cy="60" r="44" fill="#ffffff" stroke="rgba(255,122,44,0.16)" strokeWidth="1.5" />
 
@@ -108,21 +108,6 @@ export function AnimatedCompass({ className }: AnimatedCompassProps) {
             <circle cx="60" cy="60" r="9.5" fill="rgba(255,255,255,0.6)" />
             <circle cx="60" cy="60" r="6" fill={ORANGE} opacity={0.92} />
             <circle cx="60" cy="60" r="2.5" fill="white" />
-          </g>
-
-          <g className="origin-center" fontFamily="'Inter', sans-serif" fontWeight={700} fontSize="10">
-            <text x="60" y="28" textAnchor="middle" fill="white" letterSpacing="4">
-              N
-            </text>
-            <text x="94" y="64" textAnchor="middle" fill={ORANGE} letterSpacing="4">
-              E
-            </text>
-            <text x="26" y="64" textAnchor="middle" fill={ORANGE} letterSpacing="4">
-              W
-            </text>
-            <text x="60" y="100" textAnchor="middle" fill={ORANGE} letterSpacing="4">
-              S
-            </text>
           </g>
 
           <g opacity={0.9} className="origin-center animate-[spin_28s_linear_infinite]">
