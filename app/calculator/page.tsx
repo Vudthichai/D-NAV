@@ -599,8 +599,6 @@ export default function TheDNavPage() {
               <p className="text-base text-muted-foreground">
                 Every decision you make carries five forces: <strong>Impact</strong>, <strong>Cost</strong>, <strong>Risk</strong>, <strong>Urgency</strong> and <strong>Confidence</strong>.
               </p>
-              <p className="text-sm text-muted-foreground">True wisdom is knowing the limits of your own certainty.</p>
-              <p className="text-sm text-muted-foreground">True innovation is what you choose to do next.</p>
             </div>
             <div className="flex gap-2 self-start items-center">
               {isSignedIn ? (
@@ -629,26 +627,28 @@ export default function TheDNavPage() {
               </p>
             </div>
 
-            <Card>
-              <CardHeader className="pb-4 space-y-4">
-                <CardTitle className="text-lg">Quick Entry</CardTitle>
+            <div className="space-y-4">
+              <Input
+                type="text"
+                placeholder="What's Your Decision?"
+                value={decisionName}
+                onChange={(e) => setDecisionName(e.target.value)}
+                className="h-12 text-base lg:text-lg"
+              />
+              <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center">
                 <Input
                   type="text"
-                  placeholder="What's Your Decision?"
-                  value={decisionName}
-                  onChange={(e) => setDecisionName(e.target.value)}
-                  className="h-12 text-base lg:text-lg"
+                  placeholder="Categorize it"
+                  value={decisionCategory}
+                  onChange={(e) => setDecisionCategory(e.target.value)}
+                  className="sm:w-60 lg:w-72"
                 />
-              </CardHeader>
-              <CardContent>
-                <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
-                  <Input
-                    type="text"
-                    placeholder="Categorize it"
-                    value={decisionCategory}
-                    onChange={(e) => setDecisionCategory(e.target.value)}
-                  />
-                  <Button onClick={handleSaveDecision} className="w-full" disabled={!decisionName || !decisionCategory}>
+                <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-2">
+                  <Button
+                    onClick={handleSaveDecision}
+                    className="w-full sm:w-auto"
+                    disabled={!decisionName || !decisionCategory}
+                  >
                     {isSaved ? (
                       <>
                         <Check className="w-4 h-4 mr-2" />
@@ -661,15 +661,20 @@ export default function TheDNavPage() {
                       </>
                     )}
                   </Button>
-                  <Button variant="outline" className="w-full" asChild>
+                  <Button variant="outline" className="w-full sm:w-auto" asChild>
                     <Link href="/log#import" className="flex items-center justify-center">
                       <Upload className="w-4 h-4 mr-2" />
                       Import Decisions
                     </Link>
                   </Button>
+                  <Button variant="ghost" className="w-full sm:w-auto whitespace-nowrap" asChild>
+                    <Link href="/contact">Book a consultation</Link>
+                  </Button>
                 </div>
-              </CardContent>
-            </Card>
+              </div>
+            </div>
+
+            <DecisionCalculator onDataChange={handleDataChange} />
 
             <div className="space-y-2">
               <p className="text-xs font-semibold uppercase tracking-[0.3em] text-muted-foreground">
@@ -679,8 +684,6 @@ export default function TheDNavPage() {
                 Adjust the variables accordingly and see your RPS metrics.
               </p>
             </div>
-
-            <DecisionCalculator onDataChange={handleDataChange} />
             {isSignedIn ? (
               <div className="flex justify-end">
                 <Button variant="ghost" size="sm" onClick={handleLogoutClick}>
@@ -1020,7 +1023,7 @@ export default function TheDNavPage() {
                   </ul>
                   <div className="space-y-2">
                     <Button size="lg" asChild>
-                      <Link href="/contact">Book a Decision Audit</Link>
+                      <Link href="/contact">Book a consultation</Link>
                     </Button>
                     <p className="text-xs text-muted-foreground">
                       Client dashboards and full analytics are available only for active teams.
