@@ -11,10 +11,10 @@ interface StatCardProps {
     text: string;
     color: 'green' | 'amber' | 'red' | 'blue';
   };
-  description?: string;
+  subtitle?: string;
 }
 
-export default function StatCard({ title, value, pill, description }: StatCardProps) {
+export default function StatCard({ title, value, pill, subtitle }: StatCardProps) {
   const formatValue = (val: number) => val > 0 ? `+${val}` : val < 0 ? val.toString() : '0';
   
   const pillVariants = {
@@ -30,6 +30,11 @@ export default function StatCard({ title, value, pill, description }: StatCardPr
         <h3 className="m-0 text-xs text-muted-foreground tracking-wider uppercase font-normal">
           {title}
         </h3>
+        {subtitle ? (
+          <p className="mt-1 text-[11px] font-medium uppercase tracking-wide text-muted-foreground/70">
+            {subtitle}
+          </p>
+        ) : null}
         <div className="text-4xl font-black leading-tight">
           {formatValue(value)}
         </div>
@@ -42,11 +47,6 @@ export default function StatCard({ title, value, pill, description }: StatCardPr
         >
           {pill.text}
         </Badge>
-        {description ? (
-          <p className="mt-2 text-[10px] uppercase tracking-wide text-muted-foreground/80">
-            {description}
-          </p>
-        ) : null}
       </CardContent>
     </Card>
   );
