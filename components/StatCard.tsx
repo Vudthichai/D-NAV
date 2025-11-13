@@ -12,11 +12,12 @@ interface StatCardProps {
     color: 'green' | 'amber' | 'red' | 'blue';
   };
   subtitle?: string;
+  description?: string;
 }
 
-export default function StatCard({ title, value, pill, subtitle }: StatCardProps) {
+export default function StatCard({ title, value, pill, subtitle, description }: StatCardProps) {
   const formatValue = (val: number) => val > 0 ? `+${val}` : val < 0 ? val.toString() : '0';
-  
+
   const pillVariants = {
     green: 'bg-green-500/18 text-green-400 border-green-500/40',
     amber: 'bg-amber-500/18 text-amber-400 border-amber-500/35',
@@ -38,6 +39,11 @@ export default function StatCard({ title, value, pill, subtitle }: StatCardProps
         <div className="text-4xl font-black leading-tight">
           {formatValue(value)}
         </div>
+        {description ? (
+          <p className="mt-3 text-sm text-muted-foreground leading-relaxed">
+            {description}
+          </p>
+        ) : null}
         <Badge
           variant="outline"
           className={cn(
