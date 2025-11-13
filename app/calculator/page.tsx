@@ -586,8 +586,9 @@ export default function TheDNavPage() {
                 The D-NAV: A Live Readout of Your Judgment
               </h1>
               <p className="text-base text-muted-foreground">
-                Every decision you make carries five forces: Impact, Cost, Risk, Urgency, and Confidence. The D-NAV shows how those forces add up in real time — before reality does it for you.
+                Every decision you make carries five forces: <strong>Impact</strong>, <strong>Cost</strong>, <strong>Risk</strong>, <strong>Urgency</strong> and <strong>Confidence</strong>.
               </p>
+              <p className="text-base text-muted-foreground">True wisdom is knowing the limits of your own certainty.</p>
             </div>
             <div className="flex gap-2 self-start">
               <Button variant="outline" onClick={handleReset}>
@@ -608,23 +609,21 @@ export default function TheDNavPage() {
             </div>
 
             <Card>
-              <CardHeader className="pb-4 space-y-2">
+              <CardHeader className="pb-4 space-y-4">
                 <CardTitle className="text-lg">Quick Entry</CardTitle>
-                <p className="text-sm text-muted-foreground">
-                  Name the decision and log it so you can revisit the outcome later.
-                </p>
+                <Input
+                  type="text"
+                  placeholder="What's Your Decision?"
+                  value={decisionName}
+                  onChange={(e) => setDecisionName(e.target.value)}
+                  className="h-12 text-base lg:text-lg"
+                />
               </CardHeader>
               <CardContent>
-                <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-4">
+                <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
                   <Input
                     type="text"
-                    placeholder="Decision name (e.g., 'Investor meetup solo')"
-                    value={decisionName}
-                    onChange={(e) => setDecisionName(e.target.value)}
-                  />
-                  <Input
-                    type="text"
-                    placeholder="Category (e.g., Career, Health, Relationships)"
+                    placeholder="Categorize it"
                     value={decisionCategory}
                     onChange={(e) => setDecisionCategory(e.target.value)}
                   />
@@ -651,10 +650,16 @@ export default function TheDNavPage() {
               </CardContent>
             </Card>
 
-            <DecisionCalculator
-              onOpenCompare={handleOpenCompare}
-              onDataChange={handleDataChange}
-            />
+            <div className="space-y-2">
+              <p className="text-xs font-semibold uppercase tracking-[0.3em] text-muted-foreground">
+                2. See the Physics of This Decision
+              </p>
+              <p className="text-sm text-muted-foreground max-w-3xl">
+                Return, Pressure, Stability
+              </p>
+            </div>
+
+            <DecisionCalculator onDataChange={handleDataChange} />
           </section>
 
           {showAnalytics ? (
