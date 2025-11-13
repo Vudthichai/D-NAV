@@ -19,7 +19,12 @@ export default function SummaryCard({ metrics, coachText }: SummaryCardProps) {
 
       <div>
         <h3 className="m-0 text-xs text-muted-foreground uppercase tracking-wider">Coach</h3>
-        <p className="text-sm text-muted-foreground leading-relaxed mt-1.5">{coachText}</p>
+        <p className="text-sm text-muted-foreground leading-relaxed mt-1.5">
+          This is the posture you’re taking under uncertainty — the instinctive way you’re holding this decision. The coach insight gives you the smallest possible correction to make this call smarter.
+        </p>
+        <p className="text-sm text-muted-foreground leading-relaxed mt-3">
+          <span className="font-semibold text-foreground">Coach insight:</span> {coachText}
+        </p>
       </div>
 
       <div className="rounded-lg border border-border/50 bg-muted/20 p-4">

@@ -596,11 +596,9 @@ export default function TheDNavPage() {
               <h1 className="text-3xl font-bold text-foreground">
                 The D-NAV: A Live Readout of Your Judgment
               </h1>
-              <p className="text-base text-muted-foreground">
-                Every decision you make carries five forces: <strong>Impact</strong>, <strong>Cost</strong>, <strong>Risk</strong>, <strong>Urgency</strong> and <strong>Confidence</strong>.
+              <p className="text-base text-muted-foreground leading-relaxed">
+                Every decision you make carries five forces — <strong>Impact</strong>, <strong>Cost</strong>, <strong>Risk</strong>, <strong>Urgency</strong>, and <strong>Confidence</strong>. D-NAV translates them into the physics of your judgment.
               </p>
-              <p className="text-sm text-muted-foreground">True wisdom is knowing the limits of your own certainty.</p>
-              <p className="text-sm text-muted-foreground">True innovation is what you choose to do next.</p>
             </div>
             <div className="flex gap-2 self-start items-center">
               {isSignedIn ? (
@@ -625,7 +623,7 @@ export default function TheDNavPage() {
                 1. Rate Your Decision
               </p>
               <p className="text-sm text-muted-foreground max-w-3xl">
-                Pick one real decision on your mind. Move each slider from 1–10 based on what feels true — not what sounds smart.
+                Pick one real decision that’s active in your life. Move each slider from 1–10 based on what feels true — not what sounds smart. You’re not guessing the “right” numbers; you’re capturing how the decision feels.
               </p>
             </div>
 
@@ -1010,22 +1008,17 @@ export default function TheDNavPage() {
                 </CardHeader>
                 <CardContent className="space-y-4">
                   <p className="text-sm text-muted-foreground">
-                    This live check is just the first layer. In a Decision Audit, we run a small batch of your real decisions through D-NAV, map your judgment patterns, and build a cadence that reduces re-decisions and increases stability under pressure.
+                    This live check is just the first layer. In a Decision Audit, we run a cluster of your real decisions through D-NAV, map your judgment patterns, and design a cadence that reduces re-decisions and increases stability under pressure.
                   </p>
                   <ul className="list-disc space-y-1 pl-5 text-sm text-muted-foreground">
-                    <li>Score a set of meaningful decisions across Impact, Cost, Risk, Urgency, Confidence</li>
-                    <li>See your Return / Stability / Pressure profile across those calls</li>
-                    <li>Identify your dominant archetypes and blind spots</li>
+                    <li>Score a batch of real decisions across Impact, Cost, Risk, Urgency, and Confidence</li>
+                    <li>See your Return / Stability / Pressure profile as a team</li>
+                    <li>Identify dominant archetypes and blind spots</li>
                     <li>Design a 30–90 day decision cadence for your team</li>
                   </ul>
-                  <div className="space-y-2">
-                    <Button size="lg" asChild>
-                      <Link href="/contact">Book a Decision Audit</Link>
-                    </Button>
-                    <p className="text-xs text-muted-foreground">
-                      Client dashboards and full analytics are available only for active teams.
-                    </p>
-                  </div>
+                  <Button size="lg" asChild>
+                    <Link href="/contact">Book a Decision Audit</Link>
+                  </Button>
                 </CardContent>
               </Card>
 
@@ -1033,21 +1026,24 @@ export default function TheDNavPage() {
           ) : (
             <section className="py-16">
               <div className="mx-auto max-w-2xl text-center space-y-6">
-                <h2 className="text-3xl font-semibold text-foreground">Already a client?</h2>
+                <h2 className="text-3xl font-semibold text-foreground">Unlock Your Decision Patterns</h2>
                 <p className="text-sm text-muted-foreground leading-relaxed">
-                  Sign in to view your full analytics — long-term return, stability, pressure, and feedback loops for your
-                  decisions.
+                  One decision is a snapshot. A series of decisions becomes a pattern. Over time, D-NAV reveals your loops — return, stability, pressure, momentum, and consistency — so you can see how your judgment really behaves under uncertainty.
                 </p>
-                <div className="flex flex-col justify-center gap-3 sm:flex-row">
+                <div className="flex flex-col justify-center gap-3 sm:flex-row sm:items-center sm:justify-center">
                   <Button size="lg" onClick={handleSignInClick}>
                     Sign In to View Analytics
                   </Button>
+                  <Button size="lg" variant="outline" asChild>
+                    <Link href="/contact">Book a Decision Audit</Link>
+                  </Button>
                 </div>
                 <p className="text-xs text-muted-foreground">
-                  Client dashboards and full analytics are available only to active teams.
+                  Client dashboards and full analytics are available only to active teams and audit clients.
                 </p>
               </div>
             </section>
+
           )}
 
           <section className="space-y-3">
