@@ -2,7 +2,6 @@
 
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Separator } from "@/components/ui/separator";
 import { DecisionMetrics, DecisionVariables, coachHint, computeMetrics } from "@/lib/calculations";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import SliderRow from "./SliderRow";
@@ -59,7 +58,7 @@ export default function DecisionCalculator({ onOpenCompare, onDataChange }: Deci
           <CardHeader className="pb-4">
             <CardTitle className="text-xl font-bold">Decision Variables</CardTitle>
             <p className="text-sm text-muted-foreground">
-              Rate each variable from 1-10 based on your current context and feelings.
+              Each slider represents one of the five forces shaping your call.
             </p>
             <div className="flex gap-2 mt-2">
               <Badge variant="outline" className="text-xs">
@@ -74,35 +73,35 @@ export default function DecisionCalculator({ onOpenCompare, onDataChange }: Deci
             <SliderRow
               id="impact"
               label="Impact"
-              hint="Expected benefit / upside"
+              hint="How big is the upside if this works?"
               value={variables.impact}
               onChange={(value) => updateVariable("impact", value)}
             />
             <SliderRow
               id="cost"
               label="Cost"
-              hint="Money, time, or effort required"
+              hint="What are you really spending — money, time, reputation, focus?"
               value={variables.cost}
               onChange={(value) => updateVariable("cost", value)}
             />
             <SliderRow
               id="risk"
               label="Risk"
-              hint="Downside, what could go wrong"
+              hint="If you’re wrong, what breaks or becomes hard to undo?"
               value={variables.risk}
               onChange={(value) => updateVariable("risk", value)}
             />
             <SliderRow
               id="urgency"
               label="Urgency"
-              hint="How soon action is needed"
+              hint="How soon do you actually need to move?"
               value={variables.urgency}
               onChange={(value) => updateVariable("urgency", value)}
             />
             <SliderRow
               id="confidence"
               label="Confidence"
-              hint="Evidence, readiness, and conviction"
+              hint="How solid is your evidence and experience — not just your hope?"
               value={variables.confidence}
               onChange={(value) => updateVariable("confidence", value)}
             />
@@ -111,28 +110,44 @@ export default function DecisionCalculator({ onOpenCompare, onDataChange }: Deci
 
         {/* Metrics Section */}
         <Card id="metrics-section" className="flex h-full flex-col">
-          <CardHeader className="pb-3">
-            <CardTitle className="text-lg">Key Metrics</CardTitle>
+          <CardHeader className="pb-3 space-y-2">
+            <p className="text-[11px] font-semibold uppercase tracking-[0.28em] text-muted-foreground">
+              2. See the Physics of This Decision
+            </p>
+            <CardTitle className="text-lg">Return, Stability, Pressure</CardTitle>
           </CardHeader>
           <CardContent className="flex flex-1 flex-col justify-between space-y-4">
             <StatCard
               title="Return"
               value={metrics.return}
               pill={getPillColor(metrics.return, "return")}
-              description="Impact − Cost"
+              subtitle="Impact − Cost"
             />
             <StatCard
               title="Stability"
               value={metrics.stability}
               pill={getPillColor(metrics.stability, "stability")}
-              description="Confidence − Risk"
+              subtitle="Confidence − Risk"
             />
             <StatCard
               title="Pressure"
               value={metrics.pressure}
               pill={getPillColor(metrics.pressure, "pressure")}
-              description="Urgency − Confidence"
+              subtitle="Urgency − Confidence"
             />
+            <div className="rounded-lg border border-border/50 bg-muted/20 p-4">
+              <div className="flex items-baseline justify-between gap-4">
+                <div>
+                  <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                    D-NAV Score
+                  </p>
+                </div>
+                <p className="text-3xl font-black text-foreground">{metrics.dnav}</p>
+              </div>
+              <p className="mt-3 text-sm text-muted-foreground">
+                D-NAV Composite: A single score that captures the overall health of this decision.
+              </p>
+            </div>
           </CardContent>
         </Card>
         {/* Summary & Coach */}
@@ -140,20 +155,8 @@ export default function DecisionCalculator({ onOpenCompare, onDataChange }: Deci
           <CardHeader className="pb-3">
             <CardTitle className="text-lg">Archetype &amp; Coach</CardTitle>
           </CardHeader>
-          <CardContent className="flex-1 space-y-4">
-            <SummaryCard
-              metrics={metrics}
-              urgency={variables.urgency}
-              confidence={variables.confidence}
-              onOpenCompare={onOpenCompare}
-            />
-            <Separator />
-            <div id="coach-section" className="space-y-2">
-              <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">
-                Coach Insight
-              </h3>
-              <p className="text-sm text-muted-foreground leading-relaxed">{coachText}</p>
-            </div>
+          <CardContent className="flex-1">
+            <SummaryCard metrics={metrics} coachText={coachText} onOpenCompare={onOpenCompare} />
           </CardContent>
         </Card>
       </div>
