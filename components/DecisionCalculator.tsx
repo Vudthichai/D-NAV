@@ -114,48 +114,30 @@ export default function DecisionCalculator({ onDataChange }: DecisionCalculatorP
           </CardHeader>
           <CardContent className="flex flex-1 flex-col space-y-4">
             <div className="space-y-4">
-              <div className="space-y-2">
-                <StatCard
-                  title="Return"
-                  value={metrics.return}
-                  pill={getPillColor(metrics.return, "return")}
-                  subtitle="Impact − Cost"
-                />
-                <p className="text-xs text-muted-foreground leading-snug">
-                  Is this decision actually worth the energy? Positive return means the upside justifies what
-                  you’re spending in time, money, and focus.
-                </p>
-              </div>
-              <div className="space-y-2">
-                <StatCard
-                  title="Pressure"
-                  value={metrics.pressure}
-                  pill={getPillColor(metrics.pressure, "pressure")}
-                  subtitle="Urgency − Confidence"
-                />
-                <p className="text-xs text-muted-foreground leading-snug">
-                  High pressure means urgency is running ahead of confidence, and the decision is starting to
-                  decide you instead of the other way around.
-                </p>
-              </div>
-              <div className="space-y-2">
-                <StatCard
-                  title="Stability"
-                  value={metrics.stability}
-                  pill={getPillColor(metrics.stability, "stability")}
-                  subtitle="Confidence − Risk"
-                />
-                <p className="text-xs text-muted-foreground leading-snug">
-                  Stability tells you how likely this decision is to survive turbulence.
-                </p>
-              </div>
+              <StatCard
+                title="Return"
+                value={metrics.return}
+                pill={getPillColor(metrics.return, "return")}
+                subtitle="Impact − Cost"
+              />
+              <StatCard
+                title="Pressure"
+                value={metrics.pressure}
+                pill={getPillColor(metrics.pressure, "pressure")}
+                subtitle="Urgency − Confidence"
+              />
+              <StatCard
+                title="Stability"
+                value={metrics.stability}
+                pill={getPillColor(metrics.stability, "stability")}
+                subtitle="Confidence − Risk"
+              />
             </div>
-            <p className="rps-meaning text-xs text-muted-foreground leading-relaxed">
-              Your RPS profile is the physics of this decision. Return shows whether the upside is worth the
-              energy. Pressure shows whether urgency is overpowering confidence. Stability shows how likely this
-              decision is to survive turbulence. Together, they reveal how your judgment actually behaves under
-              uncertainty.
-            </p>
+            <div className="space-y-1 text-xs text-muted-foreground">
+              <p>Return · Impact − Cost</p>
+              <p>Pressure · Urgency − Confidence</p>
+              <p>Stability · Confidence − Risk</p>
+            </div>
           </CardContent>
         </Card>
         {/* Summary & Coach */}
