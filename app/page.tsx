@@ -33,12 +33,7 @@ export default function Home() {
             {/* Logo and Title */}
             <div className="flex flex-col items-center gap-4 mb-8">
               <AnimatedCompass />
-              <div className="space-y-2 text-center">
-                <h1 className="text-6xl font-black tracking-tight text-foreground">D-NAV</h1>
-                <p className="text-xl text-muted-foreground font-medium">
-                  Human progress happens where data runs out. D-NAV measures the quality of that leap.
-                </p>
-              </div>
+              <h1 className="text-6xl font-black tracking-tight text-foreground">D-NAV</h1>
             </div>
 
             {/* Hero Description */}
@@ -396,26 +391,9 @@ export default function Home() {
       {/* Footer */}
       <footer className="py-12 border-t">
         <div className="max-w-7xl mx-auto px-6">
-          <div className="flex flex-col md:flex-row justify-between items-center gap-6">
-            <div className="flex items-center gap-3">
-              <AnimatedCompass className="h-20 w-20 rounded-[28px] before:rounded-[24px] p-3" />
-              <div>
-                <div className="font-bold text-lg">D-NAV</div>
-                <div className="text-sm text-muted-foreground">
-                  Human progress happens where data runs out. D-NAV measures the quality of that leap.
-                </div>
-              </div>
-            </div>
-
-            <div className="flex gap-6">
-              <Link
-                href="/definitions"
-                className="text-muted-foreground hover:text-foreground transition-colors"
-              >
-                Documentation
-              </Link>
-            </div>
-          </div>
+          <p className="text-sm text-muted-foreground text-center md:text-left">
+            Human progress happens where data runs out. D-NAV measures the quality of that leap.
+          </p>
         </div>
       </footer>
     </main>

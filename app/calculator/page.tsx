@@ -681,6 +681,13 @@ export default function TheDNavPage() {
             </div>
 
             <DecisionCalculator onDataChange={handleDataChange} />
+            {isSignedIn ? (
+              <div className="flex justify-end">
+                <Button variant="ghost" size="sm" onClick={handleLogoutClick}>
+                  Sign out
+                </Button>
+              </div>
+            ) : null}
           </section>
 
           {showAnalytics ? (
