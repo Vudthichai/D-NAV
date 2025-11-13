@@ -568,7 +568,7 @@ export default function TheDNavPage() {
       })
     : "No decisions logged in this window. Import or record decisions to unlock narrative insights.";
 
-  const showAnalytics = isSignedIn && isAdmin;
+  const showAnalytics = isSignedIn;
 
   const handleSignInClick = () => {
     if (typeof window === "undefined") return;
