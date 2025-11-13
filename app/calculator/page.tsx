@@ -145,6 +145,22 @@ interface DistributionCardProps {
   segments: DistributionSegment[];
 }
 
+type IdentityEventHandler = (user?: NetlifyIdentityUser | null) => void;
+
+interface NetlifyIdentityUser {
+  app_metadata?: {
+    roles?: string[];
+  };
+}
+
+interface NetlifyIdentity {
+  on?: (event: string, callback: IdentityEventHandler) => void;
+  off?: (event: string, callback: IdentityEventHandler) => void;
+  open?: (modal?: string) => void;
+  init?: () => void;
+  currentUser?: () => NetlifyIdentityUser | null;
+}
+
 const DistributionCard = ({ title, segments }: DistributionCardProps) => {
   const safeSegments = segments.map((segment) => ({
     ...segment,
@@ -252,6 +268,8 @@ export default function TheDNavPage() {
   const [cadenceUnit, setCadenceUnit] = useState("week");
   const [isGeneratingStatsPdf, setIsGeneratingStatsPdf] = useState(false);
   const statsContainerRef = useRef<HTMLDivElement>(null);
+  const [isSignedIn, setIsSignedIn] = useState(false);
+  const [isAdmin, setIsAdmin] = useState(false);
 
   const handleDataChange = useCallback(
     (newVariables: DecisionVariables, newMetrics: DecisionMetrics) => {
@@ -317,6 +335,75 @@ export default function TheDNavPage() {
   useEffect(() => {
     setDecisions(loadLog());
   }, [isSaved]);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+
+    let cleanup: (() => void) | undefined;
+    let interval: number | undefined;
+    let initialized = false;
+
+    const updateUserState = (user?: NetlifyIdentityUser | null) => {
+      const hasUser = Boolean(user);
+      setIsSignedIn(hasUser);
+      const roles =
+        hasUser && Array.isArray(user?.app_metadata?.roles) ? (user.app_metadata.roles as string[]) : [];
+      setIsAdmin(hasUser && roles.includes("admin"));
+    };
+
+    const setupIdentity = () => {
+      if (initialized) return true;
+
+      const identity = (window as Window & { netlifyIdentity?: NetlifyIdentity }).netlifyIdentity;
+      if (!identity || typeof identity.on !== "function") {
+        return false;
+      }
+
+      initialized = true;
+      const handleInit: IdentityEventHandler = (user) => updateUserState(user ?? undefined);
+      const handleLogin: IdentityEventHandler = (user) => updateUserState(user ?? undefined);
+      const handleLogout = () => updateUserState(undefined);
+      const handleUserEvent: IdentityEventHandler = (user) => updateUserState(user ?? undefined);
+
+      identity.on("init", handleInit);
+      identity.on("login", handleLogin);
+      identity.on("logout", handleLogout);
+      identity.on("user", handleUserEvent);
+
+      identity.init?.();
+
+      const currentUser = identity.currentUser?.();
+      if (currentUser) {
+        updateUserState(currentUser);
+      }
+
+      cleanup = () => {
+        identity.off?.("init", handleInit);
+        identity.off?.("login", handleLogin);
+        identity.off?.("logout", handleLogout);
+        identity.off?.("user", handleUserEvent);
+      };
+
+      return true;
+    };
+
+    if (!setupIdentity()) {
+      interval = window.setInterval(() => {
+        if (setupIdentity()) {
+          if (interval !== undefined) {
+            window.clearInterval(interval);
+          }
+        }
+      }, 500);
+    }
+
+    return () => {
+      if (interval !== undefined) {
+        window.clearInterval(interval);
+      }
+      cleanup?.();
+    };
+  }, []);
 
   const stats = useMemo<DashboardStats>(() => {
     const timeframeDays = timeWindow === "0" ? null : Number.parseInt(timeWindow, 10);
@@ -481,6 +568,14 @@ export default function TheDNavPage() {
       })
     : "No decisions logged in this window. Import or record decisions to unlock narrative insights.";
 
+  const showAnalytics = isSignedIn && isAdmin;
+
+  const handleSignInClick = () => {
+    if (typeof window === "undefined") return;
+    const identity = (window as Window & { netlifyIdentity?: NetlifyIdentity }).netlifyIdentity;
+    identity?.open?.("login");
+  };
+
   return (
     <TooltipProvider>
       <main className="min-h-screen">
@@ -562,368 +657,393 @@ export default function TheDNavPage() {
             />
           </section>
 
-          <section className="space-y-3">
-            <p className="text-xs font-semibold uppercase tracking-[0.3em] text-muted-foreground">
-              3. Under the Surface: How Your Decisions Behave Over Time
-            </p>
-            <p className="text-sm text-muted-foreground max-w-3xl">
-              One decision is a snapshot. A series of decisions becomes a pattern. Below, D-NAV starts to trace your feedback loops, consistency, and return hygiene — the habits that quietly shape your outcomes.
-            </p>
-          </section>
+          {showAnalytics ? (
+            <>
+              <section className="space-y-3">
+                <p className="text-xs font-semibold uppercase tracking-[0.3em] text-muted-foreground">
+                  3. Under the Surface: How Your Decisions Behave Over Time
+                </p>
+                <p className="text-sm text-muted-foreground max-w-3xl">
+                  One decision is a snapshot. A series of decisions becomes a pattern. Below, D-NAV starts to trace your feedback loops, consistency, and return hygiene — the habits that quietly shape your outcomes.
+                </p>
+              </section>
 
-          <section className="space-y-10">
-            <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
-              <div className="flex items-center gap-2">
-                <Select value={timeWindow} onValueChange={setTimeWindow}>
-                  <SelectTrigger className="w-36">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectGroup>
-                      <SelectItem value="0">All time</SelectItem>
-                      <SelectItem value="7">Last 7 days</SelectItem>
-                      <SelectItem value="30">Last 30 days</SelectItem>
-                      <SelectItem value="90">Last 90 days</SelectItem>
-                    </SelectGroup>
-                  </SelectContent>
-                </Select>
-                <Select value={cadenceUnit} onValueChange={setCadenceUnit}>
-                  <SelectTrigger className="w-36">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectGroup>
-                      <SelectItem value="day">Per day</SelectItem>
-                      <SelectItem value="week">Per week</SelectItem>
-                      <SelectItem value="month">Per month</SelectItem>
-                    </SelectGroup>
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="flex gap-2">
-                <Button
-                  variant="outline"
-                  onClick={handleDownloadNarrative}
-                  disabled={!hasData}
-                >
-                  <FileText className="h-4 w-4 mr-2" />
-                  Narrative PDF
-                </Button>
-                <Button
-                  variant="outline"
-                  onClick={handleDownloadStatsReport}
-                  disabled={!hasData || isGeneratingStatsPdf}
-                >
-                  <Download className="h-4 w-4 mr-2" />
-                  {isGeneratingStatsPdf ? "Preparing..." : "Stats PDF"}
-                </Button>
-              </div>
-            </div>
-
-            <div className="space-y-12">
-              <div className="space-y-4">
-                <div>
-                  <h2 className="text-xl font-semibold text-foreground">Feedback Loops</h2>
-                  <p className="text-sm text-muted-foreground">
-                    How quickly your judgment recovers from bad calls — your learning half-life.
-                  </p>
+              <section className="space-y-10">
+                <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+                  <div className="flex items-center gap-2">
+                    <Select value={timeWindow} onValueChange={setTimeWindow}>
+                      <SelectTrigger className="w-36">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectGroup>
+                          <SelectItem value="0">All time</SelectItem>
+                          <SelectItem value="7">Last 7 days</SelectItem>
+                          <SelectItem value="30">Last 30 days</SelectItem>
+                          <SelectItem value="90">Last 90 days</SelectItem>
+                        </SelectGroup>
+                      </SelectContent>
+                    </Select>
+                    <Select value={cadenceUnit} onValueChange={setCadenceUnit}>
+                      <SelectTrigger className="w-36">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectGroup>
+                          <SelectItem value="day">Per day</SelectItem>
+                          <SelectItem value="week">Per week</SelectItem>
+                          <SelectItem value="month">Per month</SelectItem>
+                        </SelectGroup>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="flex gap-2">
+                    <Button
+                      variant="outline"
+                      onClick={handleDownloadNarrative}
+                      disabled={!hasData}
+                    >
+                      <FileText className="h-4 w-4 mr-2" />
+                      Narrative PDF
+                    </Button>
+                    <Button
+                      variant="outline"
+                      onClick={handleDownloadStatsReport}
+                      disabled={!hasData || isGeneratingStatsPdf}
+                    >
+                      <Download className="h-4 w-4 mr-2" />
+                      {isGeneratingStatsPdf ? "Preparing..." : "Stats PDF"}
+                    </Button>
+                  </div>
                 </div>
-                {FLAGS.showFeedbackLoops !== false && <FeedbackLoops series={dnavSeries} />}
-                <Card>
-                  <CardHeader>
-                    <CardTitle className="flex items-center gap-2">
-                      <AlertTriangle className="h-5 w-5" />
-                      Return Hygiene
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                      <div className="space-y-2">
-                        <InfoTooltip term="Loss Streak">
-                          <p className="text-sm font-medium text-muted-foreground cursor-help">Loss Streak</p>
-                        </InfoTooltip>
-                        <InfoTooltip term="Loss Streak" side="bottom">
-                          <div className="flex items-baseline gap-2 cursor-help">
-                            <span className="text-2xl font-bold">{stats?.lossStreak.current || 0}</span>
-                            <span className="text-sm text-muted-foreground">/ {stats?.lossStreak.longest || 0}</span>
-                          </div>
-                        </InfoTooltip>
-                        <p className="text-xs text-muted-foreground">Current / longest streak</p>
-                      </div>
-                      <div className="space-y-2">
-                        <InfoTooltip term="Return Debt">
-                          <p className="text-sm font-medium text-muted-foreground cursor-help">Return Debt</p>
-                        </InfoTooltip>
-                        <InfoTooltip term="Return Debt" side="bottom">
-                          <p className="text-2xl font-bold cursor-help">{formatValue(stats?.returnDebt ?? 0)}</p>
-                        </InfoTooltip>
-                        <p className="text-xs text-muted-foreground">Return debt (D-NAV units)</p>
-                      </div>
-                      <div className="space-y-2">
-                        <InfoTooltip term="Payback Ratio">
-                          <p className="text-sm font-medium text-muted-foreground cursor-help">Payback Ratio</p>
-                        </InfoTooltip>
-                        <InfoTooltip term="Payback Ratio" side="bottom">
-                          <p className="text-2xl font-bold cursor-help">{formatValue(stats?.paybackRatio ?? 0)}</p>
-                        </InfoTooltip>
-                        <p className="text-xs text-muted-foreground">Avg +return per win in streak</p>
-                      </div>
-                    </div>
-                    <p className="text-sm text-muted-foreground mt-4 leading-snug">{returnDebtSummary}</p>
-                    <Separator className="my-4" />
-                    <div className="flex items-start gap-2 p-4 bg-muted/50 rounded-lg">
-                      <CheckCircle className="h-5 w-5 text-green-600 mt-0.5 flex-shrink-0" />
+
+                <div className="space-y-12">
+                  <div className="space-y-4">
+                    <div>
+                      <h2 className="text-xl font-semibold text-foreground">Feedback Loops</h2>
                       <p className="text-sm text-muted-foreground">
-                        <strong>Remember:</strong> Losses aren’t “bad.” Unmanaged streaks are. Track them so “learning” doesn’t become a silent bleed.
+                        How quickly your judgment recovers from bad calls — your learning half-life.
                       </p>
                     </div>
-                  </CardContent>
-                </Card>
-              </div>
-
-              <div className="space-y-4">
-                <div>
-                  <h2 className="text-xl font-semibold text-foreground">Consistency</h2>
-                  <p className="text-sm text-muted-foreground">
-                    How reliably your decisions line up with your goals, instead of reacting to noise.
-                  </p>
-                </div>
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-4">
-                  <DashboardStatCard
-                    title="Total Decisions"
-                    value={stats?.totalDecisions || 0}
-                    subtitle="In selected timeframe"
-                    icon={Target}
-                  />
-                  <DashboardStatCard
-                    title="Average D-NAV"
-                    value={stats?.avgDnav || 0}
-                    subtitle="Composite score"
-                    icon={Gauge}
-                    trend={stats?.trend}
-                    color={
-                      stats?.avgDnav && stats.avgDnav > 25
-                        ? "positive"
-                        : stats?.avgDnav && stats.avgDnav < 0
-                        ? "negative"
-                        : "default"
-                    }
-                  />
-                  <DashboardStatCard
-                    title="Decision Cadence"
-                    value={stats?.cadence || 0}
-                    subtitle={`Decisions per ${cadenceUnit}`}
-                    icon={Activity}
-                  />
-                  <DashboardStatCard
-                    title="Return on Effort"
-                    value={stats?.returnOnEffort || 0}
-                    subtitle="Return per unit energy"
-                    icon={Zap}
-                    color={stats?.returnOnEffort && stats.returnOnEffort > 0 ? "positive" : "default"}
-                  />
-                  <DashboardStatCard
-                    title="Recent Trend"
-                    value={formatValue(stats?.last5vsPrior5 ?? 0)}
-                    subtitle="D-NAV change"
-                    icon={LineChart}
-                    color={
-                      stats?.last5vsPrior5 && stats.last5vsPrior5 > 0
-                        ? "positive"
-                        : stats?.last5vsPrior5 && stats.last5vsPrior5 < 0
-                        ? "negative"
-                        : "default"
-                    }
-                    helper="Last 5 decisions vs. prior 5"
-                  />
-                </div>
-              </div>
-
-              <div className="space-y-6">
-                <div>
-                  <h2 className="text-xl font-semibold text-foreground">Patterns &amp; Archetypes</h2>
-                  <p className="text-sm text-muted-foreground">
-                    Your dominant decision patterns and behavioral tendencies — how you show up across decisions.
-                  </p>
-                </div>
-                <Card>
-                  <CardHeader className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-                    <CardTitle>Portfolio Narrative</CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <p className="text-sm text-muted-foreground whitespace-pre-line">{narrativeText}</p>
-                  </CardContent>
-                </Card>
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                  <DistributionCard
-                    title="Return Distribution"
-                    segments={[
-                      {
-                        label: "Positive",
-                        value: stats.returnDistribution.positive,
-                        color: "#22c55e",
-                        metricKey: "positive",
-                      },
-                      {
-                        label: "Neutral",
-                        value: stats.returnDistribution.neutral,
-                        color: "#64748b",
-                        metricKey: "neutral",
-                      },
-                      {
-                        label: "Negative",
-                        value: stats.returnDistribution.negative,
-                        color: "#ef4444",
-                        metricKey: "negative",
-                      },
-                    ]}
-                  />
-                  <DistributionCard
-                    title="Stability Distribution"
-                    segments={[
-                      {
-                        label: "Stable",
-                        value: stats.stabilityDistribution.stable,
-                        color: "#3b82f6",
-                        metricKey: "stable",
-                      },
-                      {
-                        label: "Uncertain",
-                        value: stats.stabilityDistribution.uncertain,
-                        color: "#f59e0b",
-                        metricKey: "uncertain",
-                      },
-                      {
-                        label: "Fragile",
-                        value: stats.stabilityDistribution.fragile,
-                        color: "#f43f5e",
-                        metricKey: "fragile",
-                      },
-                    ]}
-                  />
-                  <DistributionCard
-                    title="Pressure Distribution"
-                    segments={[
-                      {
-                        label: "Pressured",
-                        value: stats.pressureDistribution.pressured,
-                        color: "#ef4444",
-                        metricKey: "pressured",
-                      },
-                      {
-                        label: "Balanced",
-                        value: stats.pressureDistribution.balanced,
-                        color: "#64748b",
-                        metricKey: "balanced",
-                      },
-                      {
-                        label: "Calm",
-                        value: stats.pressureDistribution.calm,
-                        color: "#14b8a6",
-                        metricKey: "calm",
-                      },
-                    ]}
-                  />
-                </div>
-                <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
-                  <Card>
-                    <CardHeader className="pb-2">
-                      <InfoTooltip term="Window Archetype">
-                        <CardTitle className="text-base cursor-help">Window Archetype</CardTitle>
-                      </InfoTooltip>
-                    </CardHeader>
-                    <CardContent className="space-y-2">
-                      <p className="text-xl font-semibold">{stats.windowArchetype}</p>
-                      <p className="text-sm text-muted-foreground leading-snug">
-                        {stats.windowArchetypeDescription}
-                      </p>
-                      <Separator className="my-2" />
-                      <div className="grid grid-cols-1 gap-1 text-sm text-muted-foreground">
-                        <span>Return: {stats.windowArchetypeBreakdown.returnType}</span>
-                        <span>Stability: {stats.windowArchetypeBreakdown.stabilityType}</span>
-                        <span>Pressure: {stats.windowArchetypeBreakdown.pressureType}</span>
-                      </div>
-                    </CardContent>
-                  </Card>
-                  <Card>
-                    <CardHeader className="pb-2">
-                      <CardTitle className="text-base">Archetype Deep Dive</CardTitle>
-                    </CardHeader>
-                    <CardContent className="space-y-3">
-                      <div>
-                        <p className="text-sm text-muted-foreground leading-relaxed">{archetype.description}</p>
-                      </div>
-                      <Separator />
-                      <div className="grid gap-3 sm:grid-cols-2">
-                        <div className="space-y-1">
-                          <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Merit</p>
-                          <p className="font-mono text-lg text-foreground">{metrics.merit}</p>
+                    {FLAGS.showFeedbackLoops !== false && <FeedbackLoops series={dnavSeries} />}
+                    <Card>
+                      <CardHeader>
+                        <CardTitle className="flex items-center gap-2">
+                          <AlertTriangle className="h-5 w-5" />
+                          Return Hygiene
+                        </CardTitle>
+                      </CardHeader>
+                      <CardContent>
+                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                          <div className="space-y-2">
+                            <InfoTooltip term="Loss Streak">
+                              <p className="text-sm font-medium text-muted-foreground cursor-help">Loss Streak</p>
+                            </InfoTooltip>
+                            <InfoTooltip term="Loss Streak" side="bottom">
+                              <div className="flex items-baseline gap-2 cursor-help">
+                                <span className="text-2xl font-bold">{stats?.lossStreak.current || 0}</span>
+                                <span className="text-sm text-muted-foreground">/ {stats?.lossStreak.longest || 0}</span>
+                              </div>
+                            </InfoTooltip>
+                            <p className="text-xs text-muted-foreground">Current / longest streak</p>
+                          </div>
+                          <div className="space-y-2">
+                            <InfoTooltip term="Return Debt">
+                              <p className="text-sm font-medium text-muted-foreground cursor-help">Return Debt</p>
+                            </InfoTooltip>
+                            <InfoTooltip term="Return Debt" side="bottom">
+                              <p className="text-2xl font-bold cursor-help">{formatValue(stats?.returnDebt ?? 0)}</p>
+                            </InfoTooltip>
+                            <p className="text-xs text-muted-foreground">Return debt (D-NAV units)</p>
+                          </div>
+                          <div className="space-y-2">
+                            <InfoTooltip term="Payback Ratio">
+                              <p className="text-sm font-medium text-muted-foreground cursor-help">Payback Ratio</p>
+                            </InfoTooltip>
+                            <InfoTooltip term="Payback Ratio" side="bottom">
+                              <p className="text-2xl font-bold cursor-help">{formatValue(stats?.paybackRatio ?? 0)}</p>
+                            </InfoTooltip>
+                            <p className="text-xs text-muted-foreground">Avg +return per win in streak</p>
+                          </div>
                         </div>
-                        <div className="space-y-1">
-                          <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Energy</p>
-                          <p className="font-mono text-lg text-foreground">{metrics.energy}</p>
-                        </div>
-                        <div className="space-y-1 sm:col-span-2">
-                          <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Profile</p>
+                        <p className="text-sm text-muted-foreground mt-4 leading-snug">{returnDebtSummary}</p>
+                        <Separator className="my-4" />
+                        <div className="flex items-start gap-2 p-4 bg-muted/50 rounded-lg">
+                          <CheckCircle className="h-5 w-5 text-green-600 mt-0.5 flex-shrink-0" />
                           <p className="text-sm text-muted-foreground">
-                            {scoreTag} — {energyInfo.name}
+                            <strong>Remember:</strong> Losses aren’t “bad.” Unmanaged streaks are. Track them so “learning” doesn’t become a silent bleed.
                           </p>
                         </div>
-                        <div className="space-y-1 sm:col-span-2">
-                          <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Coach</p>
-                          <p className="text-sm text-muted-foreground leading-relaxed">{coachLine}</p>
-                        </div>
-                      </div>
-                    </CardContent>
-                  </Card>
-                </div>
-              </div>
-            </div>
-          </section>
+                      </CardContent>
+                    </Card>
+                  </div>
 
-          <Card className="border border-primary/40 bg-primary/5">
-            <CardHeader>
-              <CardTitle className="text-2xl font-semibold text-foreground">
-                Turn One Decision Into a Decision Story
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <p className="text-sm text-muted-foreground">
-                This live check is just the first layer. In a Decision Audit, we run your last 10 meaningful decisions through D-NAV, map your judgment patterns, and build a cadence that reduces re-decisions and increases stability under pressure.
-              </p>
-              <ul className="list-disc space-y-1 pl-5 text-sm text-muted-foreground">
-                <li>Score 10 real decisions across Impact, Cost, Risk, Urgency, Confidence</li>
-                <li>See your Return / Stability / Pressure profile</li>
-                <li>Identify your dominant archetypes and blind spots</li>
-                <li>Design a 30–90 day decision cadence for your team</li>
-              </ul>
-              <div className="space-y-2">
-                <Button size="lg" asChild>
-                  <Link href="/contact">Book a Decision Audit</Link>
+                  <div className="space-y-4">
+                    <div>
+                      <h2 className="text-xl font-semibold text-foreground">Consistency</h2>
+                      <p className="text-sm text-muted-foreground">
+                        How reliably your decisions line up with your goals, instead of reacting to noise.
+                      </p>
+                    </div>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-4">
+                      <DashboardStatCard
+                        title="Total Decisions"
+                        value={stats?.totalDecisions || 0}
+                        subtitle="In selected timeframe"
+                        icon={Target}
+                      />
+                      <DashboardStatCard
+                        title="Average D-NAV"
+                        value={stats?.avgDnav || 0}
+                        subtitle="Composite score"
+                        icon={Gauge}
+                        trend={stats?.trend}
+                        color={
+                          stats?.avgDnav && stats.avgDnav > 25
+                            ? "positive"
+                            : stats?.avgDnav && stats.avgDnav < 0
+                            ? "negative"
+                            : "default"
+                        }
+                      />
+                      <DashboardStatCard
+                        title="Decision Cadence"
+                        value={stats?.cadence || 0}
+                        subtitle={`Decisions per ${cadenceUnit}`}
+                        icon={Activity}
+                      />
+                      <DashboardStatCard
+                        title="Return on Effort"
+                        value={stats?.returnOnEffort || 0}
+                        subtitle="Return per unit energy"
+                        icon={Zap}
+                        color={stats?.returnOnEffort && stats.returnOnEffort > 0 ? "positive" : "default"}
+                      />
+                      <DashboardStatCard
+                        title="Recent Trend"
+                        value={formatValue(stats?.last5vsPrior5 ?? 0)}
+                        subtitle="D-NAV change"
+                        icon={LineChart}
+                        color={
+                          stats?.last5vsPrior5 && stats.last5vsPrior5 > 0
+                            ? "positive"
+                            : stats?.last5vsPrior5 && stats.last5vsPrior5 < 0
+                            ? "negative"
+                            : "default"
+                        }
+                        helper="Last 5 decisions vs. prior 5"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="space-y-6">
+                    <div>
+                      <h2 className="text-xl font-semibold text-foreground">Patterns &amp; Archetypes</h2>
+                      <p className="text-sm text-muted-foreground">
+                        Your dominant decision patterns and behavioral tendencies — how you show up across decisions.
+                      </p>
+                    </div>
+                    <Card>
+                      <CardHeader className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+                        <CardTitle>Portfolio Narrative</CardTitle>
+                      </CardHeader>
+                      <CardContent>
+                        <p className="text-sm text-muted-foreground whitespace-pre-line">{narrativeText}</p>
+                      </CardContent>
+                    </Card>
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                      <DistributionCard
+                        title="Return Distribution"
+                        segments={[
+                          {
+                            label: "Positive",
+                            value: stats.returnDistribution.positive,
+                            color: "#22c55e",
+                            metricKey: "positive",
+                          },
+                          {
+                            label: "Neutral",
+                            value: stats.returnDistribution.neutral,
+                            color: "#64748b",
+                            metricKey: "neutral",
+                          },
+                          {
+                            label: "Negative",
+                            value: stats.returnDistribution.negative,
+                            color: "#ef4444",
+                            metricKey: "negative",
+                          },
+                        ]}
+                      />
+                      <DistributionCard
+                        title="Stability Distribution"
+                        segments={[
+                          {
+                            label: "Stable",
+                            value: stats.stabilityDistribution.stable,
+                            color: "#3b82f6",
+                            metricKey: "stable",
+                          },
+                          {
+                            label: "Uncertain",
+                            value: stats.stabilityDistribution.uncertain,
+                            color: "#f59e0b",
+                            metricKey: "uncertain",
+                          },
+                          {
+                            label: "Fragile",
+                            value: stats.stabilityDistribution.fragile,
+                            color: "#f43f5e",
+                            metricKey: "fragile",
+                          },
+                        ]}
+                      />
+                      <DistributionCard
+                        title="Pressure Distribution"
+                        segments={[
+                          {
+                            label: "Pressured",
+                            value: stats.pressureDistribution.pressured,
+                            color: "#ef4444",
+                            metricKey: "pressured",
+                          },
+                          {
+                            label: "Balanced",
+                            value: stats.pressureDistribution.balanced,
+                            color: "#64748b",
+                            metricKey: "balanced",
+                          },
+                          {
+                            label: "Calm",
+                            value: stats.pressureDistribution.calm,
+                            color: "#14b8a6",
+                            metricKey: "calm",
+                          },
+                        ]}
+                      />
+                    </div>
+                    <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+                      <Card>
+                        <CardHeader className="pb-2">
+                          <InfoTooltip term="Window Archetype">
+                            <CardTitle className="text-base cursor-help">Window Archetype</CardTitle>
+                          </InfoTooltip>
+                        </CardHeader>
+                        <CardContent className="space-y-2">
+                          <p className="text-xl font-semibold">{stats.windowArchetype}</p>
+                          <p className="text-sm text-muted-foreground leading-snug">
+                            {stats.windowArchetypeDescription}
+                          </p>
+                          <Separator className="my-2" />
+                          <div className="grid grid-cols-1 gap-1 text-sm text-muted-foreground">
+                            <span>Return: {stats.windowArchetypeBreakdown.returnType}</span>
+                            <span>Stability: {stats.windowArchetypeBreakdown.stabilityType}</span>
+                            <span>Pressure: {stats.windowArchetypeBreakdown.pressureType}</span>
+                          </div>
+                        </CardContent>
+                      </Card>
+                      <Card>
+                        <CardHeader className="pb-2">
+                          <CardTitle className="text-base">Archetype Deep Dive</CardTitle>
+                        </CardHeader>
+                        <CardContent className="space-y-3">
+                          <div>
+                            <p className="text-sm text-muted-foreground leading-relaxed">{archetype.description}</p>
+                          </div>
+                          <Separator />
+                          <div className="grid gap-3 sm:grid-cols-2">
+                            <div className="space-y-1">
+                              <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Merit</p>
+                              <p className="font-mono text-lg text-foreground">{metrics.merit}</p>
+                            </div>
+                            <div className="space-y-1">
+                              <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Energy</p>
+                              <p className="font-mono text-lg text-foreground">{metrics.energy}</p>
+                            </div>
+                            <div className="space-y-1 sm:col-span-2">
+                              <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Profile</p>
+                              <p className="text-sm text-muted-foreground">
+                                {scoreTag} — {energyInfo.name}
+                              </p>
+                            </div>
+                            <div className="space-y-1 sm:col-span-2">
+                              <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Coach</p>
+                              <p className="text-sm text-muted-foreground leading-relaxed">{coachLine}</p>
+                            </div>
+                          </div>
+                        </CardContent>
+                      </Card>
+                    </div>
+                  </div>
+                </div>
+              </section>
+
+              <Card className="border border-primary/40 bg-primary/5">
+                <CardHeader>
+                  <CardTitle className="text-2xl font-semibold text-foreground">
+                    Turn One Decision Into a Decision Story
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <p className="text-sm text-muted-foreground">
+                    This live check is just the first layer. In a Decision Audit, we run your last 10 meaningful decisions through D-NAV, map your judgment patterns, and build a cadence that reduces re-decisions and increases stability under pressure.
+                  </p>
+                  <ul className="list-disc space-y-1 pl-5 text-sm text-muted-foreground">
+                    <li>Score 10 real decisions across Impact, Cost, Risk, Urgency, Confidence</li>
+                    <li>See your Return / Stability / Pressure profile</li>
+                    <li>Identify your dominant archetypes and blind spots</li>
+                    <li>Design a 30–90 day decision cadence for your team</li>
+                  </ul>
+                  <div className="space-y-2">
+                    <Button size="lg" asChild>
+                      <Link href="/contact">Book a Decision Audit</Link>
+                    </Button>
+                    <p className="text-xs text-muted-foreground">
+                      Client dashboards and full analytics are available only for active teams.
+                    </p>
+                  </div>
+                </CardContent>
+              </Card>
+
+              <div className="mt-8 flex justify-center gap-4 pdf-ignore">
+                <Button size="lg" onClick={handleOpenCompare}>
+                  Compare Decisions
                 </Button>
+                <Button variant="outline" size="lg" onClick={handleSaveDecision} disabled={!decisionName || !decisionCategory}>
+                  Save &amp; Continue
+                </Button>
+              </div>
+            </>
+          ) : (
+            <section className="py-16">
+              <div className="mx-auto max-w-2xl text-center space-y-6">
+                <h2 className="text-3xl font-semibold text-foreground">Unlock Your Decision Patterns</h2>
+                <p className="text-sm text-muted-foreground leading-relaxed">
+                  Your decisions form hidden loops — return, stability, pressure, momentum, and consistency. These reveal how you actually judge under uncertainty. Sign in to view your full analytics, or book a Decision Audit to have them mapped for you.
+                </p>
+                <div className="flex flex-col justify-center gap-3 sm:flex-row">
+                  <Button size="lg" onClick={handleSignInClick}>
+                    Sign In to View Analytics
+                  </Button>
+                  <Button size="lg" variant="outline" asChild>
+                    <Link href="/contact">Book a Decision Audit</Link>
+                  </Button>
+                </div>
                 <p className="text-xs text-muted-foreground">
-                  Client dashboards and full analytics are available only for active teams.
+                  Client dashboards and full analytics are available only to active teams.
                 </p>
               </div>
-            </CardContent>
-          </Card>
-
-          <div className="mt-8 flex justify-center gap-4 pdf-ignore">
-            <Button size="lg" onClick={handleOpenCompare}>
-              Compare Decisions
-            </Button>
-            <Button variant="outline" size="lg" onClick={handleSaveDecision} disabled={!decisionName || !decisionCategory}>
-              Save &amp; Continue
-            </Button>
-          </div>
+            </section>
+          )}
         </div>
-
-        <Button
-          className="fixed right-6 bottom-6 bg-primary shadow-lg z-50 rounded-full w-14 h-14"
-          onClick={handleOpenCompare}
-        >
-          <BarChart3 className="w-5 h-5" />
-        </Button>
+        {showAnalytics && (
+          <Button
+            className="fixed right-6 bottom-6 bg-primary shadow-lg z-50 rounded-full w-14 h-14"
+            onClick={handleOpenCompare}
+          >
+            <BarChart3 className="w-5 h-5" />
+          </Button>
+        )}
 
         <CompareSheet
           open={showCompare}
