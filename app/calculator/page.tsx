@@ -159,6 +159,7 @@ interface NetlifyIdentity {
   open?: (modal?: string) => void;
   init?: () => void;
   currentUser?: () => NetlifyIdentityUser | null;
+  logout?: () => void;
 }
 
 const DistributionCard = ({ title, segments }: DistributionCardProps) => {
@@ -576,6 +577,12 @@ export default function TheDNavPage() {
     identity?.open?.("login");
   };
 
+  const handleLogoutClick = () => {
+    if (typeof window === "undefined") return;
+    const identity = (window as Window & { netlifyIdentity?: NetlifyIdentity }).netlifyIdentity;
+    identity?.logout?.();
+  };
+
   const decisionArchHeading = "3. Understand Your Decision Arch";
   const decisionArchDescription =
     "One decision is a snapshot. A series of decisions becomes an arch. Track how return, pressure, and stability stack together so you can see whether you’re building momentum or burning energy.";
@@ -595,7 +602,16 @@ export default function TheDNavPage() {
               <p className="text-sm text-muted-foreground">True wisdom is knowing the limits of your own certainty.</p>
               <p className="text-sm text-muted-foreground">True innovation is what you choose to do next.</p>
             </div>
-            <div className="flex gap-2 self-start">
+            <div className="flex gap-2 self-start items-center">
+              {isSignedIn ? (
+                <button
+                  type="button"
+                  onClick={handleLogoutClick}
+                  className="logout-btn text-xs text-muted-foreground underline-offset-2 hover:underline"
+                >
+                  Log out
+                </button>
+              ) : null}
               <Button variant="outline" onClick={handleReset}>
                 <RotateCcw className="w-4 h-4 mr-2" />
                 Reset
@@ -665,13 +681,6 @@ export default function TheDNavPage() {
             </div>
 
             <DecisionCalculator onDataChange={handleDataChange} />
-          </section>
-
-          <section className="space-y-3">
-            <p className="text-xs font-semibold uppercase tracking-[0.3em] text-muted-foreground">
-              {decisionArchHeading}
-            </p>
-            <p className="text-sm text-muted-foreground max-w-3xl">{decisionArchDescription}</p>
           </section>
 
           {showAnalytics ? (
@@ -1027,7 +1036,9 @@ export default function TheDNavPage() {
               <div className="mx-auto max-w-2xl text-center space-y-6">
                 <h2 className="text-3xl font-semibold text-foreground">Unlock Your Decision Patterns</h2>
                 <p className="text-sm text-muted-foreground leading-relaxed">
-                  Each decision is a snapshot. A series of decisions becomes a pattern. Over time, D-NAV reveals your loops — return, stability, pressure, momentum, and consistency — so you can see how you actually judge under uncertainty.
+                  Each decision is a snapshot. A series of decisions becomes a pattern. D-NAV reveals your loops —
+                  return, stability, pressure, momentum, and consistency — so you can see how your judgment really
+                  behaves under uncertainty.
                 </p>
                 <div className="flex flex-col justify-center gap-3 sm:flex-row">
                   <Button size="lg" onClick={handleSignInClick}>
@@ -1038,11 +1049,18 @@ export default function TheDNavPage() {
                   </Button>
                 </div>
                 <p className="text-xs text-muted-foreground">
-                  Sign in to view your full analytics, or book a Decision Audit to have your patterns mapped for you.
+                  Client dashboards and full analytics are available only to active teams.
                 </p>
               </div>
             </section>
           )}
+
+          <section className="space-y-3">
+            <p className="text-xs font-semibold uppercase tracking-[0.3em] text-muted-foreground">
+              {decisionArchHeading}
+            </p>
+            <p className="text-sm text-muted-foreground max-w-3xl">{decisionArchDescription}</p>
+          </section>
         </div>
         {showAnalytics && (
           <Button
