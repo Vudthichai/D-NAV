@@ -1,15 +1,13 @@
 'use client';
 
-import { Button } from '@/components/ui/button';
 import { DecisionMetrics, getArchetype } from '@/lib/calculations';
 
 interface SummaryCardProps {
   metrics: DecisionMetrics;
   coachText: string;
-  onOpenCompare: () => void;
 }
 
-export default function SummaryCard({ metrics, coachText, onOpenCompare }: SummaryCardProps) {
+export default function SummaryCard({ metrics, coachText }: SummaryCardProps) {
   const archetype = getArchetype(metrics);
 
   return (
@@ -32,18 +30,8 @@ export default function SummaryCard({ metrics, coachText, onOpenCompare }: Summa
           <p className="text-3xl font-black text-foreground">{metrics.dnav}</p>
         </div>
         <p className="mt-3 text-sm text-muted-foreground">
-          D-NAV Composite: A single score that captures the overall health of this decision.
+          This reflects how much energy you are putting into your decision.
         </p>
-      </div>
-
-      <div className="mt-2">
-        <Button
-          onClick={onOpenCompare}
-          variant="outline"
-          className="inline-block self-start bg-transparent text-primary border border-primary/45 rounded-lg px-3.5 py-1.5 text-sm font-semibold text-center shadow-none transition-all duration-200 hover:bg-primary/10 hover:border-primary/65 hover:text-primary-foreground hover:-translate-y-0.5"
-        >
-          Open Compare
-        </Button>
       </div>
     </div>
   );

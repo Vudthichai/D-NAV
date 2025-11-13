@@ -9,11 +9,10 @@ import StatCard from "./StatCard";
 import SummaryCard from "./SummaryCard";
 
 interface DecisionCalculatorProps {
-  onOpenCompare: () => void;
   onDataChange?: (variables: DecisionVariables, metrics: DecisionMetrics) => void;
 }
 
-export default function DecisionCalculator({ onOpenCompare, onDataChange }: DecisionCalculatorProps) {
+export default function DecisionCalculator({ onDataChange }: DecisionCalculatorProps) {
   const [variables, setVariables] = useState<DecisionVariables>({
     impact: 1,
     cost: 1,
@@ -110,11 +109,8 @@ export default function DecisionCalculator({ onOpenCompare, onDataChange }: Deci
 
         {/* Metrics Section */}
         <Card id="metrics-section" className="flex h-full flex-col">
-          <CardHeader className="pb-3 space-y-2">
-            <p className="text-[11px] font-semibold uppercase tracking-[0.28em] text-muted-foreground">
-              2. See the Physics of This Decision
-            </p>
-            <CardTitle className="text-lg">Return, Stability, Pressure</CardTitle>
+          <CardHeader className="pb-3">
+            <CardTitle className="text-lg">Return, Pressure, Stability</CardTitle>
           </CardHeader>
           <CardContent className="flex flex-1 flex-col justify-between space-y-4">
             <StatCard
@@ -124,16 +120,16 @@ export default function DecisionCalculator({ onOpenCompare, onDataChange }: Deci
               subtitle="Impact − Cost"
             />
             <StatCard
-              title="Stability"
-              value={metrics.stability}
-              pill={getPillColor(metrics.stability, "stability")}
-              subtitle="Confidence − Risk"
-            />
-            <StatCard
               title="Pressure"
               value={metrics.pressure}
               pill={getPillColor(metrics.pressure, "pressure")}
               subtitle="Urgency − Confidence"
+            />
+            <StatCard
+              title="Stability"
+              value={metrics.stability}
+              pill={getPillColor(metrics.stability, "stability")}
+              subtitle="Confidence − Risk"
             />
           </CardContent>
         </Card>
@@ -143,7 +139,7 @@ export default function DecisionCalculator({ onOpenCompare, onDataChange }: Deci
             <CardTitle className="text-lg">Archetype &amp; Coach</CardTitle>
           </CardHeader>
           <CardContent className="flex-1">
-            <SummaryCard metrics={metrics} coachText={coachText} onOpenCompare={onOpenCompare} />
+            <SummaryCard metrics={metrics} coachText={coachText} />
           </CardContent>
         </Card>
       </div>
