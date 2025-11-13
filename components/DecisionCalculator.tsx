@@ -135,19 +135,6 @@ export default function DecisionCalculator({ onOpenCompare, onDataChange }: Deci
               pill={getPillColor(metrics.pressure, "pressure")}
               subtitle="Urgency − Confidence"
             />
-            <div className="rounded-lg border border-border/50 bg-muted/20 p-4">
-              <div className="flex items-baseline justify-between gap-4">
-                <div>
-                  <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                    D-NAV Score
-                  </p>
-                </div>
-                <p className="text-3xl font-black text-foreground">{metrics.dnav}</p>
-              </div>
-              <p className="mt-3 text-sm text-muted-foreground">
-                D-NAV Composite: A single score that captures the overall health of this decision.
-              </p>
-            </div>
           </CardContent>
         </Card>
         {/* Summary & Coach */}
