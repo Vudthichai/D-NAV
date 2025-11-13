@@ -269,7 +269,7 @@ export default function TheDNavPage() {
   const [isGeneratingStatsPdf, setIsGeneratingStatsPdf] = useState(false);
   const statsContainerRef = useRef<HTMLDivElement>(null);
   const [isSignedIn, setIsSignedIn] = useState(false);
-  const [isAdmin, setIsAdmin] = useState(false);
+  const [, setIsAdmin] = useState(false);
 
   const handleDataChange = useCallback(
     (newVariables: DecisionVariables, newMetrics: DecisionMetrics) => {
@@ -576,6 +576,10 @@ export default function TheDNavPage() {
     identity?.open?.("login");
   };
 
+  const decisionArchHeading = "3. Understand Your Decision Arch";
+  const decisionArchDescription =
+    "One decision is a snapshot. A series of decisions becomes an arch. Track how return, pressure, and stability stack together so you can see whether you’re building momentum or burning energy.";
+
   return (
     <TooltipProvider>
       <main className="min-h-screen">
@@ -588,7 +592,8 @@ export default function TheDNavPage() {
               <p className="text-base text-muted-foreground">
                 Every decision you make carries five forces: <strong>Impact</strong>, <strong>Cost</strong>, <strong>Risk</strong>, <strong>Urgency</strong> and <strong>Confidence</strong>.
               </p>
-              <p className="text-base text-muted-foreground">True wisdom is knowing the limits of your own certainty.</p>
+              <p className="text-sm text-muted-foreground">True wisdom is knowing the limits of your own certainty.</p>
+              <p className="text-sm text-muted-foreground">True innovation is what you choose to do next.</p>
             </div>
             <div className="flex gap-2 self-start">
               <Button variant="outline" onClick={handleReset}>
@@ -662,17 +667,15 @@ export default function TheDNavPage() {
             <DecisionCalculator onDataChange={handleDataChange} />
           </section>
 
+          <section className="space-y-3">
+            <p className="text-xs font-semibold uppercase tracking-[0.3em] text-muted-foreground">
+              {decisionArchHeading}
+            </p>
+            <p className="text-sm text-muted-foreground max-w-3xl">{decisionArchDescription}</p>
+          </section>
+
           {showAnalytics ? (
             <>
-              <section className="space-y-3">
-                <p className="text-xs font-semibold uppercase tracking-[0.3em] text-muted-foreground">
-                  3. Under the Surface: How Your Decisions Behave Over Time
-                </p>
-                <p className="text-sm text-muted-foreground max-w-3xl">
-                  One decision is a snapshot. A series of decisions becomes a pattern. Below, D-NAV starts to trace your feedback loops, consistency, and return hygiene — the habits that quietly shape your outcomes.
-                </p>
-              </section>
-
               <section className="space-y-10">
                 <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
                   <div className="flex items-center gap-2">
@@ -1024,7 +1027,7 @@ export default function TheDNavPage() {
               <div className="mx-auto max-w-2xl text-center space-y-6">
                 <h2 className="text-3xl font-semibold text-foreground">Unlock Your Decision Patterns</h2>
                 <p className="text-sm text-muted-foreground leading-relaxed">
-                  Your decisions form hidden loops — return, stability, pressure, momentum, and consistency. These reveal how you actually judge under uncertainty. Sign in to view your full analytics, or book a Decision Audit to have them mapped for you.
+                  Each decision is a snapshot. A series of decisions becomes a pattern. Over time, D-NAV reveals your loops — return, stability, pressure, momentum, and consistency — so you can see how you actually judge under uncertainty.
                 </p>
                 <div className="flex flex-col justify-center gap-3 sm:flex-row">
                   <Button size="lg" onClick={handleSignInClick}>
@@ -1035,7 +1038,7 @@ export default function TheDNavPage() {
                   </Button>
                 </div>
                 <p className="text-xs text-muted-foreground">
-                  Client dashboards and full analytics are available only to active teams.
+                  Sign in to view your full analytics, or book a Decision Audit to have your patterns mapped for you.
                 </p>
               </div>
             </section>
