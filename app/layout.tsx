@@ -22,6 +22,40 @@ export default function RootLayout({
           src="https://www.googletagmanager.com/gtag/js?id=G-2NBF5E84J2"
           strategy="afterInteractive"
         />
+        <Script
+          src="https://identity.netlify.com/v1/netlify-identity-widget.js"
+          strategy="afterInteractive"
+        />
+        <Script id="netlify-identity-init" strategy="afterInteractive">
+          {`
+            (function () {
+              function initializeIdentity() {
+                const identity = window.netlifyIdentity;
+                if (!identity) {
+                  return false;
+                }
+
+                identity.on("init", (user) => {
+                  if (!user) {
+                    identity.on("login", () => {
+                      document.location.reload();
+                    });
+                  }
+                });
+
+                return true;
+              }
+
+              if (!initializeIdentity()) {
+                const interval = window.setInterval(() => {
+                  if (initializeIdentity()) {
+                    window.clearInterval(interval);
+                  }
+                }, 500);
+              }
+            })();
+          `}
+        </Script>
         <Script id="google-analytics" strategy="afterInteractive">
           {`
             window.dataLayer = window.dataLayer || [];
