@@ -676,7 +676,7 @@ export default function TheDNavPage() {
                 2. See the Physics of This Decision
               </p>
               <p className="text-sm text-muted-foreground max-w-3xl">
-                Return, Pressure, Stability
+                Adjust the variables accordingly and see your RPS metrics.
               </p>
             </div>
 
@@ -1010,11 +1010,11 @@ export default function TheDNavPage() {
                 </CardHeader>
                 <CardContent className="space-y-4">
                   <p className="text-sm text-muted-foreground">
-                    This live check is just the first layer. In a Decision Audit, we run your last 10 meaningful decisions through D-NAV, map your judgment patterns, and build a cadence that reduces re-decisions and increases stability under pressure.
+                    This live check is just the first layer. In a Decision Audit, we run a small batch of your real decisions through D-NAV, map your judgment patterns, and build a cadence that reduces re-decisions and increases stability under pressure.
                   </p>
                   <ul className="list-disc space-y-1 pl-5 text-sm text-muted-foreground">
-                    <li>Score 10 real decisions across Impact, Cost, Risk, Urgency, Confidence</li>
-                    <li>See your Return / Stability / Pressure profile</li>
+                    <li>Score a set of meaningful decisions across Impact, Cost, Risk, Urgency, Confidence</li>
+                    <li>See your Return / Stability / Pressure profile across those calls</li>
                     <li>Identify your dominant archetypes and blind spots</li>
                     <li>Design a 30–90 day decision cadence for your team</li>
                   </ul>
@@ -1029,30 +1029,18 @@ export default function TheDNavPage() {
                 </CardContent>
               </Card>
 
-              <div className="mt-8 flex justify-center gap-4 pdf-ignore">
-                <Button size="lg" onClick={handleOpenCompare}>
-                  Compare Decisions
-                </Button>
-                <Button variant="outline" size="lg" onClick={handleSaveDecision} disabled={!decisionName || !decisionCategory}>
-                  Save &amp; Continue
-                </Button>
-              </div>
             </>
           ) : (
             <section className="py-16">
               <div className="mx-auto max-w-2xl text-center space-y-6">
-                <h2 className="text-3xl font-semibold text-foreground">Unlock Your Decision Patterns</h2>
+                <h2 className="text-3xl font-semibold text-foreground">Already a client?</h2>
                 <p className="text-sm text-muted-foreground leading-relaxed">
-                  Each decision is a snapshot. A series of decisions becomes a pattern. D-NAV reveals your loops —
-                  return, stability, pressure, momentum, and consistency — so you can see how your judgment really
-                  behaves under uncertainty.
+                  Sign in to view your full analytics — long-term return, stability, pressure, and feedback loops for your
+                  decisions.
                 </p>
                 <div className="flex flex-col justify-center gap-3 sm:flex-row">
                   <Button size="lg" onClick={handleSignInClick}>
                     Sign In to View Analytics
-                  </Button>
-                  <Button size="lg" variant="outline" asChild>
-                    <Link href="/contact">Book a Decision Audit</Link>
                   </Button>
                 </div>
                 <p className="text-xs text-muted-foreground">
@@ -1068,6 +1056,22 @@ export default function TheDNavPage() {
             </p>
             <p className="text-sm text-muted-foreground max-w-3xl">{decisionArchDescription}</p>
           </section>
+
+          {showAnalytics && (
+            <div className="mt-8 flex justify-center gap-4 pdf-ignore">
+              <Button size="lg" onClick={handleOpenCompare}>
+                Compare Decisions
+              </Button>
+              <Button
+                variant="outline"
+                size="lg"
+                onClick={handleSaveDecision}
+                disabled={!decisionName || !decisionCategory}
+              >
+                Save &amp; Continue
+              </Button>
+            </div>
+          )}
         </div>
         {showAnalytics && (
           <Button

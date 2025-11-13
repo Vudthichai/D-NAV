@@ -133,11 +133,6 @@ export default function DecisionCalculator({ onDataChange }: DecisionCalculatorP
                 subtitle="Confidence − Risk"
               />
             </div>
-            <div className="space-y-1 text-xs text-muted-foreground">
-              <p>Return · Impact − Cost</p>
-              <p>Pressure · Urgency − Confidence</p>
-              <p>Stability · Confidence − Risk</p>
-            </div>
           </CardContent>
         </Card>
         {/* Summary & Coach */}
