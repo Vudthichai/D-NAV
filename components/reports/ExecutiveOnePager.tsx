@@ -1,6 +1,6 @@
 "use client";
 
-import { Fragment, forwardRef } from "react";
+import React, { Fragment } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
@@ -114,7 +114,7 @@ const DistributionBlock = ({ title, segments }: { title: string; segments: Distr
   );
 };
 
-const ExecutiveOnePager = forwardRef<HTMLDivElement, ExecutiveOnePagerProps>(
+const ExecutiveOnePager = React.forwardRef<HTMLDivElement, ExecutiveOnePagerProps>(
   ({
     stats,
     timeframeLabel,
