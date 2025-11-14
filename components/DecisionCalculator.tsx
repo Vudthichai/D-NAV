@@ -119,26 +119,23 @@ export default function DecisionCalculator({ onDataChange }: DecisionCalculatorP
                 value={metrics.return}
                 pill={getPillColor(metrics.return, "return")}
                 subtitle="Impact − Cost"
-                description="Is it worth it? Positive return means the upside is greater than the effort. Negative return means you're paying more than you're getting."
+                description="Return shows if the upside beats the burn."
               />
               <StatCard
                 title="Pressure"
                 value={metrics.pressure}
                 pill={getPillColor(metrics.pressure, "pressure")}
                 subtitle="Urgency − Confidence"
-                description="What's pushing here? High pressure means the decision is squeezing you. Low pressure means you're driving the move instead of being pushed by it."
+                description="Pressure shows whether urgency or conviction is steering you."
               />
               <StatCard
                 title="Stability"
                 value={metrics.stability}
                 pill={getPillColor(metrics.stability, "stability")}
                 subtitle="Confidence − Risk"
-                description="Will this survive turbulence? Stable means evidence beats fear. Fragile means hope is overpowering proof."
+                description="Stability tests if evidence can outlast fear."
               />
             </div>
-            <p className="text-sm text-muted-foreground leading-relaxed">
-              Decisions feel chaotic because you’ve never seen them mapped. Now you can.
-            </p>
           </CardContent>
         </Card>
         {/* Summary & Coach */}
