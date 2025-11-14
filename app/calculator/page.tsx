@@ -553,18 +553,19 @@ export default function TheDNavPage() {
             </div>
           </div>
 
-          <section className="space-y-6">
-            <div className="space-y-3">
+          <div className="flex flex-col">
+            <section className="space-y-4 pb-3">
+              <div className="space-y-2">
               <h2 className="text-2xl font-semibold text-foreground">1. Rate Your Decision</h2>
               <p className="text-sm text-muted-foreground max-w-3xl">
                 Pick one real decision that’s active in your life. Move each slider from 1–10 based on what feels true — not what sounds smart. You’re not guessing the “right” numbers; you’re capturing how the decision feels.
               </p>
             </div>
 
-            <Card>
-              <CardHeader className="pb-6 space-y-4">
+            <Card className="gap-4 py-4">
+              <CardHeader className="pb-4 space-y-3">
                 <CardTitle className="text-lg">Quick Entry</CardTitle>
-                <div className="space-y-3">
+                <div className="space-y-2">
                   <Input
                     type="text"
                     placeholder="What's Your Decision?"
@@ -572,7 +573,7 @@ export default function TheDNavPage() {
                     onChange={(e) => setDecisionName(e.target.value)}
                     className="h-12 text-base lg:text-lg"
                   />
-                  <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
+                  <div className="grid grid-cols-1 gap-3 md:grid-cols-2 lg:grid-cols-3">
                     <Input
                       type="text"
                       placeholder="Categorize it"
@@ -601,10 +602,10 @@ export default function TheDNavPage() {
                   </div>
                 </div>
               </CardHeader>
-              <CardContent className="space-y-6">
-                <div className="space-y-2">
-                  <h3 className="text-base font-semibold text-foreground">Decision Variables</h3>
-                  <p className="text-sm text-muted-foreground">
+              <CardContent className="space-y-4">
+                <div className="space-y-1.5">
+                  <h3 className="text-sm font-semibold text-foreground">Decision Variables</h3>
+                  <p className="text-xs text-muted-foreground">
                     Each slider represents one of the five forces shaping your call.
                   </p>
                   <div className="flex gap-2">
@@ -616,7 +617,7 @@ export default function TheDNavPage() {
                     </Badge>
                   </div>
                 </div>
-                <div className="space-y-6">
+                <div className="space-y-3">
                   <SliderRow
                     id="impact"
                     label="Impact"
@@ -655,54 +656,54 @@ export default function TheDNavPage() {
                 </div>
               </CardContent>
             </Card>
-          </section>
+            </section>
+            <div className="border-t border-border/60" />
+            <section className="space-y-5 pt-3">
+              <div className="space-y-3">
+                <h2 className="text-2xl font-semibold text-foreground">2. See the Physics of This Decision</h2>
+                <p className="text-sm text-muted-foreground max-w-3xl">
+                  Adjust the variables accordingly and see your RPS metrics.
+                </p>
+              </div>
 
-          <section className="space-y-6">
-            <div className="space-y-3">
-              <h2 className="text-2xl font-semibold text-foreground">2. See the Physics of This Decision</h2>
-              <p className="text-sm text-muted-foreground max-w-3xl">
-                Adjust the variables accordingly and see your RPS metrics.
-              </p>
-            </div>
-
-            <div className="grid gap-6 lg:grid-cols-2">
-              <Card className="h-full">
-                <CardHeader className="pb-3">
-                  <CardTitle className="text-lg">Return, Pressure, Stability</CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  <StatCard
-                    title="Return"
-                    value={metrics.return}
-                    pill={getPillColor(metrics.return, "return")}
-                    subtitle="Impact − Cost"
-                    description="Return shows if the upside beats the burn."
-                  />
-                  <StatCard
-                    title="Pressure"
-                    value={metrics.pressure}
-                    pill={getPillColor(metrics.pressure, "pressure")}
-                    subtitle="Urgency − Confidence"
-                    description="Pressure shows whether urgency or conviction is steering you."
-                  />
-                  <StatCard
-                    title="Stability"
-                    value={metrics.stability}
-                    pill={getPillColor(metrics.stability, "stability")}
-                    subtitle="Confidence − Risk"
-                    description="Stability tests if evidence can outlast fear."
-                  />
-                </CardContent>
-              </Card>
-              <Card className="h-full">
-                <CardHeader className="pb-3">
-                  <CardTitle className="text-lg">Archetype &amp; Coach</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <SummaryCard metrics={metrics} coachText={coachLine} />
-                </CardContent>
-              </Card>
-            </div>
+              <div className="grid gap-6 lg:grid-cols-2">
+                <Card className="h-full">
+                  <CardHeader className="pb-3">
+                    <CardTitle className="text-lg">Return, Pressure, Stability</CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-4">
+                    <StatCard
+                      title="Return"
+                      value={metrics.return}
+                      pill={getPillColor(metrics.return, "return")}
+                      subtitle="Impact − Cost"
+                      description="Return shows if the upside beats the burn."
+                    />
+                    <StatCard
+                      title="Pressure"
+                      value={metrics.pressure}
+                      pill={getPillColor(metrics.pressure, "pressure")}
+                      subtitle="Urgency − Confidence"
+                      description="Pressure shows whether urgency or conviction is steering you."
+                    />
+                    <StatCard
+                      title="Stability"
+                      value={metrics.stability}
+                      pill={getPillColor(metrics.stability, "stability")}
+                      subtitle="Confidence − Risk"
+                      description="Stability tests if evidence can outlast fear."
+                    />
+                  </CardContent>
+                </Card>
+                <Card className="h-full">
+                  <CardHeader className="pb-3">
+                    <CardTitle className="text-lg">Archetype &amp; Coach</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <SummaryCard metrics={metrics} coachText={coachLine} />
+                  </CardContent>
+                </Card>
+              </div>
 
             {isLoggedIn ? (
               <div className="flex justify-end">
@@ -712,6 +713,7 @@ export default function TheDNavPage() {
               </div>
             ) : null}
           </section>
+          </div>
 
           <section className="space-y-6">
             <div className="space-y-3">
