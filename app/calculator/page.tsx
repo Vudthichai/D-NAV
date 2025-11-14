@@ -52,7 +52,6 @@ import html2canvas from "html2canvas";
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
-  CadenceUnit,
   DashboardStats,
   buildDistributionInsights,
   buildPortfolioNarrative,
@@ -225,14 +224,14 @@ const DistributionCard = ({ title, segments }: DistributionCardProps) => {
   );
 };
 
-const getStatsReportSections = (current: DashboardStats) => ({
+const getStatsReportSections = (current: DashboardStats, cadenceLabel: string) => ({
   generated: new Date().toLocaleString(),
   windowLabel: "",
-  cadenceLabel: "",
+  cadenceLabel,
   keyMetrics: [
     `Total decisions: ${current.totalDecisions}`,
     `Average D-NAV: ${current.avgDnav}`,
-    `Decision cadence: ${current.cadence}`,
+    `Decision cadence: ${current.cadence} per ${cadenceLabel}`,
     `Recent trend: ${current.last5vsPrior5}`,
     `Return on effort: ${current.returnOnEffort}`,
   ],
@@ -267,7 +266,6 @@ export default function TheDNavPage() {
   const [isSaved, setIsSaved] = useState(false);
 
   const [timeWindow, setTimeWindow] = useState("30");
-  const [cadenceUnit, setCadenceUnit] = useState<CadenceUnit>("week");
   const [isGeneratingStatsPdf, setIsGeneratingStatsPdf] = useState(false);
   const statsContainerRef = useRef<HTMLDivElement>(null);
   const [currentUser, setCurrentUser] = useState<NetlifyIdentityUser | null>(null);
@@ -411,10 +409,29 @@ export default function TheDNavPage() {
     };
   }, []);
 
+  const timeframeDays = useMemo<number | null>(() => {
+    if (timeWindow === "0") return null;
+    const parsed = Number.parseInt(timeWindow, 10);
+    return Number.isNaN(parsed) ? null : parsed;
+  }, [timeWindow]);
+
+  const observedSpanDays = useMemo(() => {
+    if (decisions.length === 0) return null;
+    const msInDay = 24 * 60 * 60 * 1000;
+    const referenceTimestamp = decisions[0]?.ts ?? Date.now();
+    const earliestTimestamp = decisions[decisions.length - 1]?.ts ?? referenceTimestamp;
+    return Math.max((referenceTimestamp - earliestTimestamp) / msInDay, 1);
+  }, [decisions]);
+
+  const cadenceBasisLabel = useMemo(() => {
+    const effectiveSpan = timeframeDays ?? observedSpanDays;
+    if (!effectiveSpan || effectiveSpan < 14) return "day";
+    return "week";
+  }, [observedSpanDays, timeframeDays]);
+
   const stats = useMemo<DashboardStats>(() => {
-    const timeframeDays = timeWindow === "0" ? null : Number.parseInt(timeWindow, 10);
-    return computeDashboardStats(decisions, { timeframeDays, cadenceUnit });
-  }, [cadenceUnit, decisions, timeWindow]);
+    return computeDashboardStats(decisions, { timeframeDays });
+  }, [decisions, timeframeDays]);
 
   const dnavSeries = useMemo(() => decisions.map((d) => d.dnav).slice().reverse(), [decisions]);
 
@@ -471,12 +488,11 @@ export default function TheDNavPage() {
   };
 
   const createNarrativePdf = (current: DashboardStats) => {
-    const sections = getStatsReportSections(current);
+    const sections = getStatsReportSections(current, cadenceBasisLabel);
     sections.windowLabel = timeWindowLabels[timeWindow] ?? `Last ${timeWindow} days`;
-    sections.cadenceLabel = cadenceUnit;
     sections.narrative = buildPortfolioNarrative(current, {
       timeframeLabel: sections.windowLabel,
-      cadenceLabel: cadenceUnit,
+      cadenceLabel: cadenceBasisLabel,
     }).split("\n\n");
 
     const doc = new jsPDF({ unit: "pt", format: "letter" });
@@ -570,7 +586,7 @@ export default function TheDNavPage() {
   const narrativeText = hasData
     ? buildPortfolioNarrative(stats, {
         timeframeLabel: timeWindowLabels[timeWindow] ?? `Last ${timeWindow} days`,
-        cadenceLabel: cadenceUnit,
+        cadenceLabel: cadenceBasisLabel,
       })
     : "No decisions logged in this window. Import or record decisions to unlock narrative insights.";
 
@@ -751,21 +767,6 @@ export default function TheDNavPage() {
                         </SelectGroup>
                       </SelectContent>
                     </Select>
-                    <Select
-                      value={cadenceUnit}
-                      onValueChange={(value) => setCadenceUnit(value as CadenceUnit)}
-                    >
-                      <SelectTrigger className="w-36">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectGroup>
-                          <SelectItem value="day">Per day</SelectItem>
-                          <SelectItem value="week">Per week</SelectItem>
-                          <SelectItem value="month">Per month</SelectItem>
-                        </SelectGroup>
-                      </SelectContent>
-                    </Select>
                   </div>
                   <div className="flex gap-2">
                     <Button
@@ -879,7 +880,7 @@ export default function TheDNavPage() {
                       <DashboardStatCard
                         title="Decision Cadence"
                         value={stats?.cadence || 0}
-                        subtitle={`Decisions per ${cadenceUnit}`}
+                        subtitle={`Decisions per ${cadenceBasisLabel}`}
                         icon={Activity}
                       />
                       <DashboardStatCard
