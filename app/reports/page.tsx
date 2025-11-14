@@ -32,8 +32,6 @@ const timeframeDescriptions: Record<TimeframeValue, string> = {
   all: "Complete historical view across every decision recorded.",
 };
 
-const CADENCE_LABEL = "week";
-
 const slugify = (value: string) =>
   value
     .toLowerCase()
@@ -144,15 +142,27 @@ export default function ReportsPage() {
     [selectedTimeframe],
   );
   const timeframeDays = useMemo(() => mapTimeframeToDays(selectedTimeframe), [selectedTimeframe]);
+  const observedSpanDays = useMemo(() => {
+    if (decisions.length === 0) return null;
+    const msInDay = 24 * 60 * 60 * 1000;
+    const referenceTimestamp = decisions[0]?.ts ?? Date.now();
+    const earliestTimestamp = decisions[decisions.length - 1]?.ts ?? referenceTimestamp;
+    return Math.max((referenceTimestamp - earliestTimestamp) / msInDay, 1);
+  }, [decisions]);
   const filteredDecisions = useMemo(
     () => filterDecisionsByTimeframe(decisions, timeframeDays),
     [decisions, timeframeDays],
   );
 
   const stats = useMemo(
-    () => computeDashboardStats(decisions, { timeframeDays, cadenceUnit: CADENCE_LABEL }),
+    () => computeDashboardStats(decisions, { timeframeDays }),
     [decisions, timeframeDays],
   );
+  const cadenceBasisLabel = useMemo(() => {
+    const effectiveSpan = timeframeDays ?? observedSpanDays;
+    if (!effectiveSpan || effectiveSpan < 14) return "day";
+    return "week";
+  }, [observedSpanDays, timeframeDays]);
   const distributionInsights = useMemo(() => buildDistributionInsights(stats), [stats]);
   const returnDebtSummary = useMemo(() => buildReturnDebtSummary(stats), [stats]);
   const hasData = stats.totalDecisions > 0;
@@ -329,7 +339,7 @@ export default function ReportsPage() {
               ref={onePagerRef}
               stats={stats}
               timeframeLabel={timeframeConfig.label}
-              cadenceLabel={CADENCE_LABEL}
+              cadenceLabel={cadenceBasisLabel}
               generatedAt={generatedAt}
               distributionInsights={distributionInsights}
               returnDebtSummary={returnDebtSummary}

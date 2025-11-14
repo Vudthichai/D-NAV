@@ -28,11 +28,8 @@ export interface DistributionInsight {
   message: string;
 }
 
-export type CadenceUnit = "day" | "week" | "month";
-
 export interface ComputeDashboardStatsOptions {
   timeframeDays?: number | null;
-  cadenceUnit?: CadenceUnit;
 }
 
 export const formatValue = (value: number, digits = 1) =>
@@ -215,7 +212,7 @@ export const buildPortfolioNarrative = (
 
 export const computeDashboardStats = (
   decisions: DecisionEntry[],
-  { timeframeDays = null, cadenceUnit = "week" }: ComputeDashboardStatsOptions = {},
+  { timeframeDays = null }: ComputeDashboardStatsOptions = {},
 ): DashboardStats => {
   if (decisions.length === 0) {
     return {
@@ -250,7 +247,7 @@ export const computeDashboardStats = (
     : decisions;
 
   if (filteredDecisions.length === 0) {
-    return computeDashboardStats([], { cadenceUnit });
+    return computeDashboardStats([], { timeframeDays: null });
   }
 
   const now = filteredDecisions[0]?.ts ?? referenceTimestamp;
@@ -273,7 +270,7 @@ export const computeDashboardStats = (
 
   const observedSpanDays = Math.max((now - earliestTimestamp) / msInDay, 1);
   const timeSpanDays = timeframeDays ?? observedSpanDays;
-  const cadenceBase = cadenceUnit === "day" ? 1 : cadenceUnit === "week" ? 7 : 30;
+  const cadenceBase = timeSpanDays >= 14 ? 7 : 1;
   const cadence = timeSpanDays > 0 ? (filteredDecisions.length / timeSpanDays) * cadenceBase : 0;
 
   const returnDistribution = {
