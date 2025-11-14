@@ -27,6 +27,7 @@ import {
   getScoreTagText,
 } from "@/lib/calculations";
 import { addDecision, loadLog } from "@/lib/storage";
+import { useNetlifyIdentity } from "@/hooks/use-netlify-identity";
 import {
   Activity,
   AlertTriangle,
@@ -145,23 +146,6 @@ interface DistributionCardProps {
   segments: DistributionSegment[];
 }
 
-type IdentityEventHandler = (user?: NetlifyIdentityUser | null) => void;
-
-interface NetlifyIdentityUser {
-  app_metadata?: {
-    roles?: string[];
-  };
-}
-
-interface NetlifyIdentity {
-  on?: (event: string, callback: IdentityEventHandler) => void;
-  off?: (event: string, callback: IdentityEventHandler) => void;
-  open?: (modal?: string) => void;
-  init?: () => void;
-  currentUser?: () => NetlifyIdentityUser | null;
-  logout?: () => void;
-}
-
 const DistributionCard = ({ title, segments }: DistributionCardProps) => {
   const safeSegments = segments.map((segment) => ({
     ...segment,
@@ -268,9 +252,7 @@ export default function TheDNavPage() {
   const [timeWindow, setTimeWindow] = useState("30");
   const [isGeneratingStatsPdf, setIsGeneratingStatsPdf] = useState(false);
   const statsContainerRef = useRef<HTMLDivElement>(null);
-  const [currentUser, setCurrentUser] = useState<NetlifyIdentityUser | null>(null);
-  const [, setIsAdmin] = useState(false);
-  const isLoggedIn = !!currentUser;
+  const { isLoggedIn, openLogin, logout } = useNetlifyIdentity();
 
   const handleDataChange = useCallback(
     (newVariables: DecisionVariables, newMetrics: DecisionMetrics) => {
@@ -336,78 +318,6 @@ export default function TheDNavPage() {
   useEffect(() => {
     setDecisions(loadLog());
   }, [isSaved]);
-
-  useEffect(() => {
-    if (typeof window === "undefined") return;
-
-    let cleanup: (() => void) | undefined;
-    let interval: number | undefined;
-    let initialized = false;
-
-    const updateUserState = (user?: NetlifyIdentityUser | null) => {
-      const nextUser = user ?? null;
-      setCurrentUser(nextUser);
-      const hasUser = nextUser !== null;
-      const roles =
-        hasUser && Array.isArray(nextUser?.app_metadata?.roles)
-          ? (nextUser.app_metadata.roles as string[])
-          : [];
-      setIsAdmin(hasUser && roles.includes("admin"));
-    };
-
-    const setupIdentity = () => {
-      if (initialized) return true;
-
-      const identity = (window as Window & { netlifyIdentity?: NetlifyIdentity }).netlifyIdentity;
-      if (!identity || typeof identity.on !== "function") {
-        return false;
-      }
-
-      initialized = true;
-      const handleInit: IdentityEventHandler = (user) => updateUserState(user ?? undefined);
-      const handleLogin: IdentityEventHandler = (user) => updateUserState(user ?? undefined);
-      const handleLogout = () => updateUserState(undefined);
-      const handleUserEvent: IdentityEventHandler = (user) => updateUserState(user ?? undefined);
-
-      identity.on("init", handleInit);
-      identity.on("login", handleLogin);
-      identity.on("logout", handleLogout);
-      identity.on("user", handleUserEvent);
-
-      identity.init?.();
-
-      const currentUser = identity.currentUser?.();
-      if (currentUser) {
-        updateUserState(currentUser);
-      }
-
-      cleanup = () => {
-        identity.off?.("init", handleInit);
-        identity.off?.("login", handleLogin);
-        identity.off?.("logout", handleLogout);
-        identity.off?.("user", handleUserEvent);
-      };
-
-      return true;
-    };
-
-    if (!setupIdentity()) {
-      interval = window.setInterval(() => {
-        if (setupIdentity()) {
-          if (interval !== undefined) {
-            window.clearInterval(interval);
-          }
-        }
-      }, 500);
-    }
-
-    return () => {
-      if (interval !== undefined) {
-        window.clearInterval(interval);
-      }
-      cleanup?.();
-    };
-  }, []);
 
   const timeframeDays = useMemo<number | null>(() => {
     if (timeWindow === "0") return null;
@@ -593,9 +503,7 @@ export default function TheDNavPage() {
   const showAnalytics = isLoggedIn;
 
   const handleSignInClick = () => {
-    if (typeof window === "undefined") return;
-    const identity = (window as Window & { netlifyIdentity?: NetlifyIdentity }).netlifyIdentity;
-    identity?.open?.("login");
+    openLogin();
   };
 
   const handleBookAuditClick = () => {
@@ -604,10 +512,7 @@ export default function TheDNavPage() {
   };
 
   const handleLogoutClick = () => {
-    if (typeof window === "undefined") return;
-    const identity = (window as Window & { netlifyIdentity?: NetlifyIdentity }).netlifyIdentity;
-    identity?.logout?.();
-    setCurrentUser(null);
+    logout();
   };
 
   const decisionArchHeading = "3. Understand Your Decision Arch";

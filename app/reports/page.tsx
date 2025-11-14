@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
 import { loadLog, type DecisionEntry } from "@/lib/storage";
+import { useNetlifyIdentity } from "@/hooks/use-netlify-identity";
 import {
   buildDistributionInsights,
   buildReturnDebtSummary,
@@ -31,6 +32,9 @@ const timeframeDescriptions: Record<TimeframeValue, string> = {
   "90": "Quarter-scale perspective across the most recent ninety days.",
   all: "Complete historical view across every decision recorded.",
 };
+
+type Html2CanvasFn = typeof import("html2canvas");
+type JsPDFClass = typeof import("jspdf").jsPDF;
 
 const slugify = (value: string) =>
   value
@@ -126,6 +130,7 @@ export default function ReportsPage() {
   const [downloading, setDownloading] = useState<string | null>(null);
   const [generatedAt, setGeneratedAt] = useState(() => new Date().toLocaleString());
   const onePagerRef = useRef<HTMLDivElement>(null);
+  const { isLoggedIn, openLogin } = useNetlifyIdentity();
 
   useEffect(() => {
     setDecisions(loadLog());
@@ -174,8 +179,17 @@ export default function ReportsPage() {
     ? `Exports ${stats.totalDecisions} decision${stats.totalDecisions === 1 ? "" : "s"} with full variables, returns, stability, pressure, and D-NAV.`
     : "No decisions logged in this window yet.";
 
+  const handleSignInClick = () => {
+    openLogin();
+  };
+
+  const handleBookAuditClick = () => {
+    if (typeof window === "undefined") return;
+    window.location.href = "/contact";
+  };
+
   const handleExportCsv = () => {
-    if (filteredDecisions.length === 0) return;
+    if (!isLoggedIn || filteredDecisions.length === 0) return;
     const csvContent = createCsvContent(filteredDecisions);
     const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8" });
     const filename = `dnav-decision-log-${slugify(timeframeConfig.label)}.csv`;
@@ -183,7 +197,7 @@ export default function ReportsPage() {
   };
 
   const handleExportExcel = () => {
-    if (filteredDecisions.length === 0) return;
+    if (!isLoggedIn || filteredDecisions.length === 0) return;
     const rows = buildDecisionRows(filteredDecisions);
     const worksheet = XLSX.utils.json_to_sheet(rows);
     const workbook = XLSX.utils.book_new();
@@ -197,18 +211,25 @@ export default function ReportsPage() {
   };
 
   const handleDownloadOnePager = async () => {
-    if (!onePagerRef.current || !hasData) return;
+    if (!onePagerRef.current || !hasData || !isLoggedIn) return;
     setDownloading("summary-pdf");
 
     try {
-      const html2canvas = (await import("html2canvas")).default;
-      const { jsPDF } = await import("jspdf");
+      const html2canvasModule = await import("html2canvas");
+      const html2canvas = (html2canvasModule.default ?? html2canvasModule) as Html2CanvasFn;
+      const jsPDFModule = await import("jspdf");
+      const JsPDFConstructor =
+        (jsPDFModule as { jsPDF?: JsPDFClass; default?: JsPDFClass }).jsPDF ??
+        (jsPDFModule as { jsPDF?: JsPDFClass; default?: JsPDFClass }).default;
+      if (!JsPDFConstructor) {
+        throw new Error("Failed to load jsPDF");
+      }
       const element = onePagerRef.current;
       const scale = Math.min(3, window.devicePixelRatio || 2);
       const backgroundColor = window.getComputedStyle(document.body).backgroundColor || "#ffffff";
       const canvas = await html2canvas(element, { scale, backgroundColor });
       const imgData = canvas.toDataURL("image/png");
-      const doc = new jsPDF({ unit: "pt", format: "letter" });
+      const doc = new JsPDFConstructor({ unit: "pt", format: "letter" });
       const pageWidth = doc.internal.pageSize.getWidth();
       const pageHeight = doc.internal.pageSize.getHeight();
       const margin = 36;
@@ -274,79 +295,102 @@ export default function ReportsPage() {
         </div>
       </section>
 
-      <section className="grid gap-4">
-        <Card className="border-muted/60 bg-card/90 shadow-sm">
-          <CardHeader className="space-y-2">
-            <div className="flex items-center gap-3">
-              <div className="flex h-10 w-10 items-center justify-center rounded-md bg-primary/10 text-primary">
-                <FileDown className="h-5 w-5" />
+      <section className="relative">
+        {!isLoggedIn && (
+          <div className="pointer-events-none absolute inset-0 flex items-start justify-center">
+            <div className="pointer-events-auto sticky top-24 z-20 flex max-w-2xl flex-col items-center gap-4 rounded-2xl border bg-background/95 p-6 text-center shadow-lg">
+              <h2 className="text-2xl font-semibold">Unlock Your Decision Reports</h2>
+              <p className="text-sm text-muted-foreground">
+                Export-ready datasets and the Executive One-Pager are reserved for D-NAV clients. Sign in to access your reports or book a Decision Audit to get started.
+              </p>
+              <div className="flex flex-col gap-3 sm:flex-row">
+                <Button onClick={handleSignInClick}>
+                  Sign In to View Reports
+                </Button>
+                <Button variant="outline" onClick={handleBookAuditClick}>
+                  Book a Decision Audit
+                </Button>
               </div>
-              <div>
-                <CardTitle className="text-xl">Raw Data Export</CardTitle>
-                <p className="text-sm text-muted-foreground">
-                  Download the full decision log with variables, calculated metrics, and D-NAV.
-                </p>
+              <p className="text-xs text-muted-foreground">
+                Client dashboards and exports are available only to active teams and audit clients.
+              </p>
+            </div>
+          </div>
+        )}
+        <div className={cn("grid gap-4", !isLoggedIn && "pointer-events-none filter blur-sm opacity-50")}>
+          <Card className="border-muted/60 bg-card/90 shadow-sm">
+            <CardHeader className="space-y-2">
+              <div className="flex items-center gap-3">
+                <div className="flex h-10 w-10 items-center justify-center rounded-md bg-primary/10 text-primary">
+                  <FileDown className="h-5 w-5" />
+                </div>
+                <div>
+                  <CardTitle className="text-xl">Raw Data Export</CardTitle>
+                  <p className="text-sm text-muted-foreground">
+                    Download the full decision log with variables, calculated metrics, and D-NAV.
+                  </p>
+                </div>
               </div>
-            </div>
-          </CardHeader>
-          <CardContent className="flex flex-col gap-4">
-            <div className="rounded-lg border border-dashed border-muted/70 bg-background/60 p-4 text-sm text-muted-foreground">
-              {dataHighlight}
-            </div>
-            <div className="flex flex-wrap gap-2">
-              <Button
-                onClick={handleExportCsv}
-                disabled={filteredDecisions.length === 0}
-              >
-                <FileDown className="mr-2 h-4 w-4" />
-                Export CSV
-              </Button>
+            </CardHeader>
+            <CardContent className="flex flex-col gap-4">
+              <div className="rounded-lg border border-dashed border-muted/70 bg-background/60 p-4 text-sm text-muted-foreground">
+                {dataHighlight}
+              </div>
+              <div className="flex flex-wrap gap-2">
+                <Button
+                  onClick={handleExportCsv}
+                  disabled={!isLoggedIn || filteredDecisions.length === 0}
+                >
+                  <FileDown className="mr-2 h-4 w-4" />
+                  Export CSV
+                </Button>
+                <Button
+                  variant="outline"
+                  onClick={handleExportExcel}
+                  disabled={!isLoggedIn || filteredDecisions.length === 0}
+                >
+                  <FileSpreadsheet className="mr-2 h-4 w-4" />
+                  Export Excel
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card className="border-muted/60 bg-card/90 shadow-sm">
+            <CardHeader className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+              <div className="flex items-start gap-3">
+                <div className="flex h-10 w-10 items-center justify-center rounded-md bg-primary/10 text-primary">
+                  <FileText className="h-5 w-5" />
+                </div>
+                <div>
+                  <CardTitle className="text-xl">Executive One-Pager</CardTitle>
+                  <p className="text-sm text-muted-foreground">
+                    A polished one-page brief mirroring the in-app analytics beneath The D-NAV dashboard.
+                  </p>
+                </div>
+              </div>
               <Button
                 variant="outline"
-                onClick={handleExportExcel}
-                disabled={filteredDecisions.length === 0}
+                onClick={handleDownloadOnePager}
+                disabled={!isLoggedIn || !hasData || downloading === "summary-pdf"}
               >
-                <FileSpreadsheet className="mr-2 h-4 w-4" />
-                Export Excel
+                {downloading === "summary-pdf" ? "Preparing..." : "Download PDF"}
               </Button>
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card className="border-muted/60 bg-card/90 shadow-sm">
-          <CardHeader className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
-            <div className="flex items-start gap-3">
-              <div className="flex h-10 w-10 items-center justify-center rounded-md bg-primary/10 text-primary">
-                <FileText className="h-5 w-5" />
-              </div>
-              <div>
-                <CardTitle className="text-xl">Executive One-Pager</CardTitle>
-                <p className="text-sm text-muted-foreground">
-                  A polished one-page brief mirroring the in-app analytics beneath The D-NAV dashboard.
-                </p>
-              </div>
-            </div>
-            <Button
-              variant="outline"
-              onClick={handleDownloadOnePager}
-              disabled={!hasData || downloading === "summary-pdf"}
-            >
-              {downloading === "summary-pdf" ? "Preparing..." : "Download PDF"}
-            </Button>
-          </CardHeader>
-          <CardContent className="p-0">
-            <ExecutiveOnePager
-              ref={onePagerRef}
-              stats={stats}
-              timeframeLabel={timeframeConfig.label}
-              cadenceLabel={cadenceBasisLabel}
-              generatedAt={generatedAt}
-              distributionInsights={distributionInsights}
-              returnDebtSummary={returnDebtSummary}
-              hasData={hasData}
-            />
-          </CardContent>
-        </Card>
+            </CardHeader>
+            <CardContent className="p-0">
+              <ExecutiveOnePager
+                ref={onePagerRef}
+                stats={stats}
+                timeframeLabel={timeframeConfig.label}
+                cadenceLabel={cadenceBasisLabel}
+                generatedAt={generatedAt}
+                distributionInsights={distributionInsights}
+                returnDebtSummary={returnDebtSummary}
+                hasData={hasData}
+              />
+            </CardContent>
+          </Card>
+        </div>
       </section>
     </div>
   );
