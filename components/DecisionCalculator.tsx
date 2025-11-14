@@ -119,21 +119,21 @@ export default function DecisionCalculator({ onDataChange }: DecisionCalculatorP
                 value={metrics.return}
                 pill={getPillColor(metrics.return, "return")}
                 subtitle="Impact − Cost"
-                description="Is this actually worth the energy? Positive return means the upside justifies what you’re spending in time, money, and focus. Negative return means you’re paying more than you’re getting back."
+                description="Is it worth it? Positive return means the upside is greater than the effort. Negative return means you're paying more than you're getting."
               />
               <StatCard
                 title="Pressure"
                 value={metrics.pressure}
                 pill={getPillColor(metrics.pressure, "pressure")}
                 subtitle="Urgency − Confidence"
-                description="Is the decision starting to decide you? High pressure means urgency is running ahead of confidence. Low pressure means you’re driving the move instead of being pushed by it."
+                description="What's pushing here? High pressure means the decision is squeezing you. Low pressure means you're driving the move instead of being pushed by it."
               />
               <StatCard
                 title="Stability"
                 value={metrics.stability}
                 pill={getPillColor(metrics.stability, "stability")}
                 subtitle="Confidence − Risk"
-                description="How likely is this call to survive turbulence? Stability comes from evidence and experience beating fear. Instability comes from hope overpowering proof."
+                description="Will this survive turbulence? Stable means evidence beats fear. Fragile means hope is overpowering proof."
               />
             </div>
             <p className="text-sm text-muted-foreground leading-relaxed">
