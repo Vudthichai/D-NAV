@@ -52,6 +52,7 @@ import html2canvas from "html2canvas";
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
+  CadenceUnit,
   DashboardStats,
   buildDistributionInsights,
   buildPortfolioNarrative,
@@ -266,11 +267,12 @@ export default function TheDNavPage() {
   const [isSaved, setIsSaved] = useState(false);
 
   const [timeWindow, setTimeWindow] = useState("30");
-  const [cadenceUnit, setCadenceUnit] = useState("week");
+  const [cadenceUnit, setCadenceUnit] = useState<CadenceUnit>("week");
   const [isGeneratingStatsPdf, setIsGeneratingStatsPdf] = useState(false);
   const statsContainerRef = useRef<HTMLDivElement>(null);
-  const [isSignedIn, setIsSignedIn] = useState(false);
+  const [currentUser, setCurrentUser] = useState<NetlifyIdentityUser | null>(null);
   const [, setIsAdmin] = useState(false);
+  const isLoggedIn = !!currentUser;
 
   const handleDataChange = useCallback(
     (newVariables: DecisionVariables, newMetrics: DecisionMetrics) => {
@@ -345,10 +347,13 @@ export default function TheDNavPage() {
     let initialized = false;
 
     const updateUserState = (user?: NetlifyIdentityUser | null) => {
-      const hasUser = Boolean(user);
-      setIsSignedIn(hasUser);
+      const nextUser = user ?? null;
+      setCurrentUser(nextUser);
+      const hasUser = nextUser !== null;
       const roles =
-        hasUser && Array.isArray(user?.app_metadata?.roles) ? (user.app_metadata.roles as string[]) : [];
+        hasUser && Array.isArray(nextUser?.app_metadata?.roles)
+          ? (nextUser.app_metadata.roles as string[])
+          : [];
       setIsAdmin(hasUser && roles.includes("admin"));
     };
 
@@ -569,7 +574,7 @@ export default function TheDNavPage() {
       })
     : "No decisions logged in this window. Import or record decisions to unlock narrative insights.";
 
-  const showAnalytics = isSignedIn;
+  const showAnalytics = isLoggedIn;
 
   const handleSignInClick = () => {
     if (typeof window === "undefined") return;
@@ -577,10 +582,16 @@ export default function TheDNavPage() {
     identity?.open?.("login");
   };
 
+  const handleBookAuditClick = () => {
+    if (typeof window === "undefined") return;
+    window.location.href = "/contact";
+  };
+
   const handleLogoutClick = () => {
     if (typeof window === "undefined") return;
     const identity = (window as Window & { netlifyIdentity?: NetlifyIdentity }).netlifyIdentity;
     identity?.logout?.();
+    setCurrentUser(null);
   };
 
   const decisionArchHeading = "3. Understand Your Decision Arch";
@@ -601,7 +612,7 @@ export default function TheDNavPage() {
               </p>
             </div>
             <div className="flex gap-2 self-start items-center">
-              {isSignedIn ? (
+              {isLoggedIn ? (
                 <button
                   type="button"
                   onClick={handleLogoutClick}
@@ -679,7 +690,7 @@ export default function TheDNavPage() {
             </div>
 
             <DecisionCalculator onDataChange={handleDataChange} />
-            {isSignedIn ? (
+            {isLoggedIn ? (
               <div className="flex justify-end">
                 <Button variant="ghost" size="sm" onClick={handleLogoutClick}>
                   Sign out
@@ -688,8 +699,15 @@ export default function TheDNavPage() {
             ) : null}
           </section>
 
-          {showAnalytics ? (
-            <>
+          <section className="space-y-3">
+            <p className="text-xs font-semibold uppercase tracking-[0.3em] text-muted-foreground">
+              {decisionArchHeading}
+            </p>
+            <p className="text-sm text-muted-foreground max-w-3xl">{decisionArchDescription}</p>
+          </section>
+
+          <section className="relative">
+            <div className={!isLoggedIn ? "pointer-events-none filter blur-sm opacity-50" : ""}>
               <section className="space-y-10">
                 <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
                   <div className="flex items-center gap-2">
@@ -706,7 +724,10 @@ export default function TheDNavPage() {
                         </SelectGroup>
                       </SelectContent>
                     </Select>
-                    <Select value={cadenceUnit} onValueChange={setCadenceUnit}>
+                    <Select
+                      value={cadenceUnit}
+                      onValueChange={(value) => setCadenceUnit(value as CadenceUnit)}
+                    >
                       <SelectTrigger className="w-36">
                         <SelectValue />
                       </SelectTrigger>
@@ -1016,41 +1037,38 @@ export default function TheDNavPage() {
                     <li>Identify dominant archetypes and blind spots</li>
                     <li>Design a 30–90 day decision cadence for your team</li>
                   </ul>
-                  <Button size="lg" asChild>
-                    <Link href="/contact">Book a Decision Audit</Link>
+                  <Button size="lg" onClick={handleBookAuditClick}>
+                    Book a Decision Audit
                   </Button>
                 </CardContent>
               </Card>
+            </div>
 
-            </>
-          ) : (
-            <section className="py-16">
-              <div className="mx-auto max-w-2xl text-center space-y-6">
-                <h2 className="text-3xl font-semibold text-foreground">Unlock Your Decision Patterns</h2>
-                <p className="text-sm text-muted-foreground leading-relaxed">
+            {!isLoggedIn && (
+              <div className="pointer-events-auto absolute inset-0 flex flex-col items-center justify-center text-center px-4">
+                <h2 className="text-2xl font-semibold mb-3">Unlock Your Decision Patterns</h2>
+                <p className="max-w-2xl text-sm md:text-base mb-6 text-slate-600">
                   One decision is a snapshot. A series of decisions becomes a pattern. Over time, D-NAV reveals your loops — return, stability, pressure, momentum, and consistency — so you can see how your judgment really behaves under uncertainty.
                 </p>
-                <div className="flex flex-col justify-center gap-3 sm:flex-row sm:items-center sm:justify-center">
-                  <Button size="lg" onClick={handleSignInClick}>
+                <div className="flex flex-col sm:flex-row gap-3 mb-3">
+                  <button
+                    className="px-6 py-3 rounded-md bg-orange-400 text-white font-medium"
+                    onClick={handleSignInClick}
+                  >
                     Sign In to View Analytics
-                  </Button>
-                  <Button size="lg" variant="outline" asChild>
-                    <Link href="/contact">Book a Decision Audit</Link>
-                  </Button>
+                  </button>
+                  <button
+                    className="px-6 py-3 rounded-md border border-slate-300 bg-white text-slate-800 font-medium"
+                    onClick={handleBookAuditClick}
+                  >
+                    Book a Decision Audit
+                  </button>
                 </div>
-                <p className="text-xs text-muted-foreground">
+                <p className="text-xs text-slate-500">
                   Client dashboards and full analytics are available only to active teams and audit clients.
                 </p>
               </div>
-            </section>
-
-          )}
-
-          <section className="space-y-3">
-            <p className="text-xs font-semibold uppercase tracking-[0.3em] text-muted-foreground">
-              {decisionArchHeading}
-            </p>
-            <p className="text-sm text-muted-foreground max-w-3xl">{decisionArchDescription}</p>
+            )}
           </section>
 
           {showAnalytics && (
