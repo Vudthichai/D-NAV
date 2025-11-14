@@ -553,112 +553,114 @@ export default function TheDNavPage() {
             </div>
           </div>
 
-          <div className="flex flex-col">
-            <section className="space-y-4 pb-3">
+          <div className="flex flex-col gap-8 lg:flex-row lg:items-start">
+            <section className="flex-1 space-y-4">
               <div className="space-y-2">
-              <h2 className="text-2xl font-semibold text-foreground">1. Rate Your Decision</h2>
-              <p className="text-sm text-muted-foreground max-w-3xl">
-                Pick one real decision that’s active in your life. Move each slider from 1–10 based on what feels true — not what sounds smart. You’re not guessing the “right” numbers; you’re capturing how the decision feels.
-              </p>
-            </div>
+                <h2 className="text-2xl font-semibold text-foreground">1. Rate Your Decision</h2>
+                <p className="text-sm text-muted-foreground max-w-3xl">
+                  Pick one real decision that’s active in your life. Move each slider from 1–10 based on what feels true — not what sounds smart. You’re not guessing the “right” numbers; you’re capturing how the decision feels.
+                </p>
+              </div>
 
-            <Card className="gap-4 py-4">
-              <CardHeader className="pb-4 space-y-3">
-                <CardTitle className="text-lg">Quick Entry</CardTitle>
-                <div className="space-y-2">
-                  <Input
-                    type="text"
-                    placeholder="What's Your Decision?"
-                    value={decisionName}
-                    onChange={(e) => setDecisionName(e.target.value)}
-                    className="h-12 text-base lg:text-lg"
-                  />
-                  <div className="grid grid-cols-1 gap-3 md:grid-cols-2 lg:grid-cols-3">
+              <Card className="h-full">
+                <CardHeader className="pb-4 space-y-3">
+                  <CardTitle className="text-lg">Quick Entry</CardTitle>
+                  <div className="space-y-2">
                     <Input
                       type="text"
-                      placeholder="Categorize it"
-                      value={decisionCategory}
-                      onChange={(e) => setDecisionCategory(e.target.value)}
+                      placeholder="What's Your Decision?"
+                      value={decisionName}
+                      onChange={(e) => setDecisionName(e.target.value)}
+                      className="h-12 text-base lg:text-lg"
                     />
-                    <Button onClick={handleSaveDecision} className="w-full" disabled={!decisionName || !decisionCategory}>
-                      {isSaved ? (
-                        <>
-                          <Check className="w-4 h-4 mr-2" />
-                          Saved!
-                        </>
-                      ) : (
-                        <>
-                          <Save className="w-4 h-4 mr-2" />
-                          Save Decision
-                        </>
-                      )}
-                    </Button>
-                    <Button variant="outline" className="w-full" asChild>
-                      <Link href="/log#import" className="flex items-center justify-center">
-                        <Upload className="w-4 h-4 mr-2" />
-                        Import Decisions
-                      </Link>
-                    </Button>
+                    <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+                      <Input
+                        type="text"
+                        placeholder="Categorize it"
+                        value={decisionCategory}
+                        onChange={(e) => setDecisionCategory(e.target.value)}
+                      />
+                      <Button onClick={handleSaveDecision} className="w-full" disabled={!decisionName || !decisionCategory}>
+                        {isSaved ? (
+                          <>
+                            <Check className="w-4 h-4 mr-2" />
+                            Saved!
+                          </>
+                        ) : (
+                          <>
+                            <Save className="w-4 h-4 mr-2" />
+                            Save Decision
+                          </>
+                        )}
+                      </Button>
+                      <Button variant="outline" className="w-full md:col-span-2" asChild>
+                        <Link href="/log#import" className="flex items-center justify-center">
+                          <Upload className="w-4 h-4 mr-2" />
+                          Import Decisions
+                        </Link>
+                      </Button>
+                    </div>
                   </div>
-                </div>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="space-y-1.5">
-                  <h3 className="text-sm font-semibold text-foreground">Decision Variables</h3>
-                  <p className="text-xs text-muted-foreground">
-                    Each slider represents one of the five forces shaping your call.
-                  </p>
-                  <div className="flex gap-2">
-                    <Badge variant="outline" className="text-xs">
-                      1 = minimal
-                    </Badge>
-                    <Badge variant="outline" className="text-xs">
-                      10 = maximum
-                    </Badge>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div className="space-y-1.5">
+                    <h3 className="text-sm font-semibold text-foreground">Decision Variables</h3>
+                    <p className="text-xs text-muted-foreground">
+                      Each slider represents one of the five forces shaping your call.
+                    </p>
+                    <div className="flex gap-2">
+                      <Badge variant="outline" className="text-xs">
+                        1 = minimal
+                      </Badge>
+                      <Badge variant="outline" className="text-xs">
+                        10 = maximum
+                      </Badge>
+                    </div>
                   </div>
-                </div>
-                <div className="space-y-3">
-                  <SliderRow
-                    id="impact"
-                    label="Impact"
-                    hint="How big is the upside if this works?"
-                    value={variables.impact}
-                    onChange={(value) => updateVariable("impact", value)}
-                  />
-                  <SliderRow
-                    id="cost"
-                    label="Cost"
-                    hint="What are you really spending — money, time, reputation, focus?"
-                    value={variables.cost}
-                    onChange={(value) => updateVariable("cost", value)}
-                  />
-                  <SliderRow
-                    id="risk"
-                    label="Risk"
-                    hint="If you’re wrong, what breaks or becomes hard to undo?"
-                    value={variables.risk}
-                    onChange={(value) => updateVariable("risk", value)}
-                  />
-                  <SliderRow
-                    id="urgency"
-                    label="Urgency"
-                    hint="How soon do you actually need to move?"
-                    value={variables.urgency}
-                    onChange={(value) => updateVariable("urgency", value)}
-                  />
-                  <SliderRow
-                    id="confidence"
-                    label="Confidence"
-                    hint="How solid is your evidence and experience — not just your hope?"
-                    value={variables.confidence}
-                    onChange={(value) => updateVariable("confidence", value)}
-                  />
-                </div>
-              </CardContent>
-            </Card>
+                  <div className="space-y-3">
+                    <SliderRow
+                      id="impact"
+                      label="Impact"
+                      hint="How big is the upside if this works?"
+                      value={variables.impact}
+                      onChange={(value) => updateVariable("impact", value)}
+                    />
+                    <SliderRow
+                      id="cost"
+                      label="Cost"
+                      hint="What are you really spending — money, time, reputation, focus?"
+                      value={variables.cost}
+                      onChange={(value) => updateVariable("cost", value)}
+                    />
+                    <SliderRow
+                      id="risk"
+                      label="Risk"
+                      hint="If you’re wrong, what breaks or becomes hard to undo?"
+                      value={variables.risk}
+                      onChange={(value) => updateVariable("risk", value)}
+                    />
+                    <SliderRow
+                      id="urgency"
+                      label="Urgency"
+                      hint="How soon do you actually need to move?"
+                      value={variables.urgency}
+                      onChange={(value) => updateVariable("urgency", value)}
+                    />
+                    <SliderRow
+                      id="confidence"
+                      label="Confidence"
+                      hint="How solid is your evidence and experience — not just your hope?"
+                      value={variables.confidence}
+                      onChange={(value) => updateVariable("confidence", value)}
+                    />
+                  </div>
+                </CardContent>
+              </Card>
             </section>
-            <div className="border-t border-border/60" />
-            <section className="space-y-5 pt-3">
+
+            <Separator orientation="vertical" className="hidden h-auto self-stretch lg:block" />
+
+            <section className="flex-1 space-y-5">
               <div className="space-y-3">
                 <h2 className="text-2xl font-semibold text-foreground">2. See the Physics of This Decision</h2>
                 <p className="text-sm text-muted-foreground max-w-3xl">
@@ -666,7 +668,7 @@ export default function TheDNavPage() {
                 </p>
               </div>
 
-              <div className="grid gap-6 lg:grid-cols-2">
+              <div className="grid gap-6">
                 <Card className="h-full">
                   <CardHeader className="pb-3">
                     <CardTitle className="text-lg">Return, Pressure, Stability</CardTitle>
