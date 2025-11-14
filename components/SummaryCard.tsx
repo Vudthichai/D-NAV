@@ -18,16 +18,12 @@ export default function SummaryCard({ metrics, coachText }: SummaryCardProps) {
       </div>
 
       <div>
-        <h3 className="m-0 text-xs text-muted-foreground uppercase tracking-wider">Coach</h3>
-        <p className="text-sm text-muted-foreground leading-relaxed mt-1.5">
-          This is the posture you're taking under uncertainty. Here's the smallest correction to get back on track.
-        </p>
-        <p className="text-sm text-muted-foreground leading-relaxed mt-3">
+        <p className="text-base text-muted-foreground leading-relaxed">
           <span className="font-semibold text-foreground">Coach insight:</span> {coachText}
         </p>
       </div>
 
-      <div className="rounded-lg border border-border/50 bg-muted/20 p-4">
+      <div className="rounded-lg border border-border/50 bg-muted/20 p-4 mt-8">
         <div className="flex items-baseline justify-between gap-4">
           <div>
             <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">D-NAV Score</p>
