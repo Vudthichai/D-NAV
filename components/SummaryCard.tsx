@@ -18,8 +18,7 @@ export default function SummaryCard({ metrics, coachText }: SummaryCardProps) {
       </div>
 
       <div>
-        <h3 className="m-0 text-xs text-muted-foreground uppercase tracking-wider">Coach</h3>
-        <p className="text-base text-muted-foreground leading-relaxed mt-2">
+        <p className="text-base text-muted-foreground leading-relaxed">
           <span className="font-semibold text-foreground">Coach insight:</span> {coachText}
         </p>
       </div>
