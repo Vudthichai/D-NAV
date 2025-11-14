@@ -707,6 +707,33 @@ export default function TheDNavPage() {
           </section>
 
           <section className="relative">
+            {!isLoggedIn && (
+              <div className="pointer-events-none absolute inset-0 flex justify-center items-start">
+                <div className="pointer-events-auto sticky top-24 z-20 flex flex-col items-center justify-center text-center px-4">
+                  <h2 className="text-2xl font-semibold mb-3">Unlock Your Decision Patterns</h2>
+                  <p className="max-w-2xl text-sm md:text-base mb-6 text-slate-600">
+                    One decision is a snapshot. A series of decisions becomes a pattern. Over time, D-NAV reveals your loops — return, stability, pressure, momentum, and consistency — so you can see how your judgment really behaves under uncertainty.
+                  </p>
+                  <div className="flex flex-col sm:flex-row gap-3 mb-3">
+                    <button
+                      className="px-6 py-3 rounded-md bg-orange-400 text-white font-medium"
+                      onClick={handleSignInClick}
+                    >
+                      Sign In to View Analytics
+                    </button>
+                    <button
+                      className="px-6 py-3 rounded-md border border-slate-300 bg-white text-slate-800 font-medium"
+                      onClick={handleBookAuditClick}
+                    >
+                      Book a Decision Audit
+                    </button>
+                  </div>
+                  <p className="text-xs text-slate-500">
+                    Client dashboards and full analytics are available only to active teams and audit clients.
+                  </p>
+                </div>
+              </div>
+            )}
             <div className={!isLoggedIn ? "pointer-events-none filter blur-sm opacity-50" : ""}>
               <section className="space-y-10">
                 <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
@@ -1044,31 +1071,6 @@ export default function TheDNavPage() {
               </Card>
             </div>
 
-            {!isLoggedIn && (
-              <div className="pointer-events-auto sticky top-24 z-20 flex flex-col items-center justify-center text-center px-4">
-                <h2 className="text-2xl font-semibold mb-3">Unlock Your Decision Patterns</h2>
-                <p className="max-w-2xl text-sm md:text-base mb-6 text-slate-600">
-                  One decision is a snapshot. A series of decisions becomes a pattern. Over time, D-NAV reveals your loops — return, stability, pressure, momentum, and consistency — so you can see how your judgment really behaves under uncertainty.
-                </p>
-                <div className="flex flex-col sm:flex-row gap-3 mb-3">
-                  <button
-                    className="px-6 py-3 rounded-md bg-orange-400 text-white font-medium"
-                    onClick={handleSignInClick}
-                  >
-                    Sign In to View Analytics
-                  </button>
-                  <button
-                    className="px-6 py-3 rounded-md border border-slate-300 bg-white text-slate-800 font-medium"
-                    onClick={handleBookAuditClick}
-                  >
-                    Book a Decision Audit
-                  </button>
-                </div>
-                <p className="text-xs text-slate-500">
-                  Client dashboards and full analytics are available only to active teams and audit clients.
-                </p>
-              </div>
-            )}
           </section>
 
           {showAnalytics && (
