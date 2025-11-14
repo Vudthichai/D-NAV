@@ -12,10 +12,10 @@ interface SliderRowProps {
 
 export default function SliderRow({ id, label, hint, value, onChange }: SliderRowProps) {
   return (
-    <div className="my-2.5 grid min-w-0 items-center gap-3 last:mb-2 sm:grid-cols-[minmax(0,190px)_minmax(0,1fr)_auto]">
+    <div className="grid min-w-0 items-center gap-2 py-1 sm:grid-cols-[minmax(0,190px)_minmax(0,1fr)_auto]">
       <label className="flex flex-col gap-1 sm:min-w-0">
-        <span className="text-base font-bold leading-tight text-foreground">{label}</span>
-        <span className="text-xs font-semibold leading-tight text-muted-foreground">{hint}</span>
+        <span className="text-sm font-semibold leading-tight text-foreground">{label}</span>
+        <span className="text-[11px] font-medium leading-snug text-muted-foreground">{hint}</span>
       </label>
       <Slider
         id={id}
@@ -26,7 +26,7 @@ export default function SliderRow({ id, label, hint, value, onChange }: SliderRo
         onValueChange={(values) => onChange(values[0])}
         className="w-full min-w-0"
       />
-      <output className="inline-block min-w-[40px] text-right text-base font-extrabold sm:justify-self-end">
+      <output className="inline-block min-w-[40px] text-right text-sm font-extrabold sm:justify-self-end">
         {value}
       </output>
     </div>
