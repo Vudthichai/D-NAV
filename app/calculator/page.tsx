@@ -709,7 +709,7 @@ export default function TheDNavPage() {
           <section className="relative">
             {!isLoggedIn && (
               <div className="pointer-events-none absolute inset-0 flex justify-center items-start">
-                <div className="pointer-events-auto sticky top-[150px] z-20 flex flex-col items-center justify-center text-center px-4">
+                <div className="pointer-events-auto sticky top-[200px] z-20 flex flex-col items-center justify-center text-center px-4">
                   <h2 className="text-2xl font-semibold mb-3">Unlock Your Decision Patterns</h2>
                   <p className="max-w-2xl text-sm md:text-base mb-6 text-slate-600">
                     One decision is a snapshot. A series of decisions becomes a pattern. Over time, D-NAV reveals your loops — return, stability, pressure, momentum, and consistency — so you can see how your judgment really behaves under uncertainty.
