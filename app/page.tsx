@@ -216,46 +216,46 @@ export default function Home() {
             </p>
           </div>
 
-          <div className="grid md:grid-cols-3 gap-8">
-            <Card className="text-center p-8">
-              <CardHeader>
-                <div className="w-16 h-16 bg-primary/10 rounded-full flex items-center justify-center mx-auto mb-4">
+          <div className="grid items-stretch gap-8 md:grid-cols-3">
+            <Card className="flex h-full flex-col items-center gap-6 p-8 text-center">
+              <CardHeader className="flex flex-col items-center gap-4">
+                <div className="flex h-16 w-16 items-center justify-center rounded-full bg-primary/10">
                   <Calculator className="w-8 h-8 text-primary" />
                 </div>
                 <CardTitle className="text-xl">1. Map the Unknowns</CardTitle>
               </CardHeader>
-              <CardContent>
-                <p className="text-muted-foreground">
+              <CardContent className="flex flex-1 items-start text-muted-foreground">
+                <p>
                   Score Impact, Cost, Risk, Urgency, and Confidence as they actually feel—not how the
                   report wants them to feel. Capture the tension inside the decision.
                 </p>
               </CardContent>
             </Card>
 
-            <Card className="text-center p-8">
-              <CardHeader>
-                <div className="w-16 h-16 bg-primary/10 rounded-full flex items-center justify-center mx-auto mb-4">
+            <Card className="flex h-full flex-col items-center gap-6 p-8 text-center">
+              <CardHeader className="flex flex-col items-center gap-4">
+                <div className="flex h-16 w-16 items-center justify-center rounded-full bg-primary/10">
                   <BarChart3 className="w-8 h-8 text-primary" />
                 </div>
                 <CardTitle className="text-xl">2. Measure Judgment</CardTitle>
               </CardHeader>
-              <CardContent>
-                <p className="text-muted-foreground">
+              <CardContent className="flex flex-1 items-start text-muted-foreground">
+                <p>
                   D-NAV translates those inputs into Return, Pressure, and Stability—three vectors that
                   show whether conviction, risk, and urgency are in balance.
                 </p>
               </CardContent>
             </Card>
 
-            <Card className="text-center p-8">
-              <CardHeader>
-                <div className="w-16 h-16 bg-primary/10 rounded-full flex items-center justify-center mx-auto mb-4">
+            <Card className="flex h-full flex-col items-center gap-6 p-8 text-center">
+              <CardHeader className="flex flex-col items-center gap-4">
+                <div className="flex h-16 w-16 items-center justify-center rounded-full bg-primary/10">
                   <ListOrdered className="w-8 h-8 text-primary" />
                 </div>
                 <CardTitle className="text-xl">3. Iterate Under Pressure</CardTitle>
               </CardHeader>
-              <CardContent>
-                <p className="text-muted-foreground">
+              <CardContent className="flex flex-1 items-start text-muted-foreground">
+                <p>
                   Build a portfolio of decisions, audit the outliers, and sharpen judgment faster than
                   your environment shifts.
                 </p>
