@@ -26,28 +26,28 @@ export default function StatCard({ title, value, pill, subtitle, description }: 
   };
 
   return (
-    <Card className="bg-white/4 rounded-xl p-3.5 min-h-[110px] flex flex-col justify-between border-0">
-      <CardContent className="p-0 flex flex-col justify-between h-full">
-        <h3 className="m-0 text-xs text-muted-foreground tracking-wider uppercase font-normal">
+    <Card className="bg-white/4 rounded-lg p-3 min-h-[96px] flex flex-col justify-between border-0">
+      <CardContent className="p-0 flex flex-col justify-between h-full space-y-2">
+        <h3 className="m-0 text-[11px] text-muted-foreground tracking-wider uppercase font-medium">
           {title}
         </h3>
         {subtitle ? (
-          <p className="mt-1 text-[11px] font-medium uppercase tracking-wide text-muted-foreground/70">
+          <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground/70">
             {subtitle}
           </p>
         ) : null}
-        <div className="text-4xl font-black leading-tight">
+        <div className="text-3xl font-black leading-tight">
           {formatValue(value)}
         </div>
         {description ? (
-          <p className="mt-3 text-sm text-muted-foreground leading-relaxed">
+          <p className="text-xs text-muted-foreground leading-relaxed">
             {description}
           </p>
         ) : null}
         <Badge
           variant="outline"
           className={cn(
-            "inline-block px-1.5 py-0.5 rounded-full font-extrabold text-[9px] leading-tight whitespace-nowrap w-fit",
+            "inline-block px-1.5 py-0.5 rounded-full font-bold text-[9px] leading-tight whitespace-nowrap w-fit",
             pillVariants[pill.color]
           )}
         >
