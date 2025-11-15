@@ -553,26 +553,26 @@ export default function TheDNavPage() {
             </div>
           </div>
 
-          <section className="mt-8 grid grid-cols-1 lg:grid-cols-2 gap-6 items-start">
-            <div className="space-y-4">
+          <section className="mt-8 grid grid-cols-1 gap-5 lg:grid-cols-2 lg:items-start">
+            <div className="grid gap-4 content-start">
               <div className="space-y-2">
                 <h2 className="text-2xl font-semibold text-foreground">1. Rate Your Decision</h2>
                 <p className="text-sm text-muted-foreground max-w-3xl">
-                  Pick one real decision that’s active in your life. Move each slider from 1–10 based on what feels true — not what sounds smart. You’re not guessing the “right” numbers; you’re capturing how the decision feels.
+                  Name your decision and choose the forces that define it.
                 </p>
               </div>
 
-              <Card className="rounded-xl border border-slate-100 bg-white shadow-sm">
-                <CardHeader className="space-y-3 p-4 md:p-6 pb-4">
-                  <CardTitle className="text-lg">Quick Entry</CardTitle>
+              <Card className="rounded-lg border border-slate-200 bg-white shadow-sm">
+                <CardHeader className="space-y-2 p-4 pb-3 sm:p-5 sm:pb-3">
+                  <CardTitle className="text-base font-semibold">Quick Entry</CardTitle>
                 </CardHeader>
-                <CardContent className="space-y-2 p-4 pt-0 md:p-6 md:pt-0">
+                <CardContent className="space-y-3 p-4 pt-0 sm:p-5 sm:pt-0">
                   <Input
                     type="text"
                     placeholder="What's Your Decision?"
                     value={decisionName}
                     onChange={(e) => setDecisionName(e.target.value)}
-                    className="h-12 text-base lg:text-lg"
+                    className="h-11 text-sm sm:text-base"
                   />
                   <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
                     <Input
@@ -580,8 +580,14 @@ export default function TheDNavPage() {
                       placeholder="Categorize it"
                       value={decisionCategory}
                       onChange={(e) => setDecisionCategory(e.target.value)}
+                      className="h-11 text-sm sm:text-base"
                     />
-                    <Button onClick={handleSaveDecision} className="w-full" disabled={!decisionName || !decisionCategory}>
+                    <Button
+                      onClick={handleSaveDecision}
+                      className="w-full"
+                      size="sm"
+                      disabled={!decisionName || !decisionCategory}
+                    >
                       {isSaved ? (
                         <>
                           <Check className="w-4 h-4 mr-2" />
@@ -594,7 +600,7 @@ export default function TheDNavPage() {
                         </>
                       )}
                     </Button>
-                    <Button variant="outline" className="w-full md:col-span-2" asChild>
+                    <Button variant="outline" className="w-full md:col-span-2" size="sm" asChild>
                       <Link href="/log#import" className="flex items-center justify-center">
                         <Upload className="w-4 h-4 mr-2" />
                         Import Decisions
@@ -604,8 +610,8 @@ export default function TheDNavPage() {
                 </CardContent>
               </Card>
 
-              <Card className="rounded-xl border border-slate-100 bg-white shadow-sm">
-                <CardHeader className="space-y-1.5 p-4 md:p-6 pb-4">
+              <Card className="rounded-lg border border-slate-200 bg-white shadow-sm">
+                <CardHeader className="space-y-1.5 p-4 pb-3 sm:p-5 sm:pb-3">
                   <h3 className="text-sm font-semibold text-foreground">Decision Variables</h3>
                   <p className="text-xs text-muted-foreground">
                     Each slider represents one of the five forces shaping your call.
@@ -659,7 +665,7 @@ export default function TheDNavPage() {
               </Card>
             </div>
 
-            <div className="space-y-4">
+            <div className="grid gap-4 content-start">
               <div className="space-y-3">
                 <h2 className="text-2xl font-semibold text-foreground">2. See the Physics of This Decision</h2>
                 <p className="text-sm text-muted-foreground max-w-3xl">
@@ -667,11 +673,11 @@ export default function TheDNavPage() {
                 </p>
               </div>
 
-              <Card className="rounded-xl border border-slate-100 bg-white shadow-sm">
-                <CardHeader className="p-4 md:p-6 pb-3">
-                  <CardTitle className="text-lg">Return, Pressure, Stability</CardTitle>
+              <Card className="rounded-lg border border-slate-200 bg-white shadow-sm">
+                <CardHeader className="p-4 pb-3 sm:p-5 sm:pb-3">
+                  <CardTitle className="text-base font-semibold">Return, Pressure, Stability</CardTitle>
                 </CardHeader>
-                <CardContent className="space-y-4 p-4 pt-0 md:p-6 md:pt-0">
+                <CardContent className="space-y-3 p-4 pt-0 sm:p-5 sm:pt-0">
                   <StatCard
                     title="Return"
                     value={metrics.return}
@@ -696,11 +702,11 @@ export default function TheDNavPage() {
                 </CardContent>
               </Card>
 
-              <Card className="rounded-xl border border-slate-100 bg-white shadow-sm">
-                <CardHeader className="p-4 md:p-6 pb-3">
-                  <CardTitle className="text-lg">Archetype &amp; Coach</CardTitle>
+              <Card className="rounded-lg border border-slate-200 bg-white shadow-sm">
+                <CardHeader className="p-4 pb-3 sm:p-5 sm:pb-3">
+                  <CardTitle className="text-base font-semibold">Archetype &amp; Coach</CardTitle>
                 </CardHeader>
-                <CardContent className="p-4 pt-0 md:p-6 md:pt-0">
+                <CardContent className="p-4 pt-0 sm:p-5 sm:pt-0">
                   <SummaryCard metrics={metrics} coachText={coachLine} />
                 </CardContent>
               </Card>
