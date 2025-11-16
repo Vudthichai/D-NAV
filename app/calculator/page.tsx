@@ -733,7 +733,7 @@ export default function TheDNavPage() {
               {!isLoggedIn && (
                 <div className="pointer-events-none absolute inset-0 flex justify-center items-start">
                   <div className="pointer-events-auto sticky top-[200px] z-20 flex flex-col items-center justify-center text-center px-4">
-                    <h2 className="text-2xl font-semibold mb-3">See the story in your decisions</h2>
+                    <h2 className="text-2xl font-semibold mb-3">See The Story In Your Decisions</h2>
 
                     <div className="flex flex-col sm:flex-row gap-3 mb-3">
                       <button
