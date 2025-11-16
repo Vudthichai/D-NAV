@@ -519,6 +519,26 @@ export default function TheDNavPage() {
     logout();
   };
 
+  const stepSummaries = [
+    {
+      step: "STEP 1",
+      title: "Rate Your Decision",
+      description: "Capture one real decision and rate the five forces shaping it.",
+    },
+    {
+      step: "STEP 2",
+      title: "See the Physics of Your Decision",
+      description:
+        "Your inputs generate a real-time diagnostic — return, pressure, stability, archetype, and D-NAV score.",
+    },
+    {
+      step: "STEP 3",
+      title: "See Your Decision Pattern",
+      description:
+        "One decision is a readout. Ten decisions reveal your style. A team’s decisions reveal the operating system.",
+    },
+  ];
+
   return (
     <TooltipProvider>
       <main className="min-h-screen">
@@ -550,59 +570,67 @@ export default function TheDNavPage() {
           </div>
 
           <section className="mt-8 space-y-10">
-            <div className="grid grid-cols-1 gap-6 items-stretch lg:grid-cols-3">
-              <div className="flex h-full flex-col gap-4">
-                <div className="space-y-2">
-                  <p className="text-xs font-semibold uppercase tracking-wide text-orange-500">Step 1</p>
-                  <h2 className="text-2xl font-semibold text-foreground">Rate Your Decision</h2>
-
+            <div className="grid grid-cols-1 gap-6 md:grid-cols-3">
+              {stepSummaries.map((summary) => (
+                <div key={summary.step} className="space-y-2">
+                  <p className="text-xs font-semibold tracking-wide text-orange-500">
+                    <span className="uppercase">{summary.step}</span>
+                    <span className="text-foreground font-semibold normal-case"> — {summary.title}</span>
+                  </p>
+                  <p className="text-sm text-muted-foreground leading-relaxed">{summary.description}</p>
                 </div>
+              ))}
+            </div>
+
+            <div className="grid grid-cols-1 gap-6 items-start md:grid-cols-2">
+              <div className="flex h-full flex-col">
                 <div className="flex flex-1 flex-col rounded-xl border border-slate-100 bg-white p-4 shadow-sm md:p-5">
-                  <div className="space-y-4 flex-1">
-                    <div className="space-y-3">
+                  <div className="space-y-3 flex-1">
+                    <div className="space-y-2">
                       <h3 className="text-lg font-semibold text-foreground">Decision Inputs</h3>
-                      <div className="space-y-3">
-                        <div className="space-y-2">
-                          <p className="text-sm font-semibold text-muted-foreground">Quick Entry</p>
-                          <Input
-                            type="text"
-                            placeholder="What's Your Decision?"
-                            value={decisionName}
-                            onChange={(e) => setDecisionName(e.target.value)}
-                            className="h-12 text-base lg:text-lg"
-                          />
-                        </div>
-                        <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
-                          <Input
-                            type="text"
-                            placeholder="Categorize it"
-                            value={decisionCategory}
-                            onChange={(e) => setDecisionCategory(e.target.value)}
-                          />
-                          <Button
-                            onClick={handleSaveDecision}
-                            className="w-full"
-                            disabled={!decisionName || !decisionCategory}
-                          >
-                            {isSaved ? (
-                              <>
-                                <Check className="w-4 h-4 mr-2" />
-                                Saved!
-                              </>
-                            ) : (
-                              <>
-                                <Save className="w-4 h-4 mr-2" />
-                                Save Decision
-                              </>
-                            )}
-                          </Button>
-                          <Button variant="outline" className="w-full md:col-span-2" asChild>
-                            <Link href="/log#import" className="flex items-center justify-center">
-                              <Upload className="w-4 h-4 mr-2" />
-                              Import Decisions
-                            </Link>
-                          </Button>
-                        </div>
+                      <p className="text-sm text-muted-foreground">
+                        Capture one real decision and rate the five forces shaping it.
+                      </p>
+                      <div className="space-y-2">
+                        <p className="text-sm font-semibold text-muted-foreground">Quick Entry</p>
+                        <Input
+                          type="text"
+                          placeholder="What's Your Decision?"
+                          value={decisionName}
+                          onChange={(e) => setDecisionName(e.target.value)}
+                          className="h-12 text-base lg:text-lg"
+                        />
+                      </div>
+                      <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+                        <Input
+                          type="text"
+                          placeholder="Categorize it"
+                          value={decisionCategory}
+                          onChange={(e) => setDecisionCategory(e.target.value)}
+                        />
+                        <Button
+                          onClick={handleSaveDecision}
+                          className="w-full"
+                          disabled={!decisionName || !decisionCategory}
+                        >
+                          {isSaved ? (
+                            <>
+                              <Check className="w-4 h-4 mr-2" />
+                              Saved!
+                            </>
+                          ) : (
+                            <>
+                              <Save className="w-4 h-4 mr-2" />
+                              Save Decision
+                            </>
+                          )}
+                        </Button>
+                        <Button variant="outline" className="w-full md:col-span-2" asChild>
+                          <Link href="/log#import" className="flex items-center justify-center">
+                            <Upload className="w-4 h-4 mr-2" />
+                            Import Decisions
+                          </Link>
+                        </Button>
                       </div>
                     </div>
                     <div className="space-y-3">
@@ -620,7 +648,7 @@ export default function TheDNavPage() {
                           </Badge>
                         </div>
                       </div>
-                      <div className="space-y-4">
+                      <div className="space-y-3">
                         <SliderRow
                           id="impact"
                           label="Impact"
@@ -662,70 +690,67 @@ export default function TheDNavPage() {
                 </div>
               </div>
 
-              <div className="flex h-full flex-col gap-4">
-                <div className="space-y-2">
-                  <p className="text-xs font-semibold uppercase tracking-wide text-orange-500">Step 2</p>
-                  <h2 className="text-2xl font-semibold text-foreground">See the Physics of This Decision</h2>
-
-                </div>
+              <div className="flex h-full flex-col">
                 <div className="flex flex-1 flex-col rounded-xl border border-slate-100 bg-white p-4 shadow-sm md:p-5">
-                  <div className="mt-2 space-y-4">
-                    <h3 className="text-lg font-semibold text-foreground">Return, Pressure, Stability</h3>
-                    <StatCard
-                      title="Return"
-                      value={metrics.return}
-                      pill={getPillColor(metrics.return, "return")}
-                      subtitle="Impact − Cost"
-                      description="Return shows if the upside beats the burn."
-                    />
-                    <StatCard
-                      title="Pressure"
-                      value={metrics.pressure}
-                      pill={getPillColor(metrics.pressure, "pressure")}
-                      subtitle="Urgency − Confidence"
-                      description="Pressure shows whether urgency or conviction is steering you."
-                    />
-                    <StatCard
-                      title="Stability"
-                      value={metrics.stability}
-                      pill={getPillColor(metrics.stability, "stability")}
-                      subtitle="Confidence − Risk"
-                      description="Stability tests if evidence can outlast fear."
-                    />
-                  </div>
-                </div>
-              </div>
-
-              <div className="flex h-full flex-col gap-4">
-                <div className="space-y-2">
-                  <p className="text-xs font-semibold uppercase tracking-wide text-orange-500">Step 3</p>
-                  <h2 className="text-2xl font-semibold text-foreground">Translate the Physics Into Insight</h2>
-
-                </div>
-                <div className="flex flex-1 flex-col rounded-xl border border-slate-100 bg-white p-4 shadow-sm md:p-5">
-                  <h3 className="text-lg font-semibold text-foreground">Archetype &amp; Coach</h3>
-                  <div className="mt-4 flex-1">
-                    <SummaryCard metrics={metrics} coachText={coachLine} />
-                  </div>
-                  {isLoggedIn ? (
-                    <div className="mt-4 flex justify-end">
-                      <Button variant="ghost" size="sm" onClick={handleLogoutClick}>
-                        Sign out
-                      </Button>
+                  <div className="space-y-6">
+                    <div className="space-y-2">
+                      <h3 className="text-lg font-semibold text-foreground">Decision Diagnostic</h3>
+                      <p className="text-sm text-muted-foreground">
+                        Your inputs generate a real-time diagnostic — return, pressure, stability, archetype, and D-NAV score.
+                      </p>
                     </div>
-                  ) : null}
+                    <div className="space-y-3">
+                      <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                        Return, Pressure, Stability
+                      </p>
+                      <StatCard
+                        title="Return"
+                        value={metrics.return}
+                        pill={getPillColor(metrics.return, "return")}
+                        subtitle="Impact − Cost"
+                        description="Return shows if the upside beats the burn."
+                      />
+                      <StatCard
+                        title="Pressure"
+                        value={metrics.pressure}
+                        pill={getPillColor(metrics.pressure, "pressure")}
+                        subtitle="Urgency − Confidence"
+                        description="Pressure shows whether urgency or conviction is steering you."
+                      />
+                      <StatCard
+                        title="Stability"
+                        value={metrics.stability}
+                        pill={getPillColor(metrics.stability, "stability")}
+                        subtitle="Confidence − Risk"
+                        description="Stability tests if evidence can outlast fear."
+                      />
+                    </div>
+                    <div className="border-t border-border pt-4 space-y-4">
+                      <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                        Archetype &amp; Coach
+                      </p>
+                      <SummaryCard metrics={metrics} coachText={coachLine} />
+                      {isLoggedIn ? (
+                        <div className="flex justify-end">
+                          <Button variant="ghost" size="sm" onClick={handleLogoutClick}>
+                            Sign out
+                          </Button>
+                        </div>
+                      ) : null}
+                    </div>
+                  </div>
                 </div>
               </div>
-            </div>
-
-            <div className="space-y-2 max-w-3xl mb-8">
-              <p className="text-xs font-semibold uppercase tracking-wide text-orange-500">Step 4</p>
-              <h2 className="text-2xl font-semibold text-foreground">Unlock Your Decision Pattern</h2>
-              <p className="text-sm text-muted-foreground">
-                One decision is a readout. Ten decisions reveal your style. A team’s decisions reveal the operating system.
-              </p>
             </div>
           </section>
+
+          <div className="space-y-2 max-w-3xl mb-8">
+            <p className="text-xs font-semibold uppercase tracking-wide text-orange-500">STEP 3</p>
+            <h2 className="text-2xl font-semibold text-foreground">See Your Decision Pattern</h2>
+            <p className="text-sm text-muted-foreground">
+              One decision is a readout. Ten decisions reveal your style. A team’s decisions reveal the operating system.
+            </p>
+          </div>
 
           <section className="space-y-6 mt-10">
 
@@ -733,7 +758,11 @@ export default function TheDNavPage() {
               {!isLoggedIn && (
                 <div className="pointer-events-none absolute inset-0 flex justify-center items-start">
                   <div className="pointer-events-auto sticky top-[200px] z-20 flex flex-col items-center justify-center text-center px-4">
-                    <h2 className="text-2xl font-semibold mb-3">See The Story In Your Decisions</h2>
+                    <h2 className="text-2xl font-semibold mb-3">See the Story in Your Decisions</h2>
+                    <p className="text-sm text-slate-700 mb-4 max-w-xl">
+                      Sign in to see your full analytics — return, stability, pressure, momentum, and consistency — so you can
+                      see how your judgment really behaves under uncertainty.
+                    </p>
 
                     <div className="flex flex-col sm:flex-row gap-3 mb-3">
                       <button
