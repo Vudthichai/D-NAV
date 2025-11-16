@@ -529,7 +529,7 @@ export default function TheDNavPage() {
                 The D-NAV: A Live Readout of Your Judgment
               </h1>
               <p className="text-base text-muted-foreground leading-relaxed">
-                Every decision you make carries five forces — <strong>Impact</strong>, <strong>Cost</strong>, <strong>Risk</strong>, <strong>Urgency</strong>, and <strong>Confidence</strong>. D-NAV translates them into the physics of your judgment.
+                Turn decisions into data. Turn that data into patterns. Turn patterns into leverage.
               </p>
             </div>
             <div className="flex gap-2 self-start items-center">
@@ -555,9 +555,7 @@ export default function TheDNavPage() {
                 <div className="space-y-2 min-h-[150px]">
                   <p className="text-xs font-semibold uppercase tracking-wide text-orange-500">Step 1</p>
                   <h2 className="text-2xl font-semibold text-foreground">Rate Your Decision</h2>
-                  <p className="text-sm text-muted-foreground">
-                    Capture the five forces shaping how this decision feels.
-                  </p>
+                  
                 </div>
                 <div className="flex flex-1 flex-col rounded-xl border border-slate-100 bg-white p-4 shadow-sm md:p-5">
                   <div className="space-y-4 flex-1">
@@ -668,9 +666,7 @@ export default function TheDNavPage() {
                 <div className="space-y-2 min-h-[150px]">
                   <p className="text-xs font-semibold uppercase tracking-wide text-orange-500">Step 2</p>
                   <h2 className="text-2xl font-semibold text-foreground">See the Physics of This Decision</h2>
-                  <p className="text-sm text-muted-foreground">
-                    RPS shows the worth, what’s pushing you, and footing.
-                  </p>
+                  
                 </div>
                 <div className="flex flex-1 flex-col rounded-xl border border-slate-100 bg-white p-4 shadow-sm md:p-5">
                   <div className="mt-2 space-y-4">
@@ -704,9 +700,7 @@ export default function TheDNavPage() {
                 <div className="space-y-2 min-h-[150px]">
                   <p className="text-xs font-semibold uppercase tracking-wide text-orange-500">Step 3</p>
                   <h2 className="text-2xl font-semibold text-foreground">Translate the Physics Into Insight</h2>
-                  <p className="text-sm text-muted-foreground">
-                    Assess if the RPS needs to be adjusted or if it’s time to execute the decision.
-                  </p>
+                  
                 </div>
                 <div className="flex flex-1 flex-col rounded-xl border border-slate-100 bg-white p-4 shadow-sm md:p-5">
                   <h3 className="text-lg font-semibold text-foreground">Archetype &amp; Coach</h3>
@@ -740,9 +734,7 @@ export default function TheDNavPage() {
                 <div className="pointer-events-none absolute inset-0 flex justify-center items-start">
                   <div className="pointer-events-auto sticky top-[200px] z-20 flex flex-col items-center justify-center text-center px-4">
                     <h2 className="text-2xl font-semibold mb-3">Unlock Your Decision Patterns</h2>
-                    <p className="max-w-2xl text-sm md:text-base mb-6 text-slate-600">
-                      One decision is a snapshot. A series of decisions becomes a pattern. Over time, D-NAV reveals your loops — return, stability, pressure, momentum, and consistency — so you can see how your judgment really behaves under uncertainty.
-                    </p>
+                    
                     <div className="flex flex-col sm:flex-row gap-3 mb-3">
                       <button
                         className="px-6 py-3 rounded-md bg-orange-400 text-white font-medium"
