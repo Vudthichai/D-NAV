@@ -1,18 +1,20 @@
 'use client';
 
-import { DecisionMetrics, getArchetype } from '@/lib/calculations';
+import { DecisionMetrics, getArchetype } from "@/lib/calculations";
+import { cn } from "@/lib/utils";
 
 interface SummaryCardProps {
   metrics: DecisionMetrics;
   coachText: string;
+  className?: string;
 }
 
-export default function SummaryCard({ metrics, coachText }: SummaryCardProps) {
+export default function SummaryCard({ metrics, coachText, className }: SummaryCardProps) {
   const archetype = getArchetype(metrics);
 
   return (
-    <div className="space-y-6">
-      <div>
+    <div className={cn("flex flex-1 flex-col gap-6", className)}>
+      <div className="space-y-1.5">
         <h3 className="m-0 text-xs text-muted-foreground uppercase tracking-wider">ARCHETYPE</h3>
         <div className="text-2xl font-black mt-1.5">{archetype.name}</div>
       </div>
@@ -23,7 +25,7 @@ export default function SummaryCard({ metrics, coachText }: SummaryCardProps) {
         </p>
       </div>
 
-      <div className="rounded-lg border border-border/50 bg-muted/20 p-4 mt-6">
+      <div className="rounded-lg border border-border/50 bg-muted/20 p-4 mt-auto">
         <div className="flex items-baseline justify-between gap-4">
           <div>
             <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">D-NAV SCORE</p>
