@@ -728,33 +728,35 @@ export default function TheDNavPage() {
 
               <div className="flex h-full flex-col">
                 <div className="flex flex-1 flex-col rounded-xl border border-slate-100 bg-white p-4 shadow-sm md:p-5 dnav-card-surface">
-                  <div className="space-y-4">
+                  <div className="space-y-4 h-full">
                     <div className="space-y-2">
                       <h3 className="text-lg font-semibold text-foreground">Archetype &amp; Coach</h3>
                       <p className="text-sm text-muted-foreground">
                         Your decision pattern plus the live D-NAV score readout.
                       </p>
                     </div>
-                    <SummaryCard metrics={metrics} coachText={coachLine} />
+                    <SummaryCard metrics={metrics} coachText={coachLine} className="flex flex-1" />
                   </div>
                 </div>
-                {isLoggedIn ? (
-                  <div className="mt-4 flex justify-end">
-                    <Button variant="ghost" size="sm" onClick={handleLogoutClick}>
-                      Sign out
-                    </Button>
-                  </div>
-                ) : null}
               </div>
             </div>
           </section>
 
-          <div className="space-y-2 max-w-3xl mb-8">
-            <p className="text-xs font-semibold uppercase tracking-wide text-orange-500">STEP 3</p>
-            <h2 className="text-2xl font-semibold text-foreground">See Your Decision Pattern</h2>
-            <p className="text-sm text-muted-foreground">
-              One decision is a readout. Ten decisions reveal your style. A team’s decisions reveal the operating system.
-            </p>
+          <div className="mb-8 flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+            <div className="space-y-2 max-w-3xl">
+              <p className="text-xs font-semibold uppercase tracking-wide text-orange-500">STEP 4</p>
+              <h2 className="text-2xl font-semibold text-foreground">See Your Decision Pattern</h2>
+              <p className="text-sm text-muted-foreground">
+                One decision is a readout. Ten decisions reveal your style. A team’s decisions reveal the operating system.
+              </p>
+            </div>
+            {isLoggedIn ? (
+              <div className="flex justify-end">
+                <Button variant="ghost" size="sm" onClick={handleLogoutClick}>
+                  Sign out
+                </Button>
+              </div>
+            ) : null}
           </div>
 
           <section className="space-y-6 mt-10">
