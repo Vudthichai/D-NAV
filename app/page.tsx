@@ -2,20 +2,8 @@
 
 import { AnimatedCompass } from "@/components/animated-compass";
 import { ThemeToggle } from "@/components/theme-toggle";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import {
-  ArrowRight,
-  BarChart3,
-  BookOpen,
-  Brain,
-  Calculator,
-  CheckCircle,
-  ListOrdered,
-  Target,
-  Zap,
-} from "lucide-react";
+import { ArrowRight } from "lucide-react";
 import Link from "next/link";
 
 export default function Home() {
@@ -27,48 +15,21 @@ export default function Home() {
       </header>
 
       {/* Hero Section */}
-      <section className="relative overflow-hidden bg-linear-to-br from-background via-background to-muted/20 flex-1 flex items-center min-h-screen">
+      <section className="relative overflow-hidden bg-linear-to-br from-background via-background to-muted/20 flex-1 flex items-center">
         <div className="max-w-7xl mx-auto px-6 w-full">
-          <div className="text-center">
-            {/* Logo and Title */}
-            <div className="flex flex-col items-center gap-4 mb-8">
+          <div className="text-center max-w-4xl mx-auto space-y-8">
+            <div className="flex flex-col items-center gap-4">
               <AnimatedCompass />
-              <h1 className="text-6xl font-black tracking-tight text-foreground">D-NAV</h1>
+              <p className="uppercase tracking-[0.3em] text-xs text-muted-foreground">Decision NAVigator</p>
             </div>
-
-            {/* Hero Description */}
-            <div className="max-w-4xl mx-auto mb-12">
-              <h2 className="text-4xl font-bold text-foreground mb-6 leading-tight">
-                When data ends, judgment begins.
-              </h2>
-              <p className="text-xl text-muted-foreground mb-8 leading-relaxed">
-                D-NAV measures what every dashboard ignores—the quality of your decisions in the
-                unknown. It is a compass for explorers, founders, strategists, traders, and
-                engineers of uncertainty who refuse to live inside yesterday’s data silo.
+            <div className="space-y-6">
+              <h1 className="text-4xl md:text-6xl font-black tracking-tight text-foreground">
+                Track your judgment like a performance metric.
+              </h1>
+              <p className="text-xl text-muted-foreground leading-relaxed">
+                D-NAV turns messy, high-stakes calls into a live readout of Return, Pressure, and Stability, so founders, traders, and operators can see if a bet is actually built to survive.
               </p>
-
-              {/* Key Features */}
-              <div className="flex flex-wrap justify-center gap-3 mb-12">
-                <Badge variant="secondary" className="px-4 py-2 text-sm">
-                  <Zap className="w-4 h-4 mr-2" />
-                  Judgment Intelligence
-                </Badge>
-                <Badge variant="secondary" className="px-4 py-2 text-sm">
-                  <Target className="w-4 h-4 mr-2" />
-                  Return, Pressure, Stability
-                </Badge>
-                <Badge variant="secondary" className="px-4 py-2 text-sm">
-                  <Brain className="w-4 h-4 mr-2" />
-                  Bias Pattern Detection
-                </Badge>
-                <Badge variant="secondary" className="px-4 py-2 text-sm">
-                  <CheckCircle className="w-4 h-4 mr-2" />
-                  Decision Survivability
-                </Badge>
-              </div>
             </div>
-
-            {/* CTA Buttons */}
             <div className="flex flex-col sm:flex-row gap-4 justify-center items-center">
               <Button size="lg" className="text-lg px-8 py-6" asChild>
                 <Link href="/calculator">
@@ -77,236 +38,166 @@ export default function Home() {
                 </Link>
               </Button>
               <Button variant="outline" size="lg" className="text-lg px-8 py-6" asChild>
-                <Link href="/definitions">See How It Works</Link>
+                <Link href="#how-it-works">See How It Works</Link>
               </Button>
             </div>
           </div>
         </div>
       </section>
 
-      {/* Proof Section */}
-      <section className="py-24 bg-muted/20">
-        <div className="max-w-7xl mx-auto px-6">
-          <div className="text-center mb-16">
-            <h2 className="text-3xl font-bold text-foreground mb-4">Where Data Ends</h2>
-            <p className="text-lg text-muted-foreground max-w-3xl mx-auto">
-              Great calls rarely come gift-wrapped in perfect spreadsheets. These ten decisions were
-              forged in incomplete data, conflicting signals, and raw conviction. Judgment quality—not
-              data volume—determined who survived.
+      {/* Quick Start Section */}
+      <section id="quick-start" className="py-24 bg-muted/20">
+        <div className="max-w-5xl mx-auto px-6 text-center space-y-12">
+          <div className="space-y-4">
+            <h2 className="text-3xl md:text-4xl font-bold text-foreground">What you can do in the next 60 seconds</h2>
+            <p className="text-lg text-muted-foreground">
+              The fastest way to see if your current call is honest.
             </p>
           </div>
-
-          <div className="grid md:grid-cols-2 xl:grid-cols-3 gap-8">
-            <Card className="p-6">
-              <CardHeader className="p-0 mb-4">
-                <CardTitle className="text-xl">Tesla</CardTitle>
-              </CardHeader>
-              <CardContent className="p-0 space-y-3 text-muted-foreground">
-                <p>Betting the company on the Gigafactory before demand data existed.</p>
-                <p className="text-sm">Impact high · Cost extreme · Risk existential · Urgency high · Confidence irrationally high.</p>
-              </CardContent>
-            </Card>
-
-            <Card className="p-6">
-              <CardHeader className="p-0 mb-4">
-                <CardTitle className="text-xl">SpaceX</CardTitle>
-              </CardHeader>
-              <CardContent className="p-0 space-y-3 text-muted-foreground">
-                <p>Choosing to reuse rockets when the industry consensus said it was impossible.</p>
-                <p className="text-sm">Data screamed no. Judgment recalibrated the frontier.</p>
-              </CardContent>
-            </Card>
-
-            <Card className="p-6">
-              <CardHeader className="p-0 mb-4">
-                <CardTitle className="text-xl">Amazon</CardTitle>
-              </CardHeader>
-              <CardContent className="p-0 space-y-3 text-muted-foreground">
-                <p>Launching AWS without a market precedent for cloud computing.</p>
-                <p className="text-sm">No demand model. Only conviction in latent pressure.</p>
-              </CardContent>
-            </Card>
-
-            <Card className="p-6">
-              <CardHeader className="p-0 mb-4">
-                <CardTitle className="text-xl">IBM</CardTitle>
-              </CardHeader>
-              <CardContent className="p-0 space-y-3 text-muted-foreground">
-                <p>Pivoting from hardware to services in the ’90s. Suicidal on paper.</p>
-                <p className="text-sm">The models said collapse. Judgment found endurance.</p>
-              </CardContent>
-            </Card>
-
-            <Card className="p-6">
-              <CardHeader className="p-0 mb-4">
-                <CardTitle className="text-xl">WeWork</CardTitle>
-              </CardHeader>
-              <CardContent className="p-0 space-y-3 text-muted-foreground">
-                <p>Same numeric optimism as Amazon’s early play but reversed risk weighting.</p>
-                <p className="text-sm">Confidence outran reality. Judgment failed the stress test.</p>
-              </CardContent>
-            </Card>
-
-            <Card className="p-6">
-              <CardHeader className="p-0 mb-4">
-                <CardTitle className="text-xl">Netflix</CardTitle>
-              </CardHeader>
-              <CardContent className="p-0 space-y-3 text-muted-foreground">
-                <p>Killing DVDs while the unit economics still printed cash.</p>
-                <p className="text-sm">Comfort is data’s lullaby. Judgment cut the cord early.</p>
-              </CardContent>
-            </Card>
-
-            <Card className="p-6">
-              <CardHeader className="p-0 mb-4">
-                <CardTitle className="text-xl">Enron</CardTitle>
-              </CardHeader>
-              <CardContent className="p-0 space-y-3 text-muted-foreground">
-                <p>Perfect metrics hiding rotten stability.</p>
-                <p className="text-sm">Confidence outran risk. Judgment ignored its own alarms.</p>
-              </CardContent>
-            </Card>
-
-            <Card className="p-6">
-              <CardHeader className="p-0 mb-4">
-                <CardTitle className="text-xl">Apple</CardTitle>
-              </CardHeader>
-              <CardContent className="p-0 space-y-3 text-muted-foreground">
-                <p>Jobs cut the product line to four when the data screamed diversify.</p>
-                <p className="text-sm">Precision judgment beat noisy demand forecasts.</p>
-              </CardContent>
-            </Card>
-
-            <Card className="p-6">
-              <CardHeader className="p-0 mb-4">
-                <CardTitle className="text-xl">Apollo 13</CardTitle>
-              </CardHeader>
-              <CardContent className="p-0 space-y-3 text-muted-foreground">
-                <p>Engineers solving a crisis no simulation covered.</p>
-                <p className="text-sm">Urgency versus confidence in live fire. Judgment won.</p>
-              </CardContent>
-            </Card>
-
-            <Card className="p-6">
-              <CardHeader className="p-0 mb-4">
-                <CardTitle className="text-xl">Pfizer</CardTitle>
-              </CardHeader>
-              <CardContent className="p-0 space-y-3 text-muted-foreground">
-                <p>Green-lighting mRNA at record speed.</p>
-                <p className="text-sm">Risk enormous. Urgency absolute. Confidence still forming. Judgment led.</p>
-              </CardContent>
-            </Card>
+          <ol className="text-left space-y-8 text-lg text-muted-foreground">
+            <li>
+              <strong className="text-foreground">Pick one live decision.</strong> Expansion, hire, product bet, trade — anything that actually matters.
+            </li>
+            <li>
+              <strong className="text-foreground">Rate how it really feels.</strong> Move 5 sliders for Impact, Cost, Risk, Urgency, and Confidence. No spreadsheets. No posturing. Just the real tension in your head.
+            </li>
+            <li>
+              <strong className="text-foreground">See if the bet is honest.</strong> D-NAV translates those sliders into Return, Pressure, and Stability — a live read on whether the upside, survivability, and execution stress actually line up.
+            </li>
+          </ol>
+          <div className="flex justify-center">
+            <Button size="lg" className="text-lg px-8 py-6" asChild>
+              <Link href="/calculator">Run a Decision Check</Link>
+            </Button>
           </div>
+        </div>
+      </section>
 
-          <p className="text-center text-base text-muted-foreground mt-16">
-            When the spreadsheet runs out, judgment takes over. D-NAV measures that judgment.
+      {/* Who It's For Section */}
+      <section id="who-its-for" className="py-24">
+        <div className="max-w-7xl mx-auto px-6 space-y-12">
+          <div className="text-center space-y-4">
+            <h2 className="text-3xl md:text-4xl font-bold text-foreground">Built for people who live in the unknown</h2>
+            <p className="text-lg text-muted-foreground max-w-3xl mx-auto">
+              Different arenas, same problem: your judgment has to perform before the data does.
+            </p>
+          </div>
+          <div className="grid gap-8 md:grid-cols-2">
+            <div className="p-6 border rounded-2xl bg-card">
+              <h3 className="text-xl font-semibold mb-3">Founders &amp; Execs</h3>
+              <p className="text-muted-foreground">
+                Stop making “vision calls” you can’t explain. Turn strategy debates into clear Return, Pressure, and Stability trade-offs. See if your conviction is earned or just loud.
+              </p>
+            </div>
+            <div className="p-6 border rounded-2xl bg-card">
+              <h3 className="text-xl font-semibold mb-3">Traders &amp; Investors</h3>
+              <p className="text-muted-foreground">
+                Separate itchy trigger finger from real edge. See if you’re stacking fragile high-pressure bets. Track your judgment drift across market regimes.
+              </p>
+            </div>
+            <div className="p-6 border rounded-2xl bg-card">
+              <h3 className="text-xl font-semibold mb-3">Operators &amp; Product Leads</h3>
+              <p className="text-muted-foreground">
+                Prioritize roadmap moves by impact versus execution drag. Avoid drowning in reactive, high-pressure decisions. Train teams to push without quietly torching stability.
+              </p>
+            </div>
+            <div className="p-6 border rounded-2xl bg-card">
+              <h3 className="text-xl font-semibold mb-3">Consultants &amp; Analysts</h3>
+              <p className="text-muted-foreground">
+                Turn stakeholder chaos into structured decision audits. Show clients how their judgment patterns bleed value. Deliver reports with a repeatable decision language.
+              </p>
+            </div>
+          </div>
+          <p className="text-center text-base text-muted-foreground">
+            If your job is to make the call before the data is clean, D-NAV is your mirror.
+          </p>
+        </div>
+      </section>
+
+      {/* Where Data Ends Section */}
+      <section id="where-data-ends" className="py-24 bg-muted/30">
+        <div className="max-w-5xl mx-auto px-6 space-y-8 text-center">
+          <div className="space-y-4">
+            <h2 className="text-3xl font-bold text-foreground">Where dashboards end, judgment begins</h2>
+            <p className="text-lg text-muted-foreground">
+              Dashboards show what has already happened. D-NAV measures the internal math of the bets you’re about to make.
+            </p>
+          </div>
+          <ul className="space-y-6 text-left text-muted-foreground">
+            <li>
+              <strong className="text-foreground">Tesla Gigafactory:</strong> On paper, a capital-intensive nightmare. In reality, a judgment call about how much risk, urgency, and conviction could be carried at once.
+            </li>
+            <li>
+              <strong className="text-foreground">Amazon → AWS:</strong> Looked like a distraction. It was actually a high-impact, high-stability bet hiding inside an “experiment.”
+            </li>
+            <li>
+              <strong className="text-foreground">WeWork:</strong> Great surface-level metrics. Fragile judgment underneath. Pressure and risk completely outpaced real stability.
+            </li>
+            <li>
+              <strong className="text-foreground">Enron:</strong> The numbers looked fine. The internal decision math was fake. No amount of reporting could save that.
+            </li>
+          </ul>
+          <p className="text-base text-muted-foreground">
+            Same surface metrics. Different internal math of judgment. D-NAV doesn’t predict the future — it shows whether your internal math is honest.
           </p>
         </div>
       </section>
 
       {/* How It Works Section */}
-      <section className="py-24 bg-muted/30">
-        <div className="max-w-7xl mx-auto px-6">
-          <div className="text-center mb-16">
-            <h2 className="text-3xl font-bold text-foreground mb-4">How D-NAV Works</h2>
-            <p className="text-lg text-muted-foreground max-w-2xl mx-auto">
-              The Return, Pressure, Stability (RPS) model measures internal forces—not market noise.
-              D-NAV does not predict the future. It reveals whether your judgment is built to survive
-              it.
+      <section id="how-it-works" className="py-24">
+        <div className="max-w-6xl mx-auto px-6 space-y-12">
+          <div className="text-center space-y-4">
+            <h2 className="text-3xl md:text-4xl font-bold text-foreground">Under the hood: RPS + D-NAV</h2>
+            <p className="text-lg text-muted-foreground max-w-3xl mx-auto">
+              Every decision carries five forces: Impact, Cost, Risk, Urgency, and Confidence. D-NAV turns them into three core signals, plus one synthesized score.
             </p>
           </div>
-
-          <div className="grid items-stretch gap-8 md:grid-cols-3">
-            <Card className="flex h-full flex-col items-center gap-6 p-8 text-center">
-              <CardHeader className="flex flex-col items-center gap-4">
-                <div className="flex h-16 w-16 items-center justify-center rounded-full bg-primary/10">
-                  <Calculator className="w-8 h-8 text-primary" />
-                </div>
-                <CardTitle className="text-xl">1. Map the Unknowns</CardTitle>
-              </CardHeader>
-              <CardContent className="flex flex-1 items-start text-muted-foreground">
-                <p>
-                  Score Impact, Cost, Risk, Urgency, and Confidence as they actually feel—not how the
-                  report wants them to feel. Capture the tension inside the decision.
-                </p>
-              </CardContent>
-            </Card>
-
-            <Card className="flex h-full flex-col items-center gap-6 p-8 text-center">
-              <CardHeader className="flex flex-col items-center gap-4">
-                <div className="flex h-16 w-16 items-center justify-center rounded-full bg-primary/10">
-                  <BarChart3 className="w-8 h-8 text-primary" />
-                </div>
-                <CardTitle className="text-xl">2. Measure Judgment</CardTitle>
-              </CardHeader>
-              <CardContent className="flex flex-1 items-start text-muted-foreground">
-                <p>
-                  D-NAV translates those inputs into Return, Pressure, and Stability—three vectors that
-                  show whether conviction, risk, and urgency are in balance.
-                </p>
-              </CardContent>
-            </Card>
-
-            <Card className="flex h-full flex-col items-center gap-6 p-8 text-center">
-              <CardHeader className="flex flex-col items-center gap-4">
-                <div className="flex h-16 w-16 items-center justify-center rounded-full bg-primary/10">
-                  <ListOrdered className="w-8 h-8 text-primary" />
-                </div>
-                <CardTitle className="text-xl">3. Iterate Under Pressure</CardTitle>
-              </CardHeader>
-              <CardContent className="flex flex-1 items-start text-muted-foreground">
-                <p>
-                  Build a portfolio of decisions, audit the outliers, and sharpen judgment faster than
-                  your environment shifts.
-                </p>
-              </CardContent>
-            </Card>
+          <div className="grid gap-12 md:grid-cols-2">
+            <div className="space-y-6">
+              <h3 className="text-2xl font-semibold text-foreground">The three core signals (RPS)</h3>
+              <ul className="space-y-6 text-muted-foreground">
+                <li>
+                  <strong className="text-foreground">Return</strong> = Impact − Cost
+                  <br />
+                  Is the upside actually worth the burn?
+                </li>
+                <li>
+                  <strong className="text-foreground">Stability</strong> = Confidence − Risk
+                  <br />
+                  Can your evidence outlast the downside?
+                </li>
+                <li>
+                  <strong className="text-foreground">Pressure</strong> = Urgency − Confidence
+                  <br />
+                  Is execution being driven by panic or proof?
+                </li>
+              </ul>
+            </div>
+            <div className="space-y-6">
+              <h3 className="text-2xl font-semibold text-foreground">The D-NAV score</h3>
+              <p className="text-muted-foreground">
+                The D-NAV score is the synthesized read on all of these forces — a quick read on how your decision behaves under stress. It’s the heartbeat, built on top of RPS, not a replacement for it.
+              </p>
+              <p className="text-muted-foreground">
+                Together, RPS and D-NAV show whether you’re forcing a fragile bet, under-leaning a strong one, or sitting in fake comfort.
+              </p>
+            </div>
           </div>
-
-          <div className="mt-16 grid gap-8 lg:grid-cols-2 items-center">
-            <Card className="p-8 h-full">
-              <CardHeader className="p-0 mb-4">
-                <CardTitle className="text-2xl">RPS Explained</CardTitle>
-              </CardHeader>
-              <CardContent className="p-0 text-muted-foreground space-y-4">
-                <p>
-                  Return, Pressure, and Stability expose the inner mechanics of your call. Return shows
-                  whether the upside justifies the burn. Pressure reveals how urgency and confidence are
-                  colliding. Stability tests if the structure can survive volatility.
-                </p>
-                <p>
-                  This is not predictive analytics. It is a high-resolution mirror for leaders who must
-                  choose before the data matures.
-                </p>
-              </CardContent>
-            </Card>
-
-            <Card className="p-8 h-full bg-primary/5 border-primary/40">
-              <CardHeader className="p-0 mb-4">
-                <CardTitle className="text-2xl">Equation of Curiosity Under Constraint</CardTitle>
-              </CardHeader>
-              <CardContent className="p-0">
-                <div className="text-3xl font-semibold text-foreground">
-                  (Impact − Cost − Risk) + (Urgency × Confidence)
-                </div>
-                <p className="text-muted-foreground mt-4">
-                  The formula captures how explorers frame the leap: protect the downside, amplify the
-                  drive, and let confidence earn its keep.
-                </p>
-              </CardContent>
-            </Card>
+          <div className="flex justify-center">
+            <Button variant="outline" size="lg" className="text-lg px-8 py-6" asChild>
+              <Link href="/calculator">Run a Decision Check</Link>
+            </Button>
           </div>
         </div>
       </section>
 
       {/* Philosophy Section */}
-      <section className="py-24">
+      <section id="principles" className="py-24 bg-muted/20">
         <div className="max-w-7xl mx-auto px-6">
           <div className="text-center mb-16">
-            <h2 className="text-3xl font-bold text-foreground mb-4">Philosophy</h2>
+            <h2 className="text-3xl font-bold text-foreground mb-4">How D-NAV changes the way you decide</h2>
             <p className="text-lg text-muted-foreground max-w-2xl mx-auto">
-              D-NAV is built for people who explore uncertainty and learn faster than their
-              environments change. If you only move when the dashboard agrees, this is not for you.
+              Keep scrolling if you want the philosophy behind the tool.
             </p>
           </div>
 
@@ -314,75 +205,61 @@ export default function Home() {
             <div className="space-y-4">
               <h3 className="text-xl font-semibold text-foreground">Challenge the Known</h3>
               <p className="text-muted-foreground">
-                Use D-NAV when the model says “wait” but you know delay kills momentum. Quantify the
-                conviction others call irrational.
+                Use D-NAV when the model says “wait” but you know delay kills momentum. Quantify the conviction others call irrational.
               </p>
             </div>
 
             <div className="space-y-4">
               <h3 className="text-xl font-semibold text-foreground">Audit the Gut</h3>
               <p className="text-muted-foreground">
-                Surface bias, overconfidence, and hidden fragility before they surface as losses.
-                Judgment improves when it is interrogated.
+                Surface bias, overconfidence, and hidden fragility before they surface as losses. Judgment improves when it is interrogated.
               </p>
             </div>
 
             <div className="space-y-4">
               <h3 className="text-xl font-semibold text-foreground">Train for Volatility</h3>
               <p className="text-muted-foreground">
-                Build a decision log that treats chaos as a training set. Iterate until your response
-                time beats the rate of change.
+                Build a decision log that treats chaos as a training set. Iterate until your response time beats the rate of change.
               </p>
             </div>
 
             <div className="space-y-4">
               <h3 className="text-xl font-semibold text-foreground">Align the Team</h3>
               <p className="text-muted-foreground">
-                Give founders, operators, and investors a shared language for why a move is bold—or
-                reckless. Make the debate precise.
+                Give founders, operators, and investors a shared language for why a move is bold—or reckless. Make the debate precise.
               </p>
             </div>
 
             <div className="space-y-4">
               <h3 className="text-xl font-semibold text-foreground">Protect the Downside</h3>
               <p className="text-muted-foreground">
-                Stress-test cost and risk before they metastasize. D-NAV forces the hard questions
-                before capital is committed.
+                Stress-test cost and risk before they metastasize. D-NAV forces the hard questions before capital is committed.
               </p>
             </div>
 
             <div className="space-y-4">
               <h3 className="text-xl font-semibold text-foreground">Capture the Win Rate</h3>
               <p className="text-muted-foreground">
-                Track which calls outperformed their data. The pattern is your edge. Defend it with
-                evidence, not folklore.
+                Track which calls outperformed their data. The pattern is your edge. Defend it with evidence, not folklore.
               </p>
             </div>
           </div>
         </div>
       </section>
 
-      {/* CTA Section */}
-      <section className="py-24 mt-16 bg-primary/5">
-        <div className="max-w-4xl mx-auto text-center px-6">
-          <h2 className="text-3xl font-bold text-foreground mb-6">
-            Ready to measure the judgment that keeps you alive?
-          </h2>
-          <p className="text-lg text-muted-foreground mb-8">
-            Run a live decision, test its resilience, and recalibrate before reality does it for you.
+      {/* Final CTA Section */}
+      <section id="final-cta" className="py-24 bg-primary/5">
+        <div className="max-w-4xl mx-auto text-center px-6 space-y-6">
+          <h2 className="text-3xl font-bold text-foreground">Ready to see your judgment in numbers?</h2>
+          <p className="text-lg text-muted-foreground">
+            Run one live decision, then ten, then a hundred. Watch your judgment evolve from gut feel to a measurable edge.
           </p>
           <div className="flex flex-col sm:flex-row gap-4 justify-center">
             <Button size="lg" className="text-lg px-8 py-6" asChild>
-              <Link href="/calculator">
-                Start Measuring Judgment
-                <ArrowRight className="ml-2 w-5 h-5" />
-              </Link>
+              <Link href="/calculator">Run a Decision Check</Link>
             </Button>
             <Button variant="outline" size="lg" className="text-lg px-8 py-6" asChild>
-              <Link href="/definitions">
-                <BookOpen className="mr-2 w-5 h-5" />
-                See the Framework
-              </Link>
+              <Link href="/contact">Book a Decision Audit</Link>
             </Button>
           </div>
         </div>
