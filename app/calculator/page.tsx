@@ -582,7 +582,7 @@ export default function TheDNavPage() {
               ))}
             </div>
 
-            <div className="grid grid-cols-1 gap-6 items-start md:grid-cols-2">
+            <div className="grid grid-cols-1 gap-6 items-start md:grid-cols-2 lg:grid-cols-3">
               <div className="flex h-full flex-col">
                 <div className="flex flex-1 flex-col rounded-xl border border-slate-100 bg-white p-4 shadow-sm md:p-5">
                   <div className="space-y-3 flex-1">
@@ -692,17 +692,14 @@ export default function TheDNavPage() {
 
               <div className="flex h-full flex-col">
                 <div className="flex flex-1 flex-col rounded-xl border border-slate-100 bg-white p-4 shadow-sm md:p-5">
-                  <div className="space-y-6">
+                  <div className="space-y-4">
                     <div className="space-y-2">
-                      <h3 className="text-lg font-semibold text-foreground">Decision Diagnostic</h3>
+                      <h3 className="text-lg font-semibold text-foreground">Return, Pressure, Stability</h3>
                       <p className="text-sm text-muted-foreground">
-                        Your inputs generate a real-time diagnostic — return, pressure, stability, archetype, and D-NAV score.
+                        The physics of your decision — upside, execution stress, and survivability.
                       </p>
                     </div>
                     <div className="space-y-3">
-                      <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                        Return, Pressure, Stability
-                      </p>
                       <StatCard
                         title="Return"
                         value={metrics.return}
@@ -725,19 +722,27 @@ export default function TheDNavPage() {
                         description="Stability tests if evidence can outlast fear."
                       />
                     </div>
-                    <div className="border-t border-border pt-4 space-y-4">
-                      <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                        Archetype &amp; Coach
+                  </div>
+                </div>
+              </div>
+
+              <div className="flex h-full flex-col">
+                <div className="flex flex-1 flex-col rounded-xl border border-slate-100 bg-white p-4 shadow-sm md:p-5">
+                  <div className="space-y-4">
+                    <div className="space-y-2">
+                      <h3 className="text-lg font-semibold text-foreground">Archetype &amp; Coach</h3>
+                      <p className="text-sm text-muted-foreground">
+                        Your decision pattern plus the live D-NAV score readout.
                       </p>
-                      <SummaryCard metrics={metrics} coachText={coachLine} />
-                      {isLoggedIn ? (
-                        <div className="flex justify-end">
-                          <Button variant="ghost" size="sm" onClick={handleLogoutClick}>
-                            Sign out
-                          </Button>
-                        </div>
-                      ) : null}
                     </div>
+                    <SummaryCard metrics={metrics} coachText={coachLine} />
+                    {isLoggedIn ? (
+                      <div className="flex justify-end">
+                        <Button variant="ghost" size="sm" onClick={handleLogoutClick}>
+                          Sign out
+                        </Button>
+                      </div>
+                    ) : null}
                   </div>
                 </div>
               </div>
