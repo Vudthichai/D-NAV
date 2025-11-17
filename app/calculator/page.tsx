@@ -529,13 +529,13 @@ export default function TheDNavPage() {
       step: "STEP 2",
       title: "See the Physics of Your Decision",
       description:
-        "Your inputs generate a real-time diagnostic — return, pressure, stability, archetype, and D-NAV score.",
+        "Your inputs generate the real-time signals shaping the direction of your call.",
     },
     {
       step: "STEP 3",
-      title: "See Your Decision Pattern",
+      title: "See Your Read Out",
       description:
-        "One decision is a readout. Ten decisions reveal your style. A team’s decisions reveal the operating system.",
+        "The D-NAV score reads those signals and shows where your energy is going.",
     },
   ];
 
