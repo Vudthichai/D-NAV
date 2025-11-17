@@ -112,9 +112,25 @@
 }
 
 .dark [data-slot="card"] {
-  --card-foreground: #000000;
-  --foreground: #000000;
-  --muted-foreground: #000000;
+  --card-foreground: 222.2 84% 4.9%;
+  --foreground: 222.2 84% 4.9%;
+  --muted-foreground: 215 16% 35%;
+}
+
+.dnav-card-surface {
+  color: hsl(var(--foreground));
+}
+
+.dark .dnav-card-surface {
+  --foreground: 222.2 84% 4.9%;
+  --muted-foreground: 215 16% 35%;
+  --card-foreground: 222.2 84% 4.9%;
+  --popover-foreground: 222.2 84% 4.9%;
+  color: hsl(var(--foreground));
+}
+
+.dark .dnav-card-surface .text-muted-foreground {
+  color: hsl(var(--muted-foreground));
 }
 
 @theme inline {

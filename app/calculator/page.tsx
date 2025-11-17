@@ -584,7 +584,7 @@ export default function TheDNavPage() {
 
             <div className="grid grid-cols-1 gap-6 items-start md:grid-cols-2 lg:grid-cols-3">
               <div className="flex h-full flex-col">
-                <div className="flex flex-1 flex-col rounded-xl border border-slate-100 bg-white p-4 shadow-sm md:p-5">
+                <div className="flex flex-1 flex-col rounded-xl border border-slate-100 bg-white p-4 shadow-sm md:p-5 dnav-card-surface">
                   <div className="space-y-3 flex-1">
                     <div className="space-y-2">
                       <h3 className="text-lg font-semibold text-foreground">Decision Inputs</h3>
@@ -691,7 +691,7 @@ export default function TheDNavPage() {
               </div>
 
               <div className="flex h-full flex-col">
-                <div className="flex flex-1 flex-col rounded-xl border border-slate-100 bg-white p-4 shadow-sm md:p-5">
+                <div className="flex flex-1 flex-col rounded-xl border border-slate-100 bg-white p-4 shadow-sm md:p-5 dnav-card-surface">
                   <div className="space-y-4">
                     <div className="space-y-2">
                       <h3 className="text-lg font-semibold text-foreground">Return, Pressure, Stability</h3>
@@ -727,7 +727,7 @@ export default function TheDNavPage() {
               </div>
 
               <div className="flex h-full flex-col">
-                <div className="flex flex-1 flex-col rounded-xl border border-slate-100 bg-white p-4 shadow-sm md:p-5">
+                <div className="flex flex-1 flex-col rounded-xl border border-slate-100 bg-white p-4 shadow-sm md:p-5 dnav-card-surface">
                   <div className="space-y-4">
                     <div className="space-y-2">
                       <h3 className="text-lg font-semibold text-foreground">Archetype &amp; Coach</h3>
@@ -736,15 +736,15 @@ export default function TheDNavPage() {
                       </p>
                     </div>
                     <SummaryCard metrics={metrics} coachText={coachLine} />
-                    {isLoggedIn ? (
-                      <div className="flex justify-end">
-                        <Button variant="ghost" size="sm" onClick={handleLogoutClick}>
-                          Sign out
-                        </Button>
-                      </div>
-                    ) : null}
                   </div>
                 </div>
+                {isLoggedIn ? (
+                  <div className="mt-4 flex justify-end">
+                    <Button variant="ghost" size="sm" onClick={handleLogoutClick}>
+                      Sign out
+                    </Button>
+                  </div>
+                ) : null}
               </div>
             </div>
           </section>
