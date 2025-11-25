@@ -36,6 +36,8 @@ import {
   Download,
   FileText,
   ArrowUpDown,
+  ArrowDownRight,
+  ArrowUpRight,
   Info,
   RotateCcw,
   Save,
@@ -56,7 +58,10 @@ import {
 } from "@/utils/dashboardStats";
 import {
   buildJudgmentDashboard,
+  computeRpsBaseline,
   filterDecisionsByTimeframe,
+  filterPreviousDecisionsByTimeframe,
+  normalizeDecision,
   type ArchetypePatternRow,
   type CategoryHeatmapRow,
 } from "@/utils/judgmentDashboard";
@@ -127,12 +132,6 @@ const TOOLTIP_COPY: Record<string, string> = {
   "Return distribution": "Share of decisions with positive, neutral, or negative Return.",
   "Pressure distribution": "Share of decisions with positive, neutral, or negative Pressure.",
   "Stability distribution": "Share of decisions with positive, neutral, or negative Stability.",
-  "Best Return": "Decision with the highest/lowest Return in the selected window.",
-  "Worst Return": "Decision with the highest/lowest Return in the selected window.",
-  "Best Pressure": "Decision with the highest/lowest Pressure in the selected window.",
-  "Worst Pressure": "Decision with the highest/lowest Pressure in the selected window.",
-  "Best Stability": "Decision with the highest/lowest Stability in the selected window.",
-  "Worst Stability": "Decision with the highest/lowest Stability in the selected window.",
   "Heatmap#": "Number of decisions logged in this category.",
   "Heatmap%": "Share of your total decisions that fall in this category.",
   "Heatmap Avg D-NAV": "Average D-NAV score for decisions in this category.",
@@ -240,14 +239,42 @@ const DistributionCard = ({ title, segments, tooltip }: DistributionCardProps) =
   );
 };
 
-const CompactMetric = ({ label, value, tooltip }: { label: string; value: string | number; tooltip?: string }) => (
+const CompactMetric = ({
+  label,
+  value,
+  tooltip,
+  delta,
+}: {
+  label: string;
+  value: string | number;
+  tooltip?: string;
+  delta?: number | null;
+}) => (
   <div className="space-y-1 rounded-lg border bg-muted/30 p-3">
     <TooltipLabel
       label={label}
       tooltip={tooltip}
       className="text-xs text-muted-foreground whitespace-nowrap"
     />
-    <p className="text-lg font-semibold text-foreground">{value}</p>
+    <div className="flex items-baseline gap-2">
+      <p className="text-lg font-semibold text-foreground">{value}</p>
+      {delta !== undefined && (
+        <span
+          className={`inline-flex items-center gap-1 text-xs font-medium ${
+            delta === null ? "text-muted-foreground" : delta > 0 ? "text-emerald-600" : "text-rose-600"
+          }`}
+        >
+          {delta === null ? (
+            "(N/A vs previous period)"
+          ) : (
+            <>
+              {delta > 0 ? <ArrowUpRight className="h-3 w-3" /> : <ArrowDownRight className="h-3 w-3" />}
+              {`${delta > 0 ? "+" : "-"}${formatValue(Math.abs(delta))} vs previous period`}
+            </>
+          )}
+        </span>
+      )}
+    </div>
   </div>
 );
 
@@ -412,6 +439,11 @@ export default function TheDNavPage() {
     [decisions, timeframeDays],
   );
 
+  const previousWindowDecisions = useMemo(
+    () => filterPreviousDecisionsByTimeframe(decisions, timeframeDays),
+    [decisions, timeframeDays],
+  );
+
   const observedSpanDays = useMemo(() => {
     if (filteredDecisions.length === 0) return null;
     const msInDay = 24 * 60 * 60 * 1000;
@@ -432,6 +464,11 @@ export default function TheDNavPage() {
 
   const judgment = useMemo(() => buildJudgmentDashboard(filteredDecisions), [filteredDecisions]);
 
+  const previousNormalized = useMemo(
+    () => previousWindowDecisions.map((decision) => normalizeDecision(decision)),
+    [previousWindowDecisions],
+  );
+
   const timeWindowLabels: Record<string, string> = {
     "0": "All time",
     "7": "Last 7 days",
@@ -439,9 +476,14 @@ export default function TheDNavPage() {
     "90": "Last 90 days",
   };
 
-  const { baseline, learning, hygiene, categories, archetypes, normalized } = {
+  const { learning, hygiene, categories, archetypes, normalized } = {
     ...judgment,
   };
+
+  const baseline = useMemo(
+    () => computeRpsBaseline(normalized, previousNormalized),
+    [normalized, previousNormalized],
+  );
 
   const rpsSummary = useMemo(() => getRpsSummary(baseline), [baseline]);
   const learningSummary = useMemo(() => getLearningRecoverySummary(learning, hygiene), [learning, hygiene]);
@@ -1058,16 +1100,19 @@ export default function TheDNavPage() {
                               label="Avg Return (R)"
                               value={formatValue(baseline.avgReturn)}
                               tooltip={TOOLTIP_COPY["Avg Return (R)"]}
+                              delta={baseline.deltas.hasComparison ? baseline.deltas.avgReturn : null}
                             />
                             <CompactMetric
                               label="Avg Pressure (P)"
                               value={formatValue(baseline.avgPressure)}
                               tooltip={TOOLTIP_COPY["Avg Pressure (P)"]}
+                              delta={baseline.deltas.hasComparison ? baseline.deltas.avgPressure : null}
                             />
                             <CompactMetric
                               label="Avg Stability (S)"
                               value={formatValue(baseline.avgStability)}
                               tooltip={TOOLTIP_COPY["Avg Stability (S)"]}
+                              delta={baseline.deltas.hasComparison ? baseline.deltas.avgStability : null}
                             />
                           </div>
 
