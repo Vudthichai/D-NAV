@@ -36,15 +36,15 @@ export interface RpsBaseline {
   avgReturn: number;
   avgPressure: number;
   avgStability: number;
-  stdReturn: number;
-  stdPressure: number;
-  stdStability: number;
-  outliers: {
+  returnSegments: { label: string; value: number; color: string; metricKey: string }[];
+  pressureSegments: { label: string; value: number; color: string; metricKey: string }[];
+  stabilitySegments: { label: string; value: number; color: string; metricKey: string }[];
+  bestWorst: {
     label: string;
     title: string;
     value: number;
+    createdAt: number;
   }[];
-  indexSeries: number[];
 }
 
 export interface LearningMetrics {
@@ -103,7 +103,6 @@ export interface ArchetypePatterns {
   secondary: string;
   primaryShare: number;
   topThreeShare: number;
-  churn: number;
   rows: ArchetypePatternRow[];
   distributions: {
     returnSegments: { label: string; value: number; color: string; metricKey: string }[];
@@ -144,6 +143,19 @@ const median = (values: number[]) => {
   const mid = Math.floor(sorted.length / 2);
   if (sorted.length % 2 === 0) return (sorted[mid - 1] + sorted[mid]) / 2;
   return sorted[mid];
+};
+
+const buildSegments = (values: number[], palette: { positive: string; neutral: string; negative: string }) => {
+  const total = values.length || 1;
+  const positive = (values.filter((v) => v > 0).length / total) * 100;
+  const neutral = (values.filter((v) => v === 0).length / total) * 100;
+  const negative = (values.filter((v) => v < 0).length / total) * 100;
+
+  return [
+    { label: "Positive", value: positive, color: palette.positive, metricKey: "positive" },
+    { label: "Neutral", value: neutral, color: palette.neutral, metricKey: "neutral" },
+    { label: "Negative", value: negative, color: palette.negative, metricKey: "negative" },
+  ];
 };
 
 export const filterDecisionsByTimeframe = (
@@ -206,7 +218,6 @@ export const normalizeDecision = (decision: DecisionEntry): JudgmentDecision => 
 
 export const computeRpsBaseline = (
   decisions: JudgmentDecision[],
-  chronologicalDecisions: JudgmentDecision[],
 ): RpsBaseline => {
   const returns = decisions.map((d) => d.return0);
   const pressures = decisions.map((d) => d.pressure0);
@@ -216,56 +227,61 @@ export const computeRpsBaseline = (
   const avgPressure = mean(pressures);
   const avgStability = mean(stabilities);
 
-  const normalReturn = (value: number) => {
-    const sd = stdev(returns);
-    return sd ? (value - avgReturn) / sd : 0;
-  };
-  const normalPressure = (value: number) => {
-    const sd = stdev(pressures);
-    return sd ? (value - avgPressure) / sd : 0;
-  };
-  const normalStability = (value: number) => {
-    const sd = stdev(stabilities);
-    return sd ? (value - avgStability) / sd : 0;
-  };
-
-  const outlierFor = (
+  const pickExtreme = (
     label: string,
     selector: (d: JudgmentDecision) => number,
-    compare: (a: number, b: number) => boolean,
+    compare: (candidate: number, current: number) => boolean,
   ) => {
-    if (decisions.length === 0) return { label, title: "—", value: 0 };
+    if (!decisions.length) return { label, title: "—", value: 0, createdAt: 0 };
     return decisions.reduce(
-      (acc, d) => {
-        const value = selector(d);
-        if (compare(value, acc.value)) {
-          return { label, title: d.title, value };
+      (best, decision) => {
+        const value = selector(decision);
+        if (
+          compare(value, best.value) ||
+          (value === best.value && decision.createdAt > best.createdAt)
+        ) {
+          return { label, title: decision.title, value, createdAt: decision.createdAt };
         }
-        return acc;
+        return best;
       },
-      { label, title: decisions[0].title, value: selector(decisions[0]) },
+      { label, title: decisions[0].title, value: selector(decisions[0]), createdAt: decisions[0].createdAt },
     );
   };
 
-  const indexSeries = chronologicalDecisions.map(
-    (d) => normalReturn(d.return0) - normalPressure(d.pressure0) + normalStability(d.stability0),
-  );
+  const returnSegments = buildSegments(returns, {
+    positive: "#22c55e",
+    neutral: "#eab308",
+    negative: "#ef4444",
+  });
+
+  const pressureSegments = buildSegments(pressures, {
+    positive: "#ef4444",
+    neutral: "#eab308",
+    negative: "#22c55e",
+  });
+
+  const stabilitySegments = buildSegments(stabilities, {
+    positive: "#22c55e",
+    neutral: "#eab308",
+    negative: "#ef4444",
+  });
 
   return {
     total: decisions.length,
     avgReturn,
     avgPressure,
     avgStability,
-    stdReturn: stdev(returns),
-    stdPressure: stdev(pressures),
-    stdStability: stdev(stabilities),
-    outliers: [
-      outlierFor("Max Return", (d) => d.return0, (a, b) => a > b),
-      outlierFor("Min Return", (d) => d.return0, (a, b) => a < b),
-      outlierFor("Max Pressure", (d) => d.pressure0, (a, b) => a > b),
-      outlierFor("Min Stability", (d) => d.stability0, (a, b) => a < b),
+    returnSegments,
+    pressureSegments,
+    stabilitySegments,
+    bestWorst: [
+      pickExtreme("Best Return", (d) => d.return0, (a, b) => a > b),
+      pickExtreme("Worst Return", (d) => d.return0, (a, b) => a < b),
+      pickExtreme("Best Pressure", (d) => d.pressure0, (a, b) => a > b),
+      pickExtreme("Worst Pressure", (d) => d.pressure0, (a, b) => a < b),
+      pickExtreme("Best Stability", (d) => d.stability0, (a, b) => a > b),
+      pickExtreme("Worst Stability", (d) => d.stability0, (a, b) => a < b),
     ],
-    indexSeries,
   };
 };
 
@@ -445,24 +461,10 @@ export const computeCategoryHeatmap = (
   });
 };
 
-const buildSegments = (values: number[], palette: { positive: string; neutral: string; negative: string }) => {
-  const total = values.length || 1;
-  const positive = (values.filter((v) => v > 0).length / total) * 100;
-  const neutral = (values.filter((v) => v === 0).length / total) * 100;
-  const negative = (values.filter((v) => v < 0).length / total) * 100;
-
-  return [
-    { label: "Positive", value: positive, color: palette.positive, metricKey: "positive" },
-    { label: "Neutral", value: neutral, color: palette.neutral, metricKey: "neutral" },
-    { label: "Negative", value: negative, color: palette.negative, metricKey: "negative" },
-  ];
-};
-
 export const computeArchetypePatterns = (
   chronologicalDecisions: JudgmentDecision[],
   categories: CategoryHeatmapRow[],
 ): ArchetypePatterns => {
-  const archetypeEntries = chronologicalDecisions.map((decision) => decision.archetype);
   const counts: Record<string, number> = {};
   const grouped: Record<string, JudgmentDecision[]> = {};
 
@@ -478,11 +480,6 @@ export const computeArchetypePatterns = (
   const total = chronologicalDecisions.length || 1;
   const primaryShare = sortedArchetypes[0] ? (sortedArchetypes[0][1] / total) * 100 : 0;
   const topThreeShare = sortedArchetypes.slice(0, 3).reduce((sum, [, count]) => sum + count, 0) / total * 100;
-
-  let churn = 0;
-  for (let i = 1; i < archetypeEntries.length; i++) {
-    if (archetypeEntries[i] !== archetypeEntries[i - 1]) churn += 1;
-  }
 
   const rows: ArchetypePatternRow[] = Object.entries(grouped).map(([archetype, decisions]) => {
     const topCategories = categories
@@ -517,7 +514,7 @@ export const computeArchetypePatterns = (
     ),
   };
 
-  return { primary, secondary, primaryShare, topThreeShare, churn, rows, distributions };
+  return { primary, secondary, primaryShare, topThreeShare, rows, distributions };
 };
 
 export const computeDriftInsights = (decisions: JudgmentDecision[]): DriftInsights => {
@@ -660,7 +657,7 @@ export const buildJudgmentDashboard = (
 } => {
   const normalized = decisions.map(normalizeDecision);
   const chronological = [...normalized].sort((a, b) => a.createdAt - b.createdAt);
-  const baseline = computeRpsBaseline(normalized, chronological);
+  const baseline = computeRpsBaseline(normalized);
   const learning = computeLearningMetrics(chronological);
   const hygiene = computeReturnHygiene(chronological);
   const categories = computeCategoryHeatmap(normalized, normalized.length);
