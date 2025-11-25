@@ -59,7 +59,6 @@ import {
   filterDecisionsByTimeframe,
   type ArchetypePatternRow,
   type CategoryHeatmapRow,
-  type JudgmentDecision,
 } from "@/utils/judgmentDashboard";
 import {
   getArchetypeSummary,
@@ -189,7 +188,7 @@ const DistributionCard = ({ title, segments, tooltip }: DistributionCardProps) =
     <Card>
       <CardContent className="p-6 space-y-4">
         <h3 className="text-sm font-semibold text-foreground">
-          <TooltipLabel label={title} tooltip={tooltip} />
+          <TooltipLabel label={title} tooltip={tooltip} className="whitespace-nowrap" />
         </h3>
         {hasData ? (
           <>
@@ -243,7 +242,11 @@ const DistributionCard = ({ title, segments, tooltip }: DistributionCardProps) =
 
 const CompactMetric = ({ label, value, tooltip }: { label: string; value: string | number; tooltip?: string }) => (
   <div className="space-y-1 rounded-lg border bg-muted/30 p-3">
-    <TooltipLabel label={label} tooltip={tooltip} className="text-xs text-muted-foreground" />
+    <TooltipLabel
+      label={label}
+      tooltip={tooltip}
+      className="text-xs text-muted-foreground whitespace-nowrap"
+    />
     <p className="text-lg font-semibold text-foreground">{value}</p>
   </div>
 );
@@ -297,68 +300,6 @@ const ArchetypeSummaryCard = ({
       <p className="text-lg font-semibold text-foreground">{row?.archetype ?? "—"}</p>
       <p className="text-sm text-muted-foreground">{summary}</p>
       <p className="text-xs text-muted-foreground leading-snug">{description}</p>
-    </div>
-  );
-};
-
-const DecisionHighlightRow = ({
-  label,
-  decision,
-  tone = "neutral",
-  tooltip,
-}: {
-  label: string;
-  decision: JudgmentDecision;
-  tone?: "best" | "worst" | "neutral";
-  tooltip?: string;
-}) => {
-  const toneClass =
-    tone === "best"
-      ? "bg-[rgba(0,200,0,0.05)] border-l-[3px] border-l-[rgba(0,200,0,0.3)]"
-      : tone === "worst"
-        ? "bg-[rgba(255,0,0,0.05)] border-l-[3px] border-l-[rgba(255,0,0,0.3)]"
-        : "";
-
-  return (
-    <div className="overflow-x-auto">
-      <div
-        className={`flex min-w-[1050px] items-center gap-3 rounded-lg border bg-muted/30 px-3 py-2 ${toneClass}`}
-      >
-        <div className="w-32 shrink-0 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
-          <TooltipLabel label={label} tooltip={tooltip} />
-        </div>
-        <Badge variant="secondary" className="shrink-0">
-          {decision.category || "Uncategorized"}
-        </Badge>
-        <p className="flex-1 min-w-[220px] truncate text-sm font-semibold text-foreground">{decision.title}</p>
-
-        <div className="flex items-center gap-4">
-          {[{ label: "R", value: decision.return0 }, { label: "P", value: decision.pressure0 }, { label: "S", value: decision.stability0 }].map(
-            (metric) => (
-              <div key={`${label}-${metric.label}`} className="min-w-[70px]">
-                <p className="text-[10px] font-semibold uppercase text-muted-foreground">{metric.label}</p>
-                <p className="text-sm font-semibold text-foreground">{formatValue(metric.value)}</p>
-              </div>
-            ),
-          )}
-        </div>
-
-        <div className="min-w-[90px] pl-2">
-          <p className="text-[10px] font-semibold uppercase text-muted-foreground">D-NAV</p>
-          <p className="text-sm font-semibold text-foreground">{formatValue(decision.dnavScore)}</p>
-        </div>
-
-        <div className="flex items-center gap-3 pl-2">
-          {[{ label: "Impact", value: decision.impact0 }, { label: "Cost", value: decision.cost0 }, { label: "Risk", value: decision.risk0 }, { label: "Urgency", value: decision.urgency0 }, { label: "Confidence", value: decision.confidence0 }].map(
-            (metric) => (
-              <div key={`${label}-${metric.label}`} className="min-w-[80px] text-right">
-                <p className="text-[10px] font-semibold uppercase text-muted-foreground text-left">{metric.label}</p>
-                <p className="text-sm font-medium text-foreground">{formatValue(metric.value)}</p>
-              </div>
-            ),
-          )}
-        </div>
-      </div>
     </div>
   );
 };
@@ -1123,17 +1064,17 @@ export default function TheDNavPage() {
                               value={formatValue(baseline.avgPressure)}
                               tooltip={TOOLTIP_COPY["Avg Pressure (P)"]}
                             />
-                          <CompactMetric
-                            label="Avg Stability (S)"
-                            value={formatValue(baseline.avgStability)}
-                            tooltip={TOOLTIP_COPY["Avg Stability (S)"]}
-                          />
-                        </div>
+                            <CompactMetric
+                              label="Avg Stability (S)"
+                              value={formatValue(baseline.avgStability)}
+                              tooltip={TOOLTIP_COPY["Avg Stability (S)"]}
+                            />
+                          </div>
 
-                        <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-                          <DistributionCard
-                            title="Return distribution"
-                            tooltip={TOOLTIP_COPY["Return distribution"]}
+                          <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                            <DistributionCard
+                              title="Return distribution"
+                              tooltip={TOOLTIP_COPY["Return distribution"]}
                               segments={baseline.returnSegments}
                             />
                             <DistributionCard
@@ -1144,39 +1085,9 @@ export default function TheDNavPage() {
                             <DistributionCard
                               title="Stability distribution"
                               tooltip={TOOLTIP_COPY["Stability distribution"]}
-                            segments={baseline.stabilitySegments}
-                          />
-                        </div>
-
-                        <Card className="border bg-muted/30">
-                          <CardHeader className="pb-3">
-                            <CardTitle className="text-base font-semibold">RPS Extremes</CardTitle>
-                            <p className="text-xs text-muted-foreground">
-                              Highest and lowest Return, Pressure, and Stability within the selected timeframe.
-                            </p>
-                          </CardHeader>
-                          <CardContent className="space-y-2 pt-0">
-                            {baseline.total > 0 ? (
-                              <div className="overflow-x-auto">
-                                <div className="min-w-[1100px] space-y-2">
-                                  {baseline.bestWorst.map((item) =>
-                                    item.decision ? (
-                                      <DecisionHighlightRow
-                                        key={item.label}
-                                        label={item.label}
-                                        decision={item.decision}
-                                        tone={item.label.startsWith("Best") ? "best" : "worst"}
-                                        tooltip={TOOLTIP_COPY[item.label]}
-                                      />
-                                    ) : null,
-                                  )}
-                                </div>
-                              </div>
-                            ) : (
-                              <p className="text-sm text-muted-foreground">No logged decisions to display yet.</p>
-                            )}
-                          </CardContent>
-                        </Card>
+                              segments={baseline.stabilitySegments}
+                            />
+                          </div>
                         </CardContent>
                       </Card>
 
