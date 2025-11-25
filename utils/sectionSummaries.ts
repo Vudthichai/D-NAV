@@ -25,14 +25,14 @@ export const generateLearningRecoverySummary = (
   learning: LearningMetrics,
   hygiene: ReturnHygiene,
 ): string => {
-  if (!Number.isFinite(learning.winRate) || !Number.isFinite(hygiene.paybackRatio)) {
-    return "Learning and recovery signals will appear once this window logs enough decisions to measure consistency, recovery, and payback.";
+  if (!Number.isFinite(learning.winRate) || !Number.isFinite(hygiene.decisionDebt)) {
+    return "Learning and recovery signals will appear once this window logs enough decisions to measure consistency, recovery, and debt.";
   }
 
   const lciTone = describeDirection((learning.lci ?? 0) - 0.6, "strong LCI", "weaker LCI", "steady LCI");
   const winTone = describeDirection(learning.winRate - 50, "above-average win rate", "sub-50% win rate", "balanced win rate");
 
-  return `Recovery profile shows ${lciTone} with ${winTone}; average ${formatNumber(learning.decisionsToRecover, 1)} decisions to recover, payback ratio ${formatNumber(hygiene.paybackRatio, 2)}, return debt ${formatNumber(hygiene.returnDebt)}.`;
+  return `Recovery profile shows ${lciTone} with ${winTone}; average ${formatNumber(learning.decisionsToRecover, 1)} decisions to recover and decision debt of ${formatNumber(hygiene.decisionDebt)}% negative returns.`;
 };
 
 export const generateCategorySummary = (categories: CategoryHeatmapRow[]): string => {
