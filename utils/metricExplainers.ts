@@ -36,7 +36,15 @@ const metricExplainers: Record<string, MetricExplainer> = {
     description: "Share of decisions landing as positive, neutral, or negative return.",
     example: "60% positive / 20% neutral / 20% negative indicates upside skew.",
   },
+  "Return distribution": {
+    description: "Share of decisions landing as positive, neutral, or negative return.",
+    example: "60% positive / 20% neutral / 20% negative indicates upside skew.",
+  },
   "Return Distribution|positive": {
+    description: "Portion of decisions that generated a net-positive return.",
+    example: "If 12 of 20 entries won, the positive slice is 60%.",
+  },
+  "Return distribution|positive": {
     description: "Portion of decisions that generated a net-positive return.",
     example: "If 12 of 20 entries won, the positive slice is 60%.",
   },
@@ -44,7 +52,15 @@ const metricExplainers: Record<string, MetricExplainer> = {
     description: "Portion of decisions that broke even.",
     example: "Two zero-return outcomes in ten decisions produce 20% neutral.",
   },
+  "Return distribution|neutral": {
+    description: "Portion of decisions that broke even.",
+    example: "Two zero-return outcomes in ten decisions produce 20% neutral.",
+  },
   "Return Distribution|negative": {
+    description: "Portion of decisions that finished in the red.",
+    example: "Three losses in a 15-decision sample equal 20% negative.",
+  },
+  "Return distribution|negative": {
     description: "Portion of decisions that finished in the red.",
     example: "Three losses in a 15-decision sample equal 20% negative.",
   },
@@ -52,7 +68,15 @@ const metricExplainers: Record<string, MetricExplainer> = {
     description: "Balance of decisions that landed stable, uncertain, or fragile.",
     example: "Half of choices landing stable implies a resilient footing.",
   },
+  "Stability distribution": {
+    description: "Balance of decisions that landed stable, uncertain, or fragile.",
+    example: "Half of choices landing stable implies a resilient footing.",
+  },
   "Stability Distribution|stable": {
+    description: "Percentage of decisions showing positive stability.",
+    example: "8 of 16 choices scoring above zero stability equals 50% stable.",
+  },
+  "Stability distribution|stable": {
     description: "Percentage of decisions showing positive stability.",
     example: "8 of 16 choices scoring above zero stability equals 50% stable.",
   },
@@ -60,7 +84,15 @@ const metricExplainers: Record<string, MetricExplainer> = {
     description: "Percentage of decisions with neutral stability.",
     example: "Three neutral reads in a dozen decisions equals 25% uncertain.",
   },
+  "Stability distribution|uncertain": {
+    description: "Percentage of decisions with neutral stability.",
+    example: "Three neutral reads in a dozen decisions equals 25% uncertain.",
+  },
   "Stability Distribution|fragile": {
+    description: "Percentage of decisions showing negative stability.",
+    example: "If four outcomes were fragile, the slice is 33%.",
+  },
+  "Stability distribution|fragile": {
     description: "Percentage of decisions showing negative stability.",
     example: "If four outcomes were fragile, the slice is 33%.",
   },
@@ -68,7 +100,15 @@ const metricExplainers: Record<string, MetricExplainer> = {
     description: "Mix of pressured, balanced, or calm operating conditions.",
     example: "A 40% calm read means most executions feel controlled.",
   },
+  "Pressure distribution": {
+    description: "Mix of pressured, balanced, or calm operating conditions.",
+    example: "A 40% calm read means most executions feel controlled.",
+  },
   "Pressure Distribution|pressured": {
+    description: "Percentage of decisions experiencing net pressure.",
+    example: "Five pressured calls out of ten equals 50% pressured.",
+  },
+  "Pressure distribution|pressured": {
     description: "Percentage of decisions experiencing net pressure.",
     example: "Five pressured calls out of ten equals 50% pressured.",
   },
@@ -76,7 +116,15 @@ const metricExplainers: Record<string, MetricExplainer> = {
     description: "Percentage of decisions landing at neutral pressure.",
     example: "Three balanced reads in twelve decisions equals 25% balanced.",
   },
+  "Pressure distribution|balanced": {
+    description: "Percentage of decisions landing at neutral pressure.",
+    example: "Three balanced reads in twelve decisions equals 25% balanced.",
+  },
   "Pressure Distribution|calm": {
+    description: "Percentage of decisions where calm outweighed pressure.",
+    example: "If six entries were calm, the calm portion is 60%.",
+  },
+  "Pressure distribution|calm": {
     description: "Percentage of decisions where calm outweighed pressure.",
     example: "If six entries were calm, the calm portion is 60%.",
   },
