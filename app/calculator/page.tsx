@@ -1,7 +1,6 @@
 "use client";
 
 import CompareSheet from "@/components/CompareSheet";
-import FeedbackLoops from "@/components/FeedbackLoops";
 import SliderRow from "@/components/SliderRow";
 import StatCard from "@/components/StatCard";
 import SummaryCard from "@/components/SummaryCard";
@@ -10,6 +9,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import {
   Select,
   SelectContent,
@@ -18,7 +18,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Separator } from "@/components/ui/separator";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import {
   DecisionEntry,
@@ -26,32 +25,18 @@ import {
   DecisionVariables,
   coachHint,
   computeMetrics,
-  energyTier,
-  getArchetype,
-  getScoreTagText,
 } from "@/lib/calculations";
 import { addDecision, loadLog } from "@/lib/storage";
 import { useNetlifyIdentity } from "@/hooks/use-netlify-identity";
 import {
-  Activity,
-  AlertTriangle,
   BarChart3,
   Check,
-  CheckCircle,
   Download,
   FileText,
-  Gauge,
-  LineChart,
-  Minus,
   RotateCcw,
   Save,
-  Target,
-  TrendingDown,
-  TrendingUp,
   Upload,
-  Zap,
 } from "lucide-react";
-import type { LucideIcon } from "lucide-react";
 import jsPDF from "jspdf";
 import html2canvas from "html2canvas";
 import Link from "next/link";
@@ -64,8 +49,12 @@ import {
   computeDashboardStats,
   formatValue,
 } from "@/utils/dashboardStats";
-
-const FLAGS = { showFeedbackLoops: true };
+import {
+  buildJudgmentDashboard,
+  filterDecisionsByTimeframe,
+  type ArchetypePatternRow,
+  type CategoryHeatmapRow,
+} from "@/utils/judgmentDashboard";
 
 const DEFAULT_VARIABLES: DecisionVariables = {
   impact: 1,
@@ -73,77 +62,6 @@ const DEFAULT_VARIABLES: DecisionVariables = {
   risk: 1,
   urgency: 1,
   confidence: 1,
-};
-
-interface DashboardStatCardProps {
-  title: string;
-  value: string | number;
-  subtitle: string;
-  icon: LucideIcon;
-  trend?: number;
-  color?: "default" | "positive" | "negative" | "warning";
-  helper?: string;
-}
-
-const DashboardStatCard = ({
-  title,
-  value,
-  subtitle,
-  icon: Icon,
-  trend,
-  color = "default",
-  helper,
-}: DashboardStatCardProps) => {
-  const colorClasses = {
-    default: "text-muted-foreground",
-    positive: "text-green-600",
-    negative: "text-red-600",
-    warning: "text-amber-600",
-  } as const;
-
-  return (
-    <Card>
-      <CardContent className="p-4 sm:p-5">
-        <div className="flex items-start justify-between gap-3">
-          <div>
-            <InfoTooltip term={title}>
-              <p className="text-sm font-medium text-muted-foreground cursor-help">{title}</p>
-            </InfoTooltip>
-            <InfoTooltip term={title} side="bottom">
-              <div className="flex items-center gap-2 mt-1 cursor-help">
-                <p className="text-xl font-bold sm:text-2xl">{value}</p>
-                {trend !== undefined && (
-                  <div className="flex items-center gap-1">
-                    {trend > 0 ? (
-                      <TrendingUp className="h-4 w-4 text-green-600" />
-                    ) : trend < 0 ? (
-                      <TrendingDown className="h-4 w-4 text-red-600" />
-                    ) : (
-                      <Minus className="h-4 w-4 text-muted-foreground" />
-                    )}
-                    <span
-                      className={`text-sm ${
-                        trend > 0
-                          ? "text-green-600"
-                          : trend < 0
-                          ? "text-red-600"
-                          : "text-muted-foreground"
-                      }`}
-                    >
-                      {Math.abs(trend)}
-                    </span>
-                  </div>
-                )}
-              </div>
-            </InfoTooltip>
-            <p className={`text-xs mt-1 ${colorClasses[color]}`}>{subtitle}</p>
-            {helper ? <p className="text-xs text-muted-foreground mt-1">{helper}</p> : null}
-          </div>
-          <Icon className="h-6 w-6 text-muted-foreground sm:h-7 sm:w-7" />
-        </div>
-      </CardContent>
-    </Card>
-  );
 };
 
 interface DistributionSegment {
@@ -217,6 +135,40 @@ const DistributionCard = ({ title, segments }: DistributionCardProps) => {
         )}
       </CardContent>
     </Card>
+  );
+};
+
+const CompactMetric = ({ label, value }: { label: string; value: string | number }) => (
+  <div className="space-y-1 rounded-lg border bg-muted/30 p-3">
+    <p className="text-xs text-muted-foreground">{label}</p>
+    <p className="text-lg font-semibold text-foreground">{value}</p>
+  </div>
+);
+
+const Sparkline = ({ data }: { data: number[] }) => {
+  if (!data.length) return <p className="text-xs text-muted-foreground">No data in view.</p>;
+
+  const width = 320;
+  const height = 80;
+  const padding = 6;
+  const min = Math.min(...data);
+  const max = Math.max(...data);
+  const range = max - min || 1;
+  const points = data.map((value, index) => {
+    const x = padding + (index / Math.max(1, data.length - 1)) * (width - padding * 2);
+    const y = height - padding - ((value - min) / range) * (height - padding * 2);
+    return [x, y] as const;
+  });
+  const path = points.map(([x, y], idx) => `${idx === 0 ? "M" : "L"}${x},${y}`).join(" ");
+  const baseLine = height - padding;
+  const areaPath = `${path} L ${points[points.length - 1][0]},${baseLine} L ${points[0][0]},${baseLine} Z`;
+
+  return (
+    <svg viewBox={`0 0 ${width} ${height}`} className="h-20 w-full" role="img" aria-label="RPS Index trend">
+      <path d={areaPath} fill="currentColor" className="text-primary/10" />
+      <path d={path} fill="none" stroke="currentColor" className="text-primary" strokeWidth={2} />
+      <circle cx={points[points.length - 1][0]} cy={points[points.length - 1][1]} r={3} className="fill-primary" />
+    </svg>
   );
 };
 
@@ -311,13 +263,18 @@ export default function TheDNavPage() {
     return Number.isNaN(parsed) ? null : parsed;
   }, [timeWindow]);
 
+  const filteredDecisions = useMemo(
+    () => filterDecisionsByTimeframe(decisions, timeframeDays),
+    [decisions, timeframeDays],
+  );
+
   const observedSpanDays = useMemo(() => {
-    if (decisions.length === 0) return null;
+    if (filteredDecisions.length === 0) return null;
     const msInDay = 24 * 60 * 60 * 1000;
-    const referenceTimestamp = decisions[0]?.ts ?? Date.now();
-    const earliestTimestamp = decisions[decisions.length - 1]?.ts ?? referenceTimestamp;
+    const referenceTimestamp = filteredDecisions[0]?.ts ?? Date.now();
+    const earliestTimestamp = filteredDecisions[filteredDecisions.length - 1]?.ts ?? referenceTimestamp;
     return Math.max((referenceTimestamp - earliestTimestamp) / msInDay, 1);
-  }, [decisions]);
+  }, [filteredDecisions]);
 
   const cadenceBasisLabel = useMemo(() => {
     const effectiveSpan = timeframeDays ?? observedSpanDays;
@@ -329,7 +286,7 @@ export default function TheDNavPage() {
     return computeDashboardStats(decisions, { timeframeDays });
   }, [decisions, timeframeDays]);
 
-  const dnavSeries = useMemo(() => decisions.map((d) => d.dnav).slice().reverse(), [decisions]);
+  const judgment = useMemo(() => buildJudgmentDashboard(filteredDecisions), [filteredDecisions]);
 
   const timeWindowLabels: Record<string, string> = {
     "0": "All time",
@@ -338,12 +295,11 @@ export default function TheDNavPage() {
     "90": "Last 90 days",
   };
 
-  const archetype = useMemo(() => getArchetype(metrics), [metrics]);
+  const { baseline, learning, hygiene, categories, archetypes, drift, signals } = {
+    ...judgment,
+  };
+
   const coachLine = useMemo(() => coachHint(variables, metrics), [metrics, variables]);
-  const energyInfo = useMemo(
-    () => energyTier(variables.urgency, variables.confidence),
-    [variables.urgency, variables.confidence],
-  );
   const getPillColor = useCallback(
     (value: number, type: "return" | "stability" | "pressure") => {
       if (type === "pressure") {
@@ -362,7 +318,6 @@ export default function TheDNavPage() {
     },
     [],
   );
-  const scoreTag = useMemo(() => getScoreTagText(metrics.dnav), [metrics.dnav]);
 
   const createStatsReportPdf = async () => {
     if (!statsContainerRef.current) return;
@@ -494,15 +449,7 @@ export default function TheDNavPage() {
     createNarrativePdf(stats);
   };
 
-  const hasData = stats.totalDecisions > 0;
-  const returnDebtSummary = buildReturnDebtSummary(stats);
-
-  const narrativeText = hasData
-    ? buildPortfolioNarrative(stats, {
-        timeframeLabel: timeWindowLabels[timeWindow] ?? `Last ${timeWindow} days`,
-        cadenceLabel: cadenceBasisLabel,
-      })
-    : "No decisions logged in this window. Import or record decisions to unlock narrative insights.";
+  const hasData = filteredDecisions.length > 0;
 
   const showAnalytics = isLoggedIn;
 
@@ -830,286 +777,274 @@ export default function TheDNavPage() {
                   </div>
 
                   <div className="space-y-12">
-                    <div className="space-y-4">
-                      <div>
-                        <h2 className="text-xl font-semibold text-foreground">Feedback Loops</h2>
-                        <p className="text-sm text-muted-foreground">
-                          How quickly your judgment recovers from bad calls — your learning half-life.
-                        </p>
-                      </div>
-                      {FLAGS.showFeedbackLoops !== false && <FeedbackLoops series={dnavSeries} />}
+                    <Card>
+                      <CardHeader className="pb-3">
+                        <CardTitle className="text-xl font-semibold">RPS Baseline</CardTitle>
+                      </CardHeader>
+                      <CardContent className="space-y-6">
+                        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-7 gap-3">
+                          <CompactMetric label="Total decisions" value={baseline.total} />
+                          <CompactMetric label="Avg Return (R)" value={formatValue(baseline.avgReturn)} />
+                          <CompactMetric label="Avg Pressure (P)" value={formatValue(baseline.avgPressure)} />
+                          <CompactMetric label="Avg Stability (S)" value={formatValue(baseline.avgStability)} />
+                          <CompactMetric label="Std dev Return" value={formatValue(baseline.stdReturn)} />
+                          <CompactMetric label="Std dev Pressure" value={formatValue(baseline.stdPressure)} />
+                          <CompactMetric label="Std dev Stability" value={formatValue(baseline.stdStability)} />
+                        </div>
+
+                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3">
+                          {baseline.outliers.map((item) => (
+                            <div key={item.label} className="rounded-lg border bg-muted/30 p-3 space-y-1">
+                              <p className="text-xs text-muted-foreground">{item.label}</p>
+                              <p className="text-sm font-semibold text-foreground line-clamp-1">{item.title}</p>
+                              <p className="text-lg font-bold text-foreground">{formatValue(item.value)}</p>
+                            </div>
+                          ))}
+                        </div>
+
+                        <div>
+                          <p className="text-xs text-muted-foreground mb-2">RPS Index</p>
+                          <Sparkline data={baseline.indexSeries} />
+                        </div>
+                      </CardContent>
+                    </Card>
+
+                    <div className="grid gap-6 lg:grid-cols-2">
                       <Card>
-                        <CardHeader>
-                          <CardTitle className="flex items-center gap-2">
-                            <AlertTriangle className="h-5 w-5" />
-                            Return Hygiene
-                          </CardTitle>
+                        <CardHeader className="pb-3">
+                          <CardTitle className="text-xl font-semibold">Feedback &amp; Learning</CardTitle>
                         </CardHeader>
-                        <CardContent>
-                          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                            <div className="space-y-2">
-                              <InfoTooltip term="Loss Streak">
-                                <p className="text-sm font-medium text-muted-foreground cursor-help">Loss Streak</p>
-                              </InfoTooltip>
-                              <InfoTooltip term="Loss Streak" side="bottom">
-                                <div className="flex items-baseline gap-2 cursor-help">
-                                  <span className="text-2xl font-bold">{stats?.lossStreak.current || 0}</span>
-                                  <span className="text-sm text-muted-foreground">/ {stats?.lossStreak.longest || 0}</span>
-                                </div>
-                              </InfoTooltip>
-                              <p className="text-xs text-muted-foreground">Current / longest streak</p>
-                            </div>
-                            <div className="space-y-2">
-                              <InfoTooltip term="Return Debt">
-                                <p className="text-sm font-medium text-muted-foreground cursor-help">Return Debt</p>
-                              </InfoTooltip>
-                              <InfoTooltip term="Return Debt" side="bottom">
-                                <p className="text-2xl font-bold cursor-help">{formatValue(stats?.returnDebt ?? 0)}</p>
-                              </InfoTooltip>
-                              <p className="text-xs text-muted-foreground">Return debt (D-NAV units)</p>
-                            </div>
-                            <div className="space-y-2">
-                              <InfoTooltip term="Payback Ratio">
-                                <p className="text-sm font-medium text-muted-foreground cursor-help">Payback Ratio</p>
-                              </InfoTooltip>
-                              <InfoTooltip term="Payback Ratio" side="bottom">
-                                <p className="text-2xl font-bold cursor-help">{formatValue(stats?.paybackRatio ?? 0)}</p>
-                              </InfoTooltip>
-                              <p className="text-xs text-muted-foreground">Avg +return per win in streak</p>
-                            </div>
-                          </div>
-                          <p className="text-sm text-muted-foreground mt-4 leading-snug">{returnDebtSummary}</p>
-                          <Separator className="my-4" />
-                          <div className="flex items-start gap-2 p-4 bg-muted/50 rounded-lg">
-                            <CheckCircle className="h-5 w-5 text-green-600 mt-0.5 flex-shrink-0" />
-                            <p className="text-sm text-muted-foreground">
-                              <strong>Remember:</strong> Losses aren’t “bad.” Unmanaged streaks are. Track them so “learning” doesn’t become a silent bleed.
-                            </p>
-                          </div>
+                        <CardContent className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                          <CompactMetric label="Learning Curve Index" value={learning.lci ? formatValue(learning.lci, 2) : "—"} />
+                          <CompactMetric label="Decisions to recover" value={formatValue(learning.decisionsToRecover)} />
+                          <CompactMetric label="Time to recover (days)" value={formatValue(learning.daysToRecover)} />
+                          <CompactMetric label="Post-loss uplift" value={formatValue(learning.postLossUplift)} />
+                          <CompactMetric label="D-NAV volatility" value={formatValue(learning.dnavVolatility)} />
+                          <CompactMetric label="Win rate" value={`${formatValue(learning.winRate)}%`} />
+                          <CompactMetric label="Longest win streak" value={learning.longestWin} />
+                          <CompactMetric label="Longest loss streak" value={learning.longestLoss} />
+                        </CardContent>
+                      </Card>
+
+                      <Card>
+                        <CardHeader className="pb-3">
+                          <CardTitle className="text-xl font-semibold">Return Hygiene</CardTitle>
+                        </CardHeader>
+                        <CardContent className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                          <CompactMetric label="Current loss streak" value={hygiene.currentLossStreak} />
+                          <CompactMetric label="Worst loss streak" value={hygiene.worstLossStreak} />
+                          <CompactMetric label="Max drawdown" value={formatValue(hygiene.maxDrawdown)} />
+                          <CompactMetric label="Return debt" value={formatValue(hygiene.returnDebt)} />
+                          <CompactMetric label="Payback ratio" value={formatValue(hygiene.paybackRatio, 2)} />
+                          <CompactMetric label="Average win" value={formatValue(hygiene.averageWin)} />
+                          <CompactMetric label="Average loss" value={formatValue(hygiene.averageLoss)} />
+                          <CompactMetric label="Hit rate" value={`${formatValue(hygiene.hitRate)}%`} />
                         </CardContent>
                       </Card>
                     </div>
 
-                    <div className="space-y-4">
-                      <div>
-                        <h2 className="text-xl font-semibold text-foreground">Consistency</h2>
-                        <p className="text-sm text-muted-foreground">
-                          How reliably your decisions line up with your goals, instead of reacting to noise.
-                        </p>
-                      </div>
-                      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-4">
-                        <DashboardStatCard
-                          title="Total Decisions"
-                          value={stats?.totalDecisions || 0}
-                          subtitle="In selected timeframe"
-                          icon={Target}
-                        />
-                        <DashboardStatCard
-                          title="Average D-NAV"
-                          value={stats?.avgDnav || 0}
-                          subtitle="Composite score"
-                          icon={Gauge}
-                          trend={stats?.trend}
-                          color={
-                            stats?.avgDnav && stats.avgDnav > 25
-                              ? "positive"
-                              : stats?.avgDnav && stats.avgDnav < 0
-                              ? "negative"
-                              : "default"
-                          }
-                        />
-                        <DashboardStatCard
-                          title="Decision Cadence"
-                          value={stats?.cadence || 0}
-                          subtitle={`Decisions per ${cadenceBasisLabel}`}
-                          icon={Activity}
-                        />
-                        <DashboardStatCard
-                          title="Return on Effort"
-                          value={stats?.returnOnEffort || 0}
-                          subtitle="Return per unit energy"
-                          icon={Zap}
-                          color={stats?.returnOnEffort && stats.returnOnEffort > 0 ? "positive" : "default"}
-                        />
-                        <DashboardStatCard
-                          title="Recent Trend"
-                          value={formatValue(stats?.last5vsPrior5 ?? 0)}
-                          subtitle="D-NAV change"
-                          icon={LineChart}
-                          color={
-                            stats?.last5vsPrior5 && stats.last5vsPrior5 > 0
-                              ? "positive"
-                              : stats?.last5vsPrior5 && stats.last5vsPrior5 < 0
-                              ? "negative"
-                              : "default"
-                          }
-                          helper="Last 5 decisions vs. prior 5"
-                        />
-                      </div>
-                    </div>
+                    <Card>
+                      <CardHeader className="pb-3">
+                        <CardTitle className="text-xl font-semibold">Decision Category Heatmap</CardTitle>
+                      </CardHeader>
+                      <CardContent>
+                        {categories.length === 0 ? (
+                          <p className="text-sm text-muted-foreground">No categories in view.</p>
+                        ) : (
+                          <div className="overflow-x-auto">
+                            <Table>
+                              <TableHeader>
+                                <TableRow>
+                                  <TableHead>Category</TableHead>
+                                  <TableHead className="text-right">#</TableHead>
+                                  <TableHead className="text-right">%</TableHead>
+                                  <TableHead className="text-right">Avg D-NAV</TableHead>
+                                  <TableHead className="text-right">Avg R</TableHead>
+                                  <TableHead className="text-right">Avg P</TableHead>
+                                  <TableHead className="text-right">Avg S</TableHead>
+                                  <TableHead className="text-right">Dominant</TableHead>
+                                </TableRow>
+                              </TableHeader>
+                              <TableBody>
+                                {categories.map((row: CategoryHeatmapRow) => (
+                                  <TableRow key={row.category} className="hover:bg-muted/50">
+                                    <TableCell className="font-medium">{row.category}</TableCell>
+                                    <TableCell className="text-right">{row.decisionCount}</TableCell>
+                                    <TableCell className="text-right">{formatValue(row.percent)}%</TableCell>
+                                    <TableCell className="text-right">{formatValue(row.avgDnav)}</TableCell>
+                                    <TableCell className="text-right">{formatValue(row.avgR)}</TableCell>
+                                    <TableCell className="text-right">{formatValue(row.avgP)}</TableCell>
+                                    <TableCell className="text-right">{formatValue(row.avgS)}</TableCell>
+                                    <TableCell className="text-right">{row.dominantVariable}</TableCell>
+                                  </TableRow>
+                                ))}
+                              </TableBody>
+                            </Table>
+                          </div>
+                        )}
+                      </CardContent>
+                    </Card>
 
-                    <div className="space-y-6">
-                      <div>
-                        <h2 className="text-xl font-semibold text-foreground">Patterns &amp; Archetypes</h2>
+                    <Card>
+                      <CardHeader className="pb-3 space-y-1">
+                        <CardTitle className="text-xl font-semibold">Archetypes &amp; Patterns</CardTitle>
+                      </CardHeader>
+                      <CardContent className="space-y-6">
+                        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
+                          <CompactMetric label="Primary Archetype" value={archetypes.primary} />
+                          <CompactMetric label="Secondary" value={archetypes.secondary} />
+                          <CompactMetric label="% in Primary" value={`${formatValue(archetypes.primaryShare)}%`} />
+                          <CompactMetric label="% in Top 3" value={`${formatValue(archetypes.topThreeShare)}%`} />
+                          <CompactMetric label="Archetype churn" value={archetypes.churn} />
+                        </div>
+
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                          <DistributionCard title="Return Distribution" segments={archetypes.distributions.returnSegments} />
+                          <DistributionCard title="Pressure Distribution" segments={archetypes.distributions.pressureSegments} />
+                          <DistributionCard title="Stability Distribution" segments={archetypes.distributions.stabilitySegments} />
+                        </div>
+
+                        {archetypes.rows.length === 0 ? (
+                          <p className="text-sm text-muted-foreground">No archetype data yet.</p>
+                        ) : (
+                          <div className="overflow-x-auto">
+                            <Table>
+                              <TableHeader>
+                                <TableRow>
+                                  <TableHead>Archetype</TableHead>
+                                  <TableHead className="text-right">#</TableHead>
+                                  <TableHead className="text-right">Avg R</TableHead>
+                                  <TableHead className="text-right">Avg P</TableHead>
+                                  <TableHead className="text-right">Avg S</TableHead>
+                                  <TableHead className="text-right">Avg D-NAV</TableHead>
+                                  <TableHead className="text-right">Top categories</TableHead>
+                                </TableRow>
+                              </TableHeader>
+                              <TableBody>
+                                {archetypes.rows.map((row: ArchetypePatternRow) => (
+                                  <TableRow key={row.archetype} className="hover:bg-muted/50">
+                                    <TableCell className="font-medium">{row.archetype}</TableCell>
+                                    <TableCell className="text-right">{row.count}</TableCell>
+                                    <TableCell className="text-right">{formatValue(row.avgR)}</TableCell>
+                                    <TableCell className="text-right">{formatValue(row.avgP)}</TableCell>
+                                    <TableCell className="text-right">{formatValue(row.avgS)}</TableCell>
+                                    <TableCell className="text-right">{formatValue(row.avgDnav)}</TableCell>
+                                    <TableCell className="text-right">{row.topCategories.join(", ") || "—"}</TableCell>
+                                  </TableRow>
+                                ))}
+                              </TableBody>
+                            </Table>
+                          </div>
+                        )}
+                      </CardContent>
+                    </Card>
+
+                    <Card>
+                      <CardHeader className="pb-3">
+                        <CardTitle className="text-xl font-semibold">Judgment Drift</CardTitle>
+                      </CardHeader>
+                      <CardContent>
+                        {!drift.hasData ? (
+                          <p className="text-sm text-muted-foreground">No hindsight data available yet.</p>
+                        ) : (
+                          <div className="grid gap-6 lg:grid-cols-3">
+                            <div className="lg:col-span-2 overflow-x-auto">
+                              <Table>
+                                <TableHeader>
+                                  <TableRow>
+                                    <TableHead>Variable</TableHead>
+                                    <TableHead className="text-right">Avg drift</TableHead>
+                                  </TableRow>
+                                </TableHeader>
+                                <TableBody>
+                                  {drift.variableDrifts.map((entry) => (
+                                    <TableRow key={entry.label} className="hover:bg-muted/50">
+                                      <TableCell>{entry.label}</TableCell>
+                                      <TableCell className="text-right">{formatValue(entry.value)}</TableCell>
+                                    </TableRow>
+                                  ))}
+                                </TableBody>
+                              </Table>
+                            </div>
+                            <div className="space-y-4">
+                              <div className="grid grid-cols-2 gap-2">
+                                <CompactMetric label="Overconfidence" value={formatValue(drift.biasIndices.overconfidence)} />
+                                <CompactMetric label="Underconfidence" value={formatValue(drift.biasIndices.underconfidence)} />
+                                <CompactMetric label="Risk underest." value={formatValue(drift.biasIndices.riskUnder)} />
+                                <CompactMetric label="Risk overest." value={formatValue(drift.biasIndices.riskOver)} />
+                              </div>
+                              <div className="space-y-2">
+                                <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Top positive drifts</p>
+                                <ul className="space-y-1 text-sm text-foreground">
+                                  {drift.positiveDrifts.length ? (
+                                    drift.positiveDrifts.map((title) => <li key={`pos-${title}`} className="line-clamp-1">{title}</li>)
+                                  ) : (
+                                    <li className="text-muted-foreground">—</li>
+                                  )}
+                                </ul>
+                              </div>
+                              <div className="space-y-2">
+                                <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Top negative drifts</p>
+                                <ul className="space-y-1 text-sm text-foreground">
+                                  {drift.negativeDrifts.length ? (
+                                    drift.negativeDrifts.map((title) => <li key={`neg-${title}`} className="line-clamp-1">{title}</li>)
+                                  ) : (
+                                    <li className="text-muted-foreground">—</li>
+                                  )}
+                                </ul>
+                              </div>
+                            </div>
+                          </div>
+                        )}
+                      </CardContent>
+                    </Card>
+
+                    <Card>
+                      <CardHeader className="pb-3">
+                        <CardTitle className="text-xl font-semibold">Judgment Signals</CardTitle>
+                      </CardHeader>
+                      <CardContent className="space-y-4">
+                        {[
+                          { title: "High-confidence", items: signals.highConfidence },
+                          { title: "High-impact", items: signals.highImpact },
+                          { title: "Positive RPS", items: signals.positiveRps },
+                          { title: "Low-pressure efficiency", items: signals.lowPressureEfficiency },
+                          { title: "Low-frequency high-impact", items: signals.lowFrequencyHighImpact },
+                          { title: "High-volatility", items: signals.highVolatility },
+                          { title: "High-drift", items: signals.highDrift },
+                        ].map((group) => (
+                          <div key={group.title} className="space-y-2">
+                            <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">{group.title}</p>
+                            <div className="flex flex-wrap gap-2">
+                              {group.items.length ? (
+                                group.items.map((item) => (
+                                  <Badge key={`${group.title}-${item}`} variant="secondary" className="rounded-full">
+                                    {item}
+                                  </Badge>
+                                ))
+                              ) : (
+                                <span className="text-xs text-muted-foreground">None</span>
+                              )}
+                            </div>
+                          </div>
+                        ))}
+                      </CardContent>
+                    </Card>
+
+                    <Card className="border border-primary/40 bg-primary/5">
+                      <CardHeader>
+                        <CardTitle className="text-xl font-semibold text-foreground">Decision Audit</CardTitle>
+                      </CardHeader>
+                      <CardContent className="space-y-3">
                         <p className="text-sm text-muted-foreground">
-                          Your dominant decision patterns and behavioral tendencies — how you show up across decisions.
+                          Run a batch of decisions, surface archetypes, and tune your cadence.
                         </p>
-                      </div>
-                      <Card>
-                        <CardHeader className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-                          <CardTitle>Portfolio Narrative</CardTitle>
-                        </CardHeader>
-                        <CardContent>
-                          <p className="text-sm text-muted-foreground whitespace-pre-line">{narrativeText}</p>
-                        </CardContent>
-                      </Card>
-                      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                        <DistributionCard
-                          title="Return Distribution"
-                          segments={[
-                            {
-                              label: "Positive",
-                              value: stats.returnDistribution.positive,
-                              color: "#22c55e",
-                              metricKey: "positive",
-                            },
-                            {
-                              label: "Neutral",
-                              value: stats.returnDistribution.neutral,
-                              color: "#64748b",
-                              metricKey: "neutral",
-                            },
-                            {
-                              label: "Negative",
-                              value: stats.returnDistribution.negative,
-                              color: "#ef4444",
-                              metricKey: "negative",
-                            },
-                          ]}
-                        />
-                        <DistributionCard
-                          title="Stability Distribution"
-                          segments={[
-                            {
-                              label: "Stable",
-                              value: stats.stabilityDistribution.stable,
-                              color: "#3b82f6",
-                              metricKey: "stable",
-                            },
-                            {
-                              label: "Uncertain",
-                              value: stats.stabilityDistribution.uncertain,
-                              color: "#f59e0b",
-                              metricKey: "uncertain",
-                            },
-                            {
-                              label: "Fragile",
-                              value: stats.stabilityDistribution.fragile,
-                              color: "#f43f5e",
-                              metricKey: "fragile",
-                            },
-                          ]}
-                        />
-                        <DistributionCard
-                          title="Pressure Distribution"
-                          segments={[
-                            {
-                              label: "Pressured",
-                              value: stats.pressureDistribution.pressured,
-                              color: "#ef4444",
-                              metricKey: "pressured",
-                            },
-                            {
-                              label: "Balanced",
-                              value: stats.pressureDistribution.balanced,
-                              color: "#64748b",
-                              metricKey: "balanced",
-                            },
-                            {
-                              label: "Calm",
-                              value: stats.pressureDistribution.calm,
-                              color: "#14b8a6",
-                              metricKey: "calm",
-                            },
-                          ]}
-                        />
-                      </div>
-                      <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
-                        <Card>
-                          <CardHeader className="pb-2">
-                            <InfoTooltip term="Window Archetype">
-                              <CardTitle className="text-base cursor-help">Window Archetype</CardTitle>
-                            </InfoTooltip>
-                          </CardHeader>
-                          <CardContent className="space-y-2">
-                            <p className="text-xl font-semibold">{stats.windowArchetype}</p>
-                            <p className="text-sm text-muted-foreground leading-snug">
-                              {stats.windowArchetypeDescription}
-                            </p>
-                            <Separator className="my-2" />
-                            <div className="grid grid-cols-1 gap-1 text-sm text-muted-foreground">
-                              <span>Return: {stats.windowArchetypeBreakdown.returnType}</span>
-                              <span>Stability: {stats.windowArchetypeBreakdown.stabilityType}</span>
-                              <span>Pressure: {stats.windowArchetypeBreakdown.pressureType}</span>
-                            </div>
-                          </CardContent>
-                        </Card>
-                        <Card>
-                          <CardHeader className="pb-2">
-                            <CardTitle className="text-base">Archetype Deep Dive</CardTitle>
-                          </CardHeader>
-                          <CardContent className="space-y-3">
-                            <div>
-                              <p className="text-sm text-muted-foreground leading-relaxed">{archetype.description}</p>
-                            </div>
-                            <Separator />
-                            <div className="grid gap-3 sm:grid-cols-2">
-                              <div className="space-y-1">
-                                <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Merit</p>
-                                <p className="font-mono text-lg text-foreground">{metrics.merit}</p>
-                              </div>
-                              <div className="space-y-1">
-                                <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Energy</p>
-                                <p className="font-mono text-lg text-foreground">{metrics.energy}</p>
-                              </div>
-                              <div className="space-y-1 sm:col-span-2">
-                                <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Profile</p>
-                                <p className="text-sm text-muted-foreground">
-                                  {scoreTag} — {energyInfo.name}
-                                </p>
-                              </div>
-                              <div className="space-y-1 sm:col-span-2">
-                                <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Coach</p>
-                                <p className="text-sm text-muted-foreground leading-relaxed">{coachLine}</p>
-                              </div>
-                            </div>
-                          </CardContent>
-                        </Card>
-                      </div>
-                    </div>
+                        <Button size="lg" onClick={handleBookAuditClick}>
+                          Book a Decision Audit
+                        </Button>
+                      </CardContent>
+                    </Card>
                   </div>
-
-                  <Card className="mt-8 border border-primary/40 bg-primary/5">
-                    <CardHeader>
-                      <CardTitle className="text-2xl font-semibold text-foreground">
-                        Turn One Decision Into a Decision Story
-                      </CardTitle>
-                    </CardHeader>
-                    <CardContent className="space-y-4">
-                      <p className="text-sm text-muted-foreground">
-                        This live check is just the first layer. In a Decision Audit, we run a cluster of your real decisions through D-NAV, map your judgment patterns, and design a cadence that reduces re-decisions and increases stability under pressure.
-                      </p>
-                      <ul className="list-disc space-y-1 pl-5 text-sm text-muted-foreground">
-                        <li>Score a batch of real decisions across Impact, Cost, Risk, Urgency, and Confidence</li>
-                        <li>See your Return / Stability / Pressure profile as a team</li>
-                        <li>Identify dominant archetypes and blind spots</li>
-                        <li>Design a 30–90 day decision cadence for your team</li>
-                      </ul>
-                      <Button size="lg" onClick={handleBookAuditClick}>
-                        Book a Decision Audit
-                      </Button>
-                    </CardContent>
-                  </Card>
                 </div>
               </div>
 
