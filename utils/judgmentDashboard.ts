@@ -39,11 +39,12 @@ export interface RpsBaseline {
   returnSegments: { label: string; value: number; color: string; metricKey: string }[];
   pressureSegments: { label: string; value: number; color: string; metricKey: string }[];
   stabilitySegments: { label: string; value: number; color: string; metricKey: string }[];
-  bestWorst: {
-    label: string;
-    value: number;
-    decision: JudgmentDecision | null;
-  }[];
+  deltas: {
+    avgReturn: number | null;
+    avgPressure: number | null;
+    avgStability: number | null;
+    hasComparison: boolean;
+  };
 }
 
 export interface LearningMetrics {
@@ -169,6 +170,26 @@ export const filterDecisionsByTimeframe = (
   return decisions.filter((decision) => referenceTimestamp - decision.ts <= timeframeDays * msInDay);
 };
 
+export const filterPreviousDecisionsByTimeframe = (
+  decisions: DecisionEntry[],
+  timeframeDays: number | null,
+): DecisionEntry[] => {
+  if (!timeframeDays) return [];
+  if (decisions.length === 0) return [];
+
+  const referenceTimestamp = decisions[0]?.ts ?? Date.now();
+  const currentWindowBoundary = referenceTimestamp - timeframeDays * msInDay;
+  const previousWindowBoundary = referenceTimestamp - timeframeDays * 2 * msInDay;
+
+  return decisions.filter(
+    (decision) =>
+      referenceTimestamp - decision.ts > timeframeDays * msInDay &&
+      referenceTimestamp - decision.ts <= timeframeDays * 2 * msInDay &&
+      decision.ts > previousWindowBoundary &&
+      decision.ts <= currentWindowBoundary,
+  );
+};
+
 export const normalizeDecision = (decision: DecisionEntry): JudgmentDecision => {
   const createdAt = decision.createdAt ?? decision.ts;
   const baseReturn = (decision as unknown as { return0?: number }).return0 ?? decision.return;
@@ -218,6 +239,7 @@ export const normalizeDecision = (decision: DecisionEntry): JudgmentDecision => 
 
 export const computeRpsBaseline = (
   decisions: JudgmentDecision[],
+  previousDecisions: JudgmentDecision[] = [],
 ): RpsBaseline => {
   const returns = decisions.map((d) => d.return0);
   const pressures = decisions.map((d) => d.pressure0);
@@ -227,26 +249,14 @@ export const computeRpsBaseline = (
   const avgPressure = mean(pressures);
   const avgStability = mean(stabilities);
 
-    const pickExtreme = (
-      label: string,
-      selector: (d: JudgmentDecision) => number,
-      compare: (candidate: number, current: number) => boolean,
-    ): { label: string; value: number; decision: JudgmentDecision | null } => {
-      if (!decisions.length) return { label, value: 0, decision: null };
+  const previousReturns = previousDecisions.map((d) => d.return0);
+  const previousPressures = previousDecisions.map((d) => d.pressure0);
+  const previousStabilities = previousDecisions.map((d) => d.stability0);
 
-      const best = decisions.reduce((currentBest, decision) => {
-        const value = selector(decision);
-        if (!currentBest) return decision;
-
-        const bestValue = selector(currentBest);
-        if (compare(value, bestValue) || (value === bestValue && decision.createdAt > currentBest.createdAt)) {
-          return decision;
-        }
-        return currentBest;
-      }, null as JudgmentDecision | null);
-
-      return { label, value: best ? selector(best) : 0, decision: best };
-    };
+  const hasComparison = previousDecisions.length > 0;
+  const avgReturnDelta = hasComparison ? avgReturn - mean(previousReturns) : null;
+  const avgPressureDelta = hasComparison ? avgPressure - mean(previousPressures) : null;
+  const avgStabilityDelta = hasComparison ? avgStability - mean(previousStabilities) : null;
 
   const returnSegments = buildSegments(returns, {
     positive: "#22c55e",
@@ -274,14 +284,12 @@ export const computeRpsBaseline = (
     returnSegments,
     pressureSegments,
     stabilitySegments,
-    bestWorst: [
-      pickExtreme("Best Return", (d) => d.return0, (a, b) => a > b),
-      pickExtreme("Worst Return", (d) => d.return0, (a, b) => a < b),
-      pickExtreme("Best Pressure", (d) => d.pressure0, (a, b) => a > b),
-      pickExtreme("Worst Pressure", (d) => d.pressure0, (a, b) => a < b),
-      pickExtreme("Best Stability", (d) => d.stability0, (a, b) => a > b),
-      pickExtreme("Worst Stability", (d) => d.stability0, (a, b) => a < b),
-    ],
+    deltas: {
+      avgReturn: avgReturnDelta,
+      avgPressure: avgPressureDelta,
+      avgStability: avgStabilityDelta,
+      hasComparison,
+    },
   };
 };
 

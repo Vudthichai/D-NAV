@@ -13,12 +13,13 @@ export const getRpsSummary = (baseline: RpsBaseline): string => {
     return "No decisions fall within this window yet, so the RPS baseline needs more entries before trends become reliable.";
   }
 
-  const bestReturn = baseline.bestWorst.find((item) => item.label === "Best Return")?.value ?? 0;
-  const worstReturn = baseline.bestWorst.find((item) => item.label === "Worst Return")?.value ?? 0;
   const pressureTone = describeDirection(baseline.avgPressure, "pressure tilts higher", "pressure stays calm", "pressure is balanced");
   const stabilityTone = describeDirection(baseline.avgStability, "stability leans positive", "stability leans fragile", "stability is mixed");
+  const deltaSummary = baseline.deltas.hasComparison
+    ? ` Avg R ${formatNumber(baseline.deltas.avgReturn ?? 0)} vs prior, P ${formatNumber(baseline.deltas.avgPressure ?? 0)}, S ${formatNumber(baseline.deltas.avgStability ?? 0)}.`
+    : "";
 
-  return `Baseline covers ${baseline.total} decisions; average return ${formatNumber(baseline.avgReturn)} with ${pressureTone} and ${stabilityTone}. Best return ${formatNumber(bestReturn)}, worst ${formatNumber(worstReturn)}.`;
+  return `Baseline covers ${baseline.total} decisions; average return ${formatNumber(baseline.avgReturn)} with ${pressureTone} and ${stabilityTone}.${deltaSummary}`;
 };
 
 export const getLearningRecoverySummary = (learning: LearningMetrics, hygiene: ReturnHygiene): string => {
