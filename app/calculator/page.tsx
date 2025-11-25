@@ -8,7 +8,7 @@ import { InfoTooltip } from "@/components/InfoTooltip";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Dialog, DialogClose, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Dialog, DialogClose, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import {
@@ -26,6 +26,7 @@ import {
   DecisionVariables,
   coachHint,
   computeMetrics,
+  getArchetype,
 } from "@/lib/calculations";
 import { addDecision, loadLog } from "@/lib/storage";
 import { useNetlifyIdentity } from "@/hooks/use-netlify-identity";
@@ -61,10 +62,10 @@ import {
   type JudgmentDecision,
 } from "@/utils/judgmentDashboard";
 import {
-  generateArchetypeSummary,
-  generateCategorySummary,
-  generateLearningRecoverySummary,
-  generateRPSSummary,
+  getArchetypeSummary,
+  getCategorySummary,
+  getLearningRecoverySummary,
+  getRpsSummary,
 } from "@/utils/sectionSummaries";
 
 const DEFAULT_VARIABLES: DecisionVariables = {
@@ -247,48 +248,120 @@ const CompactMetric = ({ label, value, tooltip }: { label: string; value: string
   </div>
 );
 
-const DecisionHighlightRow = ({ label, decision }: { label: string; decision: JudgmentDecision }) => (
-  <div className="overflow-x-auto">
-    <div className="flex min-w-[1050px] items-center gap-3 rounded-lg border bg-muted/30 px-3 py-2">
-      <div className="w-32 shrink-0 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">{label}</div>
-      <Badge variant="secondary" className="shrink-0">
-        {decision.category || "Uncategorized"}
-      </Badge>
-      <p className="flex-1 min-w-[220px] truncate text-sm font-semibold text-foreground">{decision.title}</p>
+const buildDistributionSegments = (
+  values: number[],
+  palette: { positive: string; neutral: string; negative: string },
+): DistributionSegment[] => {
+  const counts = values.reduce(
+    (acc, value) => {
+      if (value > 0) acc.positive += 1;
+      else if (value < 0) acc.negative += 1;
+      else acc.neutral += 1;
+      return acc;
+    },
+    { positive: 0, neutral: 0, negative: 0 },
+  );
 
-      <div className="flex items-center gap-4">
-        {[{ label: "R", value: decision.return0 }, { label: "P", value: decision.pressure0 }, { label: "S", value: decision.stability0 }].map(
-          (metric) => (
-            <div key={`${label}-${metric.label}`} className="min-w-[70px]">
-              <p className="text-[10px] font-semibold uppercase text-muted-foreground">{metric.label}</p>
-              <p className="text-sm font-semibold text-foreground">{formatValue(metric.value)}</p>
-            </div>
-          ),
-        )}
+  const total = Math.max(values.length, 1);
+
+  return [
+    { label: "Positive", value: (counts.positive / total) * 100, color: palette.positive, metricKey: "positive" },
+    { label: "Neutral", value: (counts.neutral / total) * 100, color: palette.neutral, metricKey: "neutral" },
+    { label: "Negative", value: (counts.negative / total) * 100, color: palette.negative, metricKey: "negative" },
+  ];
+};
+
+const ArchetypeSummaryCard = ({
+  title,
+  row,
+  tooltip,
+}: {
+  title: string;
+  row?: ArchetypePatternRow;
+  tooltip?: string;
+}) => {
+  const summary = row
+    ? `R ${formatValue(row.avgR)} | P ${formatValue(row.avgP)} | S ${formatValue(row.avgS)}`
+    : "No data in this window";
+  const description = row
+    ? getArchetype({ return: row.avgR, pressure: row.avgP, stability: row.avgS, merit: 0, energy: 0, dnav: row.avgDnav })
+        .description
+    : "Log more decisions to surface this archetype.";
+
+  return (
+    <div className="space-y-1 rounded-lg border bg-muted/30 p-3">
+      <div className="flex items-center justify-between">
+        <TooltipLabel label={title} tooltip={tooltip} className="text-xs text-muted-foreground" />
+        <span className="text-xs text-muted-foreground">{row ? `${row.count} decisions` : "—"}</span>
       </div>
+      <p className="text-lg font-semibold text-foreground">{row?.archetype ?? "—"}</p>
+      <p className="text-sm text-muted-foreground">{summary}</p>
+      <p className="text-xs text-muted-foreground leading-snug">{description}</p>
+    </div>
+  );
+};
 
-      <div className="min-w-[90px] pl-2">
-        <p className="text-[10px] font-semibold uppercase text-muted-foreground">D-NAV</p>
-        <p className="text-sm font-semibold text-foreground">{formatValue(decision.dnavScore)}</p>
-      </div>
+const DecisionHighlightRow = ({
+  label,
+  decision,
+  tone = "neutral",
+  tooltip,
+}: {
+  label: string;
+  decision: JudgmentDecision;
+  tone?: "best" | "worst" | "neutral";
+  tooltip?: string;
+}) => {
+  const toneClass =
+    tone === "best"
+      ? "bg-[rgba(0,200,0,0.05)] border-l-[3px] border-l-[rgba(0,200,0,0.3)]"
+      : tone === "worst"
+        ? "bg-[rgba(255,0,0,0.05)] border-l-[3px] border-l-[rgba(255,0,0,0.3)]"
+        : "";
 
-      <div className="flex items-center gap-3 pl-2">
-        {[
-          { label: "Impact", value: decision.impact0 },
-          { label: "Cost", value: decision.cost0 },
-          { label: "Risk", value: decision.risk0 },
-          { label: "Urgency", value: decision.urgency0 },
-          { label: "Confidence", value: decision.confidence0 },
-        ].map((metric) => (
-          <div key={`${label}-${metric.label}`} className="min-w-[80px] text-right">
-            <p className="text-[10px] font-semibold uppercase text-muted-foreground text-left">{metric.label}</p>
-            <p className="text-sm font-medium text-foreground">{formatValue(metric.value)}</p>
-          </div>
-        ))}
+  return (
+    <div className="overflow-x-auto">
+      <div
+        className={`flex min-w-[1050px] items-center gap-3 rounded-lg border bg-muted/30 px-3 py-2 ${toneClass}`}
+      >
+        <div className="w-32 shrink-0 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+          <TooltipLabel label={label} tooltip={tooltip} />
+        </div>
+        <Badge variant="secondary" className="shrink-0">
+          {decision.category || "Uncategorized"}
+        </Badge>
+        <p className="flex-1 min-w-[220px] truncate text-sm font-semibold text-foreground">{decision.title}</p>
+
+        <div className="flex items-center gap-4">
+          {[{ label: "R", value: decision.return0 }, { label: "P", value: decision.pressure0 }, { label: "S", value: decision.stability0 }].map(
+            (metric) => (
+              <div key={`${label}-${metric.label}`} className="min-w-[70px]">
+                <p className="text-[10px] font-semibold uppercase text-muted-foreground">{metric.label}</p>
+                <p className="text-sm font-semibold text-foreground">{formatValue(metric.value)}</p>
+              </div>
+            ),
+          )}
+        </div>
+
+        <div className="min-w-[90px] pl-2">
+          <p className="text-[10px] font-semibold uppercase text-muted-foreground">D-NAV</p>
+          <p className="text-sm font-semibold text-foreground">{formatValue(decision.dnavScore)}</p>
+        </div>
+
+        <div className="flex items-center gap-3 pl-2">
+          {[{ label: "Impact", value: decision.impact0 }, { label: "Cost", value: decision.cost0 }, { label: "Risk", value: decision.risk0 }, { label: "Urgency", value: decision.urgency0 }, { label: "Confidence", value: decision.confidence0 }].map(
+            (metric) => (
+              <div key={`${label}-${metric.label}`} className="min-w-[80px] text-right">
+                <p className="text-[10px] font-semibold uppercase text-muted-foreground text-left">{metric.label}</p>
+                <p className="text-sm font-medium text-foreground">{formatValue(metric.value)}</p>
+              </div>
+            ),
+          )}
+        </div>
       </div>
     </div>
-  </div>
-);
+  );
+};
 
 const getStatsReportSections = (current: DashboardStats, cadenceLabel: string) => ({
   generated: new Date().toLocaleString(),
@@ -429,11 +502,8 @@ export default function TheDNavPage() {
     ...judgment,
   };
 
-  const rpsSummary = useMemo(() => generateRPSSummary(baseline), [baseline]);
-  const learningSummary = useMemo(
-    () => generateLearningRecoverySummary(learning, hygiene),
-    [learning, hygiene],
-  );
+  const rpsSummary = useMemo(() => getRpsSummary(baseline), [baseline]);
+  const learningSummary = useMemo(() => getLearningRecoverySummary(learning, hygiene), [learning, hygiene]);
   const sortedCategories = useMemo(() => {
     const sorted = [...categories];
     sorted.sort((a, b) => {
@@ -451,7 +521,7 @@ export default function TheDNavPage() {
     });
     return sorted;
   }, [categories, categorySort]);
-  const categorySummary = useMemo(() => generateCategorySummary(sortedCategories), [sortedCategories]);
+  const categorySummary = useMemo(() => getCategorySummary(sortedCategories), [sortedCategories]);
   const sortedArchetypeRows = useMemo(() => {
     const sorted = [...archetypes.rows];
     sorted.sort((a, b) => {
@@ -469,7 +539,7 @@ export default function TheDNavPage() {
     });
     return sorted;
   }, [archetypes.rows, archetypeTableSort]);
-  const archetypeSummary = useMemo(() => generateArchetypeSummary(archetypes), [archetypes]);
+  const archetypeSummary = useMemo(() => getArchetypeSummary(archetypes), [archetypes]);
 
   const archetypeDecisions = useMemo(
     () =>
@@ -477,6 +547,15 @@ export default function TheDNavPage() {
         ? normalized.filter((decision) => decision.archetype === selectedArchetype.archetype)
         : [],
     [normalized, selectedArchetype],
+  );
+
+  const primaryArchetypeRow = useMemo(
+    () => archetypes.rows.find((row) => row.archetype === archetypes.primary),
+    [archetypes.primary, archetypes.rows],
+  );
+  const secondaryArchetypeRow = useMemo(
+    () => archetypes.rows.find((row) => row.archetype === archetypes.secondary),
+    [archetypes.rows, archetypes.secondary],
   );
 
   const sortedArchetypeDecisions = useMemo(() => {
@@ -496,6 +575,35 @@ export default function TheDNavPage() {
     });
     return sorted;
   }, [archetypeDecisions, archetypeDecisionSort]);
+
+  const archetypeDistributions = useMemo(
+    () => {
+      if (!selectedArchetype) return null;
+
+      const returns = archetypeDecisions.map((decision) => decision.return0 ?? decision.return ?? 0);
+      const pressures = archetypeDecisions.map((decision) => decision.pressure0 ?? decision.pressure ?? 0);
+      const stabilities = archetypeDecisions.map((decision) => decision.stability0 ?? decision.stability ?? 0);
+
+      return {
+        returnSegments: buildDistributionSegments(returns, {
+          positive: "#22c55e",
+          neutral: "#eab308",
+          negative: "#ef4444",
+        }),
+        pressureSegments: buildDistributionSegments(pressures, {
+          positive: "#ef4444",
+          neutral: "#eab308",
+          negative: "#22c55e",
+        }),
+        stabilitySegments: buildDistributionSegments(stabilities, {
+          positive: "#22c55e",
+          neutral: "#eab308",
+          negative: "#ef4444",
+        }),
+      };
+    },
+    [archetypeDecisions, selectedArchetype],
+  );
 
   const coachLine = useMemo(() => coachHint(variables, metrics), [metrics, variables]);
   const getPillColor = useCallback(
@@ -1015,21 +1123,17 @@ export default function TheDNavPage() {
                               value={formatValue(baseline.avgPressure)}
                               tooltip={TOOLTIP_COPY["Avg Pressure (P)"]}
                             />
-                            <CompactMetric
-                              label="Avg Stability (S)"
-                              value={formatValue(baseline.avgStability)}
-                              tooltip={TOOLTIP_COPY["Avg Stability (S)"]}
-                            />
-                          </div>
+                          <CompactMetric
+                            label="Avg Stability (S)"
+                            value={formatValue(baseline.avgStability)}
+                            tooltip={TOOLTIP_COPY["Avg Stability (S)"]}
+                          />
+                        </div>
 
-                          <p className="text-sm text-muted-foreground">
-                            Avg RPS represent the average observed outcome of your logged decisions.
-                          </p>
-
-                          <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-                            <DistributionCard
-                              title="Return distribution"
-                              tooltip={TOOLTIP_COPY["Return distribution"]}
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                          <DistributionCard
+                            title="Return distribution"
+                            tooltip={TOOLTIP_COPY["Return distribution"]}
                               segments={baseline.returnSegments}
                             />
                             <DistributionCard
@@ -1040,21 +1144,39 @@ export default function TheDNavPage() {
                             <DistributionCard
                               title="Stability distribution"
                               tooltip={TOOLTIP_COPY["Stability distribution"]}
-                              segments={baseline.stabilitySegments}
-                            />
-                          </div>
+                            segments={baseline.stabilitySegments}
+                          />
+                        </div>
 
-                          <div className="space-y-3">
+                        <Card className="border bg-muted/30">
+                          <CardHeader className="pb-3">
+                            <CardTitle className="text-base font-semibold">RPS Extremes</CardTitle>
+                            <p className="text-xs text-muted-foreground">
+                              Highest and lowest Return, Pressure, and Stability within the selected timeframe.
+                            </p>
+                          </CardHeader>
+                          <CardContent className="space-y-2 pt-0">
                             {baseline.total > 0 ? (
-                              baseline.bestWorst.map((item) =>
-                                item.decision ? (
-                                  <DecisionHighlightRow key={item.label} label={item.label} decision={item.decision} />
-                                ) : null,
-                              )
+                              <div className="overflow-x-auto">
+                                <div className="min-w-[1100px] space-y-2">
+                                  {baseline.bestWorst.map((item) =>
+                                    item.decision ? (
+                                      <DecisionHighlightRow
+                                        key={item.label}
+                                        label={item.label}
+                                        decision={item.decision}
+                                        tone={item.label.startsWith("Best") ? "best" : "worst"}
+                                        tooltip={TOOLTIP_COPY[item.label]}
+                                      />
+                                    ) : null,
+                                  )}
+                                </div>
+                              </div>
                             ) : (
                               <p className="text-sm text-muted-foreground">No logged decisions to display yet.</p>
                             )}
-                          </div>
+                          </CardContent>
+                        </Card>
                         </CardContent>
                       </Card>
 
@@ -1157,14 +1279,14 @@ export default function TheDNavPage() {
                       </CardHeader>
                       <CardContent className="space-y-6">
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                          <CompactMetric
-                            label="Primary Archetype"
-                            value={archetypes.primary}
+                          <ArchetypeSummaryCard
+                            title="Primary Archetype"
+                            row={primaryArchetypeRow}
                             tooltip={TOOLTIP_COPY["Primary Archetype"]}
                           />
-                          <CompactMetric
-                            label="Secondary Archetype"
-                            value={archetypes.secondary}
+                          <ArchetypeSummaryCard
+                            title="Secondary Archetype"
+                            row={secondaryArchetypeRow}
                             tooltip={TOOLTIP_COPY["Secondary Archetype"]}
                           />
                         </div>
@@ -1247,71 +1369,145 @@ export default function TheDNavPage() {
                     open={!!selectedArchetype}
                     onOpenChange={(open) => setSelectedArchetype(open ? selectedArchetype : null)}
                   >
-                    <DialogContent className="sm:max-w-5xl">
-                      <DialogHeader className="pr-10">
-                        <DialogTitle>
-                          {selectedArchetype ? `${selectedArchetype.archetype} decisions` : "Archetype decisions"}
-                        </DialogTitle>
-                      </DialogHeader>
-                      <DialogClose className="absolute right-4 top-4 rounded-md opacity-70 ring-offset-background transition-opacity hover:opacity-100 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2">
-                        <X className="h-4 w-4" />
-                        <span className="sr-only">Close</span>
-                      </DialogClose>
-                      {selectedArchetype && (
-                        <div className="space-y-3">
-                          <div className="overflow-x-auto">
-                            <Table className="text-sm min-w-[1000px]">
-                              <TableHeader>
-                                <TableRow>
-                                  {[
-                                    { key: "title", label: "Title" },
-                                    { key: "category", label: "Category" },
-                                    { key: "impact0", label: "Impact" },
-                                    { key: "cost0", label: "Cost" },
-                                    { key: "risk0", label: "Risk" },
-                                    { key: "urgency0", label: "Urgency" },
-                                    { key: "confidence0", label: "Confidence" },
-                                    { key: "return0", label: "Return" },
-                                    { key: "pressure0", label: "Pressure" },
-                                    { key: "stability0", label: "Stability" },
-                                    { key: "dnavScore", label: "D-NAV" },
-                                  ].map((column) => (
-                                    <TableHead key={column.key} className="text-right first:text-left">
-                                      <button
-                                        type="button"
-                                        className="flex items-center gap-1 w-full justify-between text-left"
-                                        onClick={() =>
-                                          handleArchetypeDecisionSort(column.key as ArchetypeDecisionSortKey)
-                                        }
-                                      >
-                                        <span>{column.label}</span>
-                                        <ArrowUpDown className="h-4 w-4" />
-                                      </button>
-                                    </TableHead>
-                                  ))}
-                                </TableRow>
-                              </TableHeader>
-                              <TableBody>
-                                {sortedArchetypeDecisions.map((decision) => (
-                                  <TableRow key={decision.id}>
-                                    <TableCell className="font-medium">{decision.title}</TableCell>
-                                    <TableCell className="text-right">{decision.category}</TableCell>
-                                    <TableCell className="text-right">{formatValue(decision.impact0)}</TableCell>
-                                    <TableCell className="text-right">{formatValue(decision.cost0)}</TableCell>
-                                    <TableCell className="text-right">{formatValue(decision.risk0)}</TableCell>
-                                    <TableCell className="text-right">{formatValue(decision.urgency0)}</TableCell>
-                                    <TableCell className="text-right">{formatValue(decision.confidence0)}</TableCell>
-                                    <TableCell className="text-right">{formatValue(decision.return0)}</TableCell>
-                                    <TableCell className="text-right">{formatValue(decision.pressure0)}</TableCell>
-                                    <TableCell className="text-right">{formatValue(decision.stability0)}</TableCell>
-                                    <TableCell className="text-right">{formatValue(decision.dnavScore)}</TableCell>
-                                  </TableRow>
-                                ))}
-                              </TableBody>
-                            </Table>
-                          </div>
+                    <DialogContent className="w-[90vw] max-w-[90vw] h-[85vh] p-0 overflow-hidden">
+                      <div className="flex h-full flex-col bg-background">
+                        <div className="flex items-start justify-between border-b px-6 py-4">
+                          <DialogTitle className="text-lg font-semibold">
+                            {selectedArchetype ? `${selectedArchetype.archetype} decisions` : "Archetype decisions"}
+                          </DialogTitle>
+                          <DialogClose className="rounded-md opacity-70 ring-offset-background transition-opacity hover:opacity-100 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2">
+                            <X className="h-4 w-4" />
+                            <span className="sr-only">Close</span>
+                          </DialogClose>
                         </div>
-                      )}
+
+                        {selectedArchetype && (
+                          <>
+                            <div className="space-y-4 border-b bg-card/60 px-6 py-4">
+                              <div className="flex flex-wrap items-start justify-between gap-3">
+                                <div className="space-y-1">
+                                  <p className="text-base font-semibold text-foreground">{selectedArchetype.archetype}</p>
+                                  <p className="text-sm text-muted-foreground">
+                                    {
+                                      getArchetype({
+                                        return: selectedArchetype.avgR,
+                                        pressure: selectedArchetype.avgP,
+                                        stability: selectedArchetype.avgS,
+                                        merit: 0,
+                                        energy: 0,
+                                        dnav: selectedArchetype.avgDnav,
+                                      }).description
+                                    }
+                                  </p>
+                                </div>
+                                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-sm">
+                                  <div>
+                                    <p className="text-[10px] font-semibold uppercase text-muted-foreground">Avg R</p>
+                                    <p className="font-semibold text-foreground">{formatValue(selectedArchetype.avgR)}</p>
+                                  </div>
+                                  <div>
+                                    <p className="text-[10px] font-semibold uppercase text-muted-foreground">Avg P</p>
+                                    <p className="font-semibold text-foreground">{formatValue(selectedArchetype.avgP)}</p>
+                                  </div>
+                                  <div>
+                                    <p className="text-[10px] font-semibold uppercase text-muted-foreground">Avg S</p>
+                                    <p className="font-semibold text-foreground">{formatValue(selectedArchetype.avgS)}</p>
+                                  </div>
+                                  <div>
+                                    <p className="text-[10px] font-semibold uppercase text-muted-foreground">Avg D-NAV</p>
+                                    <p className="font-semibold text-foreground">{formatValue(selectedArchetype.avgDnav)}</p>
+                                  </div>
+                                </div>
+                              </div>
+
+                              <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+                                <span className="font-semibold text-foreground">Top categories:</span>
+                                {selectedArchetype.topCategories?.length ? (
+                                  selectedArchetype.topCategories.map((category) => (
+                                    <Badge key={category} variant="secondary">
+                                      {category}
+                                    </Badge>
+                                  ))
+                                ) : (
+                                  <span>—</span>
+                                )}
+                              </div>
+
+                              <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                                <DistributionCard
+                                  title="Return distribution"
+                                  segments={archetypeDistributions?.returnSegments ?? []}
+                                  tooltip={TOOLTIP_COPY["Return distribution"]}
+                                />
+                                <DistributionCard
+                                  title="Pressure distribution"
+                                  segments={archetypeDistributions?.pressureSegments ?? []}
+                                  tooltip={TOOLTIP_COPY["Pressure distribution"]}
+                                />
+                                <DistributionCard
+                                  title="Stability distribution"
+                                  segments={archetypeDistributions?.stabilitySegments ?? []}
+                                  tooltip={TOOLTIP_COPY["Stability distribution"]}
+                                />
+                              </div>
+                            </div>
+
+                            <div className="flex-1 overflow-auto px-6 pb-6 pt-4">
+                              <div className="overflow-x-auto">
+                                <Table className="text-sm min-w-[1100px]">
+                                  <TableHeader>
+                                    <TableRow>
+                                      {[
+                                        { key: "title", label: "Title" },
+                                        { key: "category", label: "Category" },
+                                        { key: "impact0", label: "Impact" },
+                                        { key: "cost0", label: "Cost" },
+                                        { key: "risk0", label: "Risk" },
+                                        { key: "urgency0", label: "Urgency" },
+                                        { key: "confidence0", label: "Confidence" },
+                                        { key: "return0", label: "Return" },
+                                        { key: "pressure0", label: "Pressure" },
+                                        { key: "stability0", label: "Stability" },
+                                        { key: "dnavScore", label: "D-NAV" },
+                                      ].map((column) => (
+                                        <TableHead key={column.key} className="text-right first:text-left">
+                                          <button
+                                            type="button"
+                                            className="flex items-center gap-1 w-full justify-between text-left"
+                                            onClick={() =>
+                                              handleArchetypeDecisionSort(column.key as ArchetypeDecisionSortKey)
+                                            }
+                                          >
+                                            <span>{column.label}</span>
+                                            <ArrowUpDown className="h-4 w-4" />
+                                          </button>
+                                        </TableHead>
+                                      ))}
+                                    </TableRow>
+                                  </TableHeader>
+                                  <TableBody>
+                                    {sortedArchetypeDecisions.map((decision) => (
+                                      <TableRow key={decision.id}>
+                                        <TableCell className="font-medium">{decision.title}</TableCell>
+                                        <TableCell className="text-right">{decision.category}</TableCell>
+                                        <TableCell className="text-right">{formatValue(decision.impact0)}</TableCell>
+                                        <TableCell className="text-right">{formatValue(decision.cost0)}</TableCell>
+                                        <TableCell className="text-right">{formatValue(decision.risk0)}</TableCell>
+                                        <TableCell className="text-right">{formatValue(decision.urgency0)}</TableCell>
+                                        <TableCell className="text-right">{formatValue(decision.confidence0)}</TableCell>
+                                        <TableCell className="text-right">{formatValue(decision.return0)}</TableCell>
+                                        <TableCell className="text-right">{formatValue(decision.pressure0)}</TableCell>
+                                        <TableCell className="text-right">{formatValue(decision.stability0)}</TableCell>
+                                        <TableCell className="text-right">{formatValue(decision.dnavScore)}</TableCell>
+                                      </TableRow>
+                                    ))}
+                                  </TableBody>
+                                </Table>
+                              </div>
+                            </div>
+                          </>
+                        )}
+                      </div>
                     </DialogContent>
                   </Dialog>
                 </div>
