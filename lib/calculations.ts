@@ -20,6 +20,29 @@ export interface DecisionEntry extends DecisionVariables, DecisionMetrics {
   ts: number;
   name: string;
   category: string;
+  id?: string;
+  title?: string;
+  createdAt?: number;
+  impact0?: number;
+  cost0?: number;
+  risk0?: number;
+  urgency0?: number;
+  confidence0?: number;
+  impact1?: number;
+  cost1?: number;
+  risk1?: number;
+  urgency1?: number;
+  confidence1?: number;
+  return0?: number;
+  pressure0?: number;
+  stability0?: number;
+  return1?: number;
+  pressure1?: number;
+  stability1?: number;
+  dnavScore?: number;
+  archetype?: string;
+  resolutionWindow?: number | string;
+  resolvedAt?: number | null;
 }
 
 export interface EnergyTier {
