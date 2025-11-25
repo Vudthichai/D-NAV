@@ -41,9 +41,8 @@ export interface RpsBaseline {
   stabilitySegments: { label: string; value: number; color: string; metricKey: string }[];
   bestWorst: {
     label: string;
-    title: string;
     value: number;
-    createdAt: number;
+    decision: JudgmentDecision | null;
   }[];
 }
 
@@ -63,6 +62,7 @@ export interface ReturnHygiene {
   worstLossStreak: number;
   maxDrawdown: number;
   returnDebt: number;
+  decisionDebt: number;
   paybackRatio: number;
   averageWin: number;
   averageLoss: number;
@@ -227,26 +227,26 @@ export const computeRpsBaseline = (
   const avgPressure = mean(pressures);
   const avgStability = mean(stabilities);
 
-  const pickExtreme = (
-    label: string,
-    selector: (d: JudgmentDecision) => number,
-    compare: (candidate: number, current: number) => boolean,
-  ) => {
-    if (!decisions.length) return { label, title: "—", value: 0, createdAt: 0 };
-    return decisions.reduce(
-      (best, decision) => {
+    const pickExtreme = (
+      label: string,
+      selector: (d: JudgmentDecision) => number,
+      compare: (candidate: number, current: number) => boolean,
+    ): { label: string; value: number; decision: JudgmentDecision | null } => {
+      if (!decisions.length) return { label, value: 0, decision: null };
+
+      const best = decisions.reduce((currentBest, decision) => {
         const value = selector(decision);
-        if (
-          compare(value, best.value) ||
-          (value === best.value && decision.createdAt > best.createdAt)
-        ) {
-          return { label, title: decision.title, value, createdAt: decision.createdAt };
+        if (!currentBest) return decision;
+
+        const bestValue = selector(currentBest);
+        if (compare(value, bestValue) || (value === bestValue && decision.createdAt > currentBest.createdAt)) {
+          return decision;
         }
-        return best;
-      },
-      { label, title: decisions[0].title, value: selector(decisions[0]), createdAt: decisions[0].createdAt },
-    );
-  };
+        return currentBest;
+      }, null as JudgmentDecision | null);
+
+      return { label, value: best ? selector(best) : 0, decision: best };
+    };
 
   const returnSegments = buildSegments(returns, {
     positive: "#22c55e",
@@ -392,6 +392,7 @@ export const computeReturnHygiene = (chronologicalDecisions: JudgmentDecision[])
   const losses = returns.filter((r) => r < 0);
   const avgWin = wins.length ? mean(wins) : 0;
   const avgLoss = losses.length ? mean(losses) : 0;
+  const decisionDebt = returns.length ? (losses.length / returns.length) * 100 : 0;
 
   const paybackRatio = avgWin !== 0 ? Math.abs(avgLoss) / Math.abs(avgWin) : 0; // avg loss versus avg win
 
@@ -400,6 +401,7 @@ export const computeReturnHygiene = (chronologicalDecisions: JudgmentDecision[])
     worstLossStreak: longestLoss,
     maxDrawdown: Math.abs(maxDrawdown),
     returnDebt,
+    decisionDebt,
     paybackRatio,
     averageWin: avgWin,
     averageLoss: avgLoss,

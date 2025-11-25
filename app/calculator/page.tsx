@@ -8,12 +8,7 @@ import { InfoTooltip } from "@/components/InfoTooltip";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
+import { Dialog, DialogClose, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import {
@@ -44,6 +39,7 @@ import {
   RotateCcw,
   Save,
   Upload,
+  X,
 } from "lucide-react";
 import jsPDF from "jspdf";
 import html2canvas from "html2canvas";
@@ -62,6 +58,7 @@ import {
   filterDecisionsByTimeframe,
   type ArchetypePatternRow,
   type CategoryHeatmapRow,
+  type JudgmentDecision,
 } from "@/utils/judgmentDashboard";
 import {
   generateArchetypeSummary,
@@ -114,14 +111,15 @@ type ArchetypeDecisionSortKey =
   | "stability0"
   | "dnavScore";
 
+type ArchetypeTableSortKey = "archetype" | "count" | "avgR" | "avgP" | "avgS" | "avgDnav";
+
 const TOOLTIP_COPY: Record<string, string> = {
   "Learning Curve Index":
-    "LCI measures how quickly your performance improves after negative-return decisions. Higher values mean faster learning and recovery.",
+    "LCI measures how quickly your performance improves after negative-return decisions. Higher values (closer to 1.0) indicate faster recovery.",
   "Decisions to recover":
     "Average number of decisions it takes to recover to your previous performance level after a loss.",
   "Win rate": "Percentage of decisions with a positive Return.",
-  "Payback ratio": "Average size of a loss compared to an average win. Higher values mean losses take more wins to offset.",
-  "Return debt": "Total unresolved negative Return that has not yet been offset by later gains.",
+  "Decision debt": "Percentage of decisions in this window with negative Return.",
   "Total decisions": "Number of logged decisions in the selected time window.",
   "Avg Return (R)": "Average outcome of your decisions. Positive = beneficial, Negative = costly.",
   "Avg Pressure (P)": "Average pressure or burden created by your decisions (time, effort, stress).",
@@ -249,10 +247,46 @@ const CompactMetric = ({ label, value, tooltip }: { label: string; value: string
   </div>
 );
 
-const SectionSummary = ({ text }: { text: string }) => (
-  <div className="rounded-lg border bg-muted/40 p-4">
-    <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Section Summary</p>
-    <p className="text-sm text-foreground mt-1 leading-relaxed">{text}</p>
+const DecisionHighlightRow = ({ label, decision }: { label: string; decision: JudgmentDecision }) => (
+  <div className="overflow-x-auto">
+    <div className="flex min-w-[1050px] items-center gap-3 rounded-lg border bg-muted/30 px-3 py-2">
+      <div className="w-32 shrink-0 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">{label}</div>
+      <Badge variant="secondary" className="shrink-0">
+        {decision.category || "Uncategorized"}
+      </Badge>
+      <p className="flex-1 min-w-[220px] truncate text-sm font-semibold text-foreground">{decision.title}</p>
+
+      <div className="flex items-center gap-4">
+        {[{ label: "R", value: decision.return0 }, { label: "P", value: decision.pressure0 }, { label: "S", value: decision.stability0 }].map(
+          (metric) => (
+            <div key={`${label}-${metric.label}`} className="min-w-[70px]">
+              <p className="text-[10px] font-semibold uppercase text-muted-foreground">{metric.label}</p>
+              <p className="text-sm font-semibold text-foreground">{formatValue(metric.value)}</p>
+            </div>
+          ),
+        )}
+      </div>
+
+      <div className="min-w-[90px] pl-2">
+        <p className="text-[10px] font-semibold uppercase text-muted-foreground">D-NAV</p>
+        <p className="text-sm font-semibold text-foreground">{formatValue(decision.dnavScore)}</p>
+      </div>
+
+      <div className="flex items-center gap-3 pl-2">
+        {[
+          { label: "Impact", value: decision.impact0 },
+          { label: "Cost", value: decision.cost0 },
+          { label: "Risk", value: decision.risk0 },
+          { label: "Urgency", value: decision.urgency0 },
+          { label: "Confidence", value: decision.confidence0 },
+        ].map((metric) => (
+          <div key={`${label}-${metric.label}`} className="min-w-[80px] text-right">
+            <p className="text-[10px] font-semibold uppercase text-muted-foreground text-left">{metric.label}</p>
+            <p className="text-sm font-medium text-foreground">{formatValue(metric.value)}</p>
+          </div>
+        ))}
+      </div>
+    </div>
   </div>
 );
 
@@ -292,7 +326,11 @@ export default function TheDNavPage() {
     { key: "decisionCount", direction: "desc" },
   );
   const [selectedArchetype, setSelectedArchetype] = useState<ArchetypePatternRow | null>(null);
-  const [archetypeSort, setArchetypeSort] = useState<{
+  const [archetypeTableSort, setArchetypeTableSort] = useState<{
+    key: ArchetypeTableSortKey;
+    direction: "asc" | "desc";
+  }>({ key: "count", direction: "desc" });
+  const [archetypeDecisionSort, setArchetypeDecisionSort] = useState<{
     key: ArchetypeDecisionSortKey;
     direction: "asc" | "desc";
   }>({ key: "title", direction: "asc" });
@@ -414,6 +452,23 @@ export default function TheDNavPage() {
     return sorted;
   }, [categories, categorySort]);
   const categorySummary = useMemo(() => generateCategorySummary(sortedCategories), [sortedCategories]);
+  const sortedArchetypeRows = useMemo(() => {
+    const sorted = [...archetypes.rows];
+    sorted.sort((a, b) => {
+      const { key, direction } = archetypeTableSort;
+      const first = a[key];
+      const second = b[key];
+
+      if (typeof first === "number" && typeof second === "number") {
+        return direction === "asc" ? first - second : second - first;
+      }
+
+      return direction === "asc"
+        ? String(first).localeCompare(String(second))
+        : String(second).localeCompare(String(first));
+    });
+    return sorted;
+  }, [archetypes.rows, archetypeTableSort]);
   const archetypeSummary = useMemo(() => generateArchetypeSummary(archetypes), [archetypes]);
 
   const archetypeDecisions = useMemo(
@@ -427,7 +482,7 @@ export default function TheDNavPage() {
   const sortedArchetypeDecisions = useMemo(() => {
     const sorted = [...archetypeDecisions];
     sorted.sort((a, b) => {
-      const { key, direction } = archetypeSort;
+      const { key, direction } = archetypeDecisionSort;
       const first = a[key];
       const second = b[key];
 
@@ -440,7 +495,7 @@ export default function TheDNavPage() {
         : String(second).localeCompare(String(first));
     });
     return sorted;
-  }, [archetypeDecisions, archetypeSort]);
+  }, [archetypeDecisions, archetypeDecisionSort]);
 
   const coachLine = useMemo(() => coachHint(variables, metrics), [metrics, variables]);
   const getPillColor = useCallback(
@@ -468,8 +523,14 @@ export default function TheDNavPage() {
     );
   };
 
-  const handleArchetypeSort = (key: ArchetypeDecisionSortKey) => {
-    setArchetypeSort((prev) =>
+  const handleArchetypeTableSort = (key: ArchetypeTableSortKey) => {
+    setArchetypeTableSort((prev) =>
+      prev.key === key ? { key, direction: prev.direction === "asc" ? "desc" : "asc" } : { key, direction: "desc" },
+    );
+  };
+
+  const handleArchetypeDecisionSort = (key: ArchetypeDecisionSortKey) => {
+    setArchetypeDecisionSort((prev) =>
       prev.key === key ? { key, direction: prev.direction === "asc" ? "desc" : "asc" } : { key, direction: "desc" },
     );
   };
@@ -931,118 +992,107 @@ export default function TheDNavPage() {
                     </div>
                   </div>
 
-                  <div className="space-y-12">
-                    <Card>
-                      <CardHeader className="pb-3">
-                        <CardTitle className="text-xl font-semibold">RPS Baseline</CardTitle>
-                      </CardHeader>
-                      <CardContent className="space-y-6">
-                        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-                          <CompactMetric
-                            label="Total decisions"
-                            value={baseline.total}
-                            tooltip={TOOLTIP_COPY["Total decisions"]}
-                          />
-                          <CompactMetric
-                            label="Avg Return (R)"
-                            value={formatValue(baseline.avgReturn)}
-                            tooltip={TOOLTIP_COPY["Avg Return (R)"]}
-                          />
-                          <CompactMetric
-                            label="Avg Pressure (P)"
-                            value={formatValue(baseline.avgPressure)}
-                            tooltip={TOOLTIP_COPY["Avg Pressure (P)"]}
-                          />
-                          <CompactMetric
-                            label="Avg Stability (S)"
-                            value={formatValue(baseline.avgStability)}
-                            tooltip={TOOLTIP_COPY["Avg Stability (S)"]}
-                          />
-                        </div>
+                    <div className="space-y-12">
+                      <Card>
+                        <CardHeader className="pb-3 space-y-2">
+                          <CardTitle className="text-xl font-semibold">RPS Baseline</CardTitle>
+                          <p className="text-sm text-muted-foreground">{rpsSummary}</p>
+                        </CardHeader>
+                        <CardContent className="space-y-6">
+                          <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                            <CompactMetric
+                              label="Total decisions"
+                              value={baseline.total}
+                              tooltip={TOOLTIP_COPY["Total decisions"]}
+                            />
+                            <CompactMetric
+                              label="Avg Return (R)"
+                              value={formatValue(baseline.avgReturn)}
+                              tooltip={TOOLTIP_COPY["Avg Return (R)"]}
+                            />
+                            <CompactMetric
+                              label="Avg Pressure (P)"
+                              value={formatValue(baseline.avgPressure)}
+                              tooltip={TOOLTIP_COPY["Avg Pressure (P)"]}
+                            />
+                            <CompactMetric
+                              label="Avg Stability (S)"
+                              value={formatValue(baseline.avgStability)}
+                              tooltip={TOOLTIP_COPY["Avg Stability (S)"]}
+                            />
+                          </div>
 
-                        <div className="space-y-1 text-sm text-muted-foreground">
-                          <p>Avg RPS represent the average observed outcome of your logged decisions.</p>
-                          <p>{rpsSummary}</p>
-                        </div>
+                          <p className="text-sm text-muted-foreground">
+                            Avg RPS represent the average observed outcome of your logged decisions.
+                          </p>
 
-                        <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-                          <DistributionCard
-                            title="Return distribution"
-                            tooltip={TOOLTIP_COPY["Return distribution"]}
-                            segments={baseline.returnSegments}
-                          />
-                          <DistributionCard
-                            title="Pressure distribution"
-                            tooltip={TOOLTIP_COPY["Pressure distribution"]}
-                            segments={baseline.pressureSegments}
-                          />
-                          <DistributionCard
-                            title="Stability distribution"
-                            tooltip={TOOLTIP_COPY["Stability distribution"]}
-                            segments={baseline.stabilitySegments}
-                          />
-                        </div>
+                          <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                            <DistributionCard
+                              title="Return distribution"
+                              tooltip={TOOLTIP_COPY["Return distribution"]}
+                              segments={baseline.returnSegments}
+                            />
+                            <DistributionCard
+                              title="Pressure distribution"
+                              tooltip={TOOLTIP_COPY["Pressure distribution"]}
+                              segments={baseline.pressureSegments}
+                            />
+                            <DistributionCard
+                              title="Stability distribution"
+                              tooltip={TOOLTIP_COPY["Stability distribution"]}
+                              segments={baseline.stabilitySegments}
+                            />
+                          </div>
 
-                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
-                          {baseline.total > 0 ? (
-                            baseline.bestWorst.map((item) => (
-                              <div key={item.label} className="rounded-lg border bg-muted/30 p-3 space-y-1">
-                                <TooltipLabel
-                                  label={item.label}
-                                  tooltip={TOOLTIP_COPY[item.label]}
-                                  className="text-xs text-muted-foreground"
-                                />
-                                <p className="text-sm font-semibold text-foreground line-clamp-1">{item.title}</p>
-                                <p className="text-lg font-bold text-foreground">{formatValue(item.value)}</p>
-                              </div>
-                            ))
-                          ) : (
-                            <p className="text-sm text-muted-foreground">No logged decisions to display yet.</p>
-                          )}
-                        </div>
-                      </CardContent>
-                    </Card>
+                          <div className="space-y-3">
+                            {baseline.total > 0 ? (
+                              baseline.bestWorst.map((item) =>
+                                item.decision ? (
+                                  <DecisionHighlightRow key={item.label} label={item.label} decision={item.decision} />
+                                ) : null,
+                              )
+                            ) : (
+                              <p className="text-sm text-muted-foreground">No logged decisions to display yet.</p>
+                            )}
+                          </div>
+                        </CardContent>
+                      </Card>
 
-                    <Card>
-                      <CardHeader className="pb-3">
-                        <CardTitle className="text-xl font-semibold">Learning &amp; Recovery</CardTitle>
-                      </CardHeader>
-                      <CardContent className="space-y-6">
-                        <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
-                          <CompactMetric
-                            label="Learning Curve Index"
-                            value={learning.lci ? formatValue(learning.lci, 2) : "—"}
-                            tooltip={TOOLTIP_COPY["Learning Curve Index"]}
-                          />
-                          <CompactMetric
-                            label="Decisions to recover"
-                            value={formatValue(learning.decisionsToRecover, 1)}
-                            tooltip={TOOLTIP_COPY["Decisions to recover"]}
-                          />
-                          <CompactMetric
-                            label="Win rate"
-                            value={`${formatValue(learning.winRate)}%`}
-                            tooltip={TOOLTIP_COPY["Win rate"]}
-                          />
-                          <CompactMetric
-                            label="Payback ratio"
-                            value={formatValue(hygiene.paybackRatio, 2)}
-                            tooltip={TOOLTIP_COPY["Payback ratio"]}
-                          />
-                          <CompactMetric
-                            label="Return debt"
-                            value={formatValue(hygiene.returnDebt)}
-                            tooltip={TOOLTIP_COPY["Return debt"]}
-                          />
-                        </div>
-
-                        <SectionSummary text={learningSummary} />
-                      </CardContent>
-                    </Card>
+                      <Card>
+                        <CardHeader className="pb-3 space-y-2">
+                          <CardTitle className="text-xl font-semibold">Learning &amp; Recovery</CardTitle>
+                          <p className="text-sm text-muted-foreground">{learningSummary}</p>
+                        </CardHeader>
+                        <CardContent className="space-y-6">
+                          <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                            <CompactMetric
+                              label="Learning Curve Index"
+                              value={learning.lci ? formatValue(learning.lci, 2) : "—"}
+                              tooltip={TOOLTIP_COPY["Learning Curve Index"]}
+                            />
+                            <CompactMetric
+                              label="Decisions to recover"
+                              value={formatValue(learning.decisionsToRecover, 1)}
+                              tooltip={TOOLTIP_COPY["Decisions to recover"]}
+                            />
+                            <CompactMetric
+                              label="Win rate"
+                              value={`${formatValue(learning.winRate)}%`}
+                              tooltip={TOOLTIP_COPY["Win rate"]}
+                            />
+                            <CompactMetric
+                              label="Decision debt"
+                              value={`${formatValue(hygiene.decisionDebt)}%`}
+                              tooltip={TOOLTIP_COPY["Decision debt"]}
+                            />
+                          </div>
+                        </CardContent>
+                      </Card>
 
                     <Card>
-                      <CardHeader className="pb-3">
+                      <CardHeader className="pb-3 space-y-2">
                         <CardTitle className="text-xl font-semibold">Decision Category Heatmap</CardTitle>
+                        <p className="text-sm text-muted-foreground">{categorySummary}</p>
                       </CardHeader>
                       <CardContent className="space-y-4">
                         {sortedCategories.length === 0 ? (
@@ -1097,13 +1147,13 @@ export default function TheDNavPage() {
                           </div>
                         )}
 
-                        <SectionSummary text={categorySummary} />
                       </CardContent>
                     </Card>
 
                     <Card>
-                      <CardHeader className="pb-3 space-y-1">
+                      <CardHeader className="pb-3 space-y-2">
                         <CardTitle className="text-xl font-semibold">Archetypes &amp; Patterns</CardTitle>
+                        <p className="text-sm text-muted-foreground">{archetypeSummary}</p>
                       </CardHeader>
                       <CardContent className="space-y-6">
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -1120,9 +1170,18 @@ export default function TheDNavPage() {
                         </div>
 
                         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                          <DistributionCard title="Return Distribution" segments={archetypes.distributions.returnSegments} />
-                          <DistributionCard title="Pressure Distribution" segments={archetypes.distributions.pressureSegments} />
-                          <DistributionCard title="Stability Distribution" segments={archetypes.distributions.stabilitySegments} />
+                          <DistributionCard
+                            title="Return Distribution"
+                            segments={archetypes.distributions.returnSegments}
+                          />
+                          <DistributionCard
+                            title="Pressure Distribution"
+                            segments={archetypes.distributions.pressureSegments}
+                          />
+                          <DistributionCard
+                            title="Stability Distribution"
+                            segments={archetypes.distributions.stabilitySegments}
+                          />
                         </div>
 
                         {archetypes.rows.length === 0 ? (
@@ -1132,29 +1191,36 @@ export default function TheDNavPage() {
                             <Table>
                               <TableHeader>
                                 <TableRow>
-                                  <TableHead>Archetype</TableHead>
-                                  <TableHead className="text-right">
-                                    <TooltipLabel label="#" tooltip={TOOLTIP_COPY["Archetype#"]} />
-                                  </TableHead>
-                                  <TableHead className="text-right">
-                                    <TooltipLabel label="Avg R" tooltip={TOOLTIP_COPY["Archetype Avg R"]} />
-                                  </TableHead>
-                                  <TableHead className="text-right">
-                                    <TooltipLabel label="Avg P" tooltip={TOOLTIP_COPY["Archetype Avg P"]} />
-                                  </TableHead>
-                                  <TableHead className="text-right">
-                                    <TooltipLabel label="Avg S" tooltip={TOOLTIP_COPY["Archetype Avg S"]} />
-                                  </TableHead>
-                                  <TableHead className="text-right">
-                                    <TooltipLabel label="Avg D-NAV" tooltip={TOOLTIP_COPY["Archetype Avg D-NAV"]} />
-                                  </TableHead>
+                                  {[
+                                    { key: "archetype", label: "Archetype" },
+                                    { key: "count", label: "#", tooltip: TOOLTIP_COPY["Archetype#"] },
+                                    { key: "avgR", label: "Avg R", tooltip: TOOLTIP_COPY["Archetype Avg R"] },
+                                    { key: "avgP", label: "Avg P", tooltip: TOOLTIP_COPY["Archetype Avg P"] },
+                                    { key: "avgS", label: "Avg S", tooltip: TOOLTIP_COPY["Archetype Avg S"] },
+                                    { key: "avgDnav", label: "Avg D-NAV", tooltip: TOOLTIP_COPY["Archetype Avg D-NAV"] },
+                                  ].map((column) => (
+                                    <TableHead key={column.key} className="text-right first:text-left">
+                                      <button
+                                        type="button"
+                                        className="flex items-center gap-1 w-full justify-between text-left"
+                                        onClick={() => handleArchetypeTableSort(column.key as ArchetypeTableSortKey)}
+                                      >
+                                        <TooltipLabel
+                                          label={column.label}
+                                          tooltip={column.tooltip}
+                                          className="inline-flex items-center gap-1"
+                                        />
+                                        <ArrowUpDown className="h-4 w-4" />
+                                      </button>
+                                    </TableHead>
+                                  ))}
                                   <TableHead className="text-right">
                                     <TooltipLabel label="Top categories" tooltip={TOOLTIP_COPY["Archetype Top categories"]} />
                                   </TableHead>
                                 </TableRow>
                               </TableHeader>
                               <TableBody>
-                                {archetypes.rows.map((row: ArchetypePatternRow) => (
+                                {sortedArchetypeRows.map((row: ArchetypePatternRow) => (
                                   <TableRow
                                     key={row.archetype}
                                     className="hover:bg-muted/50 cursor-pointer"
@@ -1174,7 +1240,6 @@ export default function TheDNavPage() {
                           </div>
                         )}
 
-                        <SectionSummary text={archetypeSummary} />
                       </CardContent>
                     </Card>
                   </div>
@@ -1182,16 +1247,20 @@ export default function TheDNavPage() {
                     open={!!selectedArchetype}
                     onOpenChange={(open) => setSelectedArchetype(open ? selectedArchetype : null)}
                   >
-                    <DialogContent className="max-w-4xl">
-                      <DialogHeader>
+                    <DialogContent className="sm:max-w-5xl">
+                      <DialogHeader className="pr-10">
                         <DialogTitle>
                           {selectedArchetype ? `${selectedArchetype.archetype} decisions` : "Archetype decisions"}
                         </DialogTitle>
                       </DialogHeader>
-                          {selectedArchetype && (
-                            <div className="space-y-3">
+                      <DialogClose className="absolute right-4 top-4 rounded-md opacity-70 ring-offset-background transition-opacity hover:opacity-100 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2">
+                        <X className="h-4 w-4" />
+                        <span className="sr-only">Close</span>
+                      </DialogClose>
+                      {selectedArchetype && (
+                        <div className="space-y-3">
                           <div className="overflow-x-auto">
-                            <Table className="text-sm">
+                            <Table className="text-sm min-w-[1000px]">
                               <TableHeader>
                                 <TableRow>
                                   {[
@@ -1212,7 +1281,7 @@ export default function TheDNavPage() {
                                         type="button"
                                         className="flex items-center gap-1 w-full justify-between text-left"
                                         onClick={() =>
-                                          handleArchetypeSort(column.key as ArchetypeDecisionSortKey)
+                                          handleArchetypeDecisionSort(column.key as ArchetypeDecisionSortKey)
                                         }
                                       >
                                         <span>{column.label}</span>
