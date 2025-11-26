@@ -36,6 +36,7 @@ export interface RpsBaseline {
   avgReturn: number;
   avgPressure: number;
   avgStability: number;
+  avgDnav: number;
   returnSegments: { label: string; value: number; color: string; metricKey: string }[];
   pressureSegments: { label: string; value: number; color: string; metricKey: string }[];
   stabilitySegments: { label: string; value: number; color: string; metricKey: string }[];
@@ -43,6 +44,7 @@ export interface RpsBaseline {
     avgReturn: number | null;
     avgPressure: number | null;
     avgStability: number | null;
+    avgDnav: number | null;
     hasComparison: boolean;
   };
 }
@@ -244,19 +246,23 @@ export const computeRpsBaseline = (
   const returns = decisions.map((d) => d.return0);
   const pressures = decisions.map((d) => d.pressure0);
   const stabilities = decisions.map((d) => d.stability0);
+  const dnavs = decisions.map((d) => safeNumber(d.dnavScore));
 
   const avgReturn = mean(returns);
   const avgPressure = mean(pressures);
   const avgStability = mean(stabilities);
+  const avgDnav = mean(dnavs);
 
   const previousReturns = previousDecisions.map((d) => d.return0);
   const previousPressures = previousDecisions.map((d) => d.pressure0);
   const previousStabilities = previousDecisions.map((d) => d.stability0);
+  const previousDnavs = previousDecisions.map((d) => safeNumber(d.dnavScore));
 
   const hasComparison = previousDecisions.length > 0;
   const avgReturnDelta = hasComparison ? avgReturn - mean(previousReturns) : null;
   const avgPressureDelta = hasComparison ? avgPressure - mean(previousPressures) : null;
   const avgStabilityDelta = hasComparison ? avgStability - mean(previousStabilities) : null;
+  const avgDnavDelta = hasComparison ? avgDnav - mean(previousDnavs) : null;
 
   const returnSegments = buildSegments(returns, {
     positive: "#22c55e",
@@ -281,6 +287,7 @@ export const computeRpsBaseline = (
     avgReturn,
     avgPressure,
     avgStability,
+    avgDnav,
     returnSegments,
     pressureSegments,
     stabilitySegments,
@@ -288,6 +295,7 @@ export const computeRpsBaseline = (
       avgReturn: avgReturnDelta,
       avgPressure: avgPressureDelta,
       avgStability: avgStabilityDelta,
+      avgDnav: avgDnavDelta,
       hasComparison,
     },
   };

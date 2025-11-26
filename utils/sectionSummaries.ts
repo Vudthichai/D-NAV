@@ -16,10 +16,10 @@ export const getRpsSummary = (baseline: RpsBaseline): string => {
   const pressureTone = describeDirection(baseline.avgPressure, "pressure tilts higher", "pressure stays calm", "pressure is balanced");
   const stabilityTone = describeDirection(baseline.avgStability, "stability leans positive", "stability leans fragile", "stability is mixed");
   const deltaSummary = baseline.deltas.hasComparison
-    ? ` Avg R ${formatNumber(baseline.deltas.avgReturn ?? 0)} vs prior, P ${formatNumber(baseline.deltas.avgPressure ?? 0)}, S ${formatNumber(baseline.deltas.avgStability ?? 0)}.`
+    ? ` Avg D-NAV ${formatNumber(baseline.deltas.avgDnav ?? 0)}, R ${formatNumber(baseline.deltas.avgReturn ?? 0)}, P ${formatNumber(baseline.deltas.avgPressure ?? 0)}, S ${formatNumber(baseline.deltas.avgStability ?? 0)} vs prior.`
     : "";
 
-  return `Baseline covers ${baseline.total} decisions; average return ${formatNumber(baseline.avgReturn)} with ${pressureTone} and ${stabilityTone}.${deltaSummary}`;
+  return `Baseline covers ${baseline.total} decisions; Avg D-NAV ${formatNumber(baseline.avgDnav)} with return ${formatNumber(baseline.avgReturn)}, ${pressureTone}, and ${stabilityTone}.${deltaSummary}`;
 };
 
 export const getLearningRecoverySummary = (learning: LearningMetrics, hygiene: ReturnHygiene): string => {
