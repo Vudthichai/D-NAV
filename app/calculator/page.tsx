@@ -72,6 +72,7 @@ import {
   getRpsSummary,
 } from "@/utils/sectionSummaries";
 import { generateInsights } from "@/utils/insights";
+import { cn } from "@/lib/utils";
 
 const DEFAULT_VARIABLES: DecisionVariables = {
   impact: 1,
@@ -119,6 +120,7 @@ type ArchetypeDecisionSortKey =
 
 type ArchetypeTableSortKey = "archetype" | "count" | "avgR" | "avgP" | "avgS" | "avgDnav";
 
+
 const TOOLTIP_COPY: Record<string, string> = {
   "Learning Curve Index":
     "LCI measures how quickly your performance improves after negative-return decisions. Higher values (closer to 1.0) indicate faster recovery.",
@@ -127,6 +129,7 @@ const TOOLTIP_COPY: Record<string, string> = {
   "Win rate": "Percentage of decisions with a positive Return.",
   "Decision debt": "Percentage of decisions in this window with negative Return.",
   "Total decisions": "Number of logged decisions in the selected time window.",
+  "Avg D-NAV": "Average D-NAV across all decisions in this time window.",
   "Avg Return (R)": "Average outcome of your decisions. Positive = beneficial, Negative = costly.",
   "Avg Pressure (P)": "Average pressure or burden created by your decisions (time, effort, stress).",
   "Avg Stability (S)": "Average stability of your decision outcomes over time. Higher is more stable.",
@@ -150,6 +153,65 @@ const TOOLTIP_COPY: Record<string, string> = {
   "Archetype Avg D-NAV": "Average D-NAV score for this archetype.",
   "Archetype Top categories": "The categories where this archetype appears most often.",
 };
+
+type ColumnDefinition = {
+  key: string;
+  label: string;
+  align: "left" | "right";
+  width: string;
+  tooltip?: string;
+  sortable?: boolean;
+};
+
+const categoryColumns: ColumnDefinition[] = [
+  { key: "category", label: "Category", align: "left", width: "minmax(160px, 2fr)" },
+  { key: "decisionCount", label: "#", align: "right", width: "minmax(64px, 0.8fr)", tooltip: TOOLTIP_COPY["Heatmap#"] },
+  { key: "percent", label: "%", align: "right", width: "minmax(80px, 1fr)", tooltip: TOOLTIP_COPY["Heatmap%"] },
+  {
+    key: "avgDnav",
+    label: "Avg D-NAV",
+    align: "right",
+    width: "minmax(96px, 1fr)",
+    tooltip: TOOLTIP_COPY["Heatmap Avg D-NAV"],
+  },
+  { key: "avgR", label: "Avg R", align: "right", width: "minmax(72px, 1fr)", tooltip: TOOLTIP_COPY["Heatmap Avg R"] },
+  { key: "avgP", label: "Avg P", align: "right", width: "minmax(72px, 1fr)", tooltip: TOOLTIP_COPY["Heatmap Avg P"] },
+  { key: "avgS", label: "Avg S", align: "right", width: "minmax(72px, 1fr)", tooltip: TOOLTIP_COPY["Heatmap Avg S"] },
+  {
+    key: "dominantVariable",
+    label: "Dominant",
+    align: "left",
+    width: "minmax(120px, 1.4fr)",
+    tooltip: TOOLTIP_COPY["Heatmap Dominant"],
+  },
+];
+
+const categoryGridTemplate = categoryColumns.map((column) => column.width).join(" ");
+
+const archetypeColumns: ColumnDefinition[] = [
+  { key: "archetype", label: "Archetype", align: "left", width: "minmax(160px, 2fr)" },
+  { key: "count", label: "#", align: "right", width: "minmax(64px, 0.8fr)", tooltip: TOOLTIP_COPY["Archetype#"] },
+  { key: "avgR", label: "Avg R", align: "right", width: "minmax(72px, 1fr)", tooltip: TOOLTIP_COPY["Archetype Avg R"] },
+  { key: "avgP", label: "Avg P", align: "right", width: "minmax(72px, 1fr)", tooltip: TOOLTIP_COPY["Archetype Avg P"] },
+  { key: "avgS", label: "Avg S", align: "right", width: "minmax(72px, 1fr)", tooltip: TOOLTIP_COPY["Archetype Avg S"] },
+  {
+    key: "avgDnav",
+    label: "Avg D-NAV",
+    align: "right",
+    width: "minmax(96px, 1fr)",
+    tooltip: TOOLTIP_COPY["Archetype Avg D-NAV"],
+  },
+  {
+    key: "topCategories",
+    label: "Top categories",
+    align: "left",
+    width: "minmax(180px, 2fr)",
+    tooltip: TOOLTIP_COPY["Archetype Top categories"],
+    sortable: false,
+  },
+];
+
+const archetypeGridTemplate = archetypeColumns.map((column) => column.width).join(" ");
 
 const TooltipLabel = ({
   label,
@@ -558,6 +620,50 @@ export default function TheDNavPage() {
     () => archetypes.rows.find((row) => row.archetype === archetypes.secondary),
     [archetypes.rows, archetypes.secondary],
   );
+
+  const renderCategoryCell = (row: CategoryHeatmapRow, key: string) => {
+    switch (key) {
+      case "category":
+        return row.category;
+      case "decisionCount":
+        return row.decisionCount;
+      case "percent":
+        return `${formatValue(row.percent)}%`;
+      case "avgDnav":
+        return formatValue(row.avgDnav);
+      case "avgR":
+        return formatValue(row.avgR);
+      case "avgP":
+        return formatValue(row.avgP);
+      case "avgS":
+        return formatValue(row.avgS);
+      case "dominantVariable":
+        return row.dominantVariable;
+      default:
+        return String(row[key as keyof CategoryHeatmapRow] ?? "");
+    }
+  };
+
+  const renderArchetypeCell = (row: ArchetypePatternRow, key: string) => {
+    switch (key) {
+      case "archetype":
+        return row.archetype;
+      case "count":
+        return row.count;
+      case "avgR":
+        return formatValue(row.avgR);
+      case "avgP":
+        return formatValue(row.avgP);
+      case "avgS":
+        return formatValue(row.avgS);
+      case "avgDnav":
+        return formatValue(row.avgDnav);
+      case "topCategories":
+        return row.topCategories.join(", ") || "—";
+      default:
+        return String(row[key as keyof ArchetypePatternRow] ?? "");
+    }
+  };
 
   const sortedArchetypeDecisions = useMemo(() => {
     const sorted = [...archetypeDecisions];
@@ -1108,11 +1214,17 @@ export default function TheDNavPage() {
                           <p className="text-sm text-muted-foreground">{rpsSummary}</p>
                         </CardHeader>
                         <CardContent className="space-y-6">
-                          <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                          <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
                             <CompactMetric
                               label="Total decisions"
                               value={baseline.total}
                               tooltip={TOOLTIP_COPY["Total decisions"]}
+                            />
+                            <CompactMetric
+                              label="Avg D-NAV"
+                              value={formatValue(baseline.avgDnav)}
+                              tooltip={TOOLTIP_COPY["Avg D-NAV"]}
+                              delta={baseline.deltas.hasComparison ? baseline.deltas.avgDnav : null}
                             />
                             <CompactMetric
                               label="Avg Return (R)"
@@ -1187,7 +1299,7 @@ export default function TheDNavPage() {
 
                     <Card>
                       <CardHeader className="pb-3 space-y-2">
-                        <CardTitle className="text-xl font-semibold">Decision Category Heatmap</CardTitle>
+                        <CardTitle className="text-xl font-semibold">Decision Category Profile</CardTitle>
                         <p className="text-sm text-muted-foreground">{categorySummary}</p>
                       </CardHeader>
                       <CardContent className="space-y-4">
@@ -1197,45 +1309,63 @@ export default function TheDNavPage() {
                           <div className="overflow-x-auto">
                             <Table>
                               <TableHeader>
-                                <TableRow>
-                                  {[ 
-                                    { key: "category", label: "Category" },
-                                    { key: "decisionCount", label: "#", tooltip: TOOLTIP_COPY["Heatmap#"] },
-                                    { key: "percent", label: "%", tooltip: TOOLTIP_COPY["Heatmap%"] },
-                                    { key: "avgDnav", label: "Avg D-NAV", tooltip: TOOLTIP_COPY["Heatmap Avg D-NAV"] },
-                                    { key: "avgR", label: "Avg R", tooltip: TOOLTIP_COPY["Heatmap Avg R"] },
-                                    { key: "avgP", label: "Avg P", tooltip: TOOLTIP_COPY["Heatmap Avg P"] },
-                                    { key: "avgS", label: "Avg S", tooltip: TOOLTIP_COPY["Heatmap Avg S"] },
-                                    { key: "dominantVariable", label: "Dominant", tooltip: TOOLTIP_COPY["Heatmap Dominant"] },
-                                  ].map((column) => (
-                                    <TableHead key={column.key} className="text-right first:text-left">
-                                      <button
-                                        type="button"
-                                        className="flex items-center gap-1 w-full justify-between text-left"
-                                        onClick={() => handleCategorySort(column.key as CategorySortKey)}
+                                <TableRow
+                                  style={{ display: "grid", gridTemplateColumns: categoryGridTemplate }}
+                                  className="bg-muted/30"
+                                >
+                                  {categoryColumns.map((column) => {
+                                    const isSortable = column.sortable ?? true;
+                                    return (
+                                      <TableHead
+                                        key={column.key}
+                                        className={cn(column.align === "right" ? "text-right" : "text-left")}
                                       >
-                                        <TooltipLabel
-                                          label={column.label}
-                                          tooltip={column.tooltip}
-                                          className="inline-flex items-center gap-1"
-                                        />
-                                        <ArrowUpDown className="h-4 w-4" />
-                                      </button>
-                                    </TableHead>
-                                  ))}
+                                        {isSortable ? (
+                                          <button
+                                            type="button"
+                                            className={cn(
+                                              "flex w-full items-center gap-1",
+                                              column.align === "right" ? "justify-end text-right" : "justify-start",
+                                            )}
+                                            onClick={() => handleCategorySort(column.key as CategorySortKey)}
+                                          >
+                                            <TooltipLabel
+                                              label={column.label}
+                                              tooltip={column.tooltip}
+                                              className="inline-flex items-center gap-1"
+                                            />
+                                            <ArrowUpDown className="h-4 w-4" />
+                                          </button>
+                                        ) : (
+                                          <TooltipLabel
+                                            label={column.label}
+                                            tooltip={column.tooltip}
+                                            className="inline-flex items-center gap-1"
+                                          />
+                                        )}
+                                      </TableHead>
+                                    );
+                                  })}
                                 </TableRow>
                               </TableHeader>
                               <TableBody>
                                 {sortedCategories.map((row: CategoryHeatmapRow) => (
-                                  <TableRow key={row.category} className="hover:bg-muted/50">
-                                    <TableCell className="font-medium">{row.category}</TableCell>
-                                    <TableCell className="text-right">{row.decisionCount}</TableCell>
-                                    <TableCell className="text-right">{formatValue(row.percent)}%</TableCell>
-                                    <TableCell className="text-right">{formatValue(row.avgDnav)}</TableCell>
-                                    <TableCell className="text-right">{formatValue(row.avgR)}</TableCell>
-                                    <TableCell className="text-right">{formatValue(row.avgP)}</TableCell>
-                                    <TableCell className="text-right">{formatValue(row.avgS)}</TableCell>
-                                    <TableCell className="text-right">{row.dominantVariable}</TableCell>
+                                  <TableRow
+                                    key={row.category}
+                                    className="hover:bg-muted/50"
+                                    style={{ display: "grid", gridTemplateColumns: categoryGridTemplate }}
+                                  >
+                                    {categoryColumns.map((column) => (
+                                      <TableCell
+                                        key={column.key}
+                                        className={cn(
+                                          column.align === "right" ? "text-right" : "text-left",
+                                          column.key === "category" && "font-medium",
+                                        )}
+                                      >
+                                        {renderCategoryCell(row, column.key)}
+                                      </TableCell>
+                                    ))}
                                   </TableRow>
                                 ))}
                               </TableBody>
@@ -1286,33 +1416,43 @@ export default function TheDNavPage() {
                           <div className="overflow-x-auto">
                             <Table>
                               <TableHeader>
-                                <TableRow>
-                                  {[
-                                    { key: "archetype", label: "Archetype" },
-                                    { key: "count", label: "#", tooltip: TOOLTIP_COPY["Archetype#"] },
-                                    { key: "avgR", label: "Avg R", tooltip: TOOLTIP_COPY["Archetype Avg R"] },
-                                    { key: "avgP", label: "Avg P", tooltip: TOOLTIP_COPY["Archetype Avg P"] },
-                                    { key: "avgS", label: "Avg S", tooltip: TOOLTIP_COPY["Archetype Avg S"] },
-                                    { key: "avgDnav", label: "Avg D-NAV", tooltip: TOOLTIP_COPY["Archetype Avg D-NAV"] },
-                                  ].map((column) => (
-                                    <TableHead key={column.key} className="text-right first:text-left">
-                                      <button
-                                        type="button"
-                                        className="flex items-center gap-1 w-full justify-between text-left"
-                                        onClick={() => handleArchetypeTableSort(column.key as ArchetypeTableSortKey)}
+                                <TableRow
+                                  style={{ display: "grid", gridTemplateColumns: archetypeGridTemplate }}
+                                  className="bg-muted/30"
+                                >
+                                  {archetypeColumns.map((column) => {
+                                    const isSortable = column.sortable ?? true;
+                                    return (
+                                      <TableHead
+                                        key={column.key}
+                                        className={cn(column.align === "right" ? "text-right" : "text-left")}
                                       >
-                                        <TooltipLabel
-                                          label={column.label}
-                                          tooltip={column.tooltip}
-                                          className="inline-flex items-center gap-1"
-                                        />
-                                        <ArrowUpDown className="h-4 w-4" />
-                                      </button>
-                                    </TableHead>
-                                  ))}
-                                  <TableHead className="text-right">
-                                    <TooltipLabel label="Top categories" tooltip={TOOLTIP_COPY["Archetype Top categories"]} />
-                                  </TableHead>
+                                        {isSortable ? (
+                                          <button
+                                            type="button"
+                                            className={cn(
+                                              "flex w-full items-center gap-1",
+                                              column.align === "right" ? "justify-end text-right" : "justify-start",
+                                            )}
+                                            onClick={() => handleArchetypeTableSort(column.key as ArchetypeTableSortKey)}
+                                          >
+                                            <TooltipLabel
+                                              label={column.label}
+                                              tooltip={column.tooltip}
+                                              className="inline-flex items-center gap-1"
+                                            />
+                                            <ArrowUpDown className="h-4 w-4" />
+                                          </button>
+                                        ) : (
+                                          <TooltipLabel
+                                            label={column.label}
+                                            tooltip={column.tooltip}
+                                            className="inline-flex items-center gap-1"
+                                          />
+                                        )}
+                                      </TableHead>
+                                    );
+                                  })}
                                 </TableRow>
                               </TableHeader>
                               <TableBody>
@@ -1320,15 +1460,20 @@ export default function TheDNavPage() {
                                   <TableRow
                                     key={row.archetype}
                                     className="hover:bg-muted/50 cursor-pointer"
+                                    style={{ display: "grid", gridTemplateColumns: archetypeGridTemplate }}
                                     onClick={() => setSelectedArchetype(row)}
                                   >
-                                    <TableCell className="font-medium">{row.archetype}</TableCell>
-                                    <TableCell className="text-right">{row.count}</TableCell>
-                                    <TableCell className="text-right">{formatValue(row.avgR)}</TableCell>
-                                    <TableCell className="text-right">{formatValue(row.avgP)}</TableCell>
-                                    <TableCell className="text-right">{formatValue(row.avgS)}</TableCell>
-                                    <TableCell className="text-right">{formatValue(row.avgDnav)}</TableCell>
-                                    <TableCell className="text-right">{row.topCategories.join(", ") || "—"}</TableCell>
+                                    {archetypeColumns.map((column) => (
+                                      <TableCell
+                                        key={column.key}
+                                        className={cn(
+                                          column.align === "right" ? "text-right" : "text-left",
+                                          column.key === "archetype" && "font-medium",
+                                        )}
+                                      >
+                                        {renderArchetypeCell(row, column.key)}
+                                      </TableCell>
+                                    ))}
                                   </TableRow>
                                 ))}
                               </TableBody>
