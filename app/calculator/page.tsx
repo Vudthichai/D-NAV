@@ -311,9 +311,13 @@ const ArchetypeSummaryCard = ({
   row?: ArchetypePatternRow;
   tooltip?: string;
 }) => {
-  const summary = row
-    ? `R ${formatValue(row.avgR)} | P ${formatValue(row.avgP)} | S ${formatValue(row.avgS)}`
-    : "No data in this window";
+  const summary = row ? (
+    <p className="text-sm text-muted-foreground">
+      <span className="font-semibold">R</span> {formatValue(row.avgR)} | <span className="font-semibold">P</span> {formatValue(row.avgP)} | <span className="font-semibold">S</span> {formatValue(row.avgS)}
+    </p>
+  ) : (
+    <p className="text-sm text-muted-foreground">No data in this window</p>
+  );
   const description = row
     ? getArchetype({ return: row.avgR, pressure: row.avgP, stability: row.avgS, merit: 0, energy: 0, dnav: row.avgDnav })
         .description
@@ -326,7 +330,7 @@ const ArchetypeSummaryCard = ({
         <span className="text-xs text-muted-foreground">{row ? `${row.count} decisions` : "—"}</span>
       </div>
       <p className="text-lg font-semibold text-foreground">{row?.archetype ?? "—"}</p>
-      <p className="text-sm text-muted-foreground">{summary}</p>
+      {summary}
       <p className="text-xs text-muted-foreground leading-snug">{description}</p>
     </div>
   );
@@ -1178,31 +1182,6 @@ export default function TheDNavPage() {
                               tooltip={TOOLTIP_COPY["Decision debt"]}
                             />
                           </div>
-                        </CardContent>
-                      </Card>
-
-                      <Card>
-                        <CardHeader className="pb-3 space-y-2">
-                          <CardTitle className="text-xl font-semibold">Top 3 Insights</CardTitle>
-                          <p className="text-sm text-muted-foreground">
-                            Three strongest judgment patterns in this time window.
-                          </p>
-                        </CardHeader>
-                        <CardContent className="space-y-4">
-                          {insights.length === 0 ? (
-                            <p className="text-sm text-muted-foreground">
-                              No dominant patterns detected in this window. Try expanding the timeframe.
-                            </p>
-                          ) : (
-                            <div className="space-y-4">
-                              {insights.map((insight) => (
-                                <div key={insight.id} className="space-y-1">
-                                  <h3 className="text-sm font-medium">{insight.title}</h3>
-                                  <p className="text-sm text-muted-foreground">{insight.body}</p>
-                                </div>
-                              ))}
-                            </div>
-                          )}
                         </CardContent>
                       </Card>
 
