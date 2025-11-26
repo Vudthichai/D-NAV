@@ -71,6 +71,7 @@ import {
   getLearningRecoverySummary,
   getRpsSummary,
 } from "@/utils/sectionSummaries";
+import { generateInsights } from "@/utils/insights";
 
 const DEFAULT_VARIABLES: DecisionVariables = {
   impact: 1,
@@ -523,6 +524,19 @@ export default function TheDNavPage() {
     return sorted;
   }, [archetypes.rows, archetypeTableSort]);
   const archetypeSummary = useMemo(() => getArchetypeSummary(archetypes), [archetypes]);
+
+  const insights = useMemo(
+    () =>
+      generateInsights({
+        baseline,
+        learning,
+        hygiene,
+        categories,
+        archetypes,
+        totalDecisions: normalized.length,
+      }),
+    [archetypes, baseline, categories, hygiene, learning, normalized.length],
+  );
 
   const archetypeDecisions = useMemo(
     () =>
@@ -1164,6 +1178,31 @@ export default function TheDNavPage() {
                               tooltip={TOOLTIP_COPY["Decision debt"]}
                             />
                           </div>
+                        </CardContent>
+                      </Card>
+
+                      <Card>
+                        <CardHeader className="pb-3 space-y-2">
+                          <CardTitle className="text-xl font-semibold">Top 3 Insights</CardTitle>
+                          <p className="text-sm text-muted-foreground">
+                            Three strongest judgment patterns in this time window.
+                          </p>
+                        </CardHeader>
+                        <CardContent className="space-y-4">
+                          {insights.length === 0 ? (
+                            <p className="text-sm text-muted-foreground">
+                              No dominant patterns detected in this window. Try expanding the timeframe.
+                            </p>
+                          ) : (
+                            <div className="space-y-4">
+                              {insights.map((insight) => (
+                                <div key={insight.id} className="space-y-1">
+                                  <h3 className="text-sm font-medium">{insight.title}</h3>
+                                  <p className="text-sm text-muted-foreground">{insight.body}</p>
+                                </div>
+                              ))}
+                            </div>
+                          )}
                         </CardContent>
                       </Card>
 
