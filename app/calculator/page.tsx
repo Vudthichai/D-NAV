@@ -31,15 +31,12 @@ import {
 } from "@/lib/calculations";
 import {
   addDecision,
-  loadArchetypeSummaries,
   loadCompanyContext,
   loadLog,
-  saveArchetypeSummary,
 } from "@/lib/storage";
 import { useNetlifyIdentity } from "@/hooks/use-netlify-identity";
 import { generateArchetypeSummary } from "@/lib/judgmentSummaryLLM";
-import { buildArchetypeSummaryInput } from "@/lib/judgmentSummaryPayload";
-import { type ArchetypeSummaryOutput, type CompanyContext } from "@/types/company";
+import { type CompanyContext, type SingleArchetypeSummaryInput } from "@/types/company";
 import {
   BarChart3,
   Check,
@@ -481,7 +478,8 @@ export default function TheDNavPage() {
   const [categorySort, setCategorySort] = useState<{ key: CategorySortKey; direction: "asc" | "desc" }>(
     { key: "decisionCount", direction: "desc" },
   );
-  const [selectedArchetype, setSelectedArchetype] = useState<string | null>(null);
+  const [selectedArchetype, setSelectedArchetype] = useState<ArchetypePatternRow | null>(null);
+  const [selectedArchetypeIndex, setSelectedArchetypeIndex] = useState<number | null>(null);
   const [archetypeTableSort, setArchetypeTableSort] = useState<{
     key: ArchetypeTableSortKey;
     direction: "asc" | "desc";
@@ -539,7 +537,7 @@ export default function TheDNavPage() {
 
   const [decisions, setDecisions] = useState<DecisionEntry[]>(() => loadLog());
   const [companyContext, setCompanyContext] = useState<CompanyContext | null>(null);
-  const [archetypeSummaries, setArchetypeSummaries] = useState<Record<string, ArchetypeSummaryOutput>>({});
+  const [archetypeSummaryText, setArchetypeSummaryText] = useState<string | null>(null);
   const [archetypeSummaryLoading, setArchetypeSummaryLoading] = useState(false);
   const [archetypeSummaryError, setArchetypeSummaryError] = useState<string | null>(null);
   const isContextReady = Boolean(companyContext?.companyName && companyContext?.timeframeLabel);
@@ -550,11 +548,11 @@ export default function TheDNavPage() {
 
   useEffect(() => {
     setCompanyContext(loadCompanyContext());
-    setArchetypeSummaries(loadArchetypeSummaries());
   }, []);
 
   useEffect(() => {
     setArchetypeSummaryError(null);
+    setArchetypeSummaryText(null);
   }, [selectedArchetype]);
 
   const timeframeDays = useMemo<number | null>(() => {
@@ -613,9 +611,6 @@ export default function TheDNavPage() {
     normalized: judgment.normalized.map((decision) => ({ ...decision, dnavScore: decision.dnavScore ?? 0 })),
   };
 
-  const activeArchetypeName = resolvedSelectedArchetype?.archetype ?? null;
-  const activeArchetypeSummary = activeArchetypeName ? archetypeSummaries[activeArchetypeName] : undefined;
-
   const baseline = useMemo(
     () => computeRpsBaseline(normalized, previousNormalized),
     [normalized, previousNormalized],
@@ -659,26 +654,43 @@ export default function TheDNavPage() {
     return sorted;
   }, [archetypes.rows, archetypeTableSort]);
   const archetypeSummary = useMemo(() => getArchetypeSummary(archetypes), [archetypes]);
-  const selectedArchetypeIndex = useMemo(() => {
-    if (!selectedArchetype) return null;
-    const index = sortedArchetypeRows.findIndex((row) => row.archetype === selectedArchetype);
-    return index === -1 ? null : index;
-  }, [selectedArchetype, sortedArchetypeRows]);
-  const resolvedSelectedArchetype = useMemo(
-    () => (selectedArchetypeIndex !== null ? sortedArchetypeRows[selectedArchetypeIndex] ?? null : null),
-    [selectedArchetypeIndex, sortedArchetypeRows],
-  );
-
   const archetypeDecisions = useMemo(
     () =>
-      resolvedSelectedArchetype
-        ? normalized.filter((decision) => decision.archetype === resolvedSelectedArchetype.archetype)
+      selectedArchetype
+        ? normalized.filter((decision) => decision.archetype === selectedArchetype.archetype)
         : [],
-    [normalized, resolvedSelectedArchetype],
+    [normalized, selectedArchetype],
   );
 
+  useEffect(() => {
+    if (!selectedArchetype) {
+      if (selectedArchetypeIndex !== null) {
+        setSelectedArchetypeIndex(null);
+      }
+      return;
+    }
+
+    const index = sortedArchetypeRows.findIndex((row) => row.archetype === selectedArchetype.archetype);
+
+    if (index === -1) {
+      setSelectedArchetype(null);
+      setSelectedArchetypeIndex(null);
+      return;
+    }
+
+    if (selectedArchetypeIndex !== index) {
+      setSelectedArchetypeIndex(index);
+      return;
+    }
+
+    const latestRow = sortedArchetypeRows[index];
+    if (latestRow !== selectedArchetype) {
+      setSelectedArchetype(latestRow);
+    }
+  }, [selectedArchetype, selectedArchetypeIndex, sortedArchetypeRows]);
+
   const handleGenerateArchetypeSummary = async () => {
-    if (!activeArchetypeName || !resolvedSelectedArchetype) {
+    if (!selectedArchetype) {
       setArchetypeSummaryError("Select an archetype to generate a summary.");
       return;
     }
@@ -689,14 +701,33 @@ export default function TheDNavPage() {
 
     setArchetypeSummaryLoading(true);
     setArchetypeSummaryError(null);
+
     try {
-      const input = buildArchetypeSummaryInput({ ...judgment, companyContext }, activeArchetypeName);
-      const summary = await generateArchetypeSummary(input);
-      setArchetypeSummaries((prev) => {
-        const next = { ...prev, [activeArchetypeName]: summary };
-        saveArchetypeSummary(activeArchetypeName, summary);
-        return next;
-      });
+      const representativeDecisions = archetypeDecisions.slice(0, 5);
+      const payload: SingleArchetypeSummaryInput = {
+        company: companyContext,
+        archetype: {
+          name: selectedArchetype.archetype,
+          count: selectedArchetype.count,
+          avgR: Number(avgReturn),
+          avgP: Number(avgPressure),
+          avgS: Number(avgStability),
+          avgDNAV: Number(avgDnav),
+          topCategories: selectedArchetype.topCategories ?? [],
+        },
+        sampleTitles: representativeDecisions
+          .map((decision) => decision.title || decision.name || "Decision")
+          .filter(Boolean),
+      };
+
+      const summary = await generateArchetypeSummary(payload);
+      const textBlocks = [
+        summary.title,
+        summary.summary,
+        summary.notes.length ? summary.notes.map((note) => `• ${note}`).join("\n") : "",
+      ].filter(Boolean);
+
+      setArchetypeSummaryText(textBlocks.join("\n\n"));
     } catch (error) {
       console.error("Failed to generate archetype summary", error);
       setArchetypeSummaryError("Unable to generate archetype summary right now. Please try again.");
@@ -758,13 +789,16 @@ export default function TheDNavPage() {
     }
   };
 
-  const handleArchetypeSelection = (archetypeName: string | null) => {
-    if (!archetypeName) {
+  const handleArchetypeSelection = (row: ArchetypePatternRow | null) => {
+    if (!row) {
       setSelectedArchetype(null);
+      setSelectedArchetypeIndex(null);
       return;
     }
 
-    setSelectedArchetype(archetypeName);
+    const index = sortedArchetypeRows.findIndex((item) => item.archetype === row.archetype);
+    setSelectedArchetype(row);
+    setSelectedArchetypeIndex(index >= 0 ? index : null);
   };
 
   const handleNavigateArchetype = (direction: "prev" | "next") => {
@@ -777,14 +811,16 @@ export default function TheDNavPage() {
     );
 
     if (newIndex !== selectedArchetypeIndex && sortedArchetypeRows[newIndex]) {
-      setSelectedArchetype(sortedArchetypeRows[newIndex].archetype);
+      setSelectedArchetype(sortedArchetypeRows[newIndex]);
+      setSelectedArchetypeIndex(newIndex);
     }
   };
 
   const handleArchetypeJump = (value: string) => {
     const index = sortedArchetypeRows.findIndex((row) => row.archetype === value);
     if (index !== -1) {
-      setSelectedArchetype(sortedArchetypeRows[index].archetype);
+      setSelectedArchetype(sortedArchetypeRows[index]);
+      setSelectedArchetypeIndex(index);
     }
   };
 
@@ -808,7 +844,7 @@ export default function TheDNavPage() {
 
   const archetypeDistributions = useMemo(
     () => {
-      if (!resolvedSelectedArchetype || archetypeDecisions.length === 0) return null;
+      if (!selectedArchetype || archetypeDecisions.length === 0) return null;
 
       const returns = archetypeDecisions.map((decision) => decision.return0 ?? decision.return ?? 0);
       const pressures = archetypeDecisions.map((decision) => decision.pressure0 ?? decision.pressure ?? 0);
@@ -832,27 +868,27 @@ export default function TheDNavPage() {
         }),
       };
     },
-    [archetypeDecisions, resolvedSelectedArchetype],
+    [archetypeDecisions, selectedArchetype],
   );
 
-  const archetypeDecisionList = resolvedSelectedArchetype ? archetypeDecisions ?? [] : [];
+  const archetypeDecisionList = selectedArchetype ? archetypeDecisions ?? [] : [];
   const avgReturn = Number(
-    resolvedSelectedArchetype?.avgR ??
+    selectedArchetype?.avgR ??
       safeAverage(archetypeDecisionList.map((decision) => Number(decision.return0 ?? decision.return ?? 0))),
   );
   const avgPressure = Number(
-    resolvedSelectedArchetype?.avgP ??
+    selectedArchetype?.avgP ??
       safeAverage(archetypeDecisionList.map((decision) => Number(decision.pressure0 ?? decision.pressure ?? 0))),
   );
   const avgStability = Number(
-    resolvedSelectedArchetype?.avgS ??
+    selectedArchetype?.avgS ??
       safeAverage(archetypeDecisionList.map((decision) => Number(decision.stability0 ?? decision.stability ?? 0))),
   );
   const avgDnav = Number(
-    resolvedSelectedArchetype?.avgDnav ??
+    selectedArchetype?.avgDnav ??
       safeAverage(archetypeDecisionList.map((decision) => Number(decision.dnavScore ?? 0))),
   );
-  const archetypeTagline = resolvedSelectedArchetype
+  const archetypeTagline = selectedArchetype
     ? getArchetype({
         return: avgReturn,
         pressure: avgPressure,
@@ -1612,7 +1648,7 @@ export default function TheDNavPage() {
                                     key={row.archetype}
                                     className="hover:bg-muted/50 cursor-pointer"
                                     style={{ display: "grid", gridTemplateColumns: archetypeGridTemplate }}
-                                    onClick={() => handleArchetypeSelection(row.archetype)}
+                                    onClick={() => handleArchetypeSelection(row)}
                                   >
                                     {archetypeColumns.map((column) => (
                                       <TableCell
@@ -1638,8 +1674,8 @@ export default function TheDNavPage() {
                   <Dialog
                     open={!!selectedArchetype}
                     onOpenChange={(open) =>
-                      open && resolvedSelectedArchetype
-                        ? handleArchetypeSelection(resolvedSelectedArchetype.archetype)
+                      open && selectedArchetype
+                        ? handleArchetypeSelection(selectedArchetype)
                         : handleArchetypeSelection(null)
                     }
                   >
@@ -1648,9 +1684,7 @@ export default function TheDNavPage() {
                         <div className="flex h-full flex-col bg-background">
                         <div className="flex items-start justify-between border-b px-6 py-4">
                           <DialogTitle className="text-lg font-semibold">
-                            {resolvedSelectedArchetype
-                              ? `${resolvedSelectedArchetype.archetype} decisions`
-                              : "Archetype decisions"}
+                            {selectedArchetype ? `${selectedArchetype.archetype} decisions` : "Archetype decisions"}
                           </DialogTitle>
                           <DialogClose className="rounded-md opacity-70 ring-offset-background transition-opacity hover:opacity-100 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2">
                             <X className="h-4 w-4" />
@@ -1658,7 +1692,7 @@ export default function TheDNavPage() {
                           </DialogClose>
                         </div>
 
-                        {resolvedSelectedArchetype && (
+                        {selectedArchetype && (
                           <>
                             <div className="space-y-4 border-b bg-card/60 px-6 py-4">
                               <div className="flex flex-wrap items-center justify-between gap-3">
@@ -1689,7 +1723,7 @@ export default function TheDNavPage() {
                                 </div>
 
                                 <Select
-                                  value={resolvedSelectedArchetype.archetype}
+                                  value={selectedArchetype.archetype}
                                   onValueChange={handleArchetypeJump}
                                   disabled={sortedArchetypeRows.length === 0}
                                 >
@@ -1709,7 +1743,7 @@ export default function TheDNavPage() {
 
                               <div className="flex flex-wrap items-start justify-between gap-3">
                                 <div className="space-y-1">
-                                  <p className="text-base font-semibold text-foreground">{resolvedSelectedArchetype.archetype}</p>
+                                  <p className="text-base font-semibold text-foreground">{selectedArchetype.archetype}</p>
                                   <p className="text-sm text-muted-foreground">
                                     {archetypeTagline}
                                   </p>
@@ -1736,8 +1770,8 @@ export default function TheDNavPage() {
 
                               <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
                                 <span className="font-semibold text-foreground">Top categories:</span>
-                                {resolvedSelectedArchetype.topCategories?.length ? (
-                                  resolvedSelectedArchetype.topCategories.map((category) => (
+                                {selectedArchetype.topCategories?.length ? (
+                                  selectedArchetype.topCategories.map((category) => (
                                     <Badge key={category} variant="secondary">
                                       {category}
                                     </Badge>
@@ -1776,7 +1810,7 @@ export default function TheDNavPage() {
                                   <div>
                                     <p className="text-sm font-semibold text-foreground">Archetype Auto-Summary</p>
                                     <p className="text-xs text-muted-foreground">
-                                      {resolvedSelectedArchetype.archetype}
+                                      {selectedArchetype.archetype}
                                       {archetypeTagline ? ` – ${archetypeTagline}` : ""}
                                     </p>
                                   </div>
@@ -1787,18 +1821,18 @@ export default function TheDNavPage() {
                                         disabled={archetypeSummaryLoading || !isContextReady}
                                         variant={isContextReady ? "default" : "outline"}
                                       >
-                                        {isContextReady ? (
-                                          archetypeSummaryLoading
+                                        {isContextReady
+                                          ? archetypeSummaryLoading
                                             ? "Generating..."
-                                            : activeArchetypeSummary
+                                            : archetypeSummaryText
                                             ? "Regenerate"
                                             : "Generate Summary"
-                                        ) : (
-                                          <>
-                                            <Lock className="mr-2 h-4 w-4" />
-                                            Add context to unlock
-                                          </>
-                                        )}
+                                          : (
+                                              <>
+                                                <Lock className="mr-2 h-4 w-4" />
+                                                Add context to unlock
+                                              </>
+                                            )}
                                       </Button>
                                     </TooltipTrigger>
                                     {!isContextReady && (
@@ -1811,46 +1845,13 @@ export default function TheDNavPage() {
                                 {archetypeSummaryError && (
                                   <p className="text-sm text-destructive">{archetypeSummaryError}</p>
                                 )}
-                                {!activeArchetypeSummary && !archetypeSummaryError && (
+                                {!archetypeSummaryText && !archetypeSummaryError && (
                                   <p className="text-sm text-muted-foreground">
                                     Generate a short take on how this archetype shows up for the company.
                                   </p>
                                 )}
-                                {activeArchetypeSummary && (
-                                  <div className="space-y-3">
-                                    <div className="flex flex-wrap items-center gap-2">
-                                      <p className="text-base font-semibold text-foreground">
-                                        {activeArchetypeSummary.title}
-                                      </p>
-                                      <Badge
-                                        variant="outline"
-                                        className={cn(
-                                          "border",
-                                          activeArchetypeSummary.isStrength
-                                            ? "border-emerald-200 bg-emerald-50 text-emerald-700"
-                                            : "border-amber-200 bg-amber-50 text-amber-700",
-                                        )}
-                                      >
-                                        {activeArchetypeSummary.isStrength ? "Mostly a Strength" : "Mostly a Risk"}
-                                      </Badge>
-                                    </div>
-                                    <div className="space-y-2 text-sm text-muted-foreground">
-                                      {activeArchetypeSummary.summary
-                                        .split("\n")
-                                        .filter(Boolean)
-                                        .map((paragraph, idx) => (
-                                          <p key={`archetype-summary-${idx}`}>{paragraph}</p>
-                                        ))}
-                                    </div>
-                                    <ul className="space-y-2 text-sm text-muted-foreground">
-                                      {activeArchetypeSummary.notes.map((note, idx) => (
-                                        <li key={`archetype-note-${idx}`} className="flex gap-2">
-                                          <span className="mt-1 block h-2 w-2 rounded-full bg-primary" />
-                                          <span>{note}</span>
-                                        </li>
-                                      ))}
-                                    </ul>
-                                  </div>
+                                {archetypeSummaryText && (
+                                  <p className="text-sm leading-relaxed whitespace-pre-line">{archetypeSummaryText}</p>
                                 )}
                               </div>
                             </div>
@@ -1912,7 +1913,7 @@ export default function TheDNavPage() {
                             )}
                           </>
                         )}
-                        {!resolvedSelectedArchetype && selectedArchetype && (
+                        {!selectedArchetype && (
                           <div className="flex flex-1 items-center justify-center p-6 text-sm text-muted-foreground">
                             Select an archetype from the table to see details.
                           </div>
