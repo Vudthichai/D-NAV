@@ -59,7 +59,7 @@ import {
 import jsPDF from "jspdf";
 import html2canvas from "html2canvas";
 import Link from "next/link";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   DashboardStats,
   buildDistributionInsights,
@@ -92,6 +92,42 @@ const DEFAULT_VARIABLES: DecisionVariables = {
   urgency: 1,
   confidence: 1,
 };
+
+const safeAverage = (values: number[]): number =>
+  values.length ? values.reduce((sum, value) => sum + value, 0) / values.length : 0;
+
+class ArchetypeErrorBoundary extends React.Component<
+  { children: React.ReactNode },
+  { hasError: boolean }
+> {
+  constructor(props: { children: React.ReactNode }) {
+    super(props);
+    this.state = { hasError: false };
+  }
+
+  static getDerivedStateFromError() {
+    return { hasError: true };
+  }
+
+  componentDidCatch(error: unknown, info: unknown) {
+    console.error("Archetype view crashed", error, info);
+  }
+
+  render() {
+    if (this.state.hasError) {
+      return (
+        <div className="p-6">
+          <h2 className="font-semibold mb-2">Archetype view unavailable</h2>
+          <p className="text-sm text-muted-foreground">
+            Something went wrong rendering this archetype. Check the console for details.
+          </p>
+        </div>
+      );
+    }
+
+    return this.props.children;
+  }
+}
 
 interface DistributionSegment {
   label: string;
@@ -569,9 +605,10 @@ export default function TheDNavPage() {
 
   const { learning, hygiene, categories, archetypes, normalized } = {
     ...judgment,
+    normalized: judgment.normalized.map((decision) => ({ ...decision, dnavScore: decision.dnavScore ?? 0 })),
   };
 
-  const activeArchetypeName = selectedArchetype?.archetype ?? archetypes.rows[0]?.archetype ?? "";
+  const activeArchetypeName = resolvedSelectedArchetype?.archetype ?? archetypes.rows[0]?.archetype ?? "";
   const activeArchetypeSummary = activeArchetypeName ? archetypeSummaries[activeArchetypeName] : undefined;
 
   const baseline = useMemo(
@@ -617,6 +654,13 @@ export default function TheDNavPage() {
     return sorted;
   }, [archetypes.rows, archetypeTableSort]);
   const archetypeSummary = useMemo(() => getArchetypeSummary(archetypes), [archetypes]);
+  const resolvedSelectedArchetype = useMemo(
+    () =>
+      selectedArchetype
+        ? sortedArchetypeRows.find((row) => row.archetype === selectedArchetype.archetype) ?? null
+        : null,
+    [selectedArchetype, sortedArchetypeRows],
+  );
 
   useEffect(() => {
     if (!selectedArchetype) {
@@ -647,10 +691,10 @@ export default function TheDNavPage() {
 
   const archetypeDecisions = useMemo(
     () =>
-      selectedArchetype
-        ? normalized.filter((decision) => decision.archetype === selectedArchetype.archetype)
+      resolvedSelectedArchetype
+        ? normalized.filter((decision) => decision.archetype === resolvedSelectedArchetype.archetype)
         : [],
-    [normalized, selectedArchetype],
+    [normalized, resolvedSelectedArchetype],
   );
 
   const handleGenerateArchetypeSummary = async () => {
@@ -789,7 +833,7 @@ export default function TheDNavPage() {
 
   const archetypeDistributions = useMemo(
     () => {
-      if (!selectedArchetype) return null;
+      if (!resolvedSelectedArchetype || archetypeDecisions.length === 0) return null;
 
       const returns = archetypeDecisions.map((decision) => decision.return0 ?? decision.return ?? 0);
       const pressures = archetypeDecisions.map((decision) => decision.pressure0 ?? decision.pressure ?? 0);
@@ -813,7 +857,25 @@ export default function TheDNavPage() {
         }),
       };
     },
-    [archetypeDecisions, selectedArchetype],
+    [archetypeDecisions, resolvedSelectedArchetype],
+  );
+
+  const archetypeDecisionList = resolvedSelectedArchetype ? archetypeDecisions ?? [] : [];
+  const avgReturn = Number(
+    resolvedSelectedArchetype?.avgR ??
+      safeAverage(archetypeDecisionList.map((decision) => Number(decision.return0 ?? decision.return ?? 0))),
+  );
+  const avgPressure = Number(
+    resolvedSelectedArchetype?.avgP ??
+      safeAverage(archetypeDecisionList.map((decision) => Number(decision.pressure0 ?? decision.pressure ?? 0))),
+  );
+  const avgStability = Number(
+    resolvedSelectedArchetype?.avgS ??
+      safeAverage(archetypeDecisionList.map((decision) => Number(decision.stability0 ?? decision.stability ?? 0))),
+  );
+  const avgDnav = Number(
+    resolvedSelectedArchetype?.avgDnav ??
+      safeAverage(archetypeDecisionList.map((decision) => Number(decision.dnavScore ?? 0))),
   );
 
   const coachLine = useMemo(() => coachHint(variables, metrics), [metrics, variables]);
@@ -1668,18 +1730,21 @@ export default function TheDNavPage() {
                     </Card>
                   </div>
                   <Dialog
-                    open={!!selectedArchetype}
+                    open={!!resolvedSelectedArchetype}
                     onOpenChange={(open) =>
-                      open && selectedArchetype
-                        ? handleArchetypeSelection(selectedArchetype)
+                      open && resolvedSelectedArchetype
+                        ? handleArchetypeSelection(resolvedSelectedArchetype)
                         : handleArchetypeSelection(null)
                     }
                   >
-                    <DialogContent className="w-[90vw] max-w-[90vw] h-[85vh] p-0 overflow-hidden">
-                      <div className="flex h-full flex-col bg-background">
+                    <ArchetypeErrorBoundary>
+                      <DialogContent className="w-[90vw] max-w-[90vw] h-[85vh] p-0 overflow-hidden">
+                        <div className="flex h-full flex-col bg-background">
                         <div className="flex items-start justify-between border-b px-6 py-4">
                           <DialogTitle className="text-lg font-semibold">
-                            {selectedArchetype ? `${selectedArchetype.archetype} decisions` : "Archetype decisions"}
+                            {resolvedSelectedArchetype
+                              ? `${resolvedSelectedArchetype.archetype} decisions`
+                              : "Archetype decisions"}
                           </DialogTitle>
                           <DialogClose className="rounded-md opacity-70 ring-offset-background transition-opacity hover:opacity-100 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2">
                             <X className="h-4 w-4" />
@@ -1687,7 +1752,7 @@ export default function TheDNavPage() {
                           </DialogClose>
                         </div>
 
-                        {selectedArchetype && (
+                        {resolvedSelectedArchetype && (
                           <>
                             <div className="space-y-4 border-b bg-card/60 px-6 py-4">
                               <div className="flex flex-wrap items-center justify-between gap-3">
@@ -1718,7 +1783,7 @@ export default function TheDNavPage() {
                                 </div>
 
                                 <Select
-                                  value={selectedArchetype.archetype}
+                                  value={resolvedSelectedArchetype.archetype}
                                   onValueChange={handleArchetypeJump}
                                   disabled={sortedArchetypeRows.length === 0}
                                 >
@@ -1738,16 +1803,16 @@ export default function TheDNavPage() {
 
                               <div className="flex flex-wrap items-start justify-between gap-3">
                                 <div className="space-y-1">
-                                  <p className="text-base font-semibold text-foreground">{selectedArchetype.archetype}</p>
+                                  <p className="text-base font-semibold text-foreground">{resolvedSelectedArchetype.archetype}</p>
                                   <p className="text-sm text-muted-foreground">
                                     {
                                       getArchetype({
-                                        return: selectedArchetype.avgR,
-                                        pressure: selectedArchetype.avgP,
-                                        stability: selectedArchetype.avgS,
+                                        return: avgReturn,
+                                        pressure: avgPressure,
+                                        stability: avgStability,
                                         merit: 0,
                                         energy: 0,
-                                        dnav: selectedArchetype.avgDnav,
+                                        dnav: avgDnav,
                                       }).description
                                     }
                                   </p>
@@ -1755,27 +1820,27 @@ export default function TheDNavPage() {
                                 <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-sm">
                                   <div>
                                     <p className="text-[10px] font-semibold uppercase text-muted-foreground">Avg R</p>
-                                    <p className="font-semibold text-foreground">{formatValue(selectedArchetype.avgR)}</p>
+                                    <p className="font-semibold text-foreground">{formatValue(avgReturn)}</p>
                                   </div>
                                   <div>
                                     <p className="text-[10px] font-semibold uppercase text-muted-foreground">Avg P</p>
-                                    <p className="font-semibold text-foreground">{formatValue(selectedArchetype.avgP)}</p>
+                                    <p className="font-semibold text-foreground">{formatValue(avgPressure)}</p>
                                   </div>
                                   <div>
                                     <p className="text-[10px] font-semibold uppercase text-muted-foreground">Avg S</p>
-                                    <p className="font-semibold text-foreground">{formatValue(selectedArchetype.avgS)}</p>
+                                    <p className="font-semibold text-foreground">{formatValue(avgStability)}</p>
                                   </div>
                                   <div>
                                     <p className="text-[10px] font-semibold uppercase text-muted-foreground">Avg D-NAV</p>
-                                    <p className="font-semibold text-foreground">{formatValue(selectedArchetype.avgDnav)}</p>
+                                    <p className="font-semibold text-foreground">{formatValue(avgDnav)}</p>
                                   </div>
                                 </div>
                               </div>
 
                               <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
                                 <span className="font-semibold text-foreground">Top categories:</span>
-                                {selectedArchetype.topCategories?.length ? (
-                                  selectedArchetype.topCategories.map((category) => (
+                                {resolvedSelectedArchetype.topCategories?.length ? (
+                                  resolvedSelectedArchetype.topCategories.map((category) => (
                                     <Badge key={category} variant="secondary">
                                       {category}
                                     </Badge>
@@ -1785,82 +1850,91 @@ export default function TheDNavPage() {
                                 )}
                               </div>
 
-                              <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-                                <DistributionCard
-                                  title="Return distribution"
-                                  segments={archetypeDistributions?.returnSegments ?? []}
-                                  tooltip={TOOLTIP_COPY["Return distribution"]}
-                                />
-                                <DistributionCard
-                                  title="Pressure distribution"
-                                  segments={archetypeDistributions?.pressureSegments ?? []}
-                                  tooltip={TOOLTIP_COPY["Pressure distribution"]}
-                                />
-                                <DistributionCard
-                                  title="Stability distribution"
-                                  segments={archetypeDistributions?.stabilitySegments ?? []}
-                                  tooltip={TOOLTIP_COPY["Stability distribution"]}
-                                />
-                              </div>
+                              {archetypeDecisionList.length > 0 ? (
+                                <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                                  <DistributionCard
+                                    title="Return distribution"
+                                    segments={archetypeDistributions?.returnSegments ?? []}
+                                    tooltip={TOOLTIP_COPY["Return distribution"]}
+                                  />
+                                  <DistributionCard
+                                    title="Pressure distribution"
+                                    segments={archetypeDistributions?.pressureSegments ?? []}
+                                    tooltip={TOOLTIP_COPY["Pressure distribution"]}
+                                  />
+                                  <DistributionCard
+                                    title="Stability distribution"
+                                    segments={archetypeDistributions?.stabilitySegments ?? []}
+                                    tooltip={TOOLTIP_COPY["Stability distribution"]}
+                                  />
+                                </div>
+                              ) : (
+                                <p className="text-sm text-muted-foreground">
+                                  No logged decisions for this archetype yet.
+                                </p>
+                              )}
                             </div>
 
-                            <div className="flex-1 overflow-auto px-6 pb-6 pt-4">
-                              <div className="overflow-x-auto">
-                                <Table className="text-sm min-w-[1100px]">
-                                  <TableHeader>
-                                    <TableRow>
-                                      {[
-                                        { key: "title", label: "Title" },
-                                        { key: "category", label: "Category" },
-                                        { key: "impact0", label: "Impact" },
-                                        { key: "cost0", label: "Cost" },
-                                        { key: "risk0", label: "Risk" },
-                                        { key: "urgency0", label: "Urgency" },
-                                        { key: "confidence0", label: "Confidence" },
-                                        { key: "return0", label: "Return" },
-                                        { key: "pressure0", label: "Pressure" },
-                                        { key: "stability0", label: "Stability" },
-                                        { key: "dnavScore", label: "D-NAV" },
-                                      ].map((column) => (
-                                        <TableHead key={column.key} className="text-right first:text-left">
-                                          <button
-                                            type="button"
-                                            className="flex items-center gap-1 w-full justify-between text-left"
-                                            onClick={() =>
-                                              handleArchetypeDecisionSort(column.key as ArchetypeDecisionSortKey)
-                                            }
-                                          >
-                                            <span>{column.label}</span>
-                                            <ArrowUpDown className="h-4 w-4" />
-                                          </button>
-                                        </TableHead>
-                                      ))}
-                                    </TableRow>
-                                  </TableHeader>
-                                  <TableBody>
-                                    {sortedArchetypeDecisions.map((decision) => (
-                                      <TableRow key={decision.id}>
-                                        <TableCell className="font-medium">{decision.title}</TableCell>
-                                        <TableCell className="text-right">{decision.category}</TableCell>
-                                        <TableCell className="text-right">{formatValue(decision.impact0)}</TableCell>
-                                        <TableCell className="text-right">{formatValue(decision.cost0)}</TableCell>
-                                        <TableCell className="text-right">{formatValue(decision.risk0)}</TableCell>
-                                        <TableCell className="text-right">{formatValue(decision.urgency0)}</TableCell>
-                                        <TableCell className="text-right">{formatValue(decision.confidence0)}</TableCell>
-                                        <TableCell className="text-right">{formatValue(decision.return0)}</TableCell>
-                                        <TableCell className="text-right">{formatValue(decision.pressure0)}</TableCell>
-                                        <TableCell className="text-right">{formatValue(decision.stability0)}</TableCell>
-                                        <TableCell className="text-right">{formatValue(decision.dnavScore)}</TableCell>
+                            {archetypeDecisionList.length > 0 && (
+                              <div className="flex-1 overflow-auto px-6 pb-6 pt-4">
+                                <div className="overflow-x-auto">
+                                  <Table className="text-sm min-w-[1100px]">
+                                    <TableHeader>
+                                      <TableRow>
+                                        {[
+                                          { key: "title", label: "Title" },
+                                          { key: "category", label: "Category" },
+                                          { key: "impact0", label: "Impact" },
+                                          { key: "cost0", label: "Cost" },
+                                          { key: "risk0", label: "Risk" },
+                                          { key: "urgency0", label: "Urgency" },
+                                          { key: "confidence0", label: "Confidence" },
+                                          { key: "return0", label: "Return" },
+                                          { key: "pressure0", label: "Pressure" },
+                                          { key: "stability0", label: "Stability" },
+                                          { key: "dnavScore", label: "D-NAV" },
+                                        ].map((column) => (
+                                          <TableHead key={column.key} className="text-right first:text-left">
+                                            <button
+                                              type="button"
+                                              className="flex items-center gap-1 w-full justify-between text-left"
+                                              onClick={() =>
+                                                handleArchetypeDecisionSort(column.key as ArchetypeDecisionSortKey)
+                                              }
+                                            >
+                                              <span>{column.label}</span>
+                                              <ArrowUpDown className="h-4 w-4" />
+                                            </button>
+                                          </TableHead>
+                                        ))}
                                       </TableRow>
-                                    ))}
-                                  </TableBody>
-                                </Table>
+                                    </TableHeader>
+                                    <TableBody>
+                                      {sortedArchetypeDecisions.map((decision) => (
+                                        <TableRow key={decision.id}>
+                                          <TableCell className="font-medium">{decision.title}</TableCell>
+                                          <TableCell className="text-right">{decision.category}</TableCell>
+                                          <TableCell className="text-right">{formatValue(decision.impact0)}</TableCell>
+                                          <TableCell className="text-right">{formatValue(decision.cost0)}</TableCell>
+                                          <TableCell className="text-right">{formatValue(decision.risk0)}</TableCell>
+                                          <TableCell className="text-right">{formatValue(decision.urgency0)}</TableCell>
+                                          <TableCell className="text-right">{formatValue(decision.confidence0)}</TableCell>
+                                          <TableCell className="text-right">{formatValue(decision.return0)}</TableCell>
+                                          <TableCell className="text-right">{formatValue(decision.pressure0)}</TableCell>
+                                          <TableCell className="text-right">{formatValue(decision.stability0)}</TableCell>
+                                          <TableCell className="text-right">{formatValue(decision.dnavScore)}</TableCell>
+                                        </TableRow>
+                                      ))}
+                                    </TableBody>
+                                  </Table>
+                                </div>
                               </div>
-                            </div>
+                            )}
                           </>
                         )}
                       </div>
-                    </DialogContent>
+                      </DialogContent>
+                    </ArchetypeErrorBoundary>
                   </Dialog>
                 </div>
               </div>
