@@ -57,7 +57,7 @@ import {
 import jsPDF from "jspdf";
 import html2canvas from "html2canvas";
 import Link from "next/link";
-import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { ReactNode, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   DashboardStats,
   buildDistributionInsights,
@@ -93,39 +93,6 @@ const DEFAULT_VARIABLES: DecisionVariables = {
 
 const safeAverage = (values: number[]): number =>
   values.length ? values.reduce((sum, value) => sum + value, 0) / values.length : 0;
-
-class ArchetypeErrorBoundary extends React.Component<
-  { children: React.ReactNode },
-  { hasError: boolean }
-> {
-  constructor(props: { children: React.ReactNode }) {
-    super(props);
-    this.state = { hasError: false };
-  }
-
-  static getDerivedStateFromError() {
-    return { hasError: true };
-  }
-
-  componentDidCatch(error: unknown, info: unknown) {
-    console.error("Archetype view crashed", error, info);
-  }
-
-  render() {
-    if (this.state.hasError) {
-      return (
-        <div className="p-6">
-          <h2 className="font-semibold mb-2">Archetype view unavailable</h2>
-          <p className="text-sm text-muted-foreground">
-            Something went wrong rendering this archetype. Check the console for details.
-          </p>
-        </div>
-      );
-    }
-
-    return this.props.children;
-  }
-}
 
 interface DistributionSegment {
   label: string;
@@ -1730,9 +1697,8 @@ export default function TheDNavPage() {
                         : handleArchetypeSelection(null)
                     }
                   >
-                    <ArchetypeErrorBoundary>
-                      <DialogContent className="w-[90vw] max-w-[90vw] h-[85vh] p-0 overflow-hidden">
-                        <div className="flex h-full flex-col bg-background">
+                    <DialogContent className="w-[90vw] max-w-[90vw] h-[85vh] p-0 overflow-hidden">
+                      <div className="flex h-full flex-col bg-background">
                         <div className="flex items-start justify-between border-b px-6 py-4">
                           <DialogTitle className="text-lg font-semibold">
                             {selectedArchetype ? `${selectedArchetype.archetype} decisions` : "Archetype decisions"}
@@ -2005,8 +1971,7 @@ export default function TheDNavPage() {
                           </div>
                         )}
                       </div>
-                      </DialogContent>
-                    </ArchetypeErrorBoundary>
+                    </DialogContent>
                   </Dialog>
                 </div>
               </div>
