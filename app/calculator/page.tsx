@@ -29,8 +29,17 @@ import {
   computeMetrics,
   getArchetype,
 } from "@/lib/calculations";
-import { addDecision, loadLog } from "@/lib/storage";
+import {
+  addDecision,
+  loadArchetypeSummaries,
+  loadCompanyContext,
+  loadLog,
+  saveArchetypeSummary,
+} from "@/lib/storage";
 import { useNetlifyIdentity } from "@/hooks/use-netlify-identity";
+import { generateArchetypeSummary } from "@/lib/judgmentSummaryLLM";
+import { buildArchetypeSummaryInput } from "@/lib/judgmentSummaryPayload";
+import { type ArchetypeSummaryOutput, type CompanyContext } from "@/types/company";
 import {
   BarChart3,
   Check,
@@ -493,10 +502,19 @@ export default function TheDNavPage() {
   };
 
   const [decisions, setDecisions] = useState<DecisionEntry[]>(() => loadLog());
+  const [companyContext, setCompanyContext] = useState<CompanyContext | null>(null);
+  const [archetypeSummaries, setArchetypeSummaries] = useState<Record<string, ArchetypeSummaryOutput>>({});
+  const [archetypeSummaryLoading, setArchetypeSummaryLoading] = useState(false);
+  const [archetypeSummaryError, setArchetypeSummaryError] = useState<string | null>(null);
 
   useEffect(() => {
     setDecisions(loadLog());
   }, [isSaved]);
+
+  useEffect(() => {
+    setCompanyContext(loadCompanyContext());
+    setArchetypeSummaries(loadArchetypeSummaries());
+  }, []);
 
   const timeframeDays = useMemo<number | null>(() => {
     if (timeWindow === "0") return null;
@@ -532,7 +550,10 @@ export default function TheDNavPage() {
     return computeDashboardStats(decisions, { timeframeDays });
   }, [decisions, timeframeDays]);
 
-  const judgment = useMemo(() => buildJudgmentDashboard(filteredDecisions), [filteredDecisions]);
+  const judgment = useMemo(
+    () => buildJudgmentDashboard(filteredDecisions, companyContext ?? undefined),
+    [filteredDecisions, companyContext],
+  );
 
   const previousNormalized = useMemo(
     () => previousWindowDecisions.map((decision) => normalizeDecision(decision)),
@@ -549,6 +570,9 @@ export default function TheDNavPage() {
   const { learning, hygiene, categories, archetypes, normalized } = {
     ...judgment,
   };
+
+  const activeArchetypeName = selectedArchetype?.archetype ?? archetypes.rows[0]?.archetype ?? "";
+  const activeArchetypeSummary = activeArchetypeName ? archetypeSummaries[activeArchetypeName] : undefined;
 
   const baseline = useMemo(
     () => computeRpsBaseline(normalized, previousNormalized),
@@ -628,6 +652,34 @@ export default function TheDNavPage() {
         : [],
     [normalized, selectedArchetype],
   );
+
+  const handleGenerateArchetypeSummary = async () => {
+    if (!activeArchetypeName) {
+      setArchetypeSummaryError("Select an archetype to generate a summary.");
+      return;
+    }
+    if (!companyContext) {
+      setArchetypeSummaryError("Add company context in the Decision Log before generating.");
+      return;
+    }
+
+    setArchetypeSummaryLoading(true);
+    setArchetypeSummaryError(null);
+    try {
+      const input = buildArchetypeSummaryInput({ ...judgment, companyContext }, activeArchetypeName);
+      const summary = await generateArchetypeSummary(input);
+      setArchetypeSummaries((prev) => {
+        const next = { ...prev, [activeArchetypeName]: summary };
+        saveArchetypeSummary(activeArchetypeName, summary);
+        return next;
+      });
+    } catch (error) {
+      console.error("Failed to generate archetype summary", error);
+      setArchetypeSummaryError("Unable to generate archetype summary right now. Please try again.");
+    } finally {
+      setArchetypeSummaryLoading(false);
+    }
+  };
 
   const primaryArchetypeRow = useMemo(
     () => archetypes.rows.find((row) => row.archetype === archetypes.primary),
@@ -1460,6 +1512,85 @@ export default function TheDNavPage() {
                             title="Stability Distribution"
                             segments={archetypes.distributions.stabilitySegments}
                           />
+                        </div>
+
+                        <div className="space-y-3 rounded-lg border bg-muted/30 p-4">
+                          <div className="flex flex-wrap items-center justify-between gap-3">
+                            <div>
+                              <p className="text-sm font-semibold text-foreground">Archetype Auto-Summary</p>
+                              <p className="text-xs text-muted-foreground">
+                                Generate a short take on how this archetype shows up for the company.
+                              </p>
+                            </div>
+                            <div className="flex flex-wrap items-center gap-2">
+                              <Select value={activeArchetypeName} onValueChange={handleArchetypeJump}>
+                                <SelectTrigger className="min-w-[220px]">
+                                  <SelectValue placeholder="Choose an archetype" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                  {sortedArchetypeRows.map((row) => (
+                                    <SelectItem key={row.archetype} value={row.archetype}>
+                                      {row.archetype}
+                                    </SelectItem>
+                                  ))}
+                                </SelectContent>
+                              </Select>
+                              <Button
+                                onClick={handleGenerateArchetypeSummary}
+                                disabled={archetypeSummaryLoading || !activeArchetypeName}
+                              >
+                                {archetypeSummaryLoading
+                                  ? "Generating..."
+                                  : activeArchetypeSummary
+                                  ? "Regenerate"
+                                  : "Generate Summary"}
+                              </Button>
+                            </div>
+                          </div>
+                          {archetypeSummaryError && (
+                            <p className="text-sm text-destructive">{archetypeSummaryError}</p>
+                          )}
+                          {!activeArchetypeSummary && !archetypeSummaryError && (
+                            <p className="text-sm text-muted-foreground">
+                              Select an archetype and generate to view the auto-summary.
+                            </p>
+                          )}
+                          {activeArchetypeSummary && (
+                            <div className="space-y-3">
+                              <div className="flex flex-wrap items-center gap-2">
+                                <p className="text-base font-semibold text-foreground">
+                                  {activeArchetypeSummary.title}
+                                </p>
+                                <Badge
+                                  variant="outline"
+                                  className={cn(
+                                    "border", 
+                                    activeArchetypeSummary.isStrength
+                                      ? "border-emerald-200 bg-emerald-50 text-emerald-700"
+                                      : "border-amber-200 bg-amber-50 text-amber-700",
+                                  )}
+                                >
+                                  {activeArchetypeSummary.isStrength ? "Mostly a Strength" : "Mostly a Risk"}
+                                </Badge>
+                              </div>
+                              <div className="space-y-2 text-sm text-muted-foreground">
+                                {activeArchetypeSummary.summary
+                                  .split("\n")
+                                  .filter(Boolean)
+                                  .map((paragraph, idx) => (
+                                    <p key={`archetype-summary-${idx}`}>{paragraph}</p>
+                                  ))}
+                              </div>
+                              <ul className="space-y-2 text-sm text-muted-foreground">
+                                {activeArchetypeSummary.notes.map((note, idx) => (
+                                  <li key={`archetype-note-${idx}`} className="flex gap-2">
+                                    <span className="mt-1 block h-2 w-2 rounded-full bg-primary" />
+                                    <span>{note}</span>
+                                  </li>
+                                ))}
+                              </ul>
+                            </div>
+                          )}
                         </div>
 
                         {archetypes.rows.length === 0 ? (
