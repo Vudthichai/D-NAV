@@ -90,6 +90,9 @@ export default function LogPage() {
   };
 
   const OPTIONAL_HEADERS = new Set([
+    "return",
+    "pressure",
+    "stability",
     "r",
     "p",
     "s",
@@ -490,6 +493,12 @@ export default function LogPage() {
       "Risk",
       "Urgency",
       "Confidence",
+      "Return",
+      "Pressure",
+      "Stability",
+      "Merit",
+      "Energy",
+      "D-NAV",
     ];
     const sampleRows = [
       header,
@@ -502,6 +511,12 @@ export default function LogPage() {
         "4",
         "7",
         "6",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
       ],
       [
         "",
@@ -512,6 +527,12 @@ export default function LogPage() {
         "3",
         "8",
         "7",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
       ],
     ];
 
@@ -528,6 +549,12 @@ export default function LogPage() {
       { wch: 24 },
       { wch: 30 },
       { wch: 22 },
+      { wch: 16 },
+      { wch: 16 },
+      { wch: 16 },
+      { wch: 16 },
+      { wch: 16 },
+      { wch: 16 },
       { wch: 16 },
       { wch: 16 },
       { wch: 16 },
