@@ -6,6 +6,7 @@ import ExecutiveOnePager from "@/components/reports/ExecutiveOnePager";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
 import {
   loadCompanyContext,
@@ -24,7 +25,7 @@ import {
   computeDashboardStats,
 } from "@/utils/dashboardStats";
 import { buildJudgmentDashboard } from "@/utils/judgmentDashboard";
-import { FileDown, FileSpreadsheet, FileText } from "lucide-react";
+import { FileDown, FileSpreadsheet, FileText, Lock } from "lucide-react";
 import * as XLSX from "xlsx";
 
 const TIMEFRAMES = [
@@ -143,6 +144,7 @@ export default function ReportsPage() {
   const [companySummary, setCompanySummary] = useState<CompanySummaryOutput | null>(null);
   const [summaryError, setSummaryError] = useState<string | null>(null);
   const [summaryLoading, setSummaryLoading] = useState(false);
+  const isContextReady = Boolean(companyContext?.companyName && companyContext?.timeframeLabel);
   const onePagerRef = useRef<HTMLDivElement>(null);
   const { isLoggedIn, openLogin } = useNetlifyIdentity();
 
@@ -204,9 +206,10 @@ export default function ReportsPage() {
     ? `Exports ${stats.totalDecisions} decision${stats.totalDecisions === 1 ? "" : "s"} with full variables, returns, stability, pressure, and D-NAV.`
     : "No decisions logged in this window yet.";
 
-  const canGenerateSummary = Boolean(
-    companyContext?.companyName && companyContext.timeframeLabel && filteredDecisions.length > 0,
-  );
+  const narrativeParagraphs = companySummary?.summary.split("\n").filter(Boolean) ?? [];
+  const summaryButtonDisabled = !isLoggedIn || summaryLoading || !canGenerateSummary;
+
+  const canGenerateSummary = Boolean(isContextReady && filteredDecisions.length > 0);
 
   const handleSignInClick = () => {
     openLogin();
@@ -219,7 +222,7 @@ export default function ReportsPage() {
 
   const handleGenerateSummary = async () => {
     if (!companyContext || !canGenerateSummary) {
-      setSummaryError("Add a company name, timeframe, and at least one decision to generate a summary.");
+      setSummaryError("Add company context in the Decision Log and log at least one decision to generate a summary.");
       return;
     }
 
@@ -311,7 +314,8 @@ export default function ReportsPage() {
   };
 
   return (
-    <div className="flex flex-col gap-8">
+    <TooltipProvider>
+      <div className="flex flex-col gap-8">
       <section className="rounded-2xl border bg-card/80 p-6 shadow-sm">
         <div className="flex flex-col gap-3">
           <Badge variant="secondary" className="w-fit uppercase tracking-wide">
@@ -384,13 +388,29 @@ export default function ReportsPage() {
                 ) : (
                   <Badge variant="outline" className="w-fit">Add company context in the Decision Log</Badge>
                 )}
-                <Button
-                  onClick={handleGenerateSummary}
-                  disabled={!isLoggedIn || summaryLoading || !canGenerateSummary}
-                  variant="default"
-                >
-                  {summaryLoading ? "Generating..." : companySummary ? "Regenerate" : "Generate Summary"}
-                </Button>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button
+                      onClick={handleGenerateSummary}
+                      disabled={summaryButtonDisabled}
+                      variant={isContextReady ? "default" : "outline"}
+                    >
+                      {isContextReady ? (
+                        summaryLoading ? "Generating..." : companySummary ? "Regenerate" : "Generate Summary"
+                      ) : (
+                        <>
+                          <Lock className="mr-2 h-4 w-4" />
+                          Add context to unlock
+                        </>
+                      )}
+                    </Button>
+                  </TooltipTrigger>
+                  {!isContextReady && (
+                    <TooltipContent className="max-w-xs text-xs">
+                      Add company context in the Decision Log to unlock summaries.
+                    </TooltipContent>
+                  )}
+                </Tooltip>
               </div>
             </CardHeader>
             <CardContent className="space-y-4">
@@ -402,16 +422,21 @@ export default function ReportsPage() {
                 </p>
               )}
               {companySummary && (
-                <div className="space-y-6">
-                  <div className="space-y-2 text-sm leading-relaxed text-foreground">
-                    {companySummary.summary
-                      .split("\n")
-                      .filter(Boolean)
-                      .map((paragraph, idx) => (
-                        <p key={idx} className="text-muted-foreground">
+                <div className="space-y-4">
+                  <div className="rounded-lg border bg-muted/30 p-4">
+                    <div className="flex items-center justify-between gap-2">
+                      <h4 className="text-sm font-semibold text-foreground">Portfolio Narrative</h4>
+                      <Badge variant="secondary" className="bg-primary/10 text-primary">
+                        Decision Portfolio Brief
+                      </Badge>
+                    </div>
+                    <div className="mt-2 space-y-3 text-sm leading-relaxed text-muted-foreground">
+                      {narrativeParagraphs.map((paragraph, idx) => (
+                        <p key={idx} className="whitespace-pre-wrap">
                           {paragraph}
                         </p>
                       ))}
+                    </div>
                   </div>
                   <div className="grid gap-4 md:grid-cols-2">
                     <div className="rounded-lg border bg-muted/30 p-4">
@@ -516,6 +541,7 @@ export default function ReportsPage() {
           </Card>
         </div>
       </section>
-    </div>
+      </div>
+    </TooltipProvider>
   );
 }

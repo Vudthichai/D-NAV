@@ -132,60 +132,61 @@ const ExecutiveOnePager = React.forwardRef<HTMLDivElement, ExecutiveOnePagerProp
     return (
       <div
         ref={ref}
-        className="relative overflow-hidden space-y-6 rounded-3xl border bg-card p-6 shadow-xl"
+        className="relative isolate overflow-hidden rounded-3xl border bg-card p-6 shadow-xl"
       >
-        <div className="pointer-events-none absolute inset-0 flex select-none items-center justify-center opacity-10">
+        <div className="pointer-events-none absolute inset-0 flex select-none items-center justify-center -z-10 opacity-5">
           <span className="text-6xl font-black tracking-[0.8rem] text-primary/20">
             DECISION NAVIGATOR
           </span>
         </div>
-        <div className="pointer-events-none absolute bottom-6 right-6 select-none text-[10px] font-semibold uppercase tracking-[0.4em] text-primary/70">
+        <div className="pointer-events-none absolute bottom-10 right-6 select-none text-[10px] font-semibold uppercase tracking-[0.4em] text-primary/50 -z-10">
           The Decision NAVigator
         </div>
-        <header className="flex flex-col gap-3">
-          <Badge variant="outline" className="w-fit uppercase tracking-wide">
-            Executive One-Pager
-          </Badge>
-          <div className="flex flex-wrap items-baseline justify-between gap-2">
-            <h2 className="text-2xl font-semibold text-foreground">Decision Portfolio Brief</h2>
-            <p className="text-xs text-muted-foreground">Generated {generatedAt}</p>
-          </div>
-          <p className="text-sm text-muted-foreground">
-            {timeframeLabel} · Cadence basis: per {cadenceLabel}
-          </p>
-        </header>
+        <div className="relative z-10 space-y-6">
+          <header className="flex flex-col gap-3">
+            <Badge variant="outline" className="w-fit uppercase tracking-wide">
+              Executive One-Pager
+            </Badge>
+            <div className="flex flex-wrap items-baseline justify-between gap-2">
+              <h2 className="text-2xl font-semibold text-foreground">Decision Portfolio Brief</h2>
+              <p className="text-xs text-muted-foreground">Generated {generatedAt}</p>
+            </div>
+            <p className="text-sm text-muted-foreground">
+              {timeframeLabel} · Cadence basis: per {cadenceLabel}
+            </p>
+          </header>
 
-        {!hasData ? (
-          <Card className="border bg-background/80">
-            <CardContent className="p-6 text-center text-sm text-muted-foreground">
-              {narrative}
-            </CardContent>
-          </Card>
-        ) : (
-          <div className="space-y-6">
-            <section className="rounded-xl border bg-background/80 p-5 shadow-sm">
-              <div className="flex items-center justify-between gap-3">
-                <h3 className="text-base font-semibold text-foreground">Portfolio Narrative</h3>
-                <Badge variant="secondary" className="bg-primary/10 text-primary">
-                  Snapshot
-                </Badge>
-              </div>
-              <div className="mt-4 space-y-3 text-sm leading-relaxed text-muted-foreground">
-                {narrativeParagraphs.map((paragraph, index) => {
-                  const lines = paragraph.split("\n");
-                  return (
-                    <p key={index} className="whitespace-pre-wrap">
-                      {lines.map((line, lineIndex) => (
-                        <Fragment key={lineIndex}>
-                          {line}
-                          {lineIndex < lines.length - 1 && <br />}
-                        </Fragment>
-                      ))}
-                    </p>
-                  );
-                })}
-              </div>
-            </section>
+          {!hasData ? (
+            <Card className="border bg-background/80">
+              <CardContent className="p-6 text-center text-sm text-muted-foreground">
+                {narrative}
+              </CardContent>
+            </Card>
+          ) : (
+            <div className="space-y-6">
+              <section className="rounded-xl border bg-background/80 p-5 shadow-sm">
+                <div className="flex items-center justify-between gap-3">
+                  <h3 className="text-base font-semibold text-foreground">Portfolio Narrative</h3>
+                  <Badge variant="secondary" className="bg-primary/10 text-primary">
+                    Snapshot
+                  </Badge>
+                </div>
+                <div className="mt-4 space-y-3 text-sm leading-relaxed text-muted-foreground">
+                  {narrativeParagraphs.map((paragraph, index) => {
+                    const lines = paragraph.split("\n");
+                    return (
+                      <p key={index} className="whitespace-pre-wrap">
+                        {lines.map((line, lineIndex) => (
+                          <Fragment key={lineIndex}>
+                            {line}
+                            {lineIndex < lines.length - 1 && <br />}
+                          </Fragment>
+                        ))}
+                      </p>
+                    );
+                  })}
+                </div>
+              </section>
 
             <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
               <MetricCard
@@ -359,6 +360,7 @@ const ExecutiveOnePager = React.forwardRef<HTMLDivElement, ExecutiveOnePagerProp
             </section>
           </div>
         )}
+        </div>
       </div>
     );
   },
