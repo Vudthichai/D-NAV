@@ -21,6 +21,19 @@ import {
 import { useEffect, useMemo, useRef, useState } from "react";
 import * as XLSX from "xlsx";
 
+export interface DecisionRow {
+  date: string;
+  decisionName: string;
+  category: string;
+  impact: number;
+  cost: number;
+  risk: number;
+  urgency: number;
+  confidence: number;
+}
+
+type ParsedRecord = Partial<DecisionRow> & Record<string, unknown>;
+
 export default function LogPage() {
   const [decisions, setDecisions] = useState<DecisionEntry[]>([]);
   const [isCompact, setIsCompact] = useState(false);
@@ -44,7 +57,7 @@ export default function LogPage() {
     if (confirm("Are you sure you want to clear all decisions? This action cannot be undone.")) {
       clearLog();
       setDecisions([]);
-      }
+    }
   };
 
   const downloadBlob = (blob: Blob, filename: string) => {
@@ -58,6 +71,47 @@ export default function LogPage() {
     URL.revokeObjectURL(url);
   };
 
+  const handleParsingError = (error: unknown, fallback: string) => {
+    console.error(fallback, error);
+    const message = error instanceof Error ? error.message : fallback;
+    setImportError(message);
+    setImportStatus(null);
+  };
+
+  const REQUIRED_HEADERS: Record<string, keyof DecisionRow> = {
+    date: "date",
+    "decision name": "decisionName",
+    category: "category",
+    impact: "impact",
+    cost: "cost",
+    risk: "risk",
+    urgency: "urgency",
+    confidence: "confidence",
+  };
+
+  const OPTIONAL_HEADERS = new Set([
+    "r",
+    "p",
+    "s",
+    "merit",
+    "energy",
+    "d-nav",
+    "dnav",
+    "notes",
+    "ticker",
+    "year",
+  ]);
+
+  const normalizeHeader = (key: string = "") => key.trim().toLowerCase();
+
+  const validateHeaders = (headers: string[]) => {
+    const normalized = headers.map(normalizeHeader);
+    const missing = Object.keys(REQUIRED_HEADERS).filter((required) => !normalized.includes(required));
+    if (missing.length) {
+      throw new Error(`Missing required column${missing.length > 1 ? "s" : ""}: ${missing.join(", ")}`);
+    }
+  };
+
   const handleExportSpreadsheet = () => {
     if (decisions.length === 0) {
       alert("No decisions to export.");
@@ -66,7 +120,7 @@ export default function LogPage() {
 
     const headers = [
       "Date",
-      "Name", 
+      "Decision Name",
       "Category",
       "Impact",
       "Cost",
@@ -83,7 +137,7 @@ export default function LogPage() {
 
     const rows = decisions.map((decision) => ({
       Date: new Date(decision.ts).toLocaleDateString(),
-      Name: decision.name,
+      "Decision Name": decision.name,
       Category: decision.category,
       Impact: decision.impact,
       Cost: decision.cost,
@@ -107,8 +161,6 @@ export default function LogPage() {
     });
     downloadBlob(blob, `dnav-decisions-${new Date().toISOString().split("T")[0]}.xlsx`);
   };
-
-  const normalizeKey = (key: string = "") => key.toLowerCase().replace(/[^a-z0-9]/g, "");
 
   const parseNumeric = (value: unknown): number => {
     let numeric: number | null = null;
@@ -174,14 +226,14 @@ export default function LogPage() {
   };
 
   const mapRecordToDecision = (
-    record: Record<string, unknown>,
+    record: ParsedRecord,
     index: number,
     fallbackBase: number
   ): DecisionEntry | null => {
-    const name = String(record.name ?? record.decision ?? "").trim();
+    const name = String(record.decisionName ?? "").trim();
     if (!name) return null;
 
-    const category = String(record.category ?? record.segment ?? "General").trim() || "General";
+    const category = String(record.category ?? "General").trim() || "General";
     const impact = parseNumeric(record.impact);
     const cost = parseNumeric(record.cost);
     const risk = parseNumeric(record.risk);
@@ -190,7 +242,7 @@ export default function LogPage() {
 
     const metrics = computeMetrics({ impact, cost, risk, urgency, confidence });
     const ts = parseTimestamp(
-      record.timestamp ?? record.ts ?? record.date ?? record.when ?? record.datetime,
+      record.date,
       index,
       fallbackBase
     );
@@ -208,7 +260,7 @@ export default function LogPage() {
     };
   };
 
-  const recordsToDecisions = (records: Record<string, unknown>[]): DecisionEntry[] => {
+  const recordsToDecisions = (records: ParsedRecord[]): DecisionEntry[] => {
     const fallbackBase = Date.now();
     return records
       .map((record, index) => mapRecordToDecision(record, index, fallbackBase))
@@ -283,16 +335,26 @@ export default function LogPage() {
     );
   };
 
-  const parseCsvRecords = (rows: string[][]): Record<string, unknown>[] => {
-    if (rows.length < 2) return [];
-    const headers = rows[0].map(normalizeKey);
+  const parseCsvRecords = (rows: string[][]): ParsedRecord[] => {
+    if (rows.length === 0) return [];
+    validateHeaders(rows[0]);
+    const headerMap = rows[0].map((header) => {
+      const normalized = normalizeHeader(header);
+      if (REQUIRED_HEADERS[normalized]) {
+        return REQUIRED_HEADERS[normalized];
+      }
+      if (OPTIONAL_HEADERS.has(normalized)) {
+        return null;
+      }
+      return null;
+    });
     return rows
       .slice(1)
       .filter((row) => row.some((cell) => String(cell || "").trim().length > 0))
       .map((row) => {
-        const record: Record<string, unknown> = {};
+        const record: ParsedRecord = {};
         row.forEach((cell, idx) => {
-          const key = headers[idx];
+          const key = headerMap[idx];
           if (key) {
             record[key] = cell;
           }
@@ -301,14 +363,21 @@ export default function LogPage() {
       });
   };
 
-  const parseSheetRecords = (sheet: XLSX.Sheet): Record<string, unknown>[] => {
+  const parseSheetRecords = (sheet: XLSX.Sheet): ParsedRecord[] => {
+    const headerRow = XLSX.utils.sheet_to_json<string[]>(sheet, { header: 1 }) as unknown as string[][];
+    const headers = (headerRow[0] || []).map(String);
+    validateHeaders(headers);
+
     const raw = XLSX.utils.sheet_to_json<Record<string, unknown>>(sheet, { defval: "" });
+    if (!raw.length) return [];
+
     return raw.map((row) => {
-      const record: Record<string, unknown> = {};
+      const record: ParsedRecord = {};
       Object.entries(row).forEach(([key, value]) => {
-        const normalized = normalizeKey(key);
-        if (normalized) {
-          record[normalized] = value;
+        const normalized = normalizeHeader(key);
+        const mappedKey = REQUIRED_HEADERS[normalized];
+        if (mappedKey) {
+          record[mappedKey] = value;
         }
       });
       return record;
@@ -374,9 +443,7 @@ export default function LogPage() {
           const decisions = recordsToDecisions(records);
           processImportedDecisions(decisions);
         } catch (error) {
-          console.error("Failed to import CSV:", error);
-          setImportError("The CSV file could not be parsed. Please verify the template format.");
-          setImportStatus(null);
+          handleParsingError(error, "The CSV file could not be parsed. Please verify the template format.");
         } finally {
           input.value = "";
         }
@@ -399,9 +466,7 @@ export default function LogPage() {
           const decisions = recordsToDecisions(records);
           processImportedDecisions(decisions);
         } catch (error) {
-          console.error("Failed to import Excel:", error);
-          setImportError("The Excel file could not be parsed. Please verify the template format.");
-          setImportStatus(null);
+          handleParsingError(error, "The Excel file could not be parsed. Please verify the template format.");
         } finally {
           input.value = "";
         }
@@ -417,14 +482,14 @@ export default function LogPage() {
 
   const handleDownloadTemplate = (type: "csv" | "xlsx") => {
     const header = [
-      "Decision Date (YYYY-MM-DD)",
+      "Date",
       "Decision Name",
-      "Category / Domain",
-      "Impact (1-10)",
-      "Cost (1-10)",
-      "Risk (1-10)",
-      "Urgency (1-10)",
-      "Confidence (1-10)",
+      "Category",
+      "Impact",
+      "Cost",
+      "Risk",
+      "Urgency",
+      "Confidence",
     ];
     const sampleRows = [
       header,
@@ -566,8 +631,8 @@ export default function LogPage() {
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead>When</TableHead>
-                <TableHead>Name</TableHead>
+                <TableHead>Date</TableHead>
+                <TableHead>Decision</TableHead>
                 <TableHead>{renderSortButton("Category", "category")}</TableHead>
                 <TableHead className="text-right">Impact</TableHead>
                 <TableHead className="text-right">Cost</TableHead>
