@@ -898,6 +898,57 @@ export default function TheDNavPage() {
         dnav: avgDnav,
       }).description
     : "";
+  const archetypeDefinition = useMemo(() => {
+    if (!selectedArchetype) return null;
+
+    return getArchetype({
+      return: avgReturn,
+      pressure: avgPressure,
+      stability: avgStability,
+      merit: 0,
+      energy: 0,
+      dnav: avgDnav,
+    });
+  }, [avgDnav, avgPressure, avgReturn, avgStability, selectedArchetype]);
+
+  const archetypeDimensionDefinitions = useMemo(
+    () =>
+      archetypeDefinition
+        ? [
+            {
+              label: "Return",
+              value: archetypeDefinition.returnType,
+              description:
+                archetypeDefinition.returnType === "Gain"
+                  ? "Upside seeking outcomes where impact outpaces cost."
+                  : archetypeDefinition.returnType === "Flat"
+                    ? "Neutral or break-even results where upside and cost net out."
+                    : "Loss-leaning calls where costs exceeded impact.",
+            },
+            {
+              label: "Pressure",
+              value: archetypeDefinition.pressureType,
+              description:
+                archetypeDefinition.pressureType === "Pressured"
+                  ? "Urgency is driving execution faster than confidence grows."
+                  : archetypeDefinition.pressureType === "Balanced"
+                    ? "Confidence and urgency are roughly in sync."
+                    : "Calmer operating tempo with confidence outweighing urgency.",
+            },
+            {
+              label: "Stability",
+              value: archetypeDefinition.stabilityType,
+              description:
+                archetypeDefinition.stabilityType === "Stable"
+                  ? "Confidence outpaces risk, giving firmer footing."
+                  : archetypeDefinition.stabilityType === "Uncertain"
+                    ? "Confidence and risk are even, keeping footing neutral."
+                    : "Risk is eclipsing confidence, creating fragile footing.",
+            },
+          ]
+        : [],
+    [archetypeDefinition],
+  );
 
   const coachLine = useMemo(() => coachHint(variables, metrics), [metrics, variables]);
   const getPillColor = useCallback(
@@ -1742,28 +1793,37 @@ export default function TheDNavPage() {
                               </div>
 
                               <div className="flex flex-wrap items-start justify-between gap-3">
-                                <div className="space-y-1">
+                                <div className="space-y-1 max-w-2xl">
                                   <p className="text-base font-semibold text-foreground">{selectedArchetype.archetype}</p>
                                   <p className="text-sm text-muted-foreground">
                                     {archetypeTagline}
                                   </p>
                                 </div>
-                                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-sm">
-                                  <div>
-                                    <p className="text-[10px] font-semibold uppercase text-muted-foreground">Avg R</p>
-                                    <p className="font-semibold text-foreground">{formatValue(avgReturn)}</p>
+                                <div className="flex flex-wrap items-end justify-end gap-3">
+                                  <div className="rounded-lg border bg-background px-3 py-2 text-right shadow-sm">
+                                    <p className="text-[10px] font-semibold uppercase text-muted-foreground">Avg R/P/S</p>
+                                    <p className="font-semibold text-foreground">
+                                      {`${formatValue(avgReturn)} / ${formatValue(avgPressure)} / ${formatValue(avgStability)}`}
+                                    </p>
+                                    <p className="text-[11px] text-muted-foreground">Return / Pressure / Stability</p>
                                   </div>
-                                  <div>
-                                    <p className="text-[10px] font-semibold uppercase text-muted-foreground">Avg P</p>
-                                    <p className="font-semibold text-foreground">{formatValue(avgPressure)}</p>
-                                  </div>
-                                  <div>
-                                    <p className="text-[10px] font-semibold uppercase text-muted-foreground">Avg S</p>
-                                    <p className="font-semibold text-foreground">{formatValue(avgStability)}</p>
-                                  </div>
-                                  <div>
-                                    <p className="text-[10px] font-semibold uppercase text-muted-foreground">Avg D-NAV</p>
-                                    <p className="font-semibold text-foreground">{formatValue(avgDnav)}</p>
+                                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-sm">
+                                    <div>
+                                      <p className="text-[10px] font-semibold uppercase text-muted-foreground">Avg R</p>
+                                      <p className="font-semibold text-foreground">{formatValue(avgReturn)}</p>
+                                    </div>
+                                    <div>
+                                      <p className="text-[10px] font-semibold uppercase text-muted-foreground">Avg P</p>
+                                      <p className="font-semibold text-foreground">{formatValue(avgPressure)}</p>
+                                    </div>
+                                    <div>
+                                      <p className="text-[10px] font-semibold uppercase text-muted-foreground">Avg S</p>
+                                      <p className="font-semibold text-foreground">{formatValue(avgStability)}</p>
+                                    </div>
+                                    <div>
+                                      <p className="text-[10px] font-semibold uppercase text-muted-foreground">Avg D-NAV</p>
+                                      <p className="font-semibold text-foreground">{formatValue(avgDnav)}</p>
+                                    </div>
                                   </div>
                                 </div>
                               </div>
@@ -1780,6 +1840,32 @@ export default function TheDNavPage() {
                                   <span>—</span>
                                 )}
                               </div>
+
+                              {archetypeDefinition && (
+                                <div className="space-y-3 rounded-lg border bg-muted/30 p-4">
+                                  <div className="flex flex-wrap items-center justify-between gap-2">
+                                    <div>
+                                      <p className="text-sm font-semibold text-foreground">Archetype definitions</p>
+                                      <p className="text-xs text-muted-foreground">
+                                        How this cluster shows up across return, pressure, and stability.
+                                      </p>
+                                    </div>
+                                    <Badge variant="outline">{archetypeDefinition.name}</Badge>
+                                  </div>
+                                  <p className="text-sm text-muted-foreground">{archetypeDefinition.description}</p>
+                                  <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                                    {archetypeDimensionDefinitions.map((dimension) => (
+                                      <div key={dimension.label} className="rounded-md border bg-background/60 p-3 shadow-sm">
+                                        <div className="flex items-center justify-between gap-2">
+                                          <p className="text-xs font-semibold uppercase text-muted-foreground">{dimension.label}</p>
+                                          <Badge variant="secondary">{dimension.value}</Badge>
+                                        </div>
+                                        <p className="mt-2 text-sm leading-relaxed text-foreground">{dimension.description}</p>
+                                      </div>
+                                    ))}
+                                  </div>
+                                </div>
+                              )}
 
                               {archetypeDecisionList.length > 0 ? (
                                 <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
