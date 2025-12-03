@@ -16,6 +16,7 @@ import {
   SelectContent,
   SelectGroup,
   SelectItem,
+  SelectLabel,
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
@@ -42,6 +43,8 @@ import {
   RotateCcw,
   Save,
   Upload,
+  ChevronLeft,
+  ChevronRight,
   X,
 } from "lucide-react";
 import jsPDF from "jspdf";
@@ -71,7 +74,6 @@ import {
   getLearningRecoverySummary,
   getRpsSummary,
 } from "@/utils/sectionSummaries";
-import { generateInsights } from "@/utils/insights";
 import { cn } from "@/lib/utils";
 
 const DEFAULT_VARIABLES: DecisionVariables = {
@@ -434,6 +436,7 @@ export default function TheDNavPage() {
     { key: "decisionCount", direction: "desc" },
   );
   const [selectedArchetype, setSelectedArchetype] = useState<ArchetypePatternRow | null>(null);
+  const [selectedArchetypeIndex, setSelectedArchetypeIndex] = useState<number | null>(null);
   const [archetypeTableSort, setArchetypeTableSort] = useState<{
     key: ArchetypeTableSortKey;
     direction: "asc" | "desc";
@@ -591,18 +594,32 @@ export default function TheDNavPage() {
   }, [archetypes.rows, archetypeTableSort]);
   const archetypeSummary = useMemo(() => getArchetypeSummary(archetypes), [archetypes]);
 
-  const insights = useMemo(
-    () =>
-      generateInsights({
-        baseline,
-        learning,
-        hygiene,
-        categories,
-        archetypes,
-        totalDecisions: normalized.length,
-      }),
-    [archetypes, baseline, categories, hygiene, learning, normalized.length],
-  );
+  useEffect(() => {
+    if (!selectedArchetype) {
+      if (selectedArchetypeIndex !== null) {
+        setSelectedArchetypeIndex(null);
+      }
+      return;
+    }
+
+    const index = sortedArchetypeRows.findIndex((row) => row.archetype === selectedArchetype.archetype);
+
+    if (index === -1) {
+      setSelectedArchetype(null);
+      setSelectedArchetypeIndex(null);
+      return;
+    }
+
+    if (selectedArchetypeIndex !== index) {
+      setSelectedArchetypeIndex(index);
+      return;
+    }
+
+    const latestRow = sortedArchetypeRows[index];
+    if (latestRow !== selectedArchetype) {
+      setSelectedArchetype(latestRow);
+    }
+  }, [selectedArchetype, selectedArchetypeIndex, sortedArchetypeRows]);
 
   const archetypeDecisions = useMemo(
     () =>
@@ -662,6 +679,41 @@ export default function TheDNavPage() {
         return row.topCategories.join(", ") || "—";
       default:
         return String(row[key as keyof ArchetypePatternRow] ?? "");
+    }
+  };
+
+  const handleArchetypeSelection = (row: ArchetypePatternRow | null) => {
+    if (!row) {
+      setSelectedArchetype(null);
+      setSelectedArchetypeIndex(null);
+      return;
+    }
+
+    const index = sortedArchetypeRows.findIndex((item) => item.archetype === row.archetype);
+    setSelectedArchetype(row);
+    setSelectedArchetypeIndex(index >= 0 ? index : null);
+  };
+
+  const handleNavigateArchetype = (direction: "prev" | "next") => {
+    if (selectedArchetypeIndex === null) return;
+
+    const delta = direction === "next" ? 1 : -1;
+    const newIndex = Math.min(
+      Math.max(selectedArchetypeIndex + delta, 0),
+      Math.max(sortedArchetypeRows.length - 1, 0)
+    );
+
+    if (newIndex !== selectedArchetypeIndex && sortedArchetypeRows[newIndex]) {
+      setSelectedArchetype(sortedArchetypeRows[newIndex]);
+      setSelectedArchetypeIndex(newIndex);
+    }
+  };
+
+  const handleArchetypeJump = (value: string) => {
+    const index = sortedArchetypeRows.findIndex((row) => row.archetype === value);
+    if (index !== -1) {
+      setSelectedArchetype(sortedArchetypeRows[index]);
+      setSelectedArchetypeIndex(index);
     }
   };
 
@@ -1461,7 +1513,7 @@ export default function TheDNavPage() {
                                     key={row.archetype}
                                     className="hover:bg-muted/50 cursor-pointer"
                                     style={{ display: "grid", gridTemplateColumns: archetypeGridTemplate }}
-                                    onClick={() => setSelectedArchetype(row)}
+                                    onClick={() => handleArchetypeSelection(row)}
                                   >
                                     {archetypeColumns.map((column) => (
                                       <TableCell
@@ -1486,7 +1538,11 @@ export default function TheDNavPage() {
                   </div>
                   <Dialog
                     open={!!selectedArchetype}
-                    onOpenChange={(open) => setSelectedArchetype(open ? selectedArchetype : null)}
+                    onOpenChange={(open) =>
+                      open && selectedArchetype
+                        ? handleArchetypeSelection(selectedArchetype)
+                        : handleArchetypeSelection(null)
+                    }
                   >
                     <DialogContent className="w-[90vw] max-w-[90vw] h-[85vh] p-0 overflow-hidden">
                       <div className="flex h-full flex-col bg-background">
@@ -1503,6 +1559,52 @@ export default function TheDNavPage() {
                         {selectedArchetype && (
                           <>
                             <div className="space-y-4 border-b bg-card/60 px-6 py-4">
+                              <div className="flex flex-wrap items-center justify-between gap-3">
+                                <div className="flex items-center gap-2">
+                                  <Button
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={() => handleNavigateArchetype("prev")}
+                                    disabled={selectedArchetypeIndex === null || selectedArchetypeIndex === 0}
+                                  >
+                                    <ChevronLeft className="h-4 w-4" />
+                                    <span className="hidden sm:inline">Previous</span>
+                                    <span className="sm:hidden">Prev</span>
+                                  </Button>
+                                  <Button
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={() => handleNavigateArchetype("next")}
+                                    disabled={
+                                      selectedArchetypeIndex === null ||
+                                      selectedArchetypeIndex === sortedArchetypeRows.length - 1
+                                    }
+                                  >
+                                    <span className="hidden sm:inline">Next</span>
+                                    <span className="sm:hidden">Next</span>
+                                    <ChevronRight className="h-4 w-4" />
+                                  </Button>
+                                </div>
+
+                                <Select
+                                  value={selectedArchetype.archetype}
+                                  onValueChange={handleArchetypeJump}
+                                  disabled={sortedArchetypeRows.length === 0}
+                                >
+                                  <SelectTrigger size="sm" className="min-w-[220px]">
+                                    <SelectValue placeholder="Jump to archetype" />
+                                  </SelectTrigger>
+                                  <SelectContent>
+                                    <SelectLabel>Quick jump</SelectLabel>
+                                    {sortedArchetypeRows.map((row) => (
+                                      <SelectItem key={row.archetype} value={row.archetype}>
+                                        {row.archetype}
+                                      </SelectItem>
+                                    ))}
+                                  </SelectContent>
+                                </Select>
+                              </div>
+
                               <div className="flex flex-wrap items-start justify-between gap-3">
                                 <div className="space-y-1">
                                   <p className="text-base font-semibold text-foreground">{selectedArchetype.archetype}</p>
