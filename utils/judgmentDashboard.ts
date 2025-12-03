@@ -1,4 +1,5 @@
 import { DecisionEntry, getArchetype } from "@/lib/calculations";
+import { type CompanyContext } from "@/types/company";
 import { computeLCI } from "./lci";
 import { mean, stdev } from "./stats";
 
@@ -135,6 +136,19 @@ export interface JudgmentSignals {
   lowFrequencyHighImpact: string[];
   highVolatility: string[];
   highDrift: string[];
+}
+
+export interface JudgmentDashboardData {
+  normalized: JudgmentDecision[];
+  chronological: JudgmentDecision[];
+  baseline: RpsBaseline;
+  learning: LearningMetrics;
+  hygiene: ReturnHygiene;
+  categories: CategoryHeatmapRow[];
+  archetypes: ArchetypePatterns;
+  drift: DriftInsights;
+  signals: JudgmentSignals;
+  companyContext?: CompanyContext;
 }
 
 const safeNumber = (value: unknown, fallback = 0) =>
@@ -662,17 +676,8 @@ export const computeJudgmentSignals = (
 
 export const buildJudgmentDashboard = (
   decisions: DecisionEntry[],
-): {
-  normalized: JudgmentDecision[];
-  chronological: JudgmentDecision[];
-  baseline: RpsBaseline;
-  learning: LearningMetrics;
-  hygiene: ReturnHygiene;
-  categories: CategoryHeatmapRow[];
-  archetypes: ArchetypePatterns;
-  drift: DriftInsights;
-  signals: JudgmentSignals;
-} => {
+  companyContext?: CompanyContext,
+): JudgmentDashboardData => {
   const normalized = decisions.map(normalizeDecision);
   const chronological = [...normalized].sort((a, b) => a.createdAt - b.createdAt);
   const baseline = computeRpsBaseline(normalized);
@@ -683,5 +688,16 @@ export const buildJudgmentDashboard = (
   const drift = computeDriftInsights(normalized);
   const signals = computeJudgmentSignals(categories, drift);
 
-  return { normalized, chronological, baseline, learning, hygiene, categories, archetypes, drift, signals };
+  return {
+    normalized,
+    chronological,
+    baseline,
+    learning,
+    hygiene,
+    categories,
+    archetypes,
+    drift,
+    signals,
+    companyContext,
+  };
 };

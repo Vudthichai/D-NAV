@@ -7,13 +7,23 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
-import { loadLog, type DecisionEntry } from "@/lib/storage";
+import {
+  loadCompanyContext,
+  loadCompanySummary,
+  loadLog,
+  saveCompanySummary,
+  type DecisionEntry,
+} from "@/lib/storage";
 import { useNetlifyIdentity } from "@/hooks/use-netlify-identity";
+import { generateCompanySummary } from "@/lib/judgmentSummaryLLM";
+import { buildCompanySummaryInput } from "@/lib/judgmentSummaryPayload";
+import { type CompanyContext, type CompanySummaryOutput } from "@/types/company";
 import {
   buildDistributionInsights,
   buildReturnDebtSummary,
   computeDashboardStats,
 } from "@/utils/dashboardStats";
+import { buildJudgmentDashboard } from "@/utils/judgmentDashboard";
 import { FileDown, FileSpreadsheet, FileText } from "lucide-react";
 import * as XLSX from "xlsx";
 
@@ -129,15 +139,25 @@ export default function ReportsPage() {
   const [decisions, setDecisions] = useState<DecisionEntry[]>([]);
   const [downloading, setDownloading] = useState<string | null>(null);
   const [generatedAt, setGeneratedAt] = useState(() => new Date().toLocaleString());
+  const [companyContext, setCompanyContext] = useState<CompanyContext | null>(null);
+  const [companySummary, setCompanySummary] = useState<CompanySummaryOutput | null>(null);
+  const [summaryError, setSummaryError] = useState<string | null>(null);
+  const [summaryLoading, setSummaryLoading] = useState(false);
   const onePagerRef = useRef<HTMLDivElement>(null);
   const { isLoggedIn, openLogin } = useNetlifyIdentity();
 
   useEffect(() => {
     setDecisions(loadLog());
+    setCompanyContext(loadCompanyContext());
+    setCompanySummary(loadCompanySummary());
   }, []);
 
   useEffect(() => {
-    const handleStorage = () => setDecisions(loadLog());
+    const handleStorage = () => {
+      setDecisions(loadLog());
+      setCompanyContext(loadCompanyContext());
+      setCompanySummary(loadCompanySummary());
+    };
     window.addEventListener("storage", handleStorage);
     return () => window.removeEventListener("storage", handleStorage);
   }, []);
@@ -157,6 +177,11 @@ export default function ReportsPage() {
   const filteredDecisions = useMemo(
     () => filterDecisionsByTimeframe(decisions, timeframeDays),
     [decisions, timeframeDays],
+  );
+
+  const judgmentDashboard = useMemo(
+    () => buildJudgmentDashboard(filteredDecisions, companyContext ?? undefined),
+    [filteredDecisions, companyContext],
   );
 
   const stats = useMemo(
@@ -179,6 +204,10 @@ export default function ReportsPage() {
     ? `Exports ${stats.totalDecisions} decision${stats.totalDecisions === 1 ? "" : "s"} with full variables, returns, stability, pressure, and D-NAV.`
     : "No decisions logged in this window yet.";
 
+  const canGenerateSummary = Boolean(
+    companyContext?.companyName && companyContext.timeframeLabel && filteredDecisions.length > 0,
+  );
+
   const handleSignInClick = () => {
     openLogin();
   };
@@ -186,6 +215,27 @@ export default function ReportsPage() {
   const handleBookAuditClick = () => {
     if (typeof window === "undefined") return;
     window.location.href = "/contact";
+  };
+
+  const handleGenerateSummary = async () => {
+    if (!companyContext || !canGenerateSummary) {
+      setSummaryError("Add a company name, timeframe, and at least one decision to generate a summary.");
+      return;
+    }
+
+    setSummaryLoading(true);
+    setSummaryError(null);
+    try {
+      const input = buildCompanySummaryInput({ ...judgmentDashboard, companyContext });
+      const summary = await generateCompanySummary(input);
+      setCompanySummary(summary);
+      saveCompanySummary(summary);
+    } catch (error) {
+      console.error("Failed to generate company summary", error);
+      setSummaryError("Unable to generate a summary right now. Please try again.");
+    } finally {
+      setSummaryLoading(false);
+    }
   };
 
   const handleExportCsv = () => {
@@ -318,6 +368,80 @@ export default function ReportsPage() {
           </div>
         )}
         <div className={cn("grid gap-4", !isLoggedIn && "pointer-events-none filter blur-sm opacity-50")}>
+          <Card className="border-muted/60 bg-card/90 shadow-sm">
+            <CardHeader className="flex flex-col gap-2 lg:flex-row lg:items-start lg:justify-between">
+              <div className="space-y-1">
+                <CardTitle className="text-xl">Judgment Summary</CardTitle>
+                <p className="text-sm text-muted-foreground">
+                  Auto-generated narrative plus strengths and vulnerabilities based on your latest decisions.
+                </p>
+              </div>
+              <div className="flex flex-wrap gap-2">
+                {companyContext?.companyName && companyContext.timeframeLabel ? (
+                  <Badge variant="outline" className="w-fit">
+                    {companyContext.companyName} · {companyContext.timeframeLabel}
+                  </Badge>
+                ) : (
+                  <Badge variant="outline" className="w-fit">Add company context in the Decision Log</Badge>
+                )}
+                <Button
+                  onClick={handleGenerateSummary}
+                  disabled={!isLoggedIn || summaryLoading || !canGenerateSummary}
+                  variant="default"
+                >
+                  {summaryLoading ? "Generating..." : companySummary ? "Regenerate" : "Generate Summary"}
+                </Button>
+              </div>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              {summaryError && <p className="text-sm text-destructive">{summaryError}</p>}
+              {!companySummary && !summaryError && (
+                <p className="text-sm text-muted-foreground">
+                  Provide a company name and timeframe in the Decision Log, then generate a summary once at least one decision is
+                  logged.
+                </p>
+              )}
+              {companySummary && (
+                <div className="space-y-6">
+                  <div className="space-y-2 text-sm leading-relaxed text-foreground">
+                    {companySummary.summary
+                      .split("\n")
+                      .filter(Boolean)
+                      .map((paragraph, idx) => (
+                        <p key={idx} className="text-muted-foreground">
+                          {paragraph}
+                        </p>
+                      ))}
+                  </div>
+                  <div className="grid gap-4 md:grid-cols-2">
+                    <div className="rounded-lg border bg-muted/30 p-4">
+                      <h4 className="text-sm font-semibold text-foreground">Strengths</h4>
+                      <ul className="mt-2 space-y-2 text-sm text-muted-foreground">
+                        {companySummary.strengths.map((item, idx) => (
+                          <li key={`strength-${idx}`} className="flex gap-2">
+                            <span className="mt-1 block h-2 w-2 rounded-full bg-emerald-500" />
+                            <span>{item}</span>
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                    <div className="rounded-lg border bg-muted/30 p-4">
+                      <h4 className="text-sm font-semibold text-foreground">Vulnerabilities</h4>
+                      <ul className="mt-2 space-y-2 text-sm text-muted-foreground">
+                        {companySummary.vulnerabilities.map((item, idx) => (
+                          <li key={`vulnerability-${idx}`} className="flex gap-2">
+                            <span className="mt-1 block h-2 w-2 rounded-full bg-amber-500" />
+                            <span>{item}</span>
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  </div>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+
           <Card className="border-muted/60 bg-card/90 shadow-sm">
             <CardHeader className="space-y-2">
               <div className="flex items-center gap-3">

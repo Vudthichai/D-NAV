@@ -1,12 +1,22 @@
 "use client";
 
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Checkbox } from "@/components/ui/checkbox";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Input } from "@/components/ui/input";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Textarea } from "@/components/ui/textarea";
 import { DecisionEntry, computeMetrics, parseCSV } from "@/lib/calculations";
-import { loadLog, removeDecision, clearLog, saveLog } from "@/lib/storage";
+import { clearLog, loadCompanyContext, loadLog, removeDecision, saveCompanyContext, saveLog } from "@/lib/storage";
+import { type CompanyContext } from "@/types/company";
 import {
   AlertTriangle,
   ArrowDown,
@@ -18,7 +28,7 @@ import {
   Trash2,
   Upload,
 } from "lucide-react";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { type ChangeEvent, useEffect, useMemo, useRef, useState } from "react";
 import * as XLSX from "xlsx";
 
 export interface DecisionRow {
@@ -39,12 +49,38 @@ export default function LogPage() {
   const [isCompact, setIsCompact] = useState(false);
   const [importStatus, setImportStatus] = useState<string | null>(null);
   const [importError, setImportError] = useState<string | null>(null);
+  const [companyContext, setCompanyContext] = useState<CompanyContext>({
+    companyName: "",
+    timeframeLabel: "",
+    type: undefined,
+  });
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Load decisions on component mount
   useEffect(() => {
     setDecisions(loadLog());
   }, []);
+
+  useEffect(() => {
+    const stored = loadCompanyContext();
+    if (stored) {
+      setCompanyContext({
+        companyName: stored.companyName ?? "",
+        timeframeLabel: stored.timeframeLabel ?? "",
+        ticker: stored.ticker ?? undefined,
+        type: stored.type,
+        sector: stored.sector ?? undefined,
+        stage: stored.stage,
+        source: stored.source,
+        contextNote: stored.contextNote ?? undefined,
+      });
+    }
+  }, []);
+
+  useEffect(() => {
+    if (!companyContext.companyName && !companyContext.timeframeLabel) return;
+    saveCompanyContext(companyContext);
+  }, [companyContext]);
 
   const handleDeleteDecision = (timestamp: number) => {
     if (confirm("Are you sure you want to delete this decision?")) {
@@ -58,6 +94,21 @@ export default function LogPage() {
       clearLog();
       setDecisions([]);
     }
+  };
+
+  const handleContextChange = (
+    field: keyof CompanyContext,
+    value: string | CompanyContext["type"] | CompanyContext["stage"] | CompanyContext["source"],
+  ) => {
+    setCompanyContext((prev) => ({
+      ...prev,
+      [field]: typeof value === "string" ? value : value || undefined,
+    }));
+  };
+
+  const handleContextInput = (event: ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
+    const { name, value } = event.target;
+    handleContextChange(name as keyof CompanyContext, value);
   };
 
   const downloadBlob = (blob: Blob, filename: string) => {
@@ -613,6 +664,144 @@ export default function LogPage() {
 
   return (
     <div className="max-w-6xl mx-auto grid gap-4 grid-cols-1">
+      <Card>
+        <CardHeader>
+          <CardTitle>Company Context</CardTitle>
+        </CardHeader>
+        <CardContent className="grid gap-4">
+          <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+            <div className="space-y-2">
+              <label className="text-sm font-medium text-foreground" htmlFor="companyName">
+                Company name <span className="text-destructive">*</span>
+              </label>
+              <Input
+                id="companyName"
+                name="companyName"
+                placeholder="e.g., Horizon Labs"
+                value={companyContext.companyName}
+                onChange={handleContextInput}
+              />
+            </div>
+            <div className="space-y-2">
+              <label className="text-sm font-medium text-foreground" htmlFor="timeframeLabel">
+                Timeframe covered <span className="text-destructive">*</span>
+              </label>
+              <Input
+                id="timeframeLabel"
+                name="timeframeLabel"
+                placeholder="e.g., 2022–2024 or Last 18 months"
+                value={companyContext.timeframeLabel}
+                onChange={handleContextInput}
+              />
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
+            <div className="space-y-2">
+              <label className="text-sm font-medium text-foreground">Type</label>
+              <Select
+                value={companyContext.type}
+                onValueChange={(value) => handleContextChange("type", value as CompanyContext["type"])}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Select type" />
+                </SelectTrigger>
+                <SelectContent>
+                  {[
+                    "Public",
+                    "Private",
+                    "Startup",
+                    "Non-profit",
+                    "Fund",
+                    "Other",
+                  ].map((option) => (
+                    <SelectItem key={option} value={option}>
+                      {option}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-2">
+              <label className="text-sm font-medium text-foreground" htmlFor="sector">
+                Sector
+              </label>
+              <Input
+                id="sector"
+                name="sector"
+                placeholder="e.g., B2B SaaS"
+                value={companyContext.sector || ""}
+                onChange={handleContextInput}
+              />
+            </div>
+            <div className="space-y-2">
+              <label className="text-sm font-medium text-foreground">Stage</label>
+              <Select
+                value={companyContext.stage}
+                onValueChange={(value) => handleContextChange("stage", value as CompanyContext["stage"])}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Select stage" />
+                </SelectTrigger>
+                <SelectContent>
+                  {["Early", "Growth", "Mature", "Turnaround", "Other"].map((option) => (
+                    <SelectItem key={option} value={option}>
+                      {option}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
+            <div className="space-y-2">
+              <label className="text-sm font-medium text-foreground" htmlFor="ticker">
+                Ticker (if public)
+              </label>
+              <Input
+                id="ticker"
+                name="ticker"
+                placeholder="e.g., DNAV"
+                value={companyContext.ticker || ""}
+                onChange={handleContextInput}
+              />
+            </div>
+            <div className="space-y-2">
+              <label className="text-sm font-medium text-foreground">Source</label>
+              <Select
+                value={companyContext.source}
+                onValueChange={(value) => handleContextChange("source", value as CompanyContext["source"])}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Select source" />
+                </SelectTrigger>
+                <SelectContent>
+                  {["Public filings", "Internal decision log", "Mixed", "Other"].map((option) => (
+                    <SelectItem key={option} value={option}>
+                      {option}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-2">
+              <label className="text-sm font-medium text-foreground" htmlFor="contextNote">
+                Context note
+              </label>
+              <Textarea
+                id="contextNote"
+                name="contextNote"
+                placeholder="50-person SaaS startup..."
+                value={companyContext.contextNote || ""}
+                onChange={handleContextInput}
+                rows={3}
+              />
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
       <Card>
         <CardHeader className="flex flex-row items-center justify-between gap-3 flex-wrap">
           <div className="flex items-center gap-4">
