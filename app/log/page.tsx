@@ -387,6 +387,17 @@ export default function LogPage() {
     });
   };
 
+  const buildDecisionKey = (entry: Pick<DecisionEntry, "name" | "ts">) => {
+    const decisionText = entry.name?.trim();
+    if (!decisionText) return null;
+
+    const datePart = entry.ts
+      ? new Date(entry.ts).toISOString().slice(0, 10)
+      : "";
+
+    return `${decisionText} | ${datePart}`;
+  };
+
   const processImportedDecisions = (entries: DecisionEntry[]) => {
     if (entries.length === 0) {
       setImportError("No valid decisions found in the uploaded file.");
@@ -395,15 +406,22 @@ export default function LogPage() {
     }
 
     const existing = loadLog();
-    const seen = new Set(existing.map((d) => d.ts));
+    const seen = new Set(
+      existing
+        .map((decision) => buildDecisionKey(decision))
+        .filter((key): key is string => Boolean(key))
+    );
     let duplicates = 0;
 
     const unique = entries.filter((entry) => {
-      if (seen.has(entry.ts)) {
+      const key = buildDecisionKey(entry);
+      if (!key) return false;
+
+      if (seen.has(key)) {
         duplicates += 1;
         return false;
       }
-      seen.add(entry.ts);
+      seen.add(key);
       return true;
     });
 
