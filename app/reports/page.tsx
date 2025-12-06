@@ -136,7 +136,7 @@ const filterDecisionsByTimeframe = (decisions: DecisionEntry[], timeframeDays: n
 };
 
 export default function ReportsPage() {
-  const [selectedTimeframe, setSelectedTimeframe] = useState<TimeframeValue>("7");
+  const [selectedTimeframe, setSelectedTimeframe] = useState<TimeframeValue>("all");
   const [decisions, setDecisions] = useState<DecisionEntry[]>([]);
   const [downloading, setDownloading] = useState<string | null>(null);
   const [generatedAt, setGeneratedAt] = useState(() => new Date().toLocaleString());

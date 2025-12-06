@@ -39,6 +39,8 @@ import {
   ArrowDownRight,
   ArrowUpRight,
   Info,
+  ArrowLeft,
+  ArrowRight,
   RotateCcw,
   Save,
   Upload,
@@ -426,7 +428,7 @@ export default function TheDNavPage() {
   const [metrics, setMetrics] = useState<DecisionMetrics>(() => computeMetrics(DEFAULT_VARIABLES));
   const [isSaved, setIsSaved] = useState(false);
 
-  const [timeWindow, setTimeWindow] = useState("30");
+  const [timeWindow, setTimeWindow] = useState("0");
   const [isGeneratingStatsPdf, setIsGeneratingStatsPdf] = useState(false);
   const statsContainerRef = useRef<HTMLDivElement>(null);
   const { isLoggedIn, openLogin, logout } = useNetlifyIdentity();
@@ -589,6 +591,30 @@ export default function TheDNavPage() {
     });
     return sorted;
   }, [archetypes.rows, archetypeTableSort]);
+
+  const selectedArchetypeIndex = useMemo(
+    () => sortedArchetypeRows.findIndex((row) => row.archetype === selectedArchetype?.archetype),
+    [selectedArchetype, sortedArchetypeRows],
+  );
+
+  const hasPreviousArchetype = selectedArchetypeIndex > 0;
+  const hasNextArchetype = selectedArchetypeIndex >= 0 && selectedArchetypeIndex < sortedArchetypeRows.length - 1;
+
+  const handleArchetypeChange = (value: string) => {
+    const nextSelection = sortedArchetypeRows.find((row) => row.archetype === value) ?? null;
+    setSelectedArchetype(nextSelection);
+  };
+
+  const handleNavigateArchetype = (direction: "prev" | "next") => {
+    if (selectedArchetypeIndex === -1) return;
+
+    const offset = direction === "next" ? 1 : -1;
+    const target = sortedArchetypeRows[selectedArchetypeIndex + offset];
+
+    if (target) {
+      setSelectedArchetype(target);
+    }
+  };
   const archetypeSummary = useMemo(() => getArchetypeSummary(archetypes), [archetypes]);
 
   const insights = useMemo(
@@ -1504,7 +1530,7 @@ export default function TheDNavPage() {
                           <>
                             <div className="space-y-4 border-b bg-card/60 px-6 py-4">
                               <div className="flex flex-wrap items-start justify-between gap-3">
-                                <div className="space-y-1">
+                                <div className="space-y-1 max-w-2xl">
                                   <p className="text-base font-semibold text-foreground">{selectedArchetype.archetype}</p>
                                   <p className="text-sm text-muted-foreground">
                                     {
@@ -1519,22 +1545,63 @@ export default function TheDNavPage() {
                                     }
                                   </p>
                                 </div>
-                                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-sm">
-                                  <div>
-                                    <p className="text-[10px] font-semibold uppercase text-muted-foreground">Avg R</p>
-                                    <p className="font-semibold text-foreground">{formatValue(selectedArchetype.avgR)}</p>
+                                <div className="flex flex-col items-start gap-3 md:items-end">
+                                  <div className="flex flex-wrap items-center gap-2">
+                                    <Select
+                                      value={selectedArchetype?.archetype ?? ""}
+                                      onValueChange={handleArchetypeChange}
+                                    >
+                                      <SelectTrigger className="w-56">
+                                        <SelectValue placeholder="Select archetype" />
+                                      </SelectTrigger>
+                                      <SelectContent>
+                                        <SelectGroup>
+                                          {sortedArchetypeRows.map((row) => (
+                                            <SelectItem key={row.archetype} value={row.archetype}>
+                                              {row.archetype}
+                                            </SelectItem>
+                                          ))}
+                                        </SelectGroup>
+                                      </SelectContent>
+                                    </Select>
+                                    <div className="flex items-center gap-2">
+                                      <Button
+                                        variant="outline"
+                                        size="icon"
+                                        disabled={!hasPreviousArchetype}
+                                        onClick={() => handleNavigateArchetype("prev")}
+                                      >
+                                        <ArrowLeft className="h-4 w-4" />
+                                        <span className="sr-only">Previous archetype</span>
+                                      </Button>
+                                      <Button
+                                        variant="outline"
+                                        size="icon"
+                                        disabled={!hasNextArchetype}
+                                        onClick={() => handleNavigateArchetype("next")}
+                                      >
+                                        <ArrowRight className="h-4 w-4" />
+                                        <span className="sr-only">Next archetype</span>
+                                      </Button>
+                                    </div>
                                   </div>
-                                  <div>
-                                    <p className="text-[10px] font-semibold uppercase text-muted-foreground">Avg P</p>
-                                    <p className="font-semibold text-foreground">{formatValue(selectedArchetype.avgP)}</p>
-                                  </div>
-                                  <div>
-                                    <p className="text-[10px] font-semibold uppercase text-muted-foreground">Avg S</p>
-                                    <p className="font-semibold text-foreground">{formatValue(selectedArchetype.avgS)}</p>
-                                  </div>
-                                  <div>
-                                    <p className="text-[10px] font-semibold uppercase text-muted-foreground">Avg D-NAV</p>
-                                    <p className="font-semibold text-foreground">{formatValue(selectedArchetype.avgDnav)}</p>
+                                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-sm w-full">
+                                    <div>
+                                      <p className="text-[10px] font-semibold uppercase text-muted-foreground">Avg R</p>
+                                      <p className="font-semibold text-foreground">{formatValue(selectedArchetype.avgR)}</p>
+                                    </div>
+                                    <div>
+                                      <p className="text-[10px] font-semibold uppercase text-muted-foreground">Avg P</p>
+                                      <p className="font-semibold text-foreground">{formatValue(selectedArchetype.avgP)}</p>
+                                    </div>
+                                    <div>
+                                      <p className="text-[10px] font-semibold uppercase text-muted-foreground">Avg S</p>
+                                      <p className="font-semibold text-foreground">{formatValue(selectedArchetype.avgS)}</p>
+                                    </div>
+                                    <div>
+                                      <p className="text-[10px] font-semibold uppercase text-muted-foreground">Avg D-NAV</p>
+                                      <p className="font-semibold text-foreground">{formatValue(selectedArchetype.avgDnav)}</p>
+                                    </div>
                                   </div>
                                 </div>
                               </div>
