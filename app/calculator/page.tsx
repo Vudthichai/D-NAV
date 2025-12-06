@@ -247,6 +247,10 @@ const DistributionCard = ({ title, segments, tooltip }: DistributionCardProps) =
     value: Number.isFinite(segment.value) ? Math.max(segment.value, 0) : 0,
   }));
   const hasData = safeSegments.some((segment) => segment.value > 0);
+  const displaySegments = safeSegments.map((segment) => ({
+    ...segment,
+    width: hasData ? segment.value : 1,
+  }));
 
   return (
     <Card>
@@ -254,51 +258,49 @@ const DistributionCard = ({ title, segments, tooltip }: DistributionCardProps) =
         <h3 className="text-sm font-semibold text-foreground">
           <TooltipLabel label={title} tooltip={tooltip} className="whitespace-nowrap" />
         </h3>
-        {hasData ? (
-          <>
-            <div className="h-3 rounded-full bg-muted overflow-hidden flex">
-              {safeSegments.map((segment) => (
-                <InfoTooltip
-                  key={`${title}-${segment.metricKey}-bar`}
-                  term={`${title}|${segment.metricKey}`}
-                  side="bottom"
-                >
-                  <div
-                    className="h-full cursor-help"
-                    style={{
-                      flexGrow: segment.value,
-                      flexBasis: 0,
-                      backgroundColor: segment.color,
-                    }}
-                  />
-                </InfoTooltip>
-              ))}
-            </div>
+        <>
+          <div className="h-3 rounded-full bg-muted overflow-hidden flex">
+            {displaySegments.map((segment) => (
+              <InfoTooltip
+                key={`${title}-${segment.metricKey}-bar`}
+                term={`${title}|${segment.metricKey}`}
+                side="bottom"
+              >
+                <div
+                  className="h-full cursor-help"
+                  style={{
+                    flexGrow: segment.width,
+                    flexBasis: 0,
+                    backgroundColor: segment.color,
+                  }}
+                />
+              </InfoTooltip>
+            ))}
+          </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 text-xs text-muted-foreground">
-              {safeSegments.map((segment) => (
-                <InfoTooltip
-                  key={`${title}-${segment.metricKey}-legend`}
-                  term={`${title}|${segment.metricKey}`}
-                  side="bottom"
-                >
-                  <div className="flex items-center gap-2 cursor-help">
-                    <span
-                      className="h-2 w-2 rounded-full"
-                      style={{ backgroundColor: segment.color }}
-                    />
-                    <span className="text-foreground">{segment.label}</span>
-                    <span className="ml-auto font-medium text-foreground">
-                      {formatValue(segment.value)}%
-                    </span>
-                  </div>
-                </InfoTooltip>
-              ))}
-            </div>
-          </>
-        ) : (
-          <p className="text-sm text-muted-foreground">No logged decisions to display yet.</p>
-        )}
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 text-xs text-muted-foreground">
+            {safeSegments.map((segment) => (
+              <InfoTooltip
+                key={`${title}-${segment.metricKey}-legend`}
+                term={`${title}|${segment.metricKey}`}
+                side="bottom"
+              >
+                <div className="flex items-center gap-2 cursor-help">
+                  <span
+                    className="h-2 w-2 rounded-full"
+                    style={{ backgroundColor: segment.color }}
+                  />
+                  <span className="text-foreground">{segment.label}</span>
+                  <span className="ml-auto font-medium text-foreground">
+                    {formatValue(segment.value)}%
+                  </span>
+                </div>
+              </InfoTooltip>
+            ))}
+          </div>
+
+          {!hasData && <p className="text-xs text-muted-foreground">No logged decisions yet—showing placeholder segments.</p>}
+        </>
       </CardContent>
     </Card>
   );
