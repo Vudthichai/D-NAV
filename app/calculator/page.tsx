@@ -1516,7 +1516,7 @@ export default function TheDNavPage() {
                     open={!!selectedArchetype}
                     onOpenChange={(open) => setSelectedArchetype(open ? selectedArchetype : null)}
                   >
-                    <DialogContent className="w-[90vw] max-w-[90vw] h-[85vh] p-0 overflow-hidden">
+                  <DialogContent className="w-[90vw] max-w-[90vw] h-[85vh] p-0 overflow-x-hidden overflow-y-auto">
                       <div className="flex h-full flex-col bg-background">
                         <div className="flex items-start justify-between border-b px-6 py-4">
                           <DialogTitle className="text-lg font-semibold">
