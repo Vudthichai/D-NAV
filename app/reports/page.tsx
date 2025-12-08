@@ -641,44 +641,29 @@ export default function ReportsPage() {
                     <FileSpreadsheet className="mr-2 h-4 w-4" />
                     Export Excel
                   </Button>
+                  <Button
+                    onClick={handleDownloadOnePager}
+                    disabled={!isLoggedIn || !hasData || downloading === "summary-pdf"}
+                  >
+                    <FileText className="mr-2 h-4 w-4" />
+                    {downloading === "summary-pdf" ? "Preparing..." : "Download report"}
+                  </Button>
                 </div>
               </CardContent>
             </Card>
 
-            <Card className="border-muted/60 bg-card/90 shadow-sm">
-              <CardHeader className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
-                <div className="flex items-start gap-3">
-                  <div className="flex h-10 w-10 items-center justify-center rounded-md bg-primary/10 text-primary">
-                    <FileText className="h-5 w-5" />
-                  </div>
-                  <div>
-                    <CardTitle className="text-xl">Executive One-Pager</CardTitle>
-                    <p className="text-sm text-muted-foreground">
-                      A polished one-page brief mirroring the in-app analytics beneath The D-NAV dashboard.
-                    </p>
-                  </div>
-                </div>
-                <Button
-                  variant="outline"
-                  onClick={handleDownloadOnePager}
-                  disabled={!isLoggedIn || !hasData || downloading === "summary-pdf"}
-                >
-                  {downloading === "summary-pdf" ? "Preparing..." : "Download PDF"}
-                </Button>
-              </CardHeader>
-              <CardContent className="p-0">
-                <ExecutiveOnePager
-                  ref={onePagerRef}
-                  stats={stats}
-                  timeframeLabel={timeframeConfig.label}
-                  cadenceLabel={cadenceBasisLabel}
-                  generatedAt={generatedAt}
-                  distributionInsights={distributionInsights}
-                  returnDebtSummary={returnDebtSummary}
-                  hasData={hasData}
-                />
-              </CardContent>
-            </Card>
+            <section className="mt-8">
+              <ExecutiveOnePager
+                ref={onePagerRef}
+                stats={stats}
+                timeframeLabel={timeframeConfig.label}
+                cadenceLabel={cadenceBasisLabel}
+                generatedAt={generatedAt}
+                distributionInsights={distributionInsights}
+                returnDebtSummary={returnDebtSummary}
+                hasData={hasData}
+              />
+            </section>
           </section>
 
           {/* System-level compare (v1: self vs self) */}
