@@ -51,6 +51,15 @@ export interface CompanyPeriodSnapshot {
   learningRecovery?: LearningRecoveryStats;
 }
 
+export interface SystemCompareSummary {
+  labelA: string;
+  labelB: string;
+  postureLine: string;
+  terrainLine: string;
+  archetypeLine: string;
+  learningLine: string;
+}
+
 function classifyDistribution(dist: Distribution): {
   label: "dominantPositive" | "leanPositive" | "balanced" | "leanNegative" | "dominantNegative";
 } {
@@ -341,6 +350,160 @@ export function generateLearningRecoverySummary(
   ]
     .filter(Boolean)
     .join(" ");
+}
+
+function describeDelta(valueB: number, valueA: number, label: string, precision = 1): string {
+  const delta = valueB - valueA;
+  const abs = Math.abs(delta);
+  if (abs < 0.2) {
+    return `${label} is broadly similar (${valueA.toFixed(precision)} vs ${valueB.toFixed(precision)}).`;
+  }
+  const direction = delta > 0 ? "higher" : "lower";
+  return `${label} is ${direction} in B (${valueA.toFixed(precision)} → ${valueB.toFixed(precision)}).`;
+}
+
+function topCategoryShifts(
+  a: CompanyPeriodSnapshot,
+  b: CompanyPeriodSnapshot,
+  maxLines = 3,
+): string {
+  const totalA = a.categories.reduce((sum, c) => sum + c.decisionCount, 0);
+  const totalB = b.categories.reduce((sum, c) => sum + c.decisionCount, 0);
+
+  if (totalA === 0 || totalB === 0) {
+    return "Category load cannot be compared yet — one of the systems is missing meaningful category data.";
+  }
+
+  const mapA = new Map(a.categories.map((c) => [c.name, c]));
+  const mapB = new Map(b.categories.map((c) => [c.name, c]));
+
+  type Shift = { name: string; deltaShare: number; shareA: number; shareB: number; avgReturnA?: number; avgReturnB?: number };
+
+  const shifts: Shift[] = [];
+
+  const allNames = new Set<string>([...a.categories.map((c) => c.name), ...b.categories.map((c) => c.name)]);
+
+  allNames.forEach((name) => {
+    const ca = mapA.get(name);
+    const cb = mapB.get(name);
+    const shareA = totalA > 0 ? ((ca?.decisionCount ?? 0) / totalA) * 100 : 0;
+    const shareB = totalB > 0 ? ((cb?.decisionCount ?? 0) / totalB) * 100 : 0;
+    const deltaShare = shareB - shareA;
+    if (Math.abs(deltaShare) > 5) {
+      shifts.push({
+        name,
+        deltaShare,
+        shareA,
+        shareB,
+        avgReturnA: ca?.avgReturn,
+        avgReturnB: cb?.avgReturn,
+      });
+    }
+  });
+
+  if (!shifts.length) {
+    return "Category load is distributed similarly; no single area moves sharply in either direction.";
+  }
+
+  shifts.sort((x, y) => Math.abs(y.deltaShare) - Math.abs(x.deltaShare));
+  const top = shifts.slice(0, maxLines);
+
+  const parts = top.map((s) => {
+    const dir = s.deltaShare > 0 ? "heavier" : "lighter";
+    const change = `${Math.abs(s.deltaShare).toFixed(1)} pts`;
+    const perfDetail =
+      s.avgReturnA != null && s.avgReturnB != null
+        ? ` (Avg Return ${s.avgReturnA.toFixed(1)} → ${s.avgReturnB.toFixed(1)})`
+        : "";
+    return `${s.name} carries a ${dir} load in B (+${change})${perfDetail}.`;
+  });
+
+  return parts.join(" ");
+}
+
+function archetypeShiftSummary(a: CompanyPeriodSnapshot, b: CompanyPeriodSnapshot): string {
+  if (!a.archetypes.length || !b.archetypes.length) {
+    return "Archetype mix cannot be compared cleanly yet.";
+  }
+
+  const sortedA = [...a.archetypes].sort((x, y) => y.percentage - x.percentage);
+  const sortedB = [...b.archetypes].sort((x, y) => y.percentage - x.percentage);
+
+  const dominantA = sortedA[0];
+  const dominantB = sortedB[0];
+
+  const labelA = `${dominantA.name} (${dominantA.percentage.toFixed(0)}%)`;
+  const labelB = `${dominantB.name} (${dominantB.percentage.toFixed(0)}%)`;
+
+  if (dominantA.name === dominantB.name) {
+    return `Both systems are dominated by ${dominantA.name}, but the weight shifts from ${dominantA.percentage.toFixed(0)}% to ${dominantB.percentage.toFixed(0)}%.`;
+  }
+
+  return `System A is dominated by ${labelA}, while system B leans toward ${labelB}.`;
+}
+
+function learningShiftSummary(a: CompanyPeriodSnapshot, b: CompanyPeriodSnapshot): string {
+  const la = a.learningRecovery;
+  const lb = b.learningRecovery;
+  if (!la || !lb) {
+    return "Learning signals are not fully available for both systems.";
+  }
+
+  const lines: string[] = [];
+
+  const deltaRecovery = lb.averageRecoveryDecisions - la.averageRecoveryDecisions;
+  if (Math.abs(deltaRecovery) < 0.2) {
+    lines.push(`Recovery speed is similar (${la.averageRecoveryDecisions.toFixed(1)} vs ${lb.averageRecoveryDecisions.toFixed(1)} decisions).`);
+  } else {
+    const dir = deltaRecovery < 0 ? "faster" : "slower";
+    lines.push(`Recoveries are ${dir} in B (from ${la.averageRecoveryDecisions.toFixed(1)} to ${lb.averageRecoveryDecisions.toFixed(1)} decisions).`);
+  }
+
+  const deltaWin = lb.winRate - la.winRate;
+  if (Math.abs(deltaWin) >= 2) {
+    const dir = deltaWin > 0 ? "higher" : "lower";
+    lines.push(`Learning win rate runs ${dir} in B (${la.winRate.toFixed(0)}% → ${lb.winRate.toFixed(0)}%).`);
+  }
+
+  if (la.decisionDebtIndex !== undefined && lb.decisionDebtIndex !== undefined) {
+    const deltaDebt = lb.decisionDebtIndex - la.decisionDebtIndex;
+    if (Math.abs(deltaDebt) >= 0.05) {
+      const dir = deltaDebt < 0 ? "lower" : "higher";
+      lines.push(`Decision debt trends ${dir} in B (${(la.decisionDebtIndex * 100).toFixed(0)}% → ${(lb.decisionDebtIndex * 100).toFixed(0)}%).`);
+    }
+  }
+
+  if (!lines.length) {
+    return "Learning posture is broadly similar across both systems.";
+  }
+  return lines.join(" ");
+}
+
+export function generateSystemCompareSummary(
+  a: CompanyPeriodSnapshot,
+  b: CompanyPeriodSnapshot,
+): SystemCompareSummary {
+  const labelA = `${a.companyName} · ${a.periodLabel}`;
+  const labelB = `${b.companyName} · ${b.periodLabel}`;
+
+  const postureBits: string[] = [];
+  postureBits.push(describeDelta(b.rpsBaseline.avgReturn, a.rpsBaseline.avgReturn, "Return"));
+  postureBits.push(describeDelta(b.rpsBaseline.avgPressure, a.rpsBaseline.avgPressure, "Pressure"));
+  postureBits.push(describeDelta(b.rpsBaseline.avgStability, a.rpsBaseline.avgStability, "Stability"));
+  const postureLine = postureBits.join(" ");
+
+  const terrainLine = topCategoryShifts(a, b);
+  const archetypeLine = archetypeShiftSummary(a, b);
+  const learningLine = learningShiftSummary(a, b);
+
+  return {
+    labelA,
+    labelB,
+    postureLine,
+    terrainLine,
+    archetypeLine,
+    learningLine,
+  };
 }
 
 export function generateTimeframeComparisonSummary(
