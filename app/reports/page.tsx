@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 
 import StatCard from "@/components/StatCard";
 import ReturnDistributionCard from "@/components/ReturnDistributionCard";
@@ -11,33 +12,22 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { TooltipProvider } from "@/components/ui/tooltip";
-import { CompanyPeriodSnapshot, generateFullInterpretation } from "@/lib/dnavSummaryEngine";
-import { useNetlifyIdentity } from "@/hooks/use-netlify-identity";
-import { loadCompanyContext, loadLog, type DecisionEntry } from "@/lib/storage";
-import { type CompanyContext } from "@/types/company";
 import {
-  computeDashboardStats,
-} from "@/utils/dashboardStats";
-import { buildJudgmentDashboard } from "@/utils/judgmentDashboard";
+  buildCompanyPeriodSnapshot,
+  CompanyPeriodSnapshot,
+  generateFullInterpretation,
+} from "@/lib/dnavSummaryEngine";
+import { useNetlifyIdentity } from "@/hooks/use-netlify-identity";
+import {
+  TIMEFRAMES,
+  timeframeDescriptions,
+  type TimeframeValue,
+  useReportsData,
+} from "@/hooks/useReportsData";
+import { type DecisionEntry } from "@/lib/storage";
 import { cn } from "@/lib/utils";
 import { FileDown, FileSpreadsheet } from "lucide-react";
 import * as XLSX from "xlsx";
-
-const TIMEFRAMES = [
-  { value: "7", label: "Last 7 Days" },
-  { value: "30", label: "Last 30 Days" },
-  { value: "90", label: "Last 90 Days" },
-  { value: "all", label: "All Time" },
-] as const;
-
-type TimeframeValue = (typeof TIMEFRAMES)[number]["value"];
-
-const timeframeDescriptions: Record<TimeframeValue, string> = {
-  "7": "Focus on the last seven days of logged decisions.",
-  "30": "Aggregate view across the most recent thirty days.",
-  "90": "Quarter-scale perspective across the most recent ninety days.",
-  all: "Complete historical view across every decision recorded.",
-};
 
 const slugify = (value: string) =>
   value
@@ -54,11 +44,6 @@ const downloadBlob = (blob: Blob, filename: string) => {
   link.click();
   document.body.removeChild(link);
   URL.revokeObjectURL(url);
-};
-
-const mapTimeframeToDays = (value: TimeframeValue): number | null => {
-  if (value === "all") return null;
-  return Number.parseInt(value, 10);
 };
 
 const buildDecisionRows = (decisions: DecisionEntry[]) =>
@@ -118,69 +103,47 @@ const createCsvContent = (decisions: DecisionEntry[]) => {
   return [headers.map(serialize).join(","), ...rows.map((row) => row.map(serialize).join(","))].join("\n");
 };
 
-const filterDecisionsByTimeframe = (decisions: DecisionEntry[], timeframeDays: number | null) => {
-  if (!timeframeDays) return decisions;
-  if (decisions.length === 0) return [];
-
-  const now = decisions[0]?.ts ?? Date.now();
-  const msInDay = 24 * 60 * 60 * 1000;
-  return decisions.filter((decision) => now - decision.ts <= timeframeDays * msInDay);
-};
-
 export default function ReportsPage() {
-  const [selectedTimeframe, setSelectedTimeframe] = useState<TimeframeValue>("all");
-  const [decisions, setDecisions] = useState<DecisionEntry[]>([]);
-  const [companyContext, setCompanyContext] = useState<CompanyContext | null>(null);
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const queryTimeframe = useMemo(() => searchParams.get("window"), [searchParams]);
+  const resolvedTimeframe = useMemo<TimeframeValue>(
+    () =>
+      TIMEFRAMES.some(({ value }) => value === queryTimeframe)
+        ? (queryTimeframe as TimeframeValue)
+        : "all",
+    [queryTimeframe],
+  );
+  const [selectedTimeframe, setSelectedTimeframe] = useState<TimeframeValue>(resolvedTimeframe);
   const { isLoggedIn, openLogin } = useNetlifyIdentity();
 
   useEffect(() => {
-    setDecisions(loadLog());
-    setCompanyContext(loadCompanyContext());
-  }, []);
+    setSelectedTimeframe(resolvedTimeframe);
+  }, [resolvedTimeframe]);
 
-  useEffect(() => {
-    const handleStorage = () => {
-      setDecisions(loadLog());
-      setCompanyContext(loadCompanyContext());
-    };
-    window.addEventListener("storage", handleStorage);
-    return () => window.removeEventListener("storage", handleStorage);
-  }, []);
+  const {
+    company,
+    baseline,
+    categories,
+    archetypes,
+    learning,
+    stats,
+    filteredDecisions,
+    timeframeDays,
+    observedSpanDays,
+  } = useReportsData({ timeframe: selectedTimeframe });
 
   const timeframeConfig = useMemo(
     () => TIMEFRAMES.find((timeframe) => timeframe.value === selectedTimeframe) ?? TIMEFRAMES[0],
     [selectedTimeframe],
   );
-  const timeframeDays = useMemo(() => mapTimeframeToDays(selectedTimeframe), [selectedTimeframe]);
-  const observedSpanDays = useMemo(() => {
-    if (decisions.length === 0) return null;
-    const msInDay = 24 * 60 * 60 * 1000;
-    const referenceTimestamp = decisions[0]?.ts ?? Date.now();
-    const earliestTimestamp = decisions[decisions.length - 1]?.ts ?? referenceTimestamp;
-    return Math.max((referenceTimestamp - earliestTimestamp) / msInDay, 1);
-  }, [decisions]);
-  const filteredDecisions = useMemo(
-    () => filterDecisionsByTimeframe(decisions, timeframeDays),
-    [decisions, timeframeDays],
-  );
 
-  const judgmentDashboard = useMemo(
-    () => buildJudgmentDashboard(filteredDecisions, companyContext ?? undefined),
-    [filteredDecisions, companyContext],
-  );
-
-  const stats = useMemo(
-    () => computeDashboardStats(decisions, { timeframeDays }),
-    [decisions, timeframeDays],
-  );
   const cadenceBasisLabel = useMemo(() => {
     const effectiveSpan = timeframeDays ?? observedSpanDays;
     if (!effectiveSpan || effectiveSpan < 14) return "day";
     return "week";
   }, [observedSpanDays, timeframeDays]);
   const hasData = stats.totalDecisions > 0;
-
-  const baseline = judgmentDashboard.baseline;
 
   const mapSegmentsToDistribution = (segments: { metricKey: string; value: number }[]) => {
     const positive = segments.find((segment) => segment.metricKey === "positive")?.value ?? 0;
@@ -199,7 +162,7 @@ export default function ReportsPage() {
 
   const categoryProfile = useMemo(
     () =>
-      judgmentDashboard.categories.map((category) => ({
+      categories.map((category) => ({
         name: category.category,
         decisionCount: category.decisionCount,
         share: category.percent ?? 0,
@@ -209,82 +172,32 @@ export default function ReportsPage() {
         avgS: category.avgS,
         dominantFactor: category.dominantVariable,
       })),
-    [judgmentDashboard.categories],
+    [categories],
   );
 
-  const archetypeProfile = useMemo(() => judgmentDashboard.archetypes.rows, [judgmentDashboard.archetypes.rows]);
+  const archetypeProfile = useMemo(() => archetypes, [archetypes]);
 
   const learningStats = useMemo(
     () => ({
-      lci: judgmentDashboard.learning?.lci ?? 0,
-      decisionsToRecover: judgmentDashboard.learning?.decisionsToRecover ?? 0,
-      winRate: judgmentDashboard.learning?.winRate ?? 0,
-      decisionDebt: judgmentDashboard.hygiene?.decisionDebt ?? 0,
+      lci: learning.lci ?? 0,
+      decisionsToRecover: learning.decisionsToRecover ?? 0,
+      winRate: learning.winRate ?? 0,
+      decisionDebt: learning.decisionDebt ?? 0,
     }),
-    [judgmentDashboard.hygiene?.decisionDebt, judgmentDashboard.learning],
+    [learning.decisionDebt, learning.decisionsToRecover, learning.lci, learning.winRate],
   );
 
   const snapshot = useMemo<CompanyPeriodSnapshot>(() => {
-    const distributionFromSegments = (segments: { metricKey: string; value: number }[]) => {
-      const positivePct = segments.find((segment) => segment.metricKey === "positive")?.value ?? 0;
-      const neutralPct = segments.find((segment) => segment.metricKey === "neutral")?.value ?? 0;
-      const negativePct = segments.find((segment) => segment.metricKey === "negative")?.value ?? 0;
-      return { positivePct, neutralPct, negativePct };
-    };
-
-    const totalArchetypeDecisions = archetypeProfile.reduce((sum, row) => sum + row.count, 0);
-
-    return {
-      companyName: companyContext?.companyName ?? "Your Company",
-      periodLabel: companyContext?.timeframeLabel ?? timeframeConfig.label,
-      rpsBaseline: {
-        totalDecisions: baseline.total,
-        avgDnav: baseline.avgDnav,
-        avgReturn: baseline.avgReturn,
-        avgPressure: baseline.avgPressure,
-        avgStability: baseline.avgStability,
-        returnDist: distributionFromSegments(baseline.returnSegments),
-        pressureDist: distributionFromSegments(baseline.pressureSegments),
-        stabilityDist: distributionFromSegments(baseline.stabilitySegments),
-      },
-      categories: categoryProfile.map((category) => ({
-        name: category.name,
-        decisionCount: category.decisionCount,
-        avgReturn: category.avgR,
-        avgPressure: category.avgP,
-        avgStability: category.avgS,
-        totalDnav: category.avgDnav * category.decisionCount,
-      })),
-      archetypes: archetypeProfile.map((row) => ({
-        name: row.archetype,
-        percentage: totalArchetypeDecisions ? (row.count / totalArchetypeDecisions) * 100 : 0,
-      })),
-      learningRecovery: {
-        averageRecoveryDecisions: learningStats.decisionsToRecover,
-        winRate: learningStats.winRate,
-        decisionDebtIndex: Number.isFinite(learningStats.decisionDebt)
-          ? Math.max(0, Math.min(1, learningStats.decisionDebt / 100))
-          : undefined,
-      },
-    };
-  }, [
-    archetypeProfile,
-    baseline.avgDnav,
-    baseline.avgPressure,
-    baseline.avgReturn,
-    baseline.avgStability,
-    baseline.pressureSegments,
-    baseline.returnSegments,
-    baseline.stabilitySegments,
-    baseline.total,
-    categoryProfile,
-    companyContext?.companyName,
-    companyContext?.timeframeLabel,
-    learningStats.decisionDebt,
-    learningStats.decisionsToRecover,
-    learningStats.winRate,
-    timeframeConfig.label,
-  ]);
+    return buildCompanyPeriodSnapshot({
+      company,
+      baseline,
+      categories,
+      archetypes,
+      learning,
+      timeframeKey: selectedTimeframe,
+      timeframeLabel: timeframeConfig.label,
+    });
+  }, [archetypes, baseline, categories, company, learning, selectedTimeframe, timeframeConfig.label]);
 
   const interpretation = useMemo(() => generateFullInterpretation(snapshot), [snapshot]);
 
@@ -306,6 +219,13 @@ export default function ReportsPage() {
   const dataHighlight = hasData
     ? `Exports ${stats.totalDecisions} decision${stats.totalDecisions === 1 ? "" : "s"} with full variables, returns, stability, pressure, and D-NAV.`
     : "No decisions logged in this window yet.";
+
+  const handleUpdateTimeframe = (value: TimeframeValue) => {
+    setSelectedTimeframe(value);
+    const params = new URLSearchParams(searchParams.toString());
+    params.set("window", value);
+    router.replace(`?${params.toString()}`, { scroll: false });
+  };
 
   const handleSignInClick = () => {
     openLogin();
@@ -338,6 +258,11 @@ export default function ReportsPage() {
     downloadBlob(blob, filename);
   };
 
+  const handleDownloadExecutivePdf = () => {
+    const url = `/reports/one-pager?window=${encodeURIComponent(selectedTimeframe)}`;
+    window.open(url, "_blank");
+  };
+
   return (
     <TooltipProvider>
       <div className="flex flex-col gap-8">
@@ -362,7 +287,7 @@ export default function ReportsPage() {
                 <Button
                   key={value}
                   variant={selectedTimeframe === value ? "default" : "outline"}
-                  onClick={() => setSelectedTimeframe(value)}
+                  onClick={() => handleUpdateTimeframe(value)}
                   className={cn("px-4", selectedTimeframe === value ? "shadow-sm" : "bg-muted/60")}
                 >
                   {label}
@@ -574,6 +499,7 @@ export default function ReportsPage() {
                     <FileSpreadsheet className="mr-2 h-4 w-4" />
                     Export Excel
                   </Button>
+                  <Button onClick={handleDownloadExecutivePdf}>Download report</Button>
                 </div>
               </CardContent>
             </Card>

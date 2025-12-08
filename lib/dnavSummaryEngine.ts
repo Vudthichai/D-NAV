@@ -1,4 +1,10 @@
 // D-NAV summary engine for generating executive-grade interpretations across RPS, categories, archetypes, and learning.
+import { type CompanyContext } from "@/types/company";
+import {
+  type ArchetypePatternRow,
+  type CategoryHeatmapRow,
+  type RpsBaseline as JudgmentRpsBaseline,
+} from "@/utils/judgmentDashboard";
 
 // Helper clamp to avoid external dependencies
 const clamp = (value: number, min: number, max: number): number => Math.min(Math.max(value, min), max);
@@ -49,6 +55,74 @@ export interface CompanyPeriodSnapshot {
   categories: CategoryStat[];
   archetypes: ArchetypeCluster[];
   learningRecovery?: LearningRecoveryStats;
+}
+
+export interface BuildCompanyPeriodSnapshotOptions {
+  company?: CompanyContext | null;
+  baseline: JudgmentRpsBaseline;
+  categories: CategoryHeatmapRow[];
+  archetypes: ArchetypePatternRow[];
+  learning: {
+    lci: number | null;
+    decisionsToRecover: number;
+    winRate: number;
+    decisionDebt: number;
+  };
+  timeframeKey: string;
+  timeframeLabel?: string;
+}
+
+export function buildCompanyPeriodSnapshot({
+  company,
+  baseline,
+  categories,
+  archetypes,
+  learning,
+  timeframeKey,
+  timeframeLabel,
+}: BuildCompanyPeriodSnapshotOptions): CompanyPeriodSnapshot {
+  const distributionFromSegments = (segments: { metricKey: string; value: number }[]) => {
+    const positivePct = segments.find((segment) => segment.metricKey === "positive")?.value ?? 0;
+    const neutralPct = segments.find((segment) => segment.metricKey === "neutral")?.value ?? 0;
+    const negativePct = segments.find((segment) => segment.metricKey === "negative")?.value ?? 0;
+    return { positivePct, neutralPct, negativePct };
+  };
+
+  const totalArchetypeDecisions = archetypes.reduce((sum, row) => sum + row.count, 0);
+
+  return {
+    companyName: company?.companyName ?? "Your Company",
+    periodLabel: company?.timeframeLabel ?? timeframeLabel ?? timeframeKey,
+    rpsBaseline: {
+      totalDecisions: baseline.total,
+      avgDnav: baseline.avgDnav,
+      avgReturn: baseline.avgReturn,
+      avgPressure: baseline.avgPressure,
+      avgStability: baseline.avgStability,
+      returnDist: distributionFromSegments(baseline.returnSegments),
+      pressureDist: distributionFromSegments(baseline.pressureSegments),
+      stabilityDist: distributionFromSegments(baseline.stabilitySegments),
+    },
+    categories: categories.map((category) => ({
+      name: category.category,
+      decisionCount: category.decisionCount,
+      avgReturn: category.avgR,
+      avgPressure: category.avgP,
+      avgStability: category.avgS,
+      totalDnav: category.avgDnav * category.decisionCount,
+    })),
+    archetypes: archetypes.map((row) => ({
+      name: row.archetype,
+      percentage: totalArchetypeDecisions ? (row.count / totalArchetypeDecisions) * 100 : 0,
+    })),
+    learningRecovery: {
+      averageRecoveryDecisions: learning.decisionsToRecover,
+      winRate: learning.winRate,
+      decisionDebtIndex: Number.isFinite(learning.decisionDebt)
+        ? clamp(learning.decisionDebt / 100, 0, 1)
+        : undefined,
+    },
+  };
 }
 
 export interface SystemCompareSummary {
