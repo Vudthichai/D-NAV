@@ -73,7 +73,6 @@ import {
   getLearningRecoverySummary,
   getRpsSummary,
 } from "@/utils/sectionSummaries";
-import { generateInsights } from "@/utils/insights";
 import { cn } from "@/lib/utils";
 
 const DEFAULT_VARIABLES: DecisionVariables = {
@@ -618,19 +617,6 @@ export default function TheDNavPage() {
     }
   };
   const archetypeSummary = useMemo(() => getArchetypeSummary(archetypes), [archetypes]);
-
-  const insights = useMemo(
-    () =>
-      generateInsights({
-        baseline,
-        learning,
-        hygiene,
-        categories,
-        archetypes,
-        totalDecisions: normalized.length,
-      }),
-    [archetypes, baseline, categories, hygiene, learning, normalized.length],
-  );
 
   const archetypeDecisions = useMemo(
     () =>
@@ -1516,7 +1502,7 @@ export default function TheDNavPage() {
                     open={!!selectedArchetype}
                     onOpenChange={(open) => setSelectedArchetype(open ? selectedArchetype : null)}
                   >
-                  <DialogContent className="w-[90vw] max-w-[90vw] h-[85vh] p-0 overflow-x-hidden overflow-y-auto">
+                  <DialogContent className="w-[90vw] max-w-[90vw] h-[85vh] p-0 overflow-x-auto overflow-y-auto">
                       <div className="flex h-full flex-col bg-background">
                         <div className="flex items-start justify-between border-b px-6 py-4">
                           <DialogTitle className="text-lg font-semibold">
@@ -1532,7 +1518,7 @@ export default function TheDNavPage() {
                           <>
                             <div className="space-y-4 border-b bg-card/60 px-6 py-4">
                               <div className="flex flex-wrap items-start justify-between gap-3">
-                                <div className="space-y-1 max-w-2xl">
+                                <div className="space-y-1 max-w-2xl break-words">
                                   <p className="text-base font-semibold text-foreground">{selectedArchetype.archetype}</p>
                                   <p className="text-sm text-muted-foreground">
                                     {
@@ -1553,13 +1539,13 @@ export default function TheDNavPage() {
                                       value={selectedArchetype?.archetype ?? ""}
                                       onValueChange={handleArchetypeChange}
                                     >
-                                      <SelectTrigger className="w-56">
+                                      <SelectTrigger className="w-56 truncate">
                                         <SelectValue placeholder="Select archetype" />
                                       </SelectTrigger>
                                       <SelectContent>
                                         <SelectGroup>
                                           {sortedArchetypeRows.map((row) => (
-                                            <SelectItem key={row.archetype} value={row.archetype}>
+                                            <SelectItem key={row.archetype} value={row.archetype} className="truncate">
                                               {row.archetype}
                                             </SelectItem>
                                           ))}
@@ -1676,7 +1662,9 @@ export default function TheDNavPage() {
                                   <TableBody>
                                     {sortedArchetypeDecisions.map((decision) => (
                                       <TableRow key={decision.id}>
-                                        <TableCell className="font-medium">{decision.title}</TableCell>
+                                        <TableCell className="font-medium max-w-[380px] truncate align-top">
+                                          {decision.title}
+                                        </TableCell>
                                         <TableCell className="text-right">{decision.category}</TableCell>
                                         <TableCell className="text-right">{formatValue(decision.impact0)}</TableCell>
                                         <TableCell className="text-right">{formatValue(decision.cost0)}</TableCell>
