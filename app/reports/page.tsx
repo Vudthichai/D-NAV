@@ -6,6 +6,7 @@ import StatCard from "@/components/StatCard";
 import ReturnDistributionCard from "@/components/ReturnDistributionCard";
 import PressureDistributionCard from "@/components/PressureDistributionCard";
 import StabilityDistributionCard from "@/components/StabilityDistributionCard";
+import SystemComparePanel from "@/components/SystemComparePanel";
 import ExecutiveOnePager from "@/components/reports/ExecutiveOnePager";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -405,64 +406,64 @@ export default function ReportsPage() {
   return (
     <TooltipProvider>
       <div className="flex flex-col gap-8">
-      <section className="rounded-2xl border bg-card/80 p-6 shadow-sm">
-        <div className="flex flex-col gap-3">
-          <Badge variant="secondary" className="w-fit uppercase tracking-wide">
-            Reports Hub
-          </Badge>
-          <h1 className="text-3xl font-semibold">Export ready-to-share intelligence</h1>
-          <p className="text-sm text-muted-foreground">
-            Download structured decision data or generate the Executive One-Pager without leaving D-NAV.
-          </p>
-        </div>
-      </section>
-
-      <section className="flex flex-col gap-4 rounded-2xl border bg-card/80 p-6 shadow-sm">
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <div>
-            <h2 className="text-lg font-semibold">Filter by timeframe</h2>
-            <p className="text-xs text-muted-foreground">{timeframeDescriptions[selectedTimeframe]}</p>
+        <section className="rounded-2xl border bg-card/80 p-6 shadow-sm">
+          <div className="flex flex-col gap-3">
+            <Badge variant="secondary" className="w-fit uppercase tracking-wide">
+              Reports Hub
+            </Badge>
+            <h1 className="text-3xl font-semibold">Export ready-to-share intelligence</h1>
+            <p className="text-sm text-muted-foreground">
+              Download structured decision data or generate the Executive One-Pager without leaving D-NAV.
+            </p>
           </div>
-          <div className="flex flex-wrap gap-2">
-            {TIMEFRAMES.map(({ value, label }) => (
-              <Button
-                key={value}
-                variant={selectedTimeframe === value ? "default" : "outline"}
-                onClick={() => setSelectedTimeframe(value)}
-                className={cn("px-4", selectedTimeframe === value ? "shadow-sm" : "bg-muted/60")}
-              >
-                {label}
-              </Button>
-            ))}
-          </div>
-        </div>
-      </section>
+        </section>
 
-      <section className="relative">
-        {!isLoggedIn && (
-          <div className="pointer-events-none absolute inset-0 flex items-start justify-center">
-            <div className="pointer-events-auto sticky top-24 z-20 flex max-w-2xl flex-col items-center gap-4 rounded-2xl border bg-background/95 p-6 text-center shadow-lg">
-              <h2 className="text-2xl font-semibold">Unlock Your Decision Reports</h2>
-              <p className="text-sm text-muted-foreground">
-                Export-ready datasets and the Executive One-Pager are reserved for D-NAV clients. Sign in to access your reports or book a Decision Audit to get started.
-              </p>
-              <div className="flex flex-col gap-3 sm:flex-row">
-                <Button onClick={handleSignInClick}>
-                  Sign In to View Reports
+        <section className="flex flex-col gap-4 rounded-2xl border bg-card/80 p-6 shadow-sm">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div>
+              <h2 className="text-lg font-semibold">Filter by timeframe</h2>
+              <p className="text-xs text-muted-foreground">{timeframeDescriptions[selectedTimeframe]}</p>
+            </div>
+            <div className="flex flex-wrap gap-2">
+              {TIMEFRAMES.map(({ value, label }) => (
+                <Button
+                  key={value}
+                  variant={selectedTimeframe === value ? "default" : "outline"}
+                  onClick={() => setSelectedTimeframe(value)}
+                  className={cn("px-4", selectedTimeframe === value ? "shadow-sm" : "bg-muted/60")}
+                >
+                  {label}
                 </Button>
-                <Button variant="outline" onClick={handleBookAuditClick}>
-                  Book a Decision Audit
-                </Button>
-              </div>
-              <p className="text-xs text-muted-foreground">
-                Client dashboards and exports are available only to active teams and audit clients.
-              </p>
+              ))}
             </div>
           </div>
-        )}
-        <div className={cn("space-y-10", !isLoggedIn && "pointer-events-none filter blur-sm opacity-50")}>
-          <section className="mt-4">
-            <div className="flex items-center justify-between mb-4">
+        </section>
+
+        <section className="relative">
+          {!isLoggedIn && (
+            <div className="pointer-events-none absolute inset-0 flex items-start justify-center">
+              <div className="pointer-events-auto sticky top-24 z-20 flex max-w-2xl flex-col items-center gap-4 rounded-2xl border bg-background/95 p-6 text-center shadow-lg">
+                <h2 className="text-2xl font-semibold">Unlock Your Decision Reports</h2>
+                <p className="text-sm text-muted-foreground">
+                  Export-ready datasets and the Executive One-Pager are reserved for D-NAV clients. Sign in to access your reports or book a Decision Audit to get started.
+                </p>
+                <div className="flex flex-col gap-3 sm:flex-row">
+                  <Button onClick={handleSignInClick}>
+                    Sign In to View Reports
+                  </Button>
+                  <Button variant="outline" onClick={handleBookAuditClick}>
+                    Book a Decision Audit
+                  </Button>
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  Client dashboards and exports are available only to active teams and audit clients.
+                </p>
+              </div>
+            </div>
+          )}
+          <div className={cn("space-y-10", !isLoggedIn && "pointer-events-none filter blur-sm opacity-50")}>
+            <section className="mt-4">
+              <div className="flex items-center justify-between mb-4">
               <div>
                 <h1 className="text-xl font-semibold">Executive Summary</h1>
                 <p className="text-sm text-muted-foreground">
@@ -678,6 +679,10 @@ export default function ReportsPage() {
                 />
               </CardContent>
             </Card>
+          </section>
+
+          <section className="mt-10">
+            <SystemComparePanel left={snapshot} right={snapshot} />
           </section>
         </div>
       </section>
