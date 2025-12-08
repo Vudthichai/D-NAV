@@ -125,22 +125,49 @@ function describeReturn(avgReturn: number, dist: Distribution): string {
 }
 
 function buildRpsSignatureLine(avgR: number, avgP: number, avgS: number): string {
-  if (avgR > 0 && avgP < 0 && avgS > 0) {
-    return "They win by compounding calm execution rather than forcing volatility.";
+  const r = avgR;
+  const p = avgP;
+  const s = avgS;
+
+  // Helpful thresholds
+  const highR = r >= 1;
+  const modestR = r > 0 && r < 1;
+  const lowR = r <= 0;
+
+  const veryLowP = p <= -2;
+  const lowP = p < 0 && p > -2;
+  const highP = p >= 2;
+
+  const highS = s >= 2;
+  const lowS = s <= -1;
+
+  // Calm, compounding posture
+  if ((highR || modestR) && (veryLowP || lowP) && highS) {
+    return "They lean on calm, repeatable execution rather than high-volatility swings.";
   }
-  if (avgR > 0 && avgP > 0 && avgS < 0) {
-    return "They chase upside by running hot and accepting structural instability.";
+
+  // High return, high pressure, fragile footing
+  if (highR && highP && lowS) {
+    return "They push for upside by running hot and accepting a more fragile operating base.";
   }
-  if (avgR > 0 && avgP > 0 && avgS > 0) {
-    return "They tolerate pressure to drive returns but still manage to protect their footing.";
+
+  // High return, high pressure, still stable
+  if (highR && highP && !lowS) {
+    return "They tolerate sustained pressure to drive returns while working to keep the system stable.";
   }
-  if (avgR <= 0 && avgP > 0 && avgS <= 0) {
-    return "They absorb pressure, lose stability, and struggle to convert effort into durable gains.";
+
+  // Low/negative return under pressure and instability
+  if (lowR && highP && lowS) {
+    return "They absorb a lot of pressure, lose stability, and struggle to turn effort into durable gains.";
   }
-  if (avgR > 0 && Math.abs(avgP) < 1 && Math.abs(avgS) < 1) {
-    return "They operate as a modest compounder with plenty of flexibility left in the system.";
+
+  // Modest positive return with neutral posture
+  if (modestR && !highP && !veryLowP && !highS && !lowS) {
+    return "They operate as a modest compounder with plenty of flexibility left to adjust tempo and risk.";
   }
-  return "Their judgment engine is still finding its posture; the physics are not fully settled yet.";
+
+  // Default catch-all when posture is genuinely ambiguous
+  return "Their judgment posture is still mixed — the system hasn’t settled into a clear pattern yet.";
 }
 
 export function generateRpsBaselineSummary(
