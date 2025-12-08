@@ -1,13 +1,12 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 
 import StatCard from "@/components/StatCard";
 import ReturnDistributionCard from "@/components/ReturnDistributionCard";
 import PressureDistributionCard from "@/components/PressureDistributionCard";
 import StabilityDistributionCard from "@/components/StabilityDistributionCard";
 import SystemComparePanel from "@/components/SystemComparePanel";
-import ExecutiveOnePager from "@/components/reports/ExecutiveOnePager";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -17,13 +16,11 @@ import { useNetlifyIdentity } from "@/hooks/use-netlify-identity";
 import { loadCompanyContext, loadLog, type DecisionEntry } from "@/lib/storage";
 import { type CompanyContext } from "@/types/company";
 import {
-  buildDistributionInsights,
-  buildReturnDebtSummary,
   computeDashboardStats,
 } from "@/utils/dashboardStats";
 import { buildJudgmentDashboard } from "@/utils/judgmentDashboard";
 import { cn } from "@/lib/utils";
-import { FileDown, FileSpreadsheet, FileText } from "lucide-react";
+import { FileDown, FileSpreadsheet } from "lucide-react";
 import * as XLSX from "xlsx";
 
 const TIMEFRAMES = [
@@ -41,9 +38,6 @@ const timeframeDescriptions: Record<TimeframeValue, string> = {
   "90": "Quarter-scale perspective across the most recent ninety days.",
   all: "Complete historical view across every decision recorded.",
 };
-
-type Html2CanvasFn = typeof import("html2canvas")["default"];
-type JsPDFClass = typeof import("jspdf").jsPDF;
 
 const slugify = (value: string) =>
   value
@@ -136,10 +130,7 @@ const filterDecisionsByTimeframe = (decisions: DecisionEntry[], timeframeDays: n
 export default function ReportsPage() {
   const [selectedTimeframe, setSelectedTimeframe] = useState<TimeframeValue>("all");
   const [decisions, setDecisions] = useState<DecisionEntry[]>([]);
-  const [downloading, setDownloading] = useState<string | null>(null);
-  const [generatedAt, setGeneratedAt] = useState(() => new Date().toLocaleString());
   const [companyContext, setCompanyContext] = useState<CompanyContext | null>(null);
-  const onePagerRef = useRef<HTMLDivElement>(null);
   const { isLoggedIn, openLogin } = useNetlifyIdentity();
 
   useEffect(() => {
@@ -187,8 +178,6 @@ export default function ReportsPage() {
     if (!effectiveSpan || effectiveSpan < 14) return "day";
     return "week";
   }, [observedSpanDays, timeframeDays]);
-  const distributionInsights = useMemo(() => buildDistributionInsights(stats), [stats]);
-  const returnDebtSummary = useMemo(() => buildReturnDebtSummary(stats), [stats]);
   const hasData = stats.totalDecisions > 0;
 
   const baseline = judgmentDashboard.baseline;
@@ -313,9 +302,6 @@ export default function ReportsPage() {
   );
   const primaryArchetype = sortedArchetypes[0];
   const secondaryArchetype = sortedArchetypes[1];
-  useEffect(() => {
-    setGeneratedAt(new Date().toLocaleString());
-  }, [selectedTimeframe, stats.totalDecisions]);
 
   const dataHighlight = hasData
     ? `Exports ${stats.totalDecisions} decision${stats.totalDecisions === 1 ? "" : "s"} with full variables, returns, stability, pressure, and D-NAV.`
@@ -352,57 +338,6 @@ export default function ReportsPage() {
     downloadBlob(blob, filename);
   };
 
-  const handleDownloadOnePager = async () => {
-    if (!onePagerRef.current || !hasData || !isLoggedIn) return;
-    setDownloading("summary-pdf");
-
-    try {
-      const html2canvasModule = await import("html2canvas");
-      const html2canvas =
-        html2canvasModule.default ?? (html2canvasModule as unknown as Html2CanvasFn);
-      const jsPDFModule = await import("jspdf");
-      const JsPDFConstructor =
-        (jsPDFModule as { jsPDF?: JsPDFClass; default?: JsPDFClass }).jsPDF ??
-        (jsPDFModule as { jsPDF?: JsPDFClass; default?: JsPDFClass }).default;
-      if (!JsPDFConstructor) {
-        throw new Error("Failed to load jsPDF");
-      }
-      const element = onePagerRef.current;
-      const scale = Math.min(3, window.devicePixelRatio || 2);
-      const backgroundColor = window.getComputedStyle(document.body).backgroundColor || "#ffffff";
-      const canvas = await html2canvas(element, { scale, backgroundColor });
-      const imgData = canvas.toDataURL("image/png");
-      const doc = new JsPDFConstructor({ unit: "pt", format: "letter" });
-      const pageWidth = doc.internal.pageSize.getWidth();
-      const pageHeight = doc.internal.pageSize.getHeight();
-      const margin = 36;
-      const maxWidth = pageWidth - margin * 2;
-      const maxHeight = pageHeight - margin * 2;
-      const rgb = backgroundColor.match(/\d+/g);
-      if (rgb && rgb.length >= 3) {
-        const [r, g, b] = rgb.map((value) => parseInt(value, 10));
-        doc.setFillColor(r, g, b);
-        doc.rect(0, 0, pageWidth, pageHeight, "F");
-      }
-      const widthRatio = maxWidth / canvas.width;
-      const heightRatio = maxHeight / canvas.height;
-      const renderRatio = Math.min(widthRatio, heightRatio);
-      const renderWidth = canvas.width * renderRatio;
-      const renderHeight = canvas.height * renderRatio;
-      const offsetX = (pageWidth - renderWidth) / 2;
-      const offsetY = (pageHeight - renderHeight) / 2;
-
-      doc.addImage(imgData, "PNG", offsetX, offsetY, renderWidth, renderHeight, undefined, "FAST");
-
-      const filename = `dnav-executive-one-pager-${slugify(timeframeConfig.label)}.pdf`;
-      doc.save(filename);
-    } catch (error) {
-      console.error("Failed to download one-pager", error);
-    } finally {
-      setDownloading(null);
-    }
-  };
-
   return (
     <TooltipProvider>
       <div className="flex flex-col gap-8">
@@ -412,9 +347,7 @@ export default function ReportsPage() {
               Reports Hub
             </Badge>
             <h1 className="text-3xl font-semibold">Export ready-to-share intelligence</h1>
-            <p className="text-sm text-muted-foreground">
-              Download structured decision data or generate the Executive One-Pager without leaving D-NAV.
-            </p>
+            <p className="text-sm text-muted-foreground">Download structured decision data without leaving D-NAV.</p>
           </div>
         </section>
 
@@ -445,7 +378,7 @@ export default function ReportsPage() {
               <div className="pointer-events-auto sticky top-24 z-20 flex max-w-2xl flex-col items-center gap-4 rounded-2xl border bg-background/95 p-6 text-center shadow-lg">
                 <h2 className="text-2xl font-semibold">Unlock Your Decision Reports</h2>
                 <p className="text-sm text-muted-foreground">
-                  Export-ready datasets and the Executive One-Pager are reserved for D-NAV clients. Sign in to access your reports or book a Decision Audit to get started.
+                  Export-ready datasets are reserved for D-NAV clients. Sign in to access your reports or book a Decision Audit to get started.
                 </p>
                 <div className="flex flex-col gap-3 sm:flex-row">
                   <Button onClick={handleSignInClick}>
@@ -606,7 +539,7 @@ export default function ReportsPage() {
             <div>
               <h2 className="text-lg font-semibold">Exports</h2>
               <p className="text-sm text-muted-foreground">
-                Download the full decision log or export a polished one-page brief with the executive summary and metrics shown above.
+                Download the full decision log for your chosen timeframe.
               </p>
             </div>
 
@@ -641,29 +574,9 @@ export default function ReportsPage() {
                     <FileSpreadsheet className="mr-2 h-4 w-4" />
                     Export Excel
                   </Button>
-                  <Button
-                    onClick={handleDownloadOnePager}
-                    disabled={!isLoggedIn || !hasData || downloading === "summary-pdf"}
-                  >
-                    <FileText className="mr-2 h-4 w-4" />
-                    {downloading === "summary-pdf" ? "Preparing..." : "Download report"}
-                  </Button>
                 </div>
               </CardContent>
             </Card>
-
-            <section className="mt-8">
-              <ExecutiveOnePager
-                ref={onePagerRef}
-                stats={stats}
-                timeframeLabel={timeframeConfig.label}
-                cadenceLabel={cadenceBasisLabel}
-                generatedAt={generatedAt}
-                distributionInsights={distributionInsights}
-                returnDebtSummary={returnDebtSummary}
-                hasData={hasData}
-              />
-            </section>
           </section>
 
           {/* System-level compare (v1: self vs self) */}
