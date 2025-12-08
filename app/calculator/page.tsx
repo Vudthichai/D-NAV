@@ -28,7 +28,8 @@ import {
   computeMetrics,
   getArchetype,
 } from "@/lib/calculations";
-import { addDecision, loadLog } from "@/lib/storage";
+import { CompanyPeriodSnapshot, generateFullInterpretation } from "@/lib/dnavSummaryEngine";
+import { addDecision, loadCompanyContext, loadLog } from "@/lib/storage";
 import { useNetlifyIdentity } from "@/hooks/use-netlify-identity";
 import {
   BarChart3,
@@ -67,13 +68,8 @@ import {
   type ArchetypePatternRow,
   type CategoryHeatmapRow,
 } from "@/utils/judgmentDashboard";
-import {
-  getArchetypeSummary,
-  getCategorySummary,
-  getLearningRecoverySummary,
-  getRpsSummary,
-} from "@/utils/sectionSummaries";
 import { cn } from "@/lib/utils";
+import { type CompanyContext } from "@/types/company";
 
 const DEFAULT_VARIABLES: DecisionVariables = {
   impact: 1,
@@ -153,6 +149,13 @@ const TOOLTIP_COPY: Record<string, string> = {
   "Archetype Avg S": "Average Stability for decisions in this archetype.",
   "Archetype Avg D-NAV": "Average D-NAV score for this archetype.",
   "Archetype Top categories": "The categories where this archetype appears most often.",
+};
+
+const TIME_WINDOW_LABELS: Record<string, string> = {
+  "0": "All time",
+  "7": "Last 7 days",
+  "30": "Last 30 days",
+  "90": "Last 90 days",
 };
 
 type ColumnDefinition = {
@@ -367,6 +370,21 @@ const buildDistributionSegments = (
   ];
 };
 
+const segmentsToDistribution = (segments: { metricKey: string; value: number; label: string }[]) => ({
+  positivePct: segments.find((segment) => segment.metricKey === "positive")?.value ?? 0,
+  neutralPct: segments.find((segment) => segment.metricKey === "neutral")?.value ?? 0,
+  negativePct: segments.find((segment) => segment.metricKey === "negative")?.value ?? 0,
+});
+
+const fallbackCompanyName = (context?: CompanyContext | null) =>
+  context?.companyName?.trim() || "This company";
+
+const fallbackPeriodLabel = (
+  context: CompanyContext | null,
+  timeWindow: string,
+  labels: Record<string, string>,
+) => context?.timeframeLabel?.trim() || labels[timeWindow] || "Selected window";
+
 const ArchetypeSummaryCard = ({
   title,
   row,
@@ -493,10 +511,15 @@ export default function TheDNavPage() {
   };
 
   const [decisions, setDecisions] = useState<DecisionEntry[]>(() => loadLog());
+  const [companyContext, setCompanyContext] = useState<CompanyContext | null>(null);
 
   useEffect(() => {
     setDecisions(loadLog());
   }, [isSaved]);
+
+  useEffect(() => {
+    setCompanyContext(loadCompanyContext());
+  }, []);
 
   const timeframeDays = useMemo<number | null>(() => {
     if (timeWindow === "0") return null;
@@ -532,19 +555,15 @@ export default function TheDNavPage() {
     return computeDashboardStats(decisions, { timeframeDays });
   }, [decisions, timeframeDays]);
 
-  const judgment = useMemo(() => buildJudgmentDashboard(filteredDecisions), [filteredDecisions]);
+  const judgment = useMemo(
+    () => buildJudgmentDashboard(filteredDecisions, companyContext ?? undefined),
+    [companyContext, filteredDecisions],
+  );
 
   const previousNormalized = useMemo(
     () => previousWindowDecisions.map((decision) => normalizeDecision(decision)),
     [previousWindowDecisions],
   );
-
-  const timeWindowLabels: Record<string, string> = {
-    "0": "All time",
-    "7": "Last 7 days",
-    "30": "Last 30 days",
-    "90": "Last 90 days",
-  };
 
   const { learning, hygiene, categories, archetypes, normalized } = {
     ...judgment,
@@ -555,8 +574,49 @@ export default function TheDNavPage() {
     [normalized, previousNormalized],
   );
 
-  const rpsSummary = useMemo(() => getRpsSummary(baseline), [baseline]);
-  const learningSummary = useMemo(() => getLearningRecoverySummary(learning, hygiene), [learning, hygiene]);
+  const companySnapshot = useMemo<CompanyPeriodSnapshot>(() => {
+    const periodLabel = fallbackPeriodLabel(companyContext, timeWindow, TIME_WINDOW_LABELS);
+    const name = fallbackCompanyName(companyContext);
+    const totalArchetypeDecisions = archetypes.rows.reduce((sum, row) => sum + row.count, 0);
+
+    return {
+      companyName: name,
+      periodLabel,
+      rpsBaseline: {
+        totalDecisions: baseline.total,
+        avgDnav: baseline.avgDnav,
+        avgReturn: baseline.avgReturn,
+        avgPressure: baseline.avgPressure,
+        avgStability: baseline.avgStability,
+        returnDist: segmentsToDistribution(baseline.returnSegments),
+        pressureDist: segmentsToDistribution(baseline.pressureSegments),
+        stabilityDist: segmentsToDistribution(baseline.stabilitySegments),
+      },
+      categories: categories.map((category) => ({
+        name: category.category,
+        decisionCount: category.decisionCount,
+        avgReturn: category.avgR,
+        avgPressure: category.avgP,
+        avgStability: category.avgS,
+        totalDnav: category.avgDnav * category.decisionCount,
+      })),
+      archetypes: archetypes.rows.map((row) => ({
+        name: row.archetype,
+        percentage: totalArchetypeDecisions ? (row.count / totalArchetypeDecisions) * 100 : 0,
+      })),
+      learningRecovery: learning
+        ? {
+            averageRecoveryDecisions: learning.decisionsToRecover ?? 0,
+            winRate: learning.winRate ?? 0,
+            decisionDebtIndex: Number.isFinite(hygiene?.decisionDebt)
+              ? Math.max(0, Math.min(1, (hygiene?.decisionDebt ?? 0) / 100))
+              : undefined,
+          }
+        : undefined,
+    };
+  }, [archetypes.rows, baseline, categories, companyContext, hygiene?.decisionDebt, learning, timeWindow]);
+
+  const interpretation = useMemo(() => generateFullInterpretation(companySnapshot), [companySnapshot]);
   const sortedCategories = useMemo(() => {
     const sorted = [...categories];
     sorted.sort((a, b) => {
@@ -574,7 +634,6 @@ export default function TheDNavPage() {
     });
     return sorted;
   }, [categories, categorySort]);
-  const categorySummary = useMemo(() => getCategorySummary(sortedCategories), [sortedCategories]);
   const sortedArchetypeRows = useMemo(() => {
     const sorted = [...archetypes.rows];
     sorted.sort((a, b) => {
@@ -616,7 +675,6 @@ export default function TheDNavPage() {
       setSelectedArchetype(target);
     }
   };
-  const archetypeSummary = useMemo(() => getArchetypeSummary(archetypes), [archetypes]);
 
   const archetypeDecisions = useMemo(
     () =>
@@ -803,7 +861,7 @@ export default function TheDNavPage() {
 
   const createNarrativePdf = (current: DashboardStats) => {
     const sections = getStatsReportSections(current, cadenceBasisLabel);
-    sections.windowLabel = timeWindowLabels[timeWindow] ?? `Last ${timeWindow} days`;
+    sections.windowLabel = TIME_WINDOW_LABELS[timeWindow] ?? `Last ${timeWindow} days`;
     sections.narrative = buildPortfolioNarrative(current, {
       timeframeLabel: sections.windowLabel,
       cadenceLabel: cadenceBasisLabel,
@@ -1225,7 +1283,7 @@ export default function TheDNavPage() {
                       <Card>
                         <CardHeader className="pb-3 space-y-2">
                           <CardTitle className="text-xl font-semibold">RPS Baseline</CardTitle>
-                          <p className="text-sm text-muted-foreground">{rpsSummary}</p>
+                          <p className="text-sm text-muted-foreground">{interpretation.rpsSummary}</p>
                         </CardHeader>
                         <CardContent className="space-y-6">
                           <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
@@ -1283,7 +1341,7 @@ export default function TheDNavPage() {
                       <Card>
                         <CardHeader className="pb-3 space-y-2">
                           <CardTitle className="text-xl font-semibold">Learning &amp; Recovery</CardTitle>
-                          <p className="text-sm text-muted-foreground">{learningSummary}</p>
+                          <p className="text-sm text-muted-foreground">{interpretation.learningSummary}</p>
                         </CardHeader>
                         <CardContent className="space-y-6">
                           <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
@@ -1314,7 +1372,7 @@ export default function TheDNavPage() {
                     <Card>
                       <CardHeader className="pb-3 space-y-2">
                         <CardTitle className="text-xl font-semibold">Decision Category Profile</CardTitle>
-                        <p className="text-sm text-muted-foreground">{categorySummary}</p>
+                        <p className="text-sm text-muted-foreground">{interpretation.categorySummary}</p>
                       </CardHeader>
                       <CardContent className="space-y-4">
                         {sortedCategories.length === 0 ? (
@@ -1393,7 +1451,7 @@ export default function TheDNavPage() {
                     <Card>
                       <CardHeader className="pb-3 space-y-2">
                         <CardTitle className="text-xl font-semibold">Archetypes &amp; Patterns</CardTitle>
-                        <p className="text-sm text-muted-foreground">{archetypeSummary}</p>
+                        <p className="text-sm text-muted-foreground">{interpretation.archetypeSummary}</p>
                       </CardHeader>
                       <CardContent className="space-y-6">
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -1498,6 +1556,63 @@ export default function TheDNavPage() {
                       </CardContent>
                     </Card>
                   </div>
+
+                  <section className="space-y-6">
+                    <div className="flex flex-col gap-1 md:flex-row md:items-center md:justify-between">
+                      <div>
+                        <h2 className="text-lg font-semibold">Interpretation</h2>
+                        <p className="text-sm text-muted-foreground">
+                          Snapshot for {companySnapshot.companyName} · {companySnapshot.periodLabel}
+                        </p>
+                      </div>
+                    </div>
+
+                    <div className="grid gap-4 md:grid-cols-2">
+                      <Card>
+                        <CardHeader>
+                          <CardTitle>RPS Baseline</CardTitle>
+                        </CardHeader>
+                        <CardContent>
+                          <p className="text-sm text-muted-foreground leading-snug">
+                            {interpretation.rpsSummary}
+                          </p>
+                        </CardContent>
+                      </Card>
+
+                      <Card>
+                        <CardHeader>
+                          <CardTitle>Decision Category Profile</CardTitle>
+                        </CardHeader>
+                        <CardContent>
+                          <p className="text-sm text-muted-foreground leading-snug">
+                            {interpretation.categorySummary}
+                          </p>
+                        </CardContent>
+                      </Card>
+
+                      <Card>
+                        <CardHeader>
+                          <CardTitle>Archetype Profile</CardTitle>
+                        </CardHeader>
+                        <CardContent>
+                          <p className="text-sm text-muted-foreground leading-snug">
+                            {interpretation.archetypeSummary}
+                          </p>
+                        </CardContent>
+                      </Card>
+
+                      <Card>
+                        <CardHeader>
+                          <CardTitle>Learning &amp; Recovery</CardTitle>
+                        </CardHeader>
+                        <CardContent>
+                          <p className="text-sm text-muted-foreground leading-snug">
+                            {interpretation.learningSummary}
+                          </p>
+                        </CardContent>
+                      </Card>
+                    </div>
+                  </section>
                   <Dialog
                     open={!!selectedArchetype}
                     onOpenChange={(open) => setSelectedArchetype(open ? selectedArchetype : null)}

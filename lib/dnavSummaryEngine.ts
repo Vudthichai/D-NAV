@@ -1,0 +1,373 @@
+// D-NAV summary engine for generating executive-grade interpretations across RPS, categories, archetypes, and learning.
+
+// Helper clamp to avoid external dependencies
+const clamp = (value: number, min: number, max: number): number => Math.min(Math.max(value, min), max);
+
+export interface Distribution {
+  positivePct: number; // 0–100
+  neutralPct: number; // 0–100
+  negativePct: number; // 0–100
+}
+
+export interface RpsBaseline {
+  totalDecisions: number;
+  avgDnav: number;
+  avgReturn: number;
+  avgPressure: number;
+  avgStability: number;
+  returnDist: Distribution;
+  pressureDist: Distribution;
+  stabilityDist: Distribution;
+}
+
+export interface CategoryStat {
+  name: string;
+  decisionCount: number;
+  avgReturn: number;
+  avgPressure: number;
+  avgStability: number;
+  totalDnav?: number;
+  merit?: number;
+  energy?: number;
+}
+
+export interface ArchetypeCluster {
+  name: string;
+  percentage: number;
+}
+
+export interface LearningRecoveryStats {
+  averageRecoveryDecisions: number;
+  winRate: number; // 0–100
+  decisionDebtIndex?: number; // 0–1; higher = more lingering damage
+}
+
+export interface CompanyPeriodSnapshot {
+  companyName: string;
+  periodLabel: string;
+  rpsBaseline: RpsBaseline;
+  categories: CategoryStat[];
+  archetypes: ArchetypeCluster[];
+  learningRecovery?: LearningRecoveryStats;
+}
+
+function classifyDistribution(dist: Distribution): {
+  label: "dominantPositive" | "leanPositive" | "balanced" | "leanNegative" | "dominantNegative";
+} {
+  const { positivePct, neutralPct, negativePct } = dist;
+  const maxVal = Math.max(positivePct, neutralPct, negativePct);
+  if (maxVal >= 70) {
+    if (maxVal === positivePct) return { label: "dominantPositive" };
+    if (maxVal === negativePct) return { label: "dominantNegative" };
+    return { label: "balanced" };
+  }
+  if (maxVal >= 55) {
+    if (maxVal === positivePct) return { label: "leanPositive" };
+    if (maxVal === negativePct) return { label: "leanNegative" };
+    return { label: "balanced" };
+  }
+  return { label: "balanced" };
+}
+
+function isStableSample(totalDecisions: number): boolean {
+  return totalDecisions >= 100;
+}
+
+function describePressure(avgPressure: number, dist: Distribution): string {
+  const { label } = classifyDistribution(dist);
+  if (avgPressure <= -2 && (label === "dominantNegative" || label === "leanNegative")) {
+    return "decisions are made with time and slack rather than urgency";
+  }
+  if (avgPressure < 0 && label !== "dominantPositive") {
+    return "pressure is generally low, with most choices avoiding time-compressed fire drills";
+  }
+  if (avgPressure >= 2 && (label === "dominantPositive" || label === "leanPositive")) {
+    return "the system runs hot, making decisions under consistent urgency";
+  }
+  if (avgPressure > 0) {
+    return "pressure tilts positive, indicating a more reactive internal tempo when it matters";
+  }
+  return "pressure sits near neutral, giving the system flexibility to dial tempo up or down";
+}
+
+function describeStability(avgStability: number, dist: Distribution): string {
+  const { label } = classifyDistribution(dist);
+  if (avgStability >= 2 && (label === "dominantPositive" || label === "leanPositive")) {
+    return "decisions land on stable footing and preserve the operating base";
+  }
+  if (avgStability > 0) {
+    return "stability leans positive; the system tends to recover and hold its footing over time";
+  }
+  if (avgStability <= -2 && (label === "dominantNegative" || label === "leanNegative")) {
+    return "decisions frequently destabilize the system, eroding structural footing";
+  }
+  if (avgStability < 0) {
+    return "stability leans negative, suggesting that missteps linger longer than they should";
+  }
+  return "stability stays roughly balanced — not fragile, but not strongly protected either";
+}
+
+function describeReturn(avgReturn: number, dist: Distribution): string {
+  const { label } = classifyDistribution(dist);
+  if (avgReturn >= 2 && (label === "dominantPositive" || label === "leanPositive")) {
+    return "the return profile is clearly positive; most decisions create meaningful value";
+  }
+  if (avgReturn > 0) {
+    return "return is modest but consistently positive; the system prefers repeatable wins over big swings";
+  }
+  if (avgReturn <= -1 && (label === "dominantNegative" || label === "leanNegative")) {
+    return "return trends negative; the decision engine is destroying value more often than it creates it";
+  }
+  if (avgReturn < 0) {
+    return "return leans negative; upside is present but overshadowed by mistakes and drag";
+  }
+  return "return hovers near neutral; the system is burning effort without clearly compounding value yet";
+}
+
+function buildRpsSignatureLine(avgR: number, avgP: number, avgS: number): string {
+  if (avgR > 0 && avgP < 0 && avgS > 0) {
+    return "They win by compounding calm execution rather than forcing volatility.";
+  }
+  if (avgR > 0 && avgP > 0 && avgS < 0) {
+    return "They chase upside by running hot and accepting structural instability.";
+  }
+  if (avgR > 0 && avgP > 0 && avgS > 0) {
+    return "They tolerate pressure to drive returns but still manage to protect their footing.";
+  }
+  if (avgR <= 0 && avgP > 0 && avgS <= 0) {
+    return "They absorb pressure, lose stability, and struggle to convert effort into durable gains.";
+  }
+  if (avgR > 0 && Math.abs(avgP) < 1 && Math.abs(avgS) < 1) {
+    return "They operate as a modest compounder with plenty of flexibility left in the system.";
+  }
+  return "Their judgment engine is still finding its posture; the physics are not fully settled yet.";
+}
+
+export function generateRpsBaselineSummary(
+  companyName: string,
+  periodLabel: string,
+  rps: RpsBaseline,
+): string {
+  const { totalDecisions, avgDnav, avgReturn, avgPressure, avgStability, returnDist, pressureDist, stabilityDist } = rps;
+
+  if (!totalDecisions || totalDecisions <= 0) {
+    return `${companyName}'s decision physics for ${periodLabel} are not yet measurable — there aren't enough logged decisions to read a real pattern.`;
+  }
+
+  const stable = isStableSample(totalDecisions);
+  const sampleDescriptor = stable ? "system-level baseline" : "early snapshot";
+
+  const returnLine = describeReturn(avgReturn, returnDist);
+  const pressureLine = describePressure(avgPressure, pressureDist);
+  const stabilityLine = describeStability(avgStability, stabilityDist);
+  const signatureLine = buildRpsSignatureLine(avgReturn, avgPressure, avgStability);
+
+  return [
+    `${companyName}'s ${sampleDescriptor} for ${periodLabel} covers ${totalDecisions} decisions with an average D-NAV of ${avgDnav.toFixed(1)}. Return sits at ${avgReturn.toFixed(1)}, pressure at ${avgPressure.toFixed(1)}, and stability at ${avgStability.toFixed(1)}.`,
+    `${capitalize(returnLine)} At the same time, ${pressureLine}, and ${stabilityLine}.`,
+    signatureLine,
+  ].join(" ");
+}
+
+function capitalize(s: string): string {
+  if (!s) return s;
+  return s.charAt(0).toUpperCase() + s.slice(1);
+}
+
+export function generateCategoryProfileSummary(
+  companyName: string,
+  periodLabel: string,
+  categories: CategoryStat[],
+): string {
+  if (!categories || categories.length === 0) {
+    return `For ${periodLabel}, ${companyName} hasn't logged enough categorized decisions to map where judgment load actually sits.`;
+  }
+
+  const totalDecisions = categories.reduce((sum, c) => sum + c.decisionCount, 0);
+  if (totalDecisions === 0) {
+    return `For ${periodLabel}, ${companyName}'s category-level decision data is present but effectively empty.`;
+  }
+
+  const sorted = [...categories].sort((a, b) => b.decisionCount - a.decisionCount);
+  const primary = sorted.slice(0, 3).filter((c) => c.decisionCount > 0);
+
+  const primaryNames = primary.map((c) => c.name);
+  const primaryShare = primary.reduce((sum, c) => sum + c.decisionCount, 0);
+  const primaryPct = (primaryShare / totalDecisions) * 100;
+
+  const primaryFragment = primaryNames.length
+    ? `Most of ${companyName}'s judgment load in ${periodLabel} sits in ${primaryNames.join(", ")}, which together account for roughly ${primaryPct.toFixed(0)}% of all decisions.`
+    : `${companyName}'s decisions are thinly spread across many categories without a clear center of gravity.`;
+
+  const meaningful = sorted.filter((c) => c.decisionCount >= Math.max(5, totalDecisions * 0.05));
+  let edgeFragment = "";
+  if (meaningful.length > 0) {
+    const best = meaningful.slice().sort((a, b) => b.avgReturn - a.avgReturn)[0];
+    const worst = meaningful.slice().sort((a, b) => a.avgReturn - b.avgReturn)[0];
+    if (best && worst && best.name !== worst.name) {
+      edgeFragment = `The clearest edge shows up in ${best.name}, where return trends strongest, while ${worst.name} burns more effort for less payoff.`;
+    } else if (best) {
+      edgeFragment = `The strongest return signal concentrates in ${best.name}, where decisions tend to compound value more reliably than elsewhere.`;
+    }
+  }
+
+  return [
+    primaryFragment,
+    edgeFragment || "",
+    `This category profile reveals where ${companyName} actually competes internally — the arenas where its judgment can either compound or quietly leak value.`,
+  ]
+    .filter(Boolean)
+    .join(" ");
+}
+
+export function generateArchetypeProfileSummary(
+  companyName: string,
+  periodLabel: string,
+  archetypes: ArchetypeCluster[],
+): string {
+  if (!archetypes || archetypes.length === 0) {
+    return `For ${periodLabel}, ${companyName} hasn't expressed a clear decision archetype yet — the pattern is still too fragmented to name.`;
+  }
+
+  const sorted = [...archetypes].sort((a, b) => b.percentage - a.percentage);
+  const primary = sorted[0];
+  const secondary = sorted[1] && sorted[1].percentage >= 20 ? sorted[1] : undefined;
+
+  let baseLine = `${companyName}'s decisions in ${periodLabel} express a primary archetype of ${primary.name}`;
+  if (secondary) {
+    baseLine += `, with a secondary pull toward ${secondary.name}.`;
+  } else {
+    baseLine += ".";
+  }
+
+  const behaviorFragments: string[] = [];
+  const primaryName = primary.name.toLowerCase();
+
+  if (primaryName.includes("calm") || primaryName.includes("compounder")) {
+    behaviorFragments.push("This is a system that prefers calm compounding over dramatic swings.");
+  }
+  if (primaryName.includes("pressured") || primaryName.includes("gambler")) {
+    behaviorFragments.push("There is a visible tolerance for pressure and volatility when chasing upside.");
+  }
+  if (primaryName.includes("stable") || primaryName.includes("protector")) {
+    behaviorFragments.push("Stability is treated as a strategic asset, not an afterthought.");
+  }
+  if (primaryName.includes("volatile") || primaryName.includes("builder")) {
+    behaviorFragments.push("The organization leans into build cycles even when the ground is moving under it.");
+  }
+
+  const behaviorLine = behaviorFragments.join(" ");
+
+  return [
+    baseLine,
+    behaviorLine,
+    `Together, these archetypes form ${companyName}'s behavioral fingerprint for ${periodLabel} — how it seeks gain, absorbs pressure, and treats stability when making real calls.`,
+  ]
+    .filter(Boolean)
+    .join(" ");
+}
+
+export function generateLearningRecoverySummary(
+  companyName: string,
+  periodLabel: string,
+  stats?: LearningRecoveryStats,
+): string {
+  if (!stats) {
+    return `Learning and recovery behavior for ${companyName} in ${periodLabel} isn't fully mapped yet — there isn't enough post-decision data to read how quickly the system corrects itself.`;
+  }
+
+  const { averageRecoveryDecisions, winRate, decisionDebtIndex } = stats;
+  const win = clamp(winRate, 0, 100);
+
+  let recoveryLine = "";
+  if (averageRecoveryDecisions <= 2) {
+    recoveryLine = "The system recovers quickly; mistakes are absorbed and course-corrected within a couple of calls.";
+  } else if (averageRecoveryDecisions <= 5) {
+    recoveryLine = "Recovery is steady; the organization fixes direction over a small cluster of follow-up decisions.";
+  } else {
+    recoveryLine = "Recovery is slow; errors linger across multiple decisions before the system stabilizes again.";
+  }
+
+  let resilienceLine = "";
+  if (win >= 65) {
+    resilienceLine = "A high learning win rate signals adaptive leadership — most follow-on decisions improve the situation rather than dig the hole deeper.";
+  } else if (win >= 50) {
+    resilienceLine = "Learning is mixed; roughly half of follow-on decisions move things in the right direction.";
+  } else {
+    resilienceLine = "Learning is weak; follow-on decisions often fail to repair the damage and sometimes extend it.";
+  }
+
+  let debtLine = "";
+  if (decisionDebtIndex !== undefined) {
+    if (decisionDebtIndex > 0.7) {
+      debtLine = "Decision debt runs high; bad calls cast a long shadow over the system.";
+    } else if (decisionDebtIndex < 0.3) {
+      debtLine = "Decision debt stays low; the system rarely carries old mistakes forward for long.";
+    }
+  }
+
+  return [
+    `In ${periodLabel}, ${companyName} shows a learning profile with an average recovery span of ${averageRecoveryDecisions.toFixed(1)} decisions and a learning win rate of ${win.toFixed(0)}%.`,
+    recoveryLine,
+    resilienceLine,
+    debtLine,
+  ]
+    .filter(Boolean)
+    .join(" ");
+}
+
+export function generateTimeframeComparisonSummary(
+  snapshotA: CompanyPeriodSnapshot,
+  snapshotB: CompanyPeriodSnapshot,
+): string {
+  const { companyName } = snapshotA;
+  const older = snapshotA;
+  const newer = snapshotB;
+
+  const rDelta = newer.rpsBaseline.avgReturn - older.rpsBaseline.avgReturn;
+  const pDelta = newer.rpsBaseline.avgPressure - older.rpsBaseline.avgPressure;
+  const sDelta = newer.rpsBaseline.avgStability - older.rpsBaseline.avgStability;
+
+  const direction = (v: number) => (v > 0 ? "higher" : v < 0 ? "lower" : "roughly unchanged");
+
+  return [
+    `${companyName}'s judgment physics shifted from ${older.periodLabel} to ${newer.periodLabel}.`,
+    `Return is ${direction(rDelta)} (${older.rpsBaseline.avgReturn.toFixed(1)} → ${newer.rpsBaseline.avgReturn.toFixed(1)}), pressure is ${direction(pDelta)} (${older.rpsBaseline.avgPressure.toFixed(1)} → ${newer.rpsBaseline.avgPressure.toFixed(1)}), and stability is ${direction(sDelta)} (${older.rpsBaseline.avgStability.toFixed(1)} → ${newer.rpsBaseline.avgStability.toFixed(1)}).`,
+    `Together, these deltas show how the system is evolving — whether it is tightening under pressure, reclaiming calm, or trading stability for speed.`,
+  ].join(" ");
+}
+
+export function generateCrossCompanyComparisonSummary(
+  a: CompanyPeriodSnapshot,
+  b: CompanyPeriodSnapshot,
+): string {
+  const aR = a.rpsBaseline;
+  const bR = b.rpsBaseline;
+
+  const postureA = buildRpsSignatureLine(aR.avgReturn, aR.avgPressure, aR.avgStability);
+  const postureB = buildRpsSignatureLine(bR.avgReturn, bR.avgPressure, bR.avgStability);
+
+  return [
+    `${a.companyName} and ${b.companyName} operate with distinctly different judgment physics in ${a.periodLabel}.`,
+    `${a.companyName} runs with return ${aR.avgReturn.toFixed(1)}, pressure ${aR.avgPressure.toFixed(1)}, and stability ${aR.avgStability.toFixed(1)}. ${postureA}`,
+    `${b.companyName} runs with return ${bR.avgReturn.toFixed(1)}, pressure ${bR.avgPressure.toFixed(1)}, and stability ${bR.avgStability.toFixed(1)}. ${postureB}`,
+  ].join(" ");
+}
+
+export interface FullInterpretation {
+  rpsSummary: string;
+  categorySummary: string;
+  archetypeSummary: string;
+  learningSummary: string;
+}
+
+export function generateFullInterpretation(snapshot: CompanyPeriodSnapshot): FullInterpretation {
+  const { companyName, periodLabel, rpsBaseline, categories, archetypes, learningRecovery } = snapshot;
+
+  return {
+    rpsSummary: generateRpsBaselineSummary(companyName, periodLabel, rpsBaseline),
+    categorySummary: generateCategoryProfileSummary(companyName, periodLabel, categories),
+    archetypeSummary: generateArchetypeProfileSummary(companyName, periodLabel, archetypes),
+    learningSummary: generateLearningRecoverySummary(companyName, periodLabel, learningRecovery),
+  };
+}
