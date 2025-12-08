@@ -44,7 +44,7 @@ const timeframeDescriptions: Record<TimeframeValue, string> = {
   all: "Complete historical view across every decision recorded.",
 };
 
-type Html2CanvasFn = typeof import("html2canvas");
+type Html2CanvasFn = typeof import("html2canvas")["default"];
 type JsPDFClass = typeof import("jspdf").jsPDF;
 
 const slugify = (value: string) =>
@@ -206,10 +206,9 @@ export default function ReportsPage() {
     ? `Exports ${stats.totalDecisions} decision${stats.totalDecisions === 1 ? "" : "s"} with full variables, returns, stability, pressure, and D-NAV.`
     : "No decisions logged in this window yet.";
 
+  const canGenerateSummary = Boolean(isContextReady && filteredDecisions.length > 0);
   const narrativeParagraphs = companySummary?.summary.split("\n").filter(Boolean) ?? [];
   const summaryButtonDisabled = !isLoggedIn || summaryLoading || !canGenerateSummary;
-
-  const canGenerateSummary = Boolean(isContextReady && filteredDecisions.length > 0);
 
   const handleSignInClick = () => {
     openLogin();
@@ -269,7 +268,8 @@ export default function ReportsPage() {
 
     try {
       const html2canvasModule = await import("html2canvas");
-      const html2canvas = (html2canvasModule.default ?? html2canvasModule) as Html2CanvasFn;
+      const html2canvas =
+        html2canvasModule.default ?? (html2canvasModule as unknown as Html2CanvasFn);
       const jsPDFModule = await import("jspdf");
       const JsPDFConstructor =
         (jsPDFModule as { jsPDF?: JsPDFClass; default?: JsPDFClass }).jsPDF ??

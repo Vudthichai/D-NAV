@@ -715,9 +715,9 @@ export default function TheDNavPage() {
     () => {
       if (!selectedArchetype) return null;
 
-      const returns = archetypeDecisions.map((decision) => decision.return0 ?? decision.return ?? 0);
-      const pressures = archetypeDecisions.map((decision) => decision.pressure0 ?? decision.pressure ?? 0);
-      const stabilities = archetypeDecisions.map((decision) => decision.stability0 ?? decision.stability ?? 0);
+      const returns = archetypeDecisions.map((decision) => decision.return0 ?? 0);
+      const pressures = archetypeDecisions.map((decision) => decision.pressure0 ?? 0);
+      const stabilities = archetypeDecisions.map((decision) => decision.stability0 ?? 0);
 
       return {
         returnSegments: buildDistributionSegments(returns, {
