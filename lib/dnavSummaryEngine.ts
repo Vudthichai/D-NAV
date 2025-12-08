@@ -170,6 +170,7 @@ function buildRpsSignatureLine(avgR: number, avgP: number, avgS: number): string
   return "Their judgment posture is still mixed — the system hasn’t settled into a clear pattern yet.";
 }
 
+
 export function generateRpsBaselineSummary(
   companyName: string,
   periodLabel: string,
