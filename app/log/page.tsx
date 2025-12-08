@@ -42,7 +42,9 @@ export interface DecisionRow {
   confidence: number;
 }
 
-type ParsedRecord = Partial<DecisionRow> & Record<string, unknown>;
+type ParsedRecord =
+  Partial<Record<keyof DecisionRow, string | number | null>> &
+  Record<string, unknown>;
 
 export default function LogPage() {
   const [decisions, setDecisions] = useState<DecisionEntry[]>([]);
@@ -431,7 +433,9 @@ export default function LogPage() {
         const normalized = normalizeHeader(key);
         const mappedKey = REQUIRED_HEADERS[normalized];
         if (mappedKey) {
-          record[mappedKey] = value;
+          const normalizedValue =
+            typeof value === "number" || typeof value === "string" ? value : null;
+          record[mappedKey] = normalizedValue;
         }
       });
       return record;
