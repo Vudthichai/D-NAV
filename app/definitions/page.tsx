@@ -506,25 +506,22 @@ export default function DefinitionsPage() {
                   </Card>
                 </div>
 
-                <Card className="bg-amber-50 dark:bg-amber-950/20 border-amber-200 dark:border-amber-800">
-                  <CardContent className="pt-6">
-                    <div className="flex items-start gap-3">
-                      <Lightbulb className="h-5 w-5 text-amber-600 mt-0.5 flex-shrink-0" />
-                      <div>
-                        <h4 className="font-semibold text-amber-900 dark:text-amber-100 mb-2">
-                          Strategic Insight
-                        </h4>
-                        <p className="text-sm text-amber-800 dark:text-amber-200">
-                          We group these signals to expose different risks: <strong>Return</strong>{" "}
-                          (unit economics),
-                          <strong>Stability</strong> (survivability), <strong>Pressure</strong>{" "}
-                          (execution risk). Strategic short-term negative return can be fine — keep
-                          stability ≥ 0 and prevent runaway pressure.
-                        </p>
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
+                <div className="rounded-xl border bg-muted/40 p-4 mt-4 space-y-2">
+                  <p className="text-sm font-medium">Strategic Insight</p>
+                  <p className="text-sm text-muted-foreground">
+                    Return (R), Stability (S), and Pressure (P) are the core physics behind every decision. We group
+                    them to expose different risks: Return = value after cost, Stability = survivability, Pressure =
+                    execution stress. Strategic short-term negative return can be acceptable when Stability stays ≥ 0
+                    and runaway Pressure is avoided.
+                  </p>
+                  <p className="text-sm text-muted-foreground">
+                    Each decision gets an R, P, and S sign:{" "}
+                    <strong>R+</strong> (gain), <strong>R0</strong> (roughly break-even), <strong>R-</strong> (loss);{" "}
+                    <strong>P-</strong> (calm), <strong>P0</strong> (balanced), <strong>P+</strong> (pressured);{" "}
+                    <strong>S+</strong> (stable footing), <strong>S0</strong> (uncertain footing), <strong>S-</strong> (fragile
+                    footing). These signs feed directly into the Decision Archetypes shown below.
+                  </p>
+                </div>
               </section>
 
               {/* Merit & Energy */}
@@ -589,6 +586,14 @@ export default function DefinitionsPage() {
                     </CardContent>
                   </Card>
                 </div>
+
+                <p className="mt-4 text-sm text-muted-foreground">
+                  At the system level, we sum these components per category.{" "}
+                  <strong>Category Merit</strong> is the total inherent quality of decisions in that category (how strong the
+                  bets are after cost and risk). <strong>Category Energy</strong> is the total execution push (how much urgency ×
+                  confidence leadership spends there). Together they show where judgment actually creates value and
+                  where decision effort is being spent.
+                </p>
               </section>
 
               {/* D-NAV Formula */}
@@ -731,8 +736,31 @@ export default function DefinitionsPage() {
                         acceptable short-term given clear upside.&rdquo;
                       </p>
                     </div>
-                  </CardContent>
-                </Card>
+                    </CardContent>
+                  </Card>
+
+                <div className="mt-8 rounded-xl border bg-muted/40 p-4 space-y-2">
+                  <h3 className="text-sm font-semibold">System Compare (Timeframes &amp; Companies)</h3>
+                  <p className="text-sm text-muted-foreground">
+                    Scenario Compare is local: it shows how a single decision or slider configuration differs from your
+                    base case. System Compare looks at <strong>judgment physics</strong> over time or across companies.
+                  </p>
+                  <ul className="text-sm text-muted-foreground list-disc pl-5 space-y-1">
+                    <li>
+                      <strong>Timeframe Compare</strong> &mdash; same company, different period. Shows how average Return,
+                      Pressure, Stability, category weights, and archetype mix shifted between snapshots.
+                    </li>
+                    <li>
+                      <strong>Cross-Company Compare</strong> &mdash; two companies in the same period. Shows how their RPS
+                      posture, decision terrain (category load), and archetype patterns diverge even if headline
+                      outcomes look similar.
+                    </li>
+                  </ul>
+                  <p className="text-sm text-muted-foreground">
+                    In both cases we focus on three deltas: ΔR/ΔP/ΔS (posture), Δ category weight (where judgment load
+                    moved), and Δ archetype mix (behavioral identity).
+                  </p>
+                </div>
               </section>
 
               {/* Learning & Momentum */}
@@ -777,6 +805,12 @@ export default function DefinitionsPage() {
                           <span className="text-sm">Under-recovery</span>
                         </div>
                       </div>
+                      <p className="text-sm text-muted-foreground mt-2">
+                        Learning Curve Index (LCI) measures recovery efficiency after dips using Rebound / Drawdown.
+                        Values &gt; <strong>1.0</strong> mean over-recovery (you bounce back higher than before), values around
+                        <strong>1.0</strong> mean full recovery, and values &lt; <strong>1.0</strong> mean under-recovery (you don&apos;t fully
+                        repair the damage).
+                      </p>
                     </CardContent>
                   </Card>
 
@@ -848,15 +882,45 @@ export default function DefinitionsPage() {
                     </div>
                   </CardContent>
                 </Card>
+
+                <div className="mt-6 rounded-xl border bg-muted/40 p-4">
+                  <h3 className="text-sm font-semibold mb-2">Recovery Metrics</h3>
+                  <p className="text-sm text-muted-foreground">
+                    We track how the system behaves immediately after setbacks:
+                  </p>
+                  <ul className="text-sm text-muted-foreground list-disc pl-5 space-y-1 mt-2">
+                    <li>
+                      <strong>Decisions to recover</strong> &mdash; average number of decisions it takes to return to baseline
+                      after a negative dip.
+                    </li>
+                    <li>
+                      <strong>Win rate after dips</strong> &mdash; percentage of follow-on decisions after a drawdown that
+                      improve the situation rather than worsen it.
+                    </li>
+                    <li>
+                      <strong>Decision debt</strong> &mdash; share of decisions that leave a lasting negative footprint even after
+                      recovery attempts. High decision debt means bad calls cast a long shadow over the system.
+                    </li>
+                  </ul>
+                </div>
               </section>
 
               {/* Decision Archetypes */}
               <section id="archetypes" className="space-y-6">
                 <div>
                   <h2 className="text-2xl font-bold tracking-tight mb-2">Decision Archetypes</h2>
-                  <p className="text-muted-foreground">
-                    Each outcome is defined by the signs of Pressure, Stability, and Return (P•S•R)
+                  <p className="mt-2 text-sm text-muted-foreground">
+                    Each outcome is defined by the signs of Pressure, Stability, and Return (P–S–R). Together they
+                    describe how the decision felt to make (pressure), how safe it left the system (stability), and
+                    whether it created value (return).
                   </p>
+                  <div className="mt-3 rounded-lg border bg-muted/40 p-3">
+                    <p className="text-xs text-muted-foreground">
+                      Legend: <strong>P+</strong> = pressured, <strong>P0</strong> = balanced, <strong>P-</strong> = calm;{" "}
+                      <strong>S+</strong> = stable footing, <strong>S0</strong> = uncertain footing, <strong>S-</strong> = fragile footing;{" "}
+                      <strong>R+</strong> = gain, <strong>R0</strong> = flat, <strong>R-</strong> = loss.
+                    </p>
+                  </div>
                 </div>
 
                 <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">{renderArchetypes()}</div>
@@ -948,6 +1012,16 @@ export default function DefinitionsPage() {
                               <p className="text-sm text-muted-foreground">
                                 Consecutive count of Return &lt; 0
                               </p>
+                            </div>
+                          </div>
+                          <div className="flex items-baseline justify-between gap-4">
+                            <div className="font-mono text-xs px-2 py-1 rounded bg-muted border">DDI</div>
+                            <div>
+                              <div className="text-sm font-medium">Decision Debt Index</div>
+                              <div className="text-xs text-muted-foreground">
+                                Proportion or index of decisions that continue to impose negative drag after recovery
+                                attempts.
+                              </div>
                             </div>
                           </div>
                         </div>
