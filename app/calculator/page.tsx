@@ -1450,7 +1450,15 @@ export default function TheDNavPage() {
 
                     <Card>
                       <CardHeader className="pb-3 space-y-2">
-                        <CardTitle className="text-xl font-semibold">Archetypes &amp; Patterns</CardTitle>
+                        <div className="flex items-center justify-between">
+                          <CardTitle className="text-xl font-semibold">Archetypes &amp; Patterns</CardTitle>
+                          <a
+                            href="/definitions#archetypes"
+                            className="text-sm text-muted-foreground hover:text-foreground transition-colors"
+                          >
+                            See definitions →
+                          </a>
+                        </div>
                         <p className="text-sm text-muted-foreground">{interpretation.archetypeSummary}</p>
                       </CardHeader>
                       <CardContent className="space-y-6">
@@ -1633,12 +1641,22 @@ export default function TheDNavPage() {
                           <>
                             <div className="space-y-4 border-b bg-card/60 px-6 py-4">
                               <div className="flex flex-wrap items-start justify-between gap-3">
-                                <div className="space-y-1 max-w-2xl break-words">
-                                  <p className="text-base font-semibold text-foreground">{selectedArchetype.archetype}</p>
-                                  <p className="text-sm text-muted-foreground">
-                                    {
-                                      getArchetype({
-                                        return: selectedArchetype.avgR,
+                            <div className="space-y-1 max-w-2xl break-words">
+                              <div className="flex items-center justify-between gap-3">
+                                <p className="text-base font-semibold text-foreground">
+                                  {selectedArchetype.archetype}
+                                </p>
+                                <a
+                                  href="/definitions#archetypes"
+                                  className="text-sm text-muted-foreground hover:text-foreground transition-colors"
+                                >
+                                  See definitions →
+                                </a>
+                              </div>
+                              <p className="text-sm text-muted-foreground">
+                                {
+                                  getArchetype({
+                                    return: selectedArchetype.avgR,
                                         pressure: selectedArchetype.avgP,
                                         stability: selectedArchetype.avgS,
                                         merit: 0,
