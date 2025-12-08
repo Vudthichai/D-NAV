@@ -289,3 +289,36 @@ body {
     height: 100%;
   }
 }
+
+/* D-NAV one-pager print layout */
+@media print {
+  body {
+    background: #ffffff;
+  }
+
+  /* Hide chrome and anything not part of the one-pager */
+  nav,
+  aside,
+  header,
+  footer,
+  .sidebar,
+  .site-chrome,
+  .reports-controls,
+  .no-print {
+    display: none !important;
+  }
+
+  /* Make the executive report take the full page width */
+  #__next,
+  main {
+    padding: 0 !important;
+    margin: 0 !important;
+  }
+
+  #dnav-executive-report {
+    display: block;
+    margin: 0;
+    padding: 24px;
+    page-break-after: auto;
+  }
+}
