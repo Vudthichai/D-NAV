@@ -681,6 +681,7 @@ export default function ReportsPage() {
             </Card>
           </section>
 
+          {/* System-level compare (v1: self vs self) */}
           <section className="mt-10">
             <SystemComparePanel left={snapshot} right={snapshot} />
           </section>
