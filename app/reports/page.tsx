@@ -1,7 +1,7 @@
 "use client";
 export const dynamic = "force-dynamic";
 
-import { Suspense, useEffect, useMemo, useRef, useState } from "react";
+import { Suspense, useEffect, useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 
 import SystemComparePanel from "@/components/SystemComparePanel";
@@ -114,7 +114,6 @@ function ReportsPageContent() {
   );
   const [selectedTimeframe, setSelectedTimeframe] = useState<TimeframeValue>(resolvedTimeframe);
   const { isLoggedIn, openLogin } = useNetlifyIdentity();
-  const reportRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
     setSelectedTimeframe(resolvedTimeframe);
@@ -317,7 +316,6 @@ function ReportsPageContent() {
             </div>
           )}
           <div
-            ref={reportRef}
             className={cn("space-y-6", !isLoggedIn && "pointer-events-none filter blur-sm opacity-50")}
           >
             <OnePageReport
