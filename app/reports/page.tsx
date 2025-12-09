@@ -251,6 +251,7 @@ export default function ReportsPage() {
     downloadBlob(blob, filename);
   };
 
+  // Use the browser print dialog to export the report view.
   const handlePrint = () => {
     if (typeof window !== "undefined") {
       window.print();
