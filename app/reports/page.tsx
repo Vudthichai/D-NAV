@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 
 import StatCard from "@/components/StatCard";
@@ -26,9 +26,7 @@ import {
 } from "@/hooks/useReportsData";
 import { type DecisionEntry } from "@/lib/storage";
 import { cn } from "@/lib/utils";
-import html2canvas from "html2canvas";
 import { FileDown } from "lucide-react";
-import jsPDF from "jspdf";
 import * as XLSX from "xlsx";
 
 const slugify = (value: string) =>
@@ -118,8 +116,6 @@ export default function ReportsPage() {
   );
   const [selectedTimeframe, setSelectedTimeframe] = useState<TimeframeValue>(resolvedTimeframe);
   const { isLoggedIn, openLogin } = useNetlifyIdentity();
-  const reportRef = useRef<HTMLElement>(null);
-  const [isGeneratingReport, setIsGeneratingReport] = useState(false);
 
   useEffect(() => {
     setSelectedTimeframe(resolvedTimeframe);
@@ -233,35 +229,6 @@ export default function ReportsPage() {
     window.location.href = "/contact";
   };
 
-  const handleDownloadExecutiveReport = async () => {
-    if (!isLoggedIn || !reportRef.current) return;
-    setIsGeneratingReport(true);
-
-    try {
-      const canvas = await html2canvas(reportRef.current, {
-        scale: 2,
-        backgroundColor: getComputedStyle(document.body).backgroundColor,
-      });
-
-      const imageData = canvas.toDataURL("image/png");
-      const pdf = new jsPDF({ orientation: "portrait", unit: "pt", format: "a4" });
-      const pageWidth = pdf.internal.pageSize.getWidth();
-      const pageHeight = pdf.internal.pageSize.getHeight();
-      const ratio = Math.min(pageWidth / canvas.width, pageHeight / canvas.height);
-      const imgWidth = canvas.width * ratio;
-      const imgHeight = canvas.height * ratio;
-      const offsetX = (pageWidth - imgWidth) / 2;
-      const offsetY = (pageHeight - imgHeight) / 2;
-
-      pdf.addImage(imageData, "PNG", offsetX, offsetY, imgWidth, imgHeight);
-      pdf.save(`dnav-executive-report-${slugify(timeframeConfig.label)}.pdf`);
-    } catch (error) {
-      console.error("Failed to export report", error);
-    } finally {
-      setIsGeneratingReport(false);
-    }
-  };
-
   const handleExportCsv = () => {
     if (!isLoggedIn || filteredDecisions.length === 0) return;
     const csvContent = createCsvContent(filteredDecisions);
@@ -352,11 +319,7 @@ export default function ReportsPage() {
             </div>
           )}
           <div className={cn("space-y-10", !isLoggedIn && "pointer-events-none filter blur-sm opacity-50")}>
-            <section
-              id="dnav-executive-report"
-              ref={reportRef}
-              className="mt-4 space-y-10"
-            >
+            <section id="dnav-executive-report" className="mt-4 space-y-10">
               <div>
                 <div className="mb-4 flex items-center justify-between">
                   <div>
@@ -524,9 +487,10 @@ export default function ReportsPage() {
                 <div className="rounded-lg border border-dashed border-muted/70 bg-background/60 p-4 text-sm text-muted-foreground">
                   {dataHighlight}
                 </div>
-                <div className="flex gap-2">
+                <div className="mt-4 flex flex-wrap items-center gap-3">
                   <Button
                     variant="outline"
+                    size="sm"
                     onClick={handleExportCsv}
                     disabled={!isLoggedIn || filteredDecisions.length === 0}
                   >
@@ -534,16 +498,20 @@ export default function ReportsPage() {
                   </Button>
                   <Button
                     variant="outline"
+                    size="sm"
                     onClick={handleExportExcel}
                     disabled={!isLoggedIn || filteredDecisions.length === 0}
                   >
                     Export Excel
                   </Button>
                   <Button
-                    onClick={handleDownloadExecutiveReport}
-                    disabled={!isLoggedIn || !hasData || isGeneratingReport}
+                    size="sm"
+                    className="bg-orange-500 text-white hover:bg-orange-600"
+                    onClick={handlePrint}
+                    disabled={!isLoggedIn || !hasData}
                   >
-                    {isGeneratingReport ? "Preparing..." : "Download report"}
+                    <FileDown className="mr-2 h-4 w-4" />
+                    Download report
                   </Button>
                 </div>
               </CardContent>
