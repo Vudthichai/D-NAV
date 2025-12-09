@@ -736,19 +736,6 @@ function OnePageReport({
           <div className="text-xs space-y-2">
             <div className="grid grid-cols-2 gap-2">
               <div>
-                <p className="text-[11px] uppercase text-slate-500">High-Confidence Bets</p>
-                <p className="text-lg font-semibold">{interpretation.highConfidenceCount}</p>
-                <p className="text-[11px] text-slate-500">Impactful moves with conviction.</p>
-              </div>
-              <div>
-                <p className="text-[11px] uppercase text-slate-500">High-Urgency Calls</p>
-                <p className="text-lg font-semibold">{interpretation.highUrgencyCount}</p>
-                <p className="text-[11px] text-slate-500">Time-sensitive, high-stakes decisions.</p>
-              </div>
-            </div>
-
-            <div className="grid grid-cols-2 gap-2">
-              <div>
                 <p className="text-[11px] uppercase text-slate-500">High-Risk Plays</p>
                 <p className="text-lg font-semibold">{interpretation.highRiskCount}</p>
                 <p className="text-[11px] text-slate-500">Moves with elevated downside.</p>
@@ -758,6 +745,12 @@ function OnePageReport({
                 <p className="text-lg font-semibold">{interpretation.highCostCount}</p>
                 <p className="text-[11px] text-slate-500">Resource-intensive commitments.</p>
               </div>
+            </div>
+
+            <div>
+              <p className="text-[11px] uppercase text-slate-500">High-Urgency Calls</p>
+              <p className="text-lg font-semibold">{interpretation.highUrgencyCount}</p>
+              <p className="text-[11px] text-slate-500">Time-sensitive, high-stakes decisions.</p>
             </div>
 
             <div>
