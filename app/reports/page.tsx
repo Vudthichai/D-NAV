@@ -506,6 +506,14 @@ export default function ReportsPage() {
                     Export Excel
                   </Button>
                   <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={handlePrint}
+                    disabled={!isLoggedIn || !hasData}
+                  >
+                    Download PDF
+                  </Button>
+                  <Button
                     size="sm"
                     className="bg-orange-500 text-white hover:bg-orange-600"
                     onClick={handlePrint}
