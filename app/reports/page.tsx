@@ -1,7 +1,7 @@
 "use client";
 export const dynamic = "force-dynamic";
 
-import { useEffect, useMemo, useState } from "react";
+import { Suspense, useEffect, useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 
 import StatCard from "@/components/StatCard";
@@ -104,7 +104,7 @@ const createCsvContent = (decisions: DecisionEntry[]) => {
   return [headers.map(serialize).join(","), ...rows.map((row) => row.map(serialize).join(","))].join("\n");
 };
 
-export default function ReportsPage() {
+function ReportsPageContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const queryTimeframe = useMemo(() => searchParams.get("window"), [searchParams]);
@@ -536,5 +536,13 @@ export default function ReportsPage() {
       </section>
       </div>
     </TooltipProvider>
+  );
+}
+
+export default function ReportsPage() {
+  return (
+    <Suspense fallback={<div>Loading reports…</div>}>
+      <ReportsPageContent />
+    </Suspense>
   );
 }
