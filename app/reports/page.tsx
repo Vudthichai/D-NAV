@@ -1,7 +1,7 @@
 "use client";
 export const dynamic = "force-dynamic";
 
-import { Suspense, useEffect, useMemo, useState } from "react";
+import { Suspense, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 
 import StatCard from "@/components/StatCard";
@@ -117,6 +117,7 @@ function ReportsPageContent() {
   );
   const [selectedTimeframe, setSelectedTimeframe] = useState<TimeframeValue>(resolvedTimeframe);
   const { isLoggedIn, openLogin } = useNetlifyIdentity();
+  const reportRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
     setSelectedTimeframe(resolvedTimeframe);
@@ -262,7 +263,7 @@ function ReportsPageContent() {
   return (
     <TooltipProvider>
       <div className="dn-reports-root flex flex-col gap-8">
-        <section className="rounded-2xl border bg-card/80 p-6 shadow-sm no-print">
+        <section className="rounded-2xl border bg-card/80 p-6 shadow-sm no-print print:hidden">
           <div className="flex flex-wrap items-center justify-between gap-4">
             <Badge variant="secondary" className="w-fit uppercase tracking-wide">
               Reports Hub
@@ -271,13 +272,13 @@ function ReportsPageContent() {
               <h1 className="text-3xl font-semibold">Export ready-to-share intelligence</h1>
               <p className="text-sm text-muted-foreground">Download structured decision data without leaving D-NAV.</p>
             </div>
-            <Button variant="outline" size="sm" onClick={handlePrint}>
+            <Button variant="outline" size="sm" onClick={handlePrint} className="print:hidden">
               Download report
             </Button>
           </div>
         </section>
 
-        <section className="no-print flex flex-col gap-4 rounded-2xl border bg-card/80 p-6 shadow-sm">
+        <section className="no-print flex flex-col gap-4 rounded-2xl border bg-card/80 p-6 shadow-sm print:hidden">
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div>
               <h2 className="text-lg font-semibold">Filter by timeframe</h2>
@@ -320,7 +321,10 @@ function ReportsPageContent() {
               </div>
             </div>
           )}
-          <div className={cn("space-y-10", !isLoggedIn && "pointer-events-none filter blur-sm opacity-50")}>
+          <div
+            ref={reportRef}
+            className={cn("report-print-page space-y-10", !isLoggedIn && "pointer-events-none filter blur-sm opacity-50")}
+          >
             <section id="dnav-executive-report" className="mt-4 space-y-10">
               <div>
                 <div className="mb-4 flex items-center justify-between">
@@ -463,7 +467,7 @@ function ReportsPageContent() {
               </section>
             </section>
 
-          <section className="no-print space-y-6">
+          <section className="no-print space-y-6 print:hidden">
             <div>
               <h2 className="text-lg font-semibold">Exports</h2>
               <p className="text-sm text-muted-foreground">
@@ -489,7 +493,7 @@ function ReportsPageContent() {
                 <div className="rounded-lg border border-dashed border-muted/70 bg-background/60 p-4 text-sm text-muted-foreground">
                   {dataHighlight}
                 </div>
-                <div className="mt-4 flex flex-wrap items-center gap-3">
+                <div className="mt-4 flex flex-wrap items-center gap-3 print:hidden">
                   <Button
                     variant="outline"
                     size="sm"
@@ -529,7 +533,7 @@ function ReportsPageContent() {
           </section>
 
           {/* System-level compare (v1: self vs self) */}
-          <section className="no-print mt-10">
+          <section className="no-print mt-10 print:hidden">
             <SystemComparePanel left={snapshot} right={snapshot} />
           </section>
         </div>

@@ -337,3 +337,46 @@ body {
     width: 100% !important;
   }
 }
+
+@media print {
+  html,
+  body {
+    margin: 0;
+    padding: 0;
+    background: #ffffff;
+  }
+
+  .report-print-page {
+    background: #ffffff !important;
+    width: 100%;
+    max-width: 900px;
+    margin: 0 auto;
+    padding: 24px 32px;
+    box-shadow: none;
+  }
+
+  .print\:hidden {
+    display: none !important;
+  }
+
+  .report-print-page .grid {
+    gap: 16px;
+  }
+
+  .report-print-page h1,
+  .report-print-page h2 {
+    font-size: 20px;
+    line-height: 1.25;
+  }
+
+  .report-print-page h3 {
+    font-size: 16px;
+    line-height: 1.3;
+  }
+
+  .report-print-page p,
+  .report-print-page li {
+    font-size: 12px;
+    line-height: 1.5;
+  }
+}
