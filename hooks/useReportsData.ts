@@ -54,13 +54,8 @@ export interface ReportsDataResult {
 }
 
 export function useReportsData({ timeframe }: { timeframe: TimeframeValue }): ReportsDataResult {
-  const [decisions, setDecisions] = useState<DecisionEntry[]>([]);
-  const [company, setCompany] = useState<CompanyContext | null>(null);
-
-  useEffect(() => {
-    setDecisions(loadLog());
-    setCompany(loadCompanyContext());
-  }, []);
+  const [decisions, setDecisions] = useState<DecisionEntry[]>(() => loadLog());
+  const [company, setCompany] = useState<CompanyContext | null>(() => loadCompanyContext());
 
   useEffect(() => {
     const handleStorage = () => {
@@ -77,7 +72,7 @@ export function useReportsData({ timeframe }: { timeframe: TimeframeValue }): Re
   const observedSpanDays = useMemo(() => {
     if (decisions.length === 0) return null;
     const msInDay = 24 * 60 * 60 * 1000;
-    const referenceTimestamp = decisions[0]?.ts ?? Date.now();
+    const referenceTimestamp = decisions[0]?.ts ?? decisions[decisions.length - 1]?.ts ?? 0;
     const earliestTimestamp = decisions[decisions.length - 1]?.ts ?? referenceTimestamp;
     return Math.max((referenceTimestamp - earliestTimestamp) / msInDay, 1);
   }, [decisions]);
