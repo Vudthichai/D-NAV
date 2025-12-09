@@ -4,11 +4,8 @@ export const dynamic = "force-dynamic";
 import { Suspense, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 
-import StatCard from "@/components/StatCard";
-import ReturnDistributionCard from "@/components/ReturnDistributionCard";
-import PressureDistributionCard from "@/components/PressureDistributionCard";
-import StabilityDistributionCard from "@/components/StabilityDistributionCard";
 import SystemComparePanel from "@/components/SystemComparePanel";
+import OnePageReport from "@/components/reports/OnePageReport";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -208,8 +205,6 @@ function ReportsPageContent() {
     () => [...archetypeProfile].sort((a, b) => b.count - a.count),
     [archetypeProfile],
   );
-  const primaryArchetype = sortedArchetypes[0];
-  const secondaryArchetype = sortedArchetypes[1];
 
   const dataHighlight = hasData
     ? `Exports ${stats.totalDecisions} decision${stats.totalDecisions === 1 ? "" : "s"} with full variables, returns, stability, pressure, and D-NAV.`
@@ -323,221 +318,88 @@ function ReportsPageContent() {
           )}
           <div
             ref={reportRef}
-            className={cn("report-print-page space-y-10", !isLoggedIn && "pointer-events-none filter blur-sm opacity-50")}
+            className={cn("space-y-6", !isLoggedIn && "pointer-events-none filter blur-sm opacity-50")}
           >
-            <section id="dnav-executive-report" className="mt-4 space-y-10">
-              <div>
-                <div className="mb-4 flex items-center justify-between">
-                  <div>
-                    <h1 className="text-xl font-semibold">Executive Summary</h1>
-                    <p className="text-sm text-muted-foreground">
-                      Snapshot for {snapshot.companyName} · {snapshot.periodLabel}
-                    </p>
-                  </div>
-                  <button
-                    type="button"
-                    className="rounded-full border bg-background px-3 py-1 text-xs transition-colors hover:bg-muted"
-                    onClick={() => {
-                      const text = [
-                        interpretation.rpsSummary,
-                        interpretation.categorySummary,
-                        interpretation.archetypeSummary,
-                        interpretation.learningSummary,
-                      ].join("\n\n");
-                      navigator.clipboard?.writeText(text).catch(() => {});
-                    }}
-                  >
-                    Copy summary
-                  </button>
-                </div>
+            <OnePageReport
+              snapshot={snapshot}
+              interpretation={interpretation}
+              baselineDistributions={baselineDistributions}
+              topCategories={topCategories}
+              sortedArchetypes={sortedArchetypes}
+              learningStats={learningStats}
+            />
 
-                <div className="grid gap-4 md:grid-cols-2">
-                  <div className="rounded-xl border bg-muted/40 p-4">
-                    <h3 className="mb-1 text-sm font-semibold">RPS Baseline</h3>
-                    <p className="text-sm text-muted-foreground whitespace-pre-line">
-                      {interpretation.rpsSummary}
-                    </p>
-                  </div>
-                  <div className="rounded-xl border bg-muted/40 p-4">
-                    <h3 className="mb-1 text-sm font-semibold">Decision Category Profile</h3>
-                    <p className="text-sm text-muted-foreground whitespace-pre-line">
-                      {interpretation.categorySummary}
-                    </p>
-                  </div>
-                  <div className="rounded-xl border bg-muted/40 p-4">
-                    <h3 className="mb-1 text-sm font-semibold">Archetype Profile</h3>
-                    <p className="text-sm text-muted-foreground whitespace-pre-line">
-                      {interpretation.archetypeSummary}
-                    </p>
-                  </div>
-                  <div className="rounded-xl border bg-muted/40 p-4">
-                    <h3 className="mb-1 text-sm font-semibold">Learning &amp; Recovery</h3>
-                    <p className="text-sm text-muted-foreground whitespace-pre-line">
-                      {interpretation.learningSummary}
-                    </p>
-                  </div>
-                </div>
+            <section className="no-print space-y-6 print:hidden">
+              <div>
+                <h2 className="text-lg font-semibold">Exports</h2>
+                <p className="text-sm text-muted-foreground">
+                  Download the full decision log for your chosen timeframe.
+                </p>
               </div>
 
-              <section>
-                <h2 className="mb-4 text-lg font-semibold">Key Metrics Snapshot</h2>
-                <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-5">
-                  <StatCard
-                    label="Average D-NAV"
-                    value={baseline.avgDnav.toFixed(1)}
-                    helper="Average judgment quality in this window"
-                  />
-                  <StatCard label="Avg Return (R)" value={baseline.avgReturn.toFixed(1)} helper="Value created per decision after cost" />
-                  <StatCard label="Avg Pressure (P)" value={baseline.avgPressure.toFixed(1)} helper="Execution stress posture" />
-                  <StatCard label="Avg Stability (S)" value={baseline.avgStability.toFixed(1)} helper="How safe decisions leave the system" />
-                  <StatCard label="Learning Curve Index" value={(learningStats.lci ?? 0).toFixed(1)} helper="Recovery efficiency after dips" />
-                </div>
-              </section>
-
-              <section>
-                <h2 className="mb-4 text-lg font-semibold">Distributions</h2>
-                <div className="grid gap-4 md:grid-cols-3">
-                  <ReturnDistributionCard distribution={baselineDistributions.returnDistribution} />
-                  <StabilityDistributionCard distribution={baselineDistributions.stabilityDistribution} />
-                  <PressureDistributionCard distribution={baselineDistributions.pressureDistribution} />
-                </div>
-              </section>
-
-              <section>
-                <div className="mb-4 flex items-center justify-between">
-                  <h2 className="text-lg font-semibold">Decision Terrain</h2>
-                  <p className="text-xs text-muted-foreground">Top 3 categories by judgment load.</p>
-                </div>
-                <div className="grid gap-4 md:grid-cols-3">
-                  {topCategories.map((cat) => (
-                    <div key={cat.name} className="rounded-xl border bg-muted/40 p-4">
-                      <h3 className="mb-1 text-sm font-semibold">{cat.name}</h3>
-                      <p className="mb-2 text-xs text-muted-foreground">{cat.share.toFixed(1)}% of decisions</p>
-                      <p className="text-xs text-muted-foreground">
-                        Avg D-NAV: <strong>{cat.avgDnav.toFixed(1)}</strong>
-                        <br />
-                        Avg R / P / S: <strong>{cat.avgR.toFixed(1)} / {cat.avgP.toFixed(1)} / {cat.avgS.toFixed(1)}</strong>
-                        <br />
-                        Dominant factor: <strong>{cat.dominantFactor}</strong>
+              <Card className="border-muted/60 bg-card/90 shadow-sm">
+                <CardHeader className="space-y-2">
+                  <div className="flex items-center gap-3">
+                    <div className="flex h-10 w-10 items-center justify-center rounded-md bg-primary/10 text-primary">
+                      <FileDown className="h-5 w-5" />
+                    </div>
+                    <div>
+                      <CardTitle className="text-xl">Raw Data Export</CardTitle>
+                      <p className="text-sm text-muted-foreground">
+                        Download the full decision log with variables, calculated metrics, and D-NAV.
                       </p>
                     </div>
-                  ))}
-                </div>
-              </section>
-
-              <section>
-                <h2 className="mb-4 text-lg font-semibold">Archetype Fingerprint</h2>
-                <div className="grid gap-4 md:grid-cols-3">
-                  <div className="rounded-xl border bg-muted/40 p-4">
-                    <h3 className="mb-1 text-sm font-semibold">Primary archetype</h3>
-                    <p className="text-sm">{primaryArchetype?.archetype ?? "Not enough data"}</p>
-                    {primaryArchetype && (
-                      <p className="mt-1 text-xs text-muted-foreground">
-                        R {primaryArchetype.avgR.toFixed(1)} · P {primaryArchetype.avgP.toFixed(1)} · S {primaryArchetype.avgS.toFixed(1)} · {primaryArchetype.count} decisions
-                      </p>
-                    )}
                   </div>
-                  <div className="rounded-xl border bg-muted/40 p-4">
-                    <h3 className="mb-1 text-sm font-semibold">Secondary archetype</h3>
-                    <p className="text-sm">{secondaryArchetype?.archetype ?? "Not enough data"}</p>
-                    {secondaryArchetype && (
-                      <p className="mt-1 text-xs text-muted-foreground">
-                        R {secondaryArchetype.avgR.toFixed(1)} · P {secondaryArchetype.avgP.toFixed(1)} · S {secondaryArchetype.avgS.toFixed(1)} · {secondaryArchetype.count} decisions
-                      </p>
-                    )}
+                </CardHeader>
+                <CardContent className="flex flex-col gap-4">
+                  <div className="rounded-lg border border-dashed border-muted/70 bg-background/60 p-4 text-sm text-muted-foreground">
+                    {dataHighlight}
                   </div>
-                  <div className="rounded-xl border bg-muted/40 p-4">
-                    <h3 className="mb-2 text-sm font-semibold">Top archetypes</h3>
-                    <ul className="space-y-1 text-xs text-muted-foreground">
-                      {sortedArchetypes.slice(0, 4).map((a) => (
-                        <li key={a.archetype} className="flex items-center justify-between">
-                          <span>{a.archetype}</span>
-                          <span>
-                            {a.count} · {(
-                              snapshot.rpsBaseline.totalDecisions
-                                ? (a.count / snapshot.rpsBaseline.totalDecisions) * 100
-                                : 0
-                            ).toFixed(1)}%
-                          </span>
-                        </li>
-                      ))}
-                    </ul>
+                  <div className="mt-4 flex flex-wrap items-center gap-3 print:hidden">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={handleExportCsv}
+                      disabled={!isLoggedIn || filteredDecisions.length === 0}
+                    >
+                      Export CSV
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={handleExportExcel}
+                      disabled={!isLoggedIn || filteredDecisions.length === 0}
+                    >
+                      Export Excel
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={handlePrint}
+                      disabled={!isLoggedIn || !hasData}
+                    >
+                      Download PDF
+                    </Button>
+                    <Button
+                      size="sm"
+                      className="bg-orange-500 text-white hover:bg-orange-600"
+                      onClick={handlePrint}
+                      disabled={!isLoggedIn || !hasData}
+                    >
+                      <FileDown className="mr-2 h-4 w-4" />
+                      Download report
+                    </Button>
                   </div>
-                </div>
-              </section>
+                </CardContent>
+              </Card>
             </section>
 
-          <section className="no-print space-y-6 print:hidden">
-            <div>
-              <h2 className="text-lg font-semibold">Exports</h2>
-              <p className="text-sm text-muted-foreground">
-                Download the full decision log for your chosen timeframe.
-              </p>
-            </div>
-
-            <Card className="border-muted/60 bg-card/90 shadow-sm">
-              <CardHeader className="space-y-2">
-                <div className="flex items-center gap-3">
-                  <div className="flex h-10 w-10 items-center justify-center rounded-md bg-primary/10 text-primary">
-                    <FileDown className="h-5 w-5" />
-                  </div>
-                  <div>
-                    <CardTitle className="text-xl">Raw Data Export</CardTitle>
-                    <p className="text-sm text-muted-foreground">
-                      Download the full decision log with variables, calculated metrics, and D-NAV.
-                    </p>
-                  </div>
-                </div>
-              </CardHeader>
-              <CardContent className="flex flex-col gap-4">
-                <div className="rounded-lg border border-dashed border-muted/70 bg-background/60 p-4 text-sm text-muted-foreground">
-                  {dataHighlight}
-                </div>
-                <div className="mt-4 flex flex-wrap items-center gap-3 print:hidden">
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={handleExportCsv}
-                    disabled={!isLoggedIn || filteredDecisions.length === 0}
-                  >
-                    Export CSV
-                  </Button>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={handleExportExcel}
-                    disabled={!isLoggedIn || filteredDecisions.length === 0}
-                  >
-                    Export Excel
-                  </Button>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={handlePrint}
-                    disabled={!isLoggedIn || !hasData}
-                  >
-                    Download PDF
-                  </Button>
-                  <Button
-                    size="sm"
-                    className="bg-orange-500 text-white hover:bg-orange-600"
-                    onClick={handlePrint}
-                    disabled={!isLoggedIn || !hasData}
-                  >
-                    <FileDown className="mr-2 h-4 w-4" />
-                    Download report
-                  </Button>
-                </div>
-              </CardContent>
-            </Card>
-          </section>
-
-          {/* System-level compare (v1: self vs self) */}
-          <section className="no-print mt-10 print:hidden">
-            <SystemComparePanel left={snapshot} right={snapshot} />
-          </section>
-        </div>
-      </section>
+            {/* System-level compare (v1: self vs self) */}
+            <section className="no-print mt-10 print:hidden">
+              <SystemComparePanel left={snapshot} right={snapshot} />
+            </section>
+          </div>
+        </section>
       </div>
     </TooltipProvider>
   );
