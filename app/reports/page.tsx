@@ -703,61 +703,26 @@ function OnePageReport({
 
       {/* Bottom grid: Learning + Terrain */}
       <section className="grid grid-cols-12 gap-4 mt-4">
-        <div className="col-span-12 md:col-span-6 border rounded-md p-3">
-          <h2 className="text-sm font-semibold text-slate-700 mb-2">Learning &amp; Recovery</h2>
-          <div className="grid grid-cols-2 gap-2 text-xs">
+              <div className="col-span-12 md:col-span-6 border rounded-md p-3">
+        <h2 className="text-sm font-semibold text-slate-700 mb-2">
+          Decision Terrain
+        </h2>
+        <div className="text-xs space-y-2">
+          <div className="grid grid-cols-2 gap-2">
             <div>
-              <p className="text-[11px] uppercase text-slate-500">Learning Curve Index</p>
-              <p className="text-lg font-semibold">{learningStats.lci.toFixed(1)}</p>
-              <p className="text-[11px] text-slate-500">Higher is faster learning and recovery.</p>
-            </div>
-            <div>
-              <p className="text-[11px] uppercase text-slate-500">Decisions to Recover</p>
-              <p className="text-lg font-semibold">{learningStats.decisionsToRecover}</p>
-              <p className="text-[11px] text-slate-500">Volume required to regain baseline after a dip.</p>
-            </div>
-            <div>
-              <p className="text-[11px] uppercase text-slate-500">Win Rate</p>
-              <p className="text-lg font-semibold">{formatPct(learningStats.winRate)}</p>
-              <p className="text-[11px] text-slate-500">Share of positive decisions.</p>
-            </div>
-            <div>
-              <p className="text-[11px] uppercase text-slate-500">Decision Debt</p>
-              <p className="text-lg font-semibold">{learningStats.decisionDebt.toFixed(1)}</p>
-              <p className="text-[11px] text-slate-500">Backlog of overdue decision fixes.</p>
+              <p className="text-[11px] uppercase text-slate-500">
+                System Momentum
+              </p>
+              <p className="text-lg font-semibold">
+                {interpretation.momentumLabel}
+              </p>
+              <p className="text-[11px] text-slate-500">
+                {interpretation.momentumSummary}
+              </p>
             </div>
           </div>
         </div>
-
-        <div className="col-span-12 md:col-span-6 border rounded-md p-3">
-          <h2 className="text-sm font-semibold text-slate-700 mb-2">Decision Terrain</h2>
-          <div className="text-xs space-y-2">
-            <div className="grid grid-cols-2 gap-2">
-              <div>
-                <p className="text-[11px] uppercase text-slate-500">High-Risk Plays</p>
-                <p className="text-lg font-semibold">{interpretation.highRiskCount}</p>
-                <p className="text-[11px] text-slate-500">Moves with elevated downside.</p>
-              </div>
-              <div>
-                <p className="text-[11px] uppercase text-slate-500">High-Cost Initiatives</p>
-                <p className="text-lg font-semibold">{interpretation.highCostCount}</p>
-                <p className="text-[11px] text-slate-500">Resource-intensive commitments.</p>
-              </div>
-            </div>
-
-            <div>
-              <p className="text-[11px] uppercase text-slate-500">High-Urgency Calls</p>
-              <p className="text-lg font-semibold">{interpretation.highUrgencyCount}</p>
-              <p className="text-[11px] text-slate-500">Time-sensitive, high-stakes decisions.</p>
-            </div>
-
-            <div>
-              <p className="text-[11px] uppercase text-slate-500">System Momentum</p>
-              <p className="text-lg font-semibold">{interpretation.momentumLabel}</p>
-              <p className="text-[11px] text-slate-500">{interpretation.momentumSummary}</p>
-            </div>
-          </div>
-        </div>
+      </div>
       </section>
     </div>
   );
