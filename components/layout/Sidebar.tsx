@@ -40,7 +40,7 @@ export default function AppSidebar() {
   const pathname = usePathname();
 
   return (
-    <Sidebar collapsible="icon">
+    <Sidebar collapsible="icon" className="dn-sidebar">
       <SidebarHeader>
         <Link href="/" className="flex items-center gap-2 cursor-pointer">
           <Image
