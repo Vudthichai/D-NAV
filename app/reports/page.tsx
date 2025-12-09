@@ -284,16 +284,27 @@ export default function ReportsPage() {
     downloadBlob(blob, filename);
   };
 
+  const handlePrint = () => {
+    if (typeof window !== "undefined") {
+      window.print();
+    }
+  };
+
   return (
     <TooltipProvider>
-      <div className="flex flex-col gap-8">
+      <div className="dn-reports-root flex flex-col gap-8">
         <section className="rounded-2xl border bg-card/80 p-6 shadow-sm no-print">
-          <div className="flex flex-col gap-3">
+          <div className="flex flex-wrap items-center justify-between gap-4">
             <Badge variant="secondary" className="w-fit uppercase tracking-wide">
               Reports Hub
             </Badge>
-            <h1 className="text-3xl font-semibold">Export ready-to-share intelligence</h1>
-            <p className="text-sm text-muted-foreground">Download structured decision data without leaving D-NAV.</p>
+            <div className="flex flex-1 flex-col gap-3">
+              <h1 className="text-3xl font-semibold">Export ready-to-share intelligence</h1>
+              <p className="text-sm text-muted-foreground">Download structured decision data without leaving D-NAV.</p>
+            </div>
+            <Button variant="outline" size="sm" onClick={handlePrint}>
+              Download report
+            </Button>
           </div>
         </section>
 

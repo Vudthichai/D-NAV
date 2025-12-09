@@ -322,3 +322,18 @@ body {
     page-break-after: auto;
   }
 }
+
+@media print {
+  /* Hide app chrome for cleaner report output */
+  .dn-sidebar,
+  .dn-app-chrome,
+  footer {
+    display: none !important;
+  }
+
+  /* Expand reports content for printing */
+  .dn-reports-root {
+    max-width: 100% !important;
+    width: 100% !important;
+  }
+}
