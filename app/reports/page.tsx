@@ -5,7 +5,6 @@ import { Suspense, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 
 import SystemComparePanel from "@/components/SystemComparePanel";
-import OnePageReport from "@/components/reports/OnePageReport";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -13,6 +12,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import {
   buildCompanyPeriodSnapshot,
   CompanyPeriodSnapshot,
+  FullInterpretation,
   generateFullInterpretation,
 } from "@/lib/dnavSummaryEngine";
 import { useNetlifyIdentity } from "@/hooks/use-netlify-identity";
@@ -402,6 +402,373 @@ function ReportsPageContent() {
         </section>
       </div>
     </TooltipProvider>
+  );
+}
+
+type BaselineDistribution = {
+  positive: number;
+  neutral: number;
+  negative: number;
+};
+
+type BaselineDistributions = {
+  returnDistribution: BaselineDistribution;
+  pressureDistribution: BaselineDistribution;
+  stabilityDistribution: BaselineDistribution;
+};
+
+type TopCategory = {
+  name: string;
+  decisionCount: number;
+  share: number;
+  avgDnav: number;
+  avgR: number;
+  avgP: number;
+  avgS: number;
+  dominantFactor: string | null;
+};
+
+type ArchetypeSummary = {
+  archetype: string;
+  avgR: number;
+  avgP: number;
+  avgS: number;
+  count: number;
+};
+
+type LearningStats = {
+  lci: number;
+  decisionsToRecover: number;
+  winRate: number;
+  decisionDebt: number;
+};
+
+type OnePageReportProps = {
+  snapshot: CompanyPeriodSnapshot;
+  interpretation: FullInterpretation;
+  baselineDistributions: BaselineDistributions;
+  topCategories: TopCategory[];
+  sortedArchetypes: ArchetypeSummary[];
+  learningStats: LearningStats;
+};
+
+const formatPct = (value: number) => `${value.toFixed(1)}%`;
+
+function OnePageReport({
+  snapshot,
+  interpretation,
+  baselineDistributions,
+  topCategories,
+  sortedArchetypes,
+  learningStats,
+}: OnePageReportProps) {
+  const { companyName, periodLabel, rpsBaseline } = snapshot;
+  const { returnDistribution, pressureDistribution, stabilityDistribution } = baselineDistributions;
+
+  const primaryArchetype = sortedArchetypes[0];
+  const secondaryArchetype = sortedArchetypes[1];
+
+  return (
+    <div className="report-print-page mx-auto max-w-5xl bg-white text-slate-900 p-8 print:p-6 print:max-w-none">
+      {/* Header */}
+      <header className="flex items-baseline justify-between gap-4 border-b pb-3 mb-4">
+        <div>
+          <h1 className="text-2xl font-semibold tracking-tight">
+            {companyName} · Decision Orbit {periodLabel}
+          </h1>
+          <p className="text-xs text-slate-500 mt-1">
+            System-level RPS profile across {rpsBaseline.totalDecisions} logged decisions
+          </p>
+        </div>
+        <div className="text-right text-xs">
+          <p className="font-medium">D-NAV Executive Readout</p>
+          <p className="text-slate-500">R · P · S baseline · Learning · Terrain · Archetypes</p>
+        </div>
+      </header>
+
+      {/* Top grid: narratives + metrics */}
+      <section className="grid grid-cols-12 gap-4">
+        {/* Narrative column */}
+        <div className="col-span-12 space-y-3 md:col-span-7">
+          <h2 className="text-sm font-semibold tracking-wide text-slate-700 uppercase mb-1">Executive Summary</h2>
+
+          <div className="space-y-2 text-xs leading-relaxed">
+            {/* RPS Baseline */}
+            <div>
+              <h3 className="font-semibold text-slate-800">RPS Baseline — Calm, repeatable execution</h3>
+              <p>{interpretation.rpsSummary}</p>
+            </div>
+
+            {/* Category Profile */}
+            <div>
+              <h3 className="font-semibold text-slate-800">Category Profile — Where judgment actually lives</h3>
+              <p>{interpretation.categorySummary}</p>
+            </div>
+
+            {/* Archetype Profile */}
+            <div>
+              <h3 className="font-semibold text-slate-800">Archetype Profile — Behavioral fingerprint</h3>
+              <p>{interpretation.archetypeSummary}</p>
+            </div>
+
+            {/* Learning & Recovery */}
+            <div>
+              <h3 className="font-semibold text-slate-800">Learning &amp; Recovery — Decision debt &amp; correction</h3>
+              <p>{interpretation.learningSummary}</p>
+            </div>
+          </div>
+        </div>
+
+        {/* Metrics column */}
+        <div className="col-span-12 space-y-3 md:col-span-5">
+          {/* Key metrics */}
+          <div className="border rounded-md p-3">
+            <h2 className="text-sm font-semibold text-slate-700 mb-2">Key Metrics Snapshot</h2>
+            <div className="grid grid-cols-2 gap-2 text-xs">
+              <div>
+                <p className="text-[10px] uppercase text-slate-500">Average D-NAV</p>
+                <p className="text-lg font-semibold">{rpsBaseline.avgDnav.toFixed(1)}</p>
+                <p className="text-[11px] text-slate-500">Average judgment quality in this window after cost.</p>
+              </div>
+              <div>
+                <p className="text-[10px] uppercase text-slate-500">Avg Return (R)</p>
+                <p className="text-lg font-semibold">{rpsBaseline.avgReturn.toFixed(1)}</p>
+                <p className="text-[11px] text-slate-500">Net value creation per decision.</p>
+              </div>
+              <div>
+                <p className="text-[10px] uppercase text-slate-500">Avg Pressure (P)</p>
+                <p className="text-lg font-semibold">{rpsBaseline.avgPressure.toFixed(1)}</p>
+                <p className="text-[11px] text-slate-500">Execution stress posture.</p>
+              </div>
+              <div>
+                <p className="text-[10px] uppercase text-slate-500">Avg Stability (S)</p>
+                <p className="text-lg font-semibold">{rpsBaseline.avgStability.toFixed(1)}</p>
+                <p className="text-[11px] text-slate-500">How safe decisions leave the system.</p>
+              </div>
+              <div>
+                <p className="text-[10px] uppercase text-slate-500">Learning Curve Index</p>
+                <p className="text-lg font-semibold">{learningStats.lci.toFixed(1)}</p>
+                <p className="text-[11px] text-slate-500">Recovery efficiency after dips.</p>
+              </div>
+            </div>
+          </div>
+
+          {/* Distributions */}
+          <div className="border rounded-md p-3 space-y-2">
+            <h2 className="text-sm font-semibold text-slate-700">Distributions ({periodLabel})</h2>
+
+            {/* Return */}
+            <div className="text-xs">
+              <div className="flex justify-between text-[11px] text-slate-500 mb-1">
+                <span>Return</span>
+                <span>
+                  Positive {formatPct(returnDistribution.positive)} · Neutral {formatPct(returnDistribution.neutral)} · Negative {formatPct(returnDistribution.negative)}
+                </span>
+              </div>
+              <div className="flex h-2 overflow-hidden rounded-full bg-slate-100">
+                <div className="bg-emerald-500" style={{ width: `${returnDistribution.positive}%` }} />
+                <div className="bg-slate-400" style={{ width: `${returnDistribution.neutral}%` }} />
+                <div className="bg-rose-500" style={{ width: `${returnDistribution.negative}%` }} />
+              </div>
+            </div>
+
+            {/* Pressure */}
+            <div className="text-xs">
+              <div className="flex justify-between text-[11px] text-slate-500 mb-1">
+                <span>Pressure</span>
+                <span>
+                  Pressured {formatPct(pressureDistribution.positive)} · Neutral {formatPct(pressureDistribution.neutral)} · Calm {formatPct(pressureDistribution.negative)}
+                </span>
+              </div>
+              <div className="flex h-2 overflow-hidden rounded-full bg-slate-100">
+                <div className="bg-amber-500" style={{ width: `${pressureDistribution.positive}%` }} />
+                <div className="bg-slate-400" style={{ width: `${pressureDistribution.neutral}%` }} />
+                <div className="bg-sky-500" style={{ width: `${pressureDistribution.negative}%` }} />
+              </div>
+            </div>
+
+            {/* Stability */}
+            <div className="text-xs">
+              <div className="flex justify-between text-[11px] text-slate-500 mb-1">
+                <span>Stability</span>
+                <span>
+                  Stable {formatPct(stabilityDistribution.positive)} · Neutral {formatPct(stabilityDistribution.neutral)} · Fragile {formatPct(stabilityDistribution.negative)}
+                </span>
+              </div>
+              <div className="flex h-2 overflow-hidden rounded-full bg-slate-100">
+                <div className="bg-emerald-600" style={{ width: `${stabilityDistribution.positive}%` }} />
+                <div className="bg-slate-400" style={{ width: `${stabilityDistribution.neutral}%` }} />
+                <div className="bg-rose-500" style={{ width: `${stabilityDistribution.negative}%` }} />
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* Baseline section */}
+      <section className="grid grid-cols-12 gap-4 mt-4">
+        <div className="col-span-12 md:col-span-4 border rounded-md p-3">
+          <h2 className="text-sm font-semibold text-slate-700 mb-1">R · P · S Baseline</h2>
+          <p className="text-xs text-slate-500 mb-2">Normalized decision quality profile</p>
+
+          <div className="space-y-1 text-xs">
+            <div className="flex justify-between">
+              <span className="text-[11px] text-slate-500">Return (R)</span>
+              <span className="font-semibold">{rpsBaseline.avgReturn.toFixed(1)}</span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-[11px] text-slate-500">Pressure (P)</span>
+              <span className="font-semibold">{rpsBaseline.avgPressure.toFixed(1)}</span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-[11px] text-slate-500">Stability (S)</span>
+              <span className="font-semibold">{rpsBaseline.avgStability.toFixed(1)}</span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-[11px] text-slate-500">Average D-NAV</span>
+              <span className="font-semibold">{rpsBaseline.avgDnav.toFixed(1)}</span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-[11px] text-slate-500">Total Decisions</span>
+              <span className="font-semibold">{rpsBaseline.totalDecisions}</span>
+            </div>
+          </div>
+        </div>
+
+        <div className="col-span-12 md:col-span-4 border rounded-md p-3">
+          <h2 className="text-sm font-semibold text-slate-700 mb-2">Top Categories</h2>
+          <div className="space-y-2 text-xs">
+            {topCategories.map((category) => (
+              <div key={category.name}>
+                <div className="flex justify-between">
+                  <span className="font-semibold">{category.name}</span>
+                  <span className="text-[11px] text-slate-500">{category.decisionCount} decisions</span>
+                </div>
+                <div className="flex justify-between text-[11px] text-slate-500">
+                  <span>Share of volume</span>
+                  <span>{formatPct(category.share)}</span>
+                </div>
+                <div className="flex justify-between text-[11px] text-slate-500">
+                  <span>Avg D-NAV</span>
+                  <span>{category.avgDnav.toFixed(1)}</span>
+                </div>
+                <div className="flex justify-between text-[11px] text-slate-500">
+                  <span>R / P / S</span>
+                  <span>
+                    {category.avgR.toFixed(1)} / {category.avgP.toFixed(1)} / {category.avgS.toFixed(1)}
+                  </span>
+                </div>
+                <div className="flex justify-between text-[11px] text-slate-500">
+                  <span>Dominant factor</span>
+                  <span>{category.dominantFactor ?? "Balanced"}</span>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        <div className="col-span-12 md:col-span-4 border rounded-md p-3">
+          <h2 className="text-sm font-semibold text-slate-700 mb-2">Archetypes</h2>
+          <div className="space-y-2 text-xs">
+            {primaryArchetype && (
+              <div>
+                <div className="flex justify-between">
+                  <span className="font-semibold">Primary · {primaryArchetype.archetype}</span>
+                  <span className="text-[11px] text-slate-500">{primaryArchetype.count} entries</span>
+                </div>
+                <div className="flex justify-between text-[11px] text-slate-500">
+                  <span>R / P / S</span>
+                  <span>
+                    {primaryArchetype.avgR.toFixed(1)} / {primaryArchetype.avgP.toFixed(1)} / {primaryArchetype.avgS.toFixed(1)}
+                  </span>
+                </div>
+              </div>
+            )}
+
+            {secondaryArchetype && (
+              <div>
+                <div className="flex justify-between">
+                  <span className="font-semibold">Secondary · {secondaryArchetype.archetype}</span>
+                  <span className="text-[11px] text-slate-500">{secondaryArchetype.count} entries</span>
+                </div>
+                <div className="flex justify-between text-[11px] text-slate-500">
+                  <span>R / P / S</span>
+                  <span>
+                    {secondaryArchetype.avgR.toFixed(1)} / {secondaryArchetype.avgP.toFixed(1)} / {secondaryArchetype.avgS.toFixed(1)}
+                  </span>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      </section>
+
+      {/* Bottom grid: Learning + Terrain */}
+      <section className="grid grid-cols-12 gap-4 mt-4">
+        <div className="col-span-12 md:col-span-6 border rounded-md p-3">
+          <h2 className="text-sm font-semibold text-slate-700 mb-2">Learning &amp; Recovery</h2>
+          <div className="grid grid-cols-2 gap-2 text-xs">
+            <div>
+              <p className="text-[11px] uppercase text-slate-500">Learning Curve Index</p>
+              <p className="text-lg font-semibold">{learningStats.lci.toFixed(1)}</p>
+              <p className="text-[11px] text-slate-500">Higher is faster learning and recovery.</p>
+            </div>
+            <div>
+              <p className="text-[11px] uppercase text-slate-500">Decisions to Recover</p>
+              <p className="text-lg font-semibold">{learningStats.decisionsToRecover}</p>
+              <p className="text-[11px] text-slate-500">Volume required to regain baseline after a dip.</p>
+            </div>
+            <div>
+              <p className="text-[11px] uppercase text-slate-500">Win Rate</p>
+              <p className="text-lg font-semibold">{formatPct(learningStats.winRate)}</p>
+              <p className="text-[11px] text-slate-500">Share of positive decisions.</p>
+            </div>
+            <div>
+              <p className="text-[11px] uppercase text-slate-500">Decision Debt</p>
+              <p className="text-lg font-semibold">{learningStats.decisionDebt.toFixed(1)}</p>
+              <p className="text-[11px] text-slate-500">Backlog of overdue decision fixes.</p>
+            </div>
+          </div>
+        </div>
+
+        <div className="col-span-12 md:col-span-6 border rounded-md p-3">
+          <h2 className="text-sm font-semibold text-slate-700 mb-2">Decision Terrain</h2>
+          <div className="text-xs space-y-2">
+            <div className="grid grid-cols-2 gap-2">
+              <div>
+                <p className="text-[11px] uppercase text-slate-500">High-Confidence Bets</p>
+                <p className="text-lg font-semibold">{interpretation.highConfidenceCount}</p>
+                <p className="text-[11px] text-slate-500">Impactful moves with conviction.</p>
+              </div>
+              <div>
+                <p className="text-[11px] uppercase text-slate-500">High-Urgency Calls</p>
+                <p className="text-lg font-semibold">{interpretation.highUrgencyCount}</p>
+                <p className="text-[11px] text-slate-500">Time-sensitive, high-stakes decisions.</p>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-2">
+              <div>
+                <p className="text-[11px] uppercase text-slate-500">High-Risk Plays</p>
+                <p className="text-lg font-semibold">{interpretation.highRiskCount}</p>
+                <p className="text-[11px] text-slate-500">Moves with elevated downside.</p>
+              </div>
+              <div>
+                <p className="text-[11px] uppercase text-slate-500">High-Cost Initiatives</p>
+                <p className="text-lg font-semibold">{interpretation.highCostCount}</p>
+                <p className="text-[11px] text-slate-500">Resource-intensive commitments.</p>
+              </div>
+            </div>
+
+            <div>
+              <p className="text-[11px] uppercase text-slate-500">System Momentum</p>
+              <p className="text-lg font-semibold">{interpretation.momentumLabel}</p>
+              <p className="text-[11px] text-slate-500">{interpretation.momentumSummary}</p>
+            </div>
+          </div>
+        </div>
+      </section>
+    </div>
   );
 }
 
