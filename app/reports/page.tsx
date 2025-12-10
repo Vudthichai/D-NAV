@@ -7,7 +7,6 @@ import { useRouter, useSearchParams } from "next/navigation";
 import SystemComparePanel from "@/components/SystemComparePanel";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import {
   buildCompanyPeriodSnapshot,
@@ -257,34 +256,68 @@ function ReportsPageContent() {
   return (
     <TooltipProvider>
       <div className="dn-reports-root flex flex-col gap-8">
-        <section className="rounded-2xl border bg-card/80 p-6 shadow-sm no-print print:hidden">
-          <div className="flex flex-wrap items-center justify-between gap-4">
-            <Badge variant="secondary" className="w-fit uppercase tracking-wide">
-              Reports Hub
-            </Badge>
-            <div className="flex flex-1 flex-col gap-3">
-              <h1 className="text-3xl font-semibold">Export ready-to-share intelligence</h1>
-              <p className="text-sm text-muted-foreground">Download structured decision data without leaving D-NAV.</p>
+        <section className="no-print rounded-2xl border bg-card/80 p-6 shadow-sm print:hidden">
+          <div className="flex flex-wrap items-start justify-between gap-4">
+            <div className="flex flex-col gap-3">
+              <Badge variant="secondary" className="w-fit uppercase tracking-wide">
+                Reports Hub
+              </Badge>
+              <div className="space-y-1">
+                <h1 className="text-2xl font-semibold">Share decision intelligence</h1>
+                <p className="text-sm text-muted-foreground">Download structured decision data without leaving D-NAV.</p>
+              </div>
+              <div className="inline-flex items-center gap-2 rounded-lg bg-muted/60 px-3 py-2 text-xs text-muted-foreground">
+                <FileDown className="h-4 w-4 text-primary" />
+                <span>{dataHighlight}</span>
+              </div>
             </div>
-            <Button variant="outline" size="sm" onClick={handlePrint} className="print:hidden">
-              Download report
-            </Button>
+            <div className="flex flex-wrap items-center gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handleExportCsv}
+                disabled={!isLoggedIn || filteredDecisions.length === 0}
+              >
+                Export CSV
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handleExportExcel}
+                disabled={!isLoggedIn || filteredDecisions.length === 0}
+              >
+                Export Excel
+              </Button>
+              <Button
+                size="sm"
+                className="bg-orange-500 text-white hover:bg-orange-600"
+                onClick={handlePrint}
+                disabled={!isLoggedIn || !hasData}
+              >
+                <FileDown className="mr-2 h-4 w-4" />
+                Download report
+              </Button>
+            </div>
           </div>
         </section>
 
-        <section className="no-print flex flex-col gap-4 rounded-2xl border bg-card/80 p-6 shadow-sm print:hidden">
-          <div className="flex flex-wrap items-center justify-between gap-3">
-            <div>
-              <h2 className="text-lg font-semibold">Filter by timeframe</h2>
-              <p className="text-xs text-muted-foreground">{timeframeDescriptions[selectedTimeframe]}</p>
+        <section className="no-print flex flex-col gap-2 print:hidden">
+          <div className="flex flex-wrap items-center justify-between gap-3 border-b border-muted/60 pb-3">
+            <div className="space-y-1">
+              <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Timeframe</p>
+              <p className="text-sm text-muted-foreground">{timeframeDescriptions[selectedTimeframe]}</p>
             </div>
             <div className="flex flex-wrap gap-2">
               {TIMEFRAMES.map(({ value, label }) => (
                 <Button
                   key={value}
                   variant={selectedTimeframe === value ? "default" : "outline"}
+                  size="sm"
                   onClick={() => handleUpdateTimeframe(value)}
-                  className={cn("px-4", selectedTimeframe === value ? "shadow-sm" : "bg-muted/60")}
+                  className={cn(
+                    "rounded-full px-3 text-xs",
+                    selectedTimeframe === value ? "shadow-sm" : "bg-muted/60 text-foreground",
+                  )}
                 >
                   {label}
                 </Button>
@@ -328,32 +361,26 @@ function ReportsPageContent() {
             />
 
             <section className="no-print space-y-6 print:hidden">
-              <div>
+              <div className="space-y-2">
                 <h2 className="text-lg font-semibold">Exports</h2>
                 <p className="text-sm text-muted-foreground">
                   Download the full decision log for your chosen timeframe.
                 </p>
               </div>
-
-              <Card className="border-muted/60 bg-card/90 shadow-sm">
-                <CardHeader className="space-y-2">
+              <div className="rounded-2xl border border-dashed border-muted/60 bg-background/60 p-5 shadow-sm">
+                <div className="flex flex-wrap items-center justify-between gap-3">
                   <div className="flex items-center gap-3">
                     <div className="flex h-10 w-10 items-center justify-center rounded-md bg-primary/10 text-primary">
                       <FileDown className="h-5 w-5" />
                     </div>
-                    <div>
-                      <CardTitle className="text-xl">Raw Data Export</CardTitle>
-                      <p className="text-sm text-muted-foreground">
+                    <div className="space-y-1">
+                      <p className="text-sm font-semibold">Raw Data Export</p>
+                      <p className="text-xs text-muted-foreground">
                         Download the full decision log with variables, calculated metrics, and D-NAV.
                       </p>
                     </div>
                   </div>
-                </CardHeader>
-                <CardContent className="flex flex-col gap-4">
-                  <div className="rounded-lg border border-dashed border-muted/70 bg-background/60 p-4 text-sm text-muted-foreground">
-                    {dataHighlight}
-                  </div>
-                  <div className="mt-4 flex flex-wrap items-center gap-3 print:hidden">
+                  <div className="flex flex-wrap items-center gap-2">
                     <Button
                       variant="outline"
                       size="sm"
@@ -371,14 +398,6 @@ function ReportsPageContent() {
                       Export Excel
                     </Button>
                     <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={handlePrint}
-                      disabled={!isLoggedIn || !hasData}
-                    >
-                      Download PDF
-                    </Button>
-                    <Button
                       size="sm"
                       className="bg-orange-500 text-white hover:bg-orange-600"
                       onClick={handlePrint}
@@ -388,8 +407,11 @@ function ReportsPageContent() {
                       Download report
                     </Button>
                   </div>
-                </CardContent>
-              </Card>
+                </div>
+                <div className="mt-4 rounded-lg bg-card/70 px-4 py-3 text-xs text-muted-foreground">
+                  {dataHighlight}
+                </div>
+              </div>
             </section>
 
             {/* System-level compare (v1: self vs self) */}
