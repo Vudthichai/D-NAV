@@ -360,60 +360,6 @@ function ReportsPageContent() {
               learningStats={learningStats}
             />
 
-            <section className="no-print space-y-6 print:hidden">
-              <div className="space-y-2">
-                <h2 className="text-lg font-semibold">Exports</h2>
-                <p className="text-sm text-muted-foreground">
-                  Download the full decision log for your chosen timeframe.
-                </p>
-              </div>
-              <div className="rounded-2xl border border-dashed border-muted/60 bg-background/60 p-5 shadow-sm">
-                <div className="flex flex-wrap items-center justify-between gap-3">
-                  <div className="flex items-center gap-3">
-                    <div className="flex h-10 w-10 items-center justify-center rounded-md bg-primary/10 text-primary">
-                      <FileDown className="h-5 w-5" />
-                    </div>
-                    <div className="space-y-1">
-                      <p className="text-sm font-semibold">Raw Data Export</p>
-                      <p className="text-xs text-muted-foreground">
-                        Download the full decision log with variables, calculated metrics, and D-NAV.
-                      </p>
-                    </div>
-                  </div>
-                  <div className="flex flex-wrap items-center gap-2">
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={handleExportCsv}
-                      disabled={!isLoggedIn || filteredDecisions.length === 0}
-                    >
-                      Export CSV
-                    </Button>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={handleExportExcel}
-                      disabled={!isLoggedIn || filteredDecisions.length === 0}
-                    >
-                      Export Excel
-                    </Button>
-                    <Button
-                      size="sm"
-                      className="bg-orange-500 text-white hover:bg-orange-600"
-                      onClick={handlePrint}
-                      disabled={!isLoggedIn || !hasData}
-                    >
-                      <FileDown className="mr-2 h-4 w-4" />
-                      Download report
-                    </Button>
-                  </div>
-                </div>
-                <div className="mt-4 rounded-lg bg-card/70 px-4 py-3 text-xs text-muted-foreground">
-                  {dataHighlight}
-                </div>
-              </div>
-            </section>
-
             {/* System-level compare (v1: self vs self) */}
             <section className="no-print mt-10 print:hidden">
               <SystemComparePanel left={snapshot} right={snapshot} />
