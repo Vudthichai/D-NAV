@@ -577,7 +577,7 @@ function OnePageReport({
         </div>
       </section>
 
-      <section className="grid gap-6 lg:grid-cols-2">
+      <section className="grid gap-6 lg:grid-cols-[1.35fr,1fr]">
         <div className="rounded-2xl border bg-card p-6 shadow-sm">
           <div className="flex items-start justify-between gap-2">
             <div>
@@ -620,36 +620,71 @@ function OnePageReport({
           </div>
         </div>
 
-        <div className="rounded-2xl border bg-card p-6 shadow-sm">
-          <div className="space-y-1">
-            <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
-              Archetype Fingerprint — {periodLabel}
-            </p>
-            <h3 className="text-lg font-semibold text-foreground">Behavioral composition</h3>
-            <p className="text-sm text-muted-foreground">
-              Primary: {primaryArchetype?.archetype ?? "N/A"} · Secondary: {secondaryArchetype?.archetype ?? "N/A"}
-            </p>
+        <div className="space-y-4">
+          <div className="rounded-2xl border bg-card p-6 shadow-sm">
+            <div className="space-y-1">
+              <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">RPS Baseline</p>
+              <h3 className="text-lg font-semibold text-foreground">Calm, repeatable execution</h3>
+              <p className="text-sm text-muted-foreground">
+                Normalized decision quality profile across {rpsBaseline.totalDecisions} logged decisions.
+              </p>
+            </div>
+
+            <div className="mt-4 grid grid-cols-2 gap-3 text-sm sm:grid-cols-3">
+              <div className="rounded-lg border border-muted/60 bg-muted/40 p-3">
+                <p className="text-[11px] uppercase text-muted-foreground">Avg Return (R)</p>
+                <p className="text-lg font-semibold text-foreground">{rpsBaseline.avgReturn.toFixed(1)}</p>
+              </div>
+              <div className="rounded-lg border border-muted/60 bg-muted/40 p-3">
+                <p className="text-[11px] uppercase text-muted-foreground">Avg Pressure (P)</p>
+                <p className="text-lg font-semibold text-foreground">{rpsBaseline.avgPressure.toFixed(1)}</p>
+              </div>
+              <div className="rounded-lg border border-muted/60 bg-muted/40 p-3">
+                <p className="text-[11px] uppercase text-muted-foreground">Avg Stability (S)</p>
+                <p className="text-lg font-semibold text-foreground">{rpsBaseline.avgStability.toFixed(1)}</p>
+              </div>
+              <div className="rounded-lg border border-muted/60 bg-muted/40 p-3">
+                <p className="text-[11px] uppercase text-muted-foreground">Average D-NAV</p>
+                <p className="text-lg font-semibold text-foreground">{rpsBaseline.avgDnav.toFixed(1)}</p>
+              </div>
+              <div className="rounded-lg border border-muted/60 bg-muted/40 p-3">
+                <p className="text-[11px] uppercase text-muted-foreground">Total Decisions</p>
+                <p className="text-lg font-semibold text-foreground">{rpsBaseline.totalDecisions}</p>
+              </div>
+            </div>
           </div>
 
-          <div className="mt-4 overflow-hidden rounded-xl border">
-            <table className="w-full text-sm">
-              <thead className="bg-muted/60 text-xs uppercase tracking-wide text-muted-foreground">
-                <tr>
-                  <th className="px-3 py-2 text-left font-semibold">Archetype</th>
-                  <th className="px-3 py-2 text-right font-semibold">Decisions</th>
-                  <th className="px-3 py-2 text-right font-semibold">Share</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-muted/60 bg-card">
-                {archetypeRows.map((entry) => (
-                  <tr key={entry.archetype}>
-                    <td className="px-3 py-2 font-medium text-foreground">{entry.archetype}</td>
-                    <td className="px-3 py-2 text-right text-muted-foreground">{entry.count}</td>
-                    <td className="px-3 py-2 text-right text-muted-foreground">{getArchetypeShare(entry.count)}%</td>
+          <div className="rounded-2xl border bg-card p-6 shadow-sm">
+            <div className="space-y-1">
+              <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+                Archetype Fingerprint — {periodLabel}
+              </p>
+              <h3 className="text-lg font-semibold text-foreground">Behavioral composition</h3>
+              <p className="text-sm text-muted-foreground">
+                Primary: {primaryArchetype?.archetype ?? "N/A"} · Secondary: {secondaryArchetype?.archetype ?? "N/A"}
+              </p>
+            </div>
+
+            <div className="mt-4 overflow-hidden rounded-xl border">
+              <table className="w-full text-sm">
+                <thead className="bg-muted/60 text-xs uppercase tracking-wide text-muted-foreground">
+                  <tr>
+                    <th className="px-3 py-2 text-left font-semibold">Archetype</th>
+                    <th className="px-3 py-2 text-right font-semibold">Decisions</th>
+                    <th className="px-3 py-2 text-right font-semibold">Share</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
+                </thead>
+                <tbody className="divide-y divide-muted/60 bg-card">
+                  {archetypeRows.map((entry) => (
+                    <tr key={entry.archetype}>
+                      <td className="px-3 py-2 font-medium text-foreground">{entry.archetype}</td>
+                      <td className="px-3 py-2 text-right text-muted-foreground">{entry.count}</td>
+                      <td className="px-3 py-2 text-right text-muted-foreground">{getArchetypeShare(entry.count)}%</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
           </div>
         </div>
       </section>
