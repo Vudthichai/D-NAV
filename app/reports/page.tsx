@@ -248,9 +248,12 @@ function ReportsPageContent() {
 
   // Use the browser print dialog to export the report view.
   const handlePrint = () => {
-    if (typeof window !== "undefined") {
-      window.print();
-    }
+    if (typeof window === "undefined") return;
+
+    const filename = `${snapshot.companyName} - Decision Orbit ${snapshot.periodLabel}.pdf`;
+
+    document.title = filename;
+    window.print();
   };
 
   return (
@@ -297,6 +300,9 @@ function ReportsPageContent() {
                 <FileDown className="mr-2 h-4 w-4" />
                 Download report
               </Button>
+            </div>
+            <div className="print:hidden text-xs text-muted-foreground">
+              For best results, enable “Background Graphics” in the print dialog.
             </div>
           </div>
         </section>
@@ -439,25 +445,26 @@ function OnePageReport({
     rpsBaseline.totalDecisions > 0 ? ((count / rpsBaseline.totalDecisions) * 100).toFixed(1) : "0.0";
 
   return (
-    <div className="report-print-page mx-auto max-w-6xl space-y-5 rounded-3xl border bg-background p-7 text-foreground shadow-sm print:max-w-none print:border-none print:bg-white print:shadow-none">
-      <header className="flex flex-col gap-2 border-b pb-4 sm:flex-row sm:items-baseline sm:justify-between">
-        <div>
-          <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">D-NAV Executive Readout</p>
-          <h1 className="text-2xl font-semibold tracking-tight">
-            {companyName} · Decision Orbit {periodLabel}
-          </h1>
-          <p className="text-sm text-muted-foreground">
-            System-level RPS profile across {rpsBaseline.totalDecisions} logged decisions
-          </p>
-        </div>
-        <div className="text-sm text-muted-foreground sm:text-right">
-          <p className="font-medium text-foreground">R · P · S baseline · Learning · Terrain · Archetypes</p>
-          <p>Executive decision intelligence view</p>
-        </div>
-      </header>
+    <div className="report-page space-y-6">
+      <div className="report-print-page mx-auto max-w-6xl space-y-5 rounded-3xl border bg-background p-7 text-foreground shadow-sm print:max-w-none print:border-none print:bg-white print:shadow-none">
+        <header className="flex flex-col gap-2 border-b pb-4 sm:flex-row sm:items-baseline sm:justify-between">
+          <div>
+            <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">D-NAV Executive Readout</p>
+            <h1 className="text-2xl font-semibold tracking-tight">
+              {companyName} · Decision Orbit {periodLabel}
+            </h1>
+            <p className="text-sm text-muted-foreground">
+              System-level RPS profile across {rpsBaseline.totalDecisions} logged decisions
+            </p>
+          </div>
+          <div className="text-sm text-muted-foreground sm:text-right">
+            <p className="font-medium text-foreground">R · P · S baseline · Learning · Terrain · Archetypes</p>
+            <p>Executive decision intelligence view</p>
+          </div>
+        </header>
 
-      <section className="grid gap-6 lg:grid-cols-[minmax(0,2fr)_minmax(0,1.1fr)]">
-        <div className="rounded-2xl border bg-card/70 p-6 shadow-sm">
+      <section className="grid gap-6 lg:grid-cols-[minmax(0,2fr)_minmax(0,1.1fr)] print:grid-cols-[minmax(0,2fr)_minmax(0,1.1fr)]">
+        <div className="report-card rounded-2xl border bg-card/70 p-6 shadow-sm">
           <div className="space-y-2">
             <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Executive Overview</p>
             <h2 className="text-xl font-semibold tracking-tight text-foreground">
@@ -489,7 +496,7 @@ function OnePageReport({
         </div>
 
         <div className="space-y-4">
-          <div className="rounded-2xl border bg-card p-5 shadow-sm">
+          <div className="report-card rounded-2xl border bg-card p-5 shadow-sm">
             <div className="flex flex-wrap items-start justify-between gap-2">
               <div>
                 <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Key Metrics Snapshot</p>
@@ -526,7 +533,7 @@ function OnePageReport({
             </div>
           </div>
 
-          <div className="rounded-2xl border bg-card p-5 shadow-sm">
+          <div className="report-card rounded-2xl border bg-card p-5 shadow-sm">
             <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
               Distributions (Return / Pressure / Stability)
             </p>
@@ -577,7 +584,7 @@ function OnePageReport({
         </div>
       </section>
 
-      <section className="rounded-2xl border bg-card p-6 shadow-sm">
+      <section className="report-card rounded-2xl border bg-card p-6 shadow-sm">
         <div className="flex items-start justify-between gap-2">
           <div>
             <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
@@ -619,7 +626,7 @@ function OnePageReport({
         </div>
       </section>
 
-      <section className="rounded-2xl border bg-card p-6 shadow-sm">
+      <section className="report-card rounded-2xl border bg-card p-6 shadow-sm">
         <div className="space-y-1">
           <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
             Archetype Fingerprint — {periodLabel}
@@ -652,7 +659,7 @@ function OnePageReport({
       </section>
 
       <div className="border-t border-muted/60 pt-6">
-        <section className="rounded-2xl border bg-card/70 p-6 shadow-sm">
+        <section className="report-card rounded-2xl border bg-card/70 p-6 shadow-sm">
           <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
             Decision Terrain — System Momentum
           </p>
@@ -660,6 +667,7 @@ function OnePageReport({
           <p className="mt-2 text-sm leading-relaxed text-muted-foreground">{interpretation.momentumSummary}</p>
         </section>
       </div>
+    </div>
     </div>
   );
 }

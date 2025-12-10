@@ -380,3 +380,20 @@ body {
     line-height: 1.5;
   }
 }
+
+@media print {
+  body {
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+
+  .report-page {
+    margin: 0;
+    padding: 0.5in;
+  }
+
+  .report-card {
+    break-inside: avoid;
+    page-break-inside: avoid;
+  }
+}
