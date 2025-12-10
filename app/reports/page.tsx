@@ -439,7 +439,7 @@ function OnePageReport({
     rpsBaseline.totalDecisions > 0 ? ((count / rpsBaseline.totalDecisions) * 100).toFixed(1) : "0.0";
 
   return (
-    <div className="report-print-page mx-auto max-w-5xl space-y-6 rounded-3xl border bg-background p-8 text-foreground shadow-sm print:max-w-none print:border-none print:bg-white print:shadow-none">
+    <div className="report-print-page mx-auto max-w-6xl space-y-5 rounded-3xl border bg-background p-7 text-foreground shadow-sm print:max-w-none print:border-none print:bg-white print:shadow-none">
       <header className="flex flex-col gap-2 border-b pb-4 sm:flex-row sm:items-baseline sm:justify-between">
         <div>
           <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">D-NAV Executive Readout</p>
@@ -456,7 +456,7 @@ function OnePageReport({
         </div>
       </header>
 
-      <section className="grid gap-6 lg:grid-cols-[1fr,1.15fr]">
+      <section className="grid gap-5 lg:grid-cols-[1.35fr,1fr]">
         <div className="rounded-2xl border bg-card/70 p-6 shadow-sm">
           <div className="space-y-2">
             <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Executive Overview</p>
@@ -577,7 +577,7 @@ function OnePageReport({
         </div>
       </section>
 
-      <section className="grid gap-6 lg:grid-cols-[1.5fr,1fr]">
+      <section className="grid gap-5 lg:grid-cols-[1.35fr,1fr]">
         <div className="rounded-2xl border bg-card p-6 shadow-sm">
           <div className="flex items-start justify-between gap-2">
             <div>
