@@ -456,7 +456,7 @@ function OnePageReport({
         </div>
       </header>
 
-      <section className="grid gap-5 lg:grid-cols-[1.35fr,1fr]">
+      <section className="grid gap-6 lg:grid-cols-[minmax(0,2fr)_minmax(0,1.1fr)]">
         <div className="rounded-2xl border bg-card/70 p-6 shadow-sm">
           <div className="space-y-2">
             <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Executive Overview</p>
@@ -577,114 +577,77 @@ function OnePageReport({
         </div>
       </section>
 
-      <section className="grid gap-5 lg:grid-cols-[1.35fr,1fr]">
-        <div className="rounded-2xl border bg-card p-6 shadow-sm">
-          <div className="flex items-start justify-between gap-2">
-            <div>
-              <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
-                Decision Terrain — Top Judgment Arenas
-              </p>
-              <h3 className="text-lg font-semibold text-foreground">Where judgment volume concentrates</h3>
-            </div>
-            <span className="text-xs text-muted-foreground">Top 3 categories</span>
+      <section className="rounded-2xl border bg-card p-6 shadow-sm">
+        <div className="flex items-start justify-between gap-2">
+          <div>
+            <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+              Decision Terrain — Top Judgment Arenas
+            </p>
+            <h3 className="text-lg font-semibold text-foreground">Where judgment volume concentrates</h3>
           </div>
-          <div className="mt-4 space-y-4">
-            {topCategories.map((category) => (
-              <div key={category.name} className="rounded-xl border border-muted/60 bg-muted/30 p-3">
-                <div className="flex items-center justify-between text-sm font-semibold">
-                  <span>{category.name}</span>
-                  <span className="text-xs text-muted-foreground">{category.decisionCount} decisions</span>
+          <span className="text-xs text-muted-foreground">Top 3 categories</span>
+        </div>
+        <div className="mt-4 space-y-4">
+          {topCategories.map((category) => (
+            <div key={category.name} className="rounded-xl border border-muted/60 bg-muted/30 p-3">
+              <div className="flex items-center justify-between text-sm font-semibold">
+                <span>{category.name}</span>
+                <span className="text-xs text-muted-foreground">{category.decisionCount} decisions</span>
+              </div>
+              <div className="mt-2 grid grid-cols-2 gap-3 text-xs text-muted-foreground sm:grid-cols-4">
+                <div className="space-y-1">
+                  <p className="text-[11px] uppercase">Share of volume</p>
+                  <p className="text-sm font-semibold text-foreground">{formatPct(category.share)}</p>
                 </div>
-                <div className="mt-2 grid grid-cols-2 gap-3 text-xs text-muted-foreground sm:grid-cols-4">
-                  <div className="space-y-1">
-                    <p className="text-[11px] uppercase">Share of volume</p>
-                    <p className="text-sm font-semibold text-foreground">{formatPct(category.share)}</p>
-                  </div>
-                  <div className="space-y-1">
-                    <p className="text-[11px] uppercase">Avg D-NAV</p>
-                    <p className="text-sm font-semibold text-foreground">{category.avgDnav.toFixed(1)}</p>
-                  </div>
-                  <div className="space-y-1">
-                    <p className="text-[11px] uppercase">R / P / S</p>
-                    <p className="text-sm font-semibold text-foreground">
-                      {category.avgR.toFixed(1)} / {category.avgP.toFixed(1)} / {category.avgS.toFixed(1)}
-                    </p>
-                  </div>
-                  <div className="space-y-1">
-                    <p className="text-[11px] uppercase">Dominant factor</p>
-                    <p className="text-sm font-semibold text-foreground">{category.dominantFactor ?? "Balanced"}</p>
-                  </div>
+                <div className="space-y-1">
+                  <p className="text-[11px] uppercase">Avg D-NAV</p>
+                  <p className="text-sm font-semibold text-foreground">{category.avgDnav.toFixed(1)}</p>
+                </div>
+                <div className="space-y-1">
+                  <p className="text-[11px] uppercase">R / P / S</p>
+                  <p className="text-sm font-semibold text-foreground">
+                    {category.avgR.toFixed(1)} / {category.avgP.toFixed(1)} / {category.avgS.toFixed(1)}
+                  </p>
+                </div>
+                <div className="space-y-1">
+                  <p className="text-[11px] uppercase">Dominant factor</p>
+                  <p className="text-sm font-semibold text-foreground">{category.dominantFactor ?? "Balanced"}</p>
                 </div>
               </div>
-            ))}
-          </div>
+            </div>
+          ))}
+        </div>
+      </section>
+
+      <section className="rounded-2xl border bg-card p-6 shadow-sm">
+        <div className="space-y-1">
+          <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+            Archetype Fingerprint — {periodLabel}
+          </p>
+          <p className="text-sm text-muted-foreground">
+            Primary: {primaryArchetype?.archetype ?? "N/A"} · Secondary: {secondaryArchetype?.archetype ?? "N/A"}
+          </p>
         </div>
 
-        <div className="space-y-4">
-          <div className="rounded-2xl border bg-card p-6 shadow-sm">
-            <div className="space-y-1">
-              <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">RPS Baseline</p>
-              <h3 className="text-lg font-semibold text-foreground">Calm, repeatable execution</h3>
-              <p className="text-sm text-muted-foreground">
-                Normalized decision quality profile across {rpsBaseline.totalDecisions} logged decisions.
-              </p>
-            </div>
-
-            <div className="mt-4 grid grid-cols-2 gap-3 text-sm sm:grid-cols-3">
-              <div className="rounded-lg border border-muted/60 bg-muted/40 p-3">
-                <p className="text-[11px] uppercase text-muted-foreground">Avg Return (R)</p>
-                <p className="text-lg font-semibold text-foreground">{rpsBaseline.avgReturn.toFixed(1)}</p>
-              </div>
-              <div className="rounded-lg border border-muted/60 bg-muted/40 p-3">
-                <p className="text-[11px] uppercase text-muted-foreground">Avg Pressure (P)</p>
-                <p className="text-lg font-semibold text-foreground">{rpsBaseline.avgPressure.toFixed(1)}</p>
-              </div>
-              <div className="rounded-lg border border-muted/60 bg-muted/40 p-3">
-                <p className="text-[11px] uppercase text-muted-foreground">Avg Stability (S)</p>
-                <p className="text-lg font-semibold text-foreground">{rpsBaseline.avgStability.toFixed(1)}</p>
-              </div>
-              <div className="rounded-lg border border-muted/60 bg-muted/40 p-3">
-                <p className="text-[11px] uppercase text-muted-foreground">Average D-NAV</p>
-                <p className="text-lg font-semibold text-foreground">{rpsBaseline.avgDnav.toFixed(1)}</p>
-              </div>
-              <div className="rounded-lg border border-muted/60 bg-muted/40 p-3">
-                <p className="text-[11px] uppercase text-muted-foreground">Total Decisions</p>
-                <p className="text-lg font-semibold text-foreground">{rpsBaseline.totalDecisions}</p>
-              </div>
-            </div>
-
-            <div className="mt-6 space-y-2">
-              <div>
-                <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
-                  Archetype Fingerprint — {periodLabel}
-                </p>
-                <p className="text-sm text-muted-foreground">
-                  Primary: {primaryArchetype?.archetype ?? "N/A"} · Secondary: {secondaryArchetype?.archetype ?? "N/A"}
-                </p>
-              </div>
-
-              <div className="overflow-hidden rounded-xl border">
-                <table className="w-full text-sm">
-                  <thead className="bg-muted/60 text-xs uppercase tracking-wide text-muted-foreground">
-                    <tr>
-                      <th className="px-3 py-2 text-left font-semibold">Archetype</th>
-                      <th className="px-3 py-2 text-right font-semibold">Decisions</th>
-                      <th className="px-3 py-2 text-right font-semibold">Share</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-muted/60 bg-card">
-                    {archetypeRows.map((entry) => (
-                      <tr key={entry.archetype}>
-                        <td className="px-3 py-2 font-medium text-foreground">{entry.archetype}</td>
-                        <td className="px-3 py-2 text-right text-muted-foreground">{entry.count}</td>
-                        <td className="px-3 py-2 text-right text-muted-foreground">{getArchetypeShare(entry.count)}%</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            </div>
-          </div>
+        <div className="mt-4 overflow-hidden rounded-xl border">
+          <table className="w-full text-sm">
+            <thead className="bg-muted/60 text-xs uppercase tracking-wide text-muted-foreground">
+              <tr>
+                <th className="px-3 py-2 text-left font-semibold">Archetype</th>
+                <th className="px-3 py-2 text-right font-semibold">Decisions</th>
+                <th className="px-3 py-2 text-right font-semibold">Share</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-muted/60 bg-card">
+              {archetypeRows.map((entry) => (
+                <tr key={entry.archetype}>
+                  <td className="px-3 py-2 font-medium text-foreground">{entry.archetype}</td>
+                  <td className="px-3 py-2 text-right text-muted-foreground">{entry.count}</td>
+                  <td className="px-3 py-2 text-right text-muted-foreground">{getArchetypeShare(entry.count)}%</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
         </div>
       </section>
 
