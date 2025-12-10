@@ -433,265 +433,236 @@ function OnePageReport({
 
   const primaryArchetype = sortedArchetypes[0];
   const secondaryArchetype = sortedArchetypes[1];
+  const archetypeRows = sortedArchetypes.slice(0, 4);
+
+  const getArchetypeShare = (count: number) =>
+    rpsBaseline.totalDecisions > 0 ? ((count / rpsBaseline.totalDecisions) * 100).toFixed(1) : "0.0";
 
   return (
-    <div className="report-print-page mx-auto max-w-5xl bg-white text-slate-900 p-8 print:p-6 print:max-w-none">
-      {/* Header */}
-      <header className="flex items-baseline justify-between gap-4 border-b pb-3 mb-4">
+    <div className="report-print-page mx-auto max-w-5xl space-y-6 rounded-3xl border bg-background p-8 text-foreground shadow-sm print:max-w-none print:border-none print:bg-white print:shadow-none">
+      <header className="flex flex-col gap-2 border-b pb-4 sm:flex-row sm:items-baseline sm:justify-between">
         <div>
+          <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">D-NAV Executive Readout</p>
           <h1 className="text-2xl font-semibold tracking-tight">
             {companyName} · Decision Orbit {periodLabel}
           </h1>
-          <p className="text-xs text-slate-500 mt-1">
+          <p className="text-sm text-muted-foreground">
             System-level RPS profile across {rpsBaseline.totalDecisions} logged decisions
           </p>
         </div>
-        <div className="text-right text-xs">
-          <p className="font-medium">D-NAV Executive Readout</p>
-          <p className="text-slate-500">R · P · S baseline · Learning · Terrain · Archetypes</p>
+        <div className="text-sm text-muted-foreground sm:text-right">
+          <p className="font-medium text-foreground">R · P · S baseline · Learning · Terrain · Archetypes</p>
+          <p>Executive decision intelligence view</p>
         </div>
       </header>
 
-      {/* Top grid: narratives + metrics */}
-      <section className="grid grid-cols-12 gap-4">
-        {/* Narrative column */}
-        <div className="col-span-12 space-y-3 md:col-span-7">
-          <h2 className="text-sm font-semibold tracking-wide text-slate-700 uppercase mb-1">Executive Summary</h2>
+      <section className="grid gap-6 lg:grid-cols-[1.35fr,1fr]">
+        <div className="rounded-2xl border bg-card/70 p-6 shadow-sm">
+          <div className="space-y-2">
+            <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Executive Overview</p>
+            <h2 className="text-xl font-semibold tracking-tight text-foreground">
+              {companyName} · Decision Orbit {periodLabel}
+            </h2>
+            <p className="text-sm text-muted-foreground">
+              System-level RPS profile across {rpsBaseline.totalDecisions} logged decisions
+            </p>
+          </div>
 
-          <div className="space-y-2 text-xs leading-relaxed">
-            {/* RPS Baseline */}
-            <div>
-              <h3 className="font-semibold text-slate-800">RPS Baseline — Calm, repeatable execution</h3>
+          <div className="mt-4 space-y-3 text-sm leading-relaxed text-muted-foreground">
+            <div className="space-y-1">
+              <h3 className="text-sm font-semibold text-foreground">RPS Baseline — Calm, repeatable execution</h3>
               <p>{interpretation.rpsSummary}</p>
             </div>
-
-            {/* Category Profile */}
-            <div>
-              <h3 className="font-semibold text-slate-800">Category Profile — Where judgment actually lives</h3>
+            <div className="space-y-1">
+              <h3 className="text-sm font-semibold text-foreground">Category Profile — Where judgment actually lives</h3>
               <p>{interpretation.categorySummary}</p>
             </div>
-
-            {/* Archetype Profile */}
-            <div>
-              <h3 className="font-semibold text-slate-800">Archetype Profile — Behavioral fingerprint</h3>
+            <div className="space-y-1">
+              <h3 className="text-sm font-semibold text-foreground">Archetype Profile — Behavioral fingerprint</h3>
               <p>{interpretation.archetypeSummary}</p>
             </div>
-
-            {/* Learning & Recovery */}
-            <div>
-              <h3 className="font-semibold text-slate-800">Learning &amp; Recovery — Decision debt &amp; correction</h3>
+            <div className="space-y-1">
+              <h3 className="text-sm font-semibold text-foreground">Learning &amp; Recovery — Decision debt &amp; correction</h3>
               <p>{interpretation.learningSummary}</p>
             </div>
           </div>
         </div>
 
-        {/* Metrics column */}
-        <div className="col-span-12 space-y-3 md:col-span-5">
-          {/* Key metrics */}
-          <div className="border rounded-md p-3">
-            <h2 className="text-sm font-semibold text-slate-700 mb-2">Key Metrics Snapshot</h2>
-            <div className="grid grid-cols-2 gap-2 text-xs">
+        <div className="space-y-4">
+          <div className="rounded-2xl border bg-card p-5 shadow-sm">
+            <div className="flex flex-wrap items-start justify-between gap-2">
               <div>
-                <p className="text-[10px] uppercase text-slate-500">Average D-NAV</p>
-                <p className="text-lg font-semibold">{rpsBaseline.avgDnav.toFixed(1)}</p>
-                <p className="text-[11px] text-slate-500">Average judgment quality in this window after cost.</p>
+                <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Key Metrics Snapshot</p>
+                <p className="text-xs text-muted-foreground">Period: {periodLabel}</p>
+              </div>
+              <span className="text-xs text-muted-foreground">R · P · S averages</span>
+            </div>
+            <div className="mt-4 grid grid-cols-2 gap-3 text-sm">
+              <div>
+                <p className="text-[11px] uppercase text-muted-foreground">Average D-NAV</p>
+                <p className="text-lg font-semibold text-foreground">{rpsBaseline.avgDnav.toFixed(1)}</p>
+                <p className="text-xs text-muted-foreground">Average judgment quality in this window after cost.</p>
               </div>
               <div>
-                <p className="text-[10px] uppercase text-slate-500">Avg Return (R)</p>
-                <p className="text-lg font-semibold">{rpsBaseline.avgReturn.toFixed(1)}</p>
-                <p className="text-[11px] text-slate-500">Net value creation per decision.</p>
+                <p className="text-[11px] uppercase text-muted-foreground">Avg Return (R)</p>
+                <p className="text-lg font-semibold text-foreground">{rpsBaseline.avgReturn.toFixed(1)}</p>
+                <p className="text-xs text-muted-foreground">Net value creation per decision.</p>
               </div>
               <div>
-                <p className="text-[10px] uppercase text-slate-500">Avg Pressure (P)</p>
-                <p className="text-lg font-semibold">{rpsBaseline.avgPressure.toFixed(1)}</p>
-                <p className="text-[11px] text-slate-500">Execution stress posture.</p>
+                <p className="text-[11px] uppercase text-muted-foreground">Avg Pressure (P)</p>
+                <p className="text-lg font-semibold text-foreground">{rpsBaseline.avgPressure.toFixed(1)}</p>
+                <p className="text-xs text-muted-foreground">Execution stress posture.</p>
               </div>
               <div>
-                <p className="text-[10px] uppercase text-slate-500">Avg Stability (S)</p>
-                <p className="text-lg font-semibold">{rpsBaseline.avgStability.toFixed(1)}</p>
-                <p className="text-[11px] text-slate-500">How safe decisions leave the system.</p>
+                <p className="text-[11px] uppercase text-muted-foreground">Avg Stability (S)</p>
+                <p className="text-lg font-semibold text-foreground">{rpsBaseline.avgStability.toFixed(1)}</p>
+                <p className="text-xs text-muted-foreground">How safe decisions leave the system.</p>
               </div>
               <div>
-                <p className="text-[10px] uppercase text-slate-500">Learning Curve Index</p>
-                <p className="text-lg font-semibold">{learningStats.lci.toFixed(1)}</p>
-                <p className="text-[11px] text-slate-500">Recovery efficiency after dips.</p>
+                <p className="text-[11px] uppercase text-muted-foreground">Learning Curve Index</p>
+                <p className="text-lg font-semibold text-foreground">{learningStats.lci.toFixed(1)}</p>
+                <p className="text-xs text-muted-foreground">Recovery efficiency after dips.</p>
               </div>
             </div>
           </div>
 
-          {/* Distributions */}
-          <div className="border rounded-md p-3 space-y-2">
-            <h2 className="text-sm font-semibold text-slate-700">Distributions ({periodLabel})</h2>
+          <div className="rounded-2xl border bg-card p-5 shadow-sm">
+            <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+              Distributions (Return / Pressure / Stability)
+            </p>
+            <div className="mt-3 space-y-3 text-sm">
+              <div>
+                <div className="mb-1 flex items-center justify-between text-xs text-muted-foreground">
+                  <span>Return</span>
+                  <span>
+                    Positive {formatPct(returnDistribution.positive)} · Neutral {formatPct(returnDistribution.neutral)} · Negative {formatPct(returnDistribution.negative)}
+                  </span>
+                </div>
+                <div className="flex h-2 overflow-hidden rounded-full bg-muted/60">
+                  <div className="bg-emerald-500" style={{ width: `${returnDistribution.positive}%` }} />
+                  <div className="bg-muted" style={{ width: `${returnDistribution.neutral}%` }} />
+                  <div className="bg-rose-500" style={{ width: `${returnDistribution.negative}%` }} />
+                </div>
+              </div>
 
-            {/* Return */}
-            <div className="text-xs">
-              <div className="flex justify-between text-[11px] text-slate-500 mb-1">
-                <span>Return</span>
-                <span>
-                  Positive {formatPct(returnDistribution.positive)} · Neutral {formatPct(returnDistribution.neutral)} · Negative {formatPct(returnDistribution.negative)}
-                </span>
+              <div>
+                <div className="mb-1 flex items-center justify-between text-xs text-muted-foreground">
+                  <span>Pressure</span>
+                  <span>
+                    Pressured {formatPct(pressureDistribution.positive)} · Neutral {formatPct(pressureDistribution.neutral)} · Calm {formatPct(pressureDistribution.negative)}
+                  </span>
+                </div>
+                <div className="flex h-2 overflow-hidden rounded-full bg-muted/60">
+                  <div className="bg-amber-500" style={{ width: `${pressureDistribution.positive}%` }} />
+                  <div className="bg-muted" style={{ width: `${pressureDistribution.neutral}%` }} />
+                  <div className="bg-sky-500" style={{ width: `${pressureDistribution.negative}%` }} />
+                </div>
               </div>
-              <div className="flex h-2 overflow-hidden rounded-full bg-slate-100">
-                <div className="bg-emerald-500" style={{ width: `${returnDistribution.positive}%` }} />
-                <div className="bg-slate-400" style={{ width: `${returnDistribution.neutral}%` }} />
-                <div className="bg-rose-500" style={{ width: `${returnDistribution.negative}%` }} />
-              </div>
-            </div>
 
-            {/* Pressure */}
-            <div className="text-xs">
-              <div className="flex justify-between text-[11px] text-slate-500 mb-1">
-                <span>Pressure</span>
-                <span>
-                  Pressured {formatPct(pressureDistribution.positive)} · Neutral {formatPct(pressureDistribution.neutral)} · Calm {formatPct(pressureDistribution.negative)}
-                </span>
-              </div>
-              <div className="flex h-2 overflow-hidden rounded-full bg-slate-100">
-                <div className="bg-amber-500" style={{ width: `${pressureDistribution.positive}%` }} />
-                <div className="bg-slate-400" style={{ width: `${pressureDistribution.neutral}%` }} />
-                <div className="bg-sky-500" style={{ width: `${pressureDistribution.negative}%` }} />
-              </div>
-            </div>
-
-            {/* Stability */}
-            <div className="text-xs">
-              <div className="flex justify-between text-[11px] text-slate-500 mb-1">
-                <span>Stability</span>
-                <span>
-                  Stable {formatPct(stabilityDistribution.positive)} · Neutral {formatPct(stabilityDistribution.neutral)} · Fragile {formatPct(stabilityDistribution.negative)}
-                </span>
-              </div>
-              <div className="flex h-2 overflow-hidden rounded-full bg-slate-100">
-                <div className="bg-emerald-600" style={{ width: `${stabilityDistribution.positive}%` }} />
-                <div className="bg-slate-400" style={{ width: `${stabilityDistribution.neutral}%` }} />
-                <div className="bg-rose-500" style={{ width: `${stabilityDistribution.negative}%` }} />
+              <div>
+                <div className="mb-1 flex items-center justify-between text-xs text-muted-foreground">
+                  <span>Stability</span>
+                  <span>
+                    Stable {formatPct(stabilityDistribution.positive)} · Neutral {formatPct(stabilityDistribution.neutral)} · Fragile {formatPct(stabilityDistribution.negative)}
+                  </span>
+                </div>
+                <div className="flex h-2 overflow-hidden rounded-full bg-muted/60">
+                  <div className="bg-emerald-600" style={{ width: `${stabilityDistribution.positive}%` }} />
+                  <div className="bg-muted" style={{ width: `${stabilityDistribution.neutral}%` }} />
+                  <div className="bg-rose-500" style={{ width: `${stabilityDistribution.negative}%` }} />
+                </div>
               </div>
             </div>
           </div>
         </div>
       </section>
 
-      {/* Baseline section */}
-      <section className="grid grid-cols-12 gap-4 mt-4">
-        <div className="col-span-12 md:col-span-4 border rounded-md p-3">
-          <h2 className="text-sm font-semibold text-slate-700 mb-1">R · P · S Baseline</h2>
-          <p className="text-xs text-slate-500 mb-2">Normalized decision quality profile</p>
-
-          <div className="space-y-1 text-xs">
-            <div className="flex justify-between">
-              <span className="text-[11px] text-slate-500">Return (R)</span>
-              <span className="font-semibold">{rpsBaseline.avgReturn.toFixed(1)}</span>
+      <section className="grid gap-6 lg:grid-cols-2">
+        <div className="rounded-2xl border bg-card p-6 shadow-sm">
+          <div className="flex items-start justify-between gap-2">
+            <div>
+              <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+                Decision Terrain — Top Judgment Arenas
+              </p>
+              <h3 className="text-lg font-semibold text-foreground">Where judgment volume concentrates</h3>
             </div>
-            <div className="flex justify-between">
-              <span className="text-[11px] text-slate-500">Pressure (P)</span>
-              <span className="font-semibold">{rpsBaseline.avgPressure.toFixed(1)}</span>
-            </div>
-            <div className="flex justify-between">
-              <span className="text-[11px] text-slate-500">Stability (S)</span>
-              <span className="font-semibold">{rpsBaseline.avgStability.toFixed(1)}</span>
-            </div>
-            <div className="flex justify-between">
-              <span className="text-[11px] text-slate-500">Average D-NAV</span>
-              <span className="font-semibold">{rpsBaseline.avgDnav.toFixed(1)}</span>
-            </div>
-            <div className="flex justify-between">
-              <span className="text-[11px] text-slate-500">Total Decisions</span>
-              <span className="font-semibold">{rpsBaseline.totalDecisions}</span>
-            </div>
+            <span className="text-xs text-muted-foreground">Top 3 categories</span>
           </div>
-        </div>
-
-        <div className="col-span-12 md:col-span-4 border rounded-md p-3">
-          <h2 className="text-sm font-semibold text-slate-700 mb-2">Top Categories</h2>
-          <div className="space-y-2 text-xs">
+          <div className="mt-4 space-y-4">
             {topCategories.map((category) => (
-              <div key={category.name}>
-                <div className="flex justify-between">
-                  <span className="font-semibold">{category.name}</span>
-                  <span className="text-[11px] text-slate-500">{category.decisionCount} decisions</span>
+              <div key={category.name} className="rounded-xl border border-muted/60 bg-muted/30 p-3">
+                <div className="flex items-center justify-between text-sm font-semibold">
+                  <span>{category.name}</span>
+                  <span className="text-xs text-muted-foreground">{category.decisionCount} decisions</span>
                 </div>
-                <div className="flex justify-between text-[11px] text-slate-500">
-                  <span>Share of volume</span>
-                  <span>{formatPct(category.share)}</span>
-                </div>
-                <div className="flex justify-between text-[11px] text-slate-500">
-                  <span>Avg D-NAV</span>
-                  <span>{category.avgDnav.toFixed(1)}</span>
-                </div>
-                <div className="flex justify-between text-[11px] text-slate-500">
-                  <span>R / P / S</span>
-                  <span>
-                    {category.avgR.toFixed(1)} / {category.avgP.toFixed(1)} / {category.avgS.toFixed(1)}
-                  </span>
-                </div>
-                <div className="flex justify-between text-[11px] text-slate-500">
-                  <span>Dominant factor</span>
-                  <span>{category.dominantFactor ?? "Balanced"}</span>
+                <div className="mt-2 grid grid-cols-2 gap-3 text-xs text-muted-foreground sm:grid-cols-4">
+                  <div className="space-y-1">
+                    <p className="text-[11px] uppercase">Share of volume</p>
+                    <p className="text-sm font-semibold text-foreground">{formatPct(category.share)}</p>
+                  </div>
+                  <div className="space-y-1">
+                    <p className="text-[11px] uppercase">Avg D-NAV</p>
+                    <p className="text-sm font-semibold text-foreground">{category.avgDnav.toFixed(1)}</p>
+                  </div>
+                  <div className="space-y-1">
+                    <p className="text-[11px] uppercase">R / P / S</p>
+                    <p className="text-sm font-semibold text-foreground">
+                      {category.avgR.toFixed(1)} / {category.avgP.toFixed(1)} / {category.avgS.toFixed(1)}
+                    </p>
+                  </div>
+                  <div className="space-y-1">
+                    <p className="text-[11px] uppercase">Dominant factor</p>
+                    <p className="text-sm font-semibold text-foreground">{category.dominantFactor ?? "Balanced"}</p>
+                  </div>
                 </div>
               </div>
             ))}
           </div>
         </div>
 
-        <div className="col-span-12 md:col-span-4 border rounded-md p-3">
-          <h2 className="text-sm font-semibold text-slate-700 mb-2">Archetypes</h2>
-          <div className="space-y-2 text-xs">
-            {primaryArchetype && (
-              <div>
-                <div className="flex justify-between">
-                  <span className="font-semibold">Primary · {primaryArchetype.archetype}</span>
-                  <span className="text-[11px] text-slate-500">{primaryArchetype.count} entries</span>
-                </div>
-                <div className="flex justify-between text-[11px] text-slate-500">
-                  <span>R / P / S</span>
-                  <span>
-                    {primaryArchetype.avgR.toFixed(1)} / {primaryArchetype.avgP.toFixed(1)} / {primaryArchetype.avgS.toFixed(1)}
-                  </span>
-                </div>
-              </div>
-            )}
+        <div className="rounded-2xl border bg-card p-6 shadow-sm">
+          <div className="space-y-1">
+            <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+              Archetype Fingerprint — {periodLabel}
+            </p>
+            <h3 className="text-lg font-semibold text-foreground">Behavioral composition</h3>
+            <p className="text-sm text-muted-foreground">
+              Primary: {primaryArchetype?.archetype ?? "N/A"} · Secondary: {secondaryArchetype?.archetype ?? "N/A"}
+            </p>
+          </div>
 
-            {secondaryArchetype && (
-              <div>
-                <div className="flex justify-between">
-                  <span className="font-semibold">Secondary · {secondaryArchetype.archetype}</span>
-                  <span className="text-[11px] text-slate-500">{secondaryArchetype.count} entries</span>
-                </div>
-                <div className="flex justify-between text-[11px] text-slate-500">
-                  <span>R / P / S</span>
-                  <span>
-                    {secondaryArchetype.avgR.toFixed(1)} / {secondaryArchetype.avgP.toFixed(1)} / {secondaryArchetype.avgS.toFixed(1)}
-                  </span>
-                </div>
-              </div>
-            )}
+          <div className="mt-4 overflow-hidden rounded-xl border">
+            <table className="w-full text-sm">
+              <thead className="bg-muted/60 text-xs uppercase tracking-wide text-muted-foreground">
+                <tr>
+                  <th className="px-3 py-2 text-left font-semibold">Archetype</th>
+                  <th className="px-3 py-2 text-right font-semibold">Decisions</th>
+                  <th className="px-3 py-2 text-right font-semibold">Share</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-muted/60 bg-card">
+                {archetypeRows.map((entry) => (
+                  <tr key={entry.archetype}>
+                    <td className="px-3 py-2 font-medium text-foreground">{entry.archetype}</td>
+                    <td className="px-3 py-2 text-right text-muted-foreground">{entry.count}</td>
+                    <td className="px-3 py-2 text-right text-muted-foreground">{getArchetypeShare(entry.count)}%</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
           </div>
         </div>
       </section>
 
-      {/* Bottom grid: Learning + Terrain */}
-      <section className="grid grid-cols-12 gap-4 mt-4">
-              <div className="col-span-12 md:col-span-6 border rounded-md p-3">
-        <h2 className="text-sm font-semibold text-slate-700 mb-2">
-          Decision Terrain
-        </h2>
-        <div className="text-xs space-y-2">
-          <div className="grid grid-cols-2 gap-2">
-            <div>
-              <p className="text-[11px] uppercase text-slate-500">
-                System Momentum
-              </p>
-              <p className="text-lg font-semibold">
-                {interpretation.momentumLabel}
-              </p>
-              <p className="text-[11px] text-slate-500">
-                {interpretation.momentumSummary}
-              </p>
-            </div>
-          </div>
-        </div>
+      <div className="border-t border-muted/60 pt-6">
+        <section className="rounded-2xl border bg-card/70 p-6 shadow-sm">
+          <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+            Decision Terrain — System Momentum
+          </p>
+          <h3 className="text-xl font-semibold text-foreground">{interpretation.momentumLabel}</h3>
+          <p className="mt-2 text-sm leading-relaxed text-muted-foreground">{interpretation.momentumSummary}</p>
+        </section>
       </div>
-      </section>
     </div>
   );
 }
