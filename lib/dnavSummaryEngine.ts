@@ -54,6 +54,11 @@ export interface CompanyPeriodSnapshot {
   rpsBaseline: RpsBaseline;
   categories: CategoryStat[];
   archetypes: ArchetypeCluster[];
+  learning?: {
+  learningIndex: number | null;
+  avgRecoveryDecisions: number | null;
+} | null;
+
   learningRecovery?: LearningRecoveryStats;
 }
 

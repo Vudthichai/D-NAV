@@ -1,4 +1,22 @@
-import { type SystemSnapshot, type RpsBlock } from "@/lib/dnavSummaryEngine";
+import { type CompanyPeriodSnapshot as SystemSnapshot } from "@/lib/dnavSummaryEngine";
+
+type RpsBlock = {
+  returnScore: number;
+  pressureScore: number;
+  stabilityScore: number;
+  dnavScore: number;
+};
+
+function snapshotToRpsBlock(snapshot: SystemSnapshot): RpsBlock {
+  const baseline = snapshot.rpsBaseline;
+
+  return {
+    returnScore: baseline.avgReturn,
+    pressureScore: baseline.avgPressure,
+    stabilityScore: baseline.avgStability,
+    dnavScore: baseline.avgDnav,
+  };
+}
 
 export type ComparativeContext = "timeframe" | "cross-system" | "benchmark";
 
@@ -62,12 +80,25 @@ function buildRpsDelta(a: RpsBlock, b: RpsBlock): RpsDelta {
 }
 
 function buildLearningDelta(a: SystemSnapshot, b: SystemSnapshot): LearningDelta {
-  const learningIndexDelta = b.learning?.learningIndex != null && a.learning?.learningIndex != null
-    ? b.learning.learningIndex - a.learning.learningIndex
-    : null;
-  const recoveryDelta = b.learning?.avgRecoveryDecisions != null && a.learning?.avgRecoveryDecisions != null
-    ? b.learning.avgRecoveryDecisions - a.learning.avgRecoveryDecisions
-    : null;
+  const aLearning = a.learning ?? null;
+  const bLearning = b.learning ?? null;
+
+  const learningIndexDelta =
+    bLearning &&
+    bLearning.learningIndex != null &&
+    aLearning &&
+    aLearning.learningIndex != null
+      ? bLearning.learningIndex - aLearning.learningIndex
+      : null;
+
+  const recoveryDelta =
+    bLearning &&
+    bLearning.avgRecoveryDecisions != null &&
+    aLearning &&
+    aLearning.avgRecoveryDecisions != null
+      ? bLearning.avgRecoveryDecisions - aLearning.avgRecoveryDecisions
+      : null;
+
   return { learningIndexDelta, recoveryDelta };
 }
 
@@ -81,10 +112,16 @@ function describeDelta(metric: string, delta: number, higherPhrase: string, lowe
 }
 
 function buildPhysicsSummary(a: SystemSnapshot, b: SystemSnapshot, context: ComparativeContext): string {
-  const { returnDelta, pressureDelta, stabilityDelta, dnavDelta } = buildRpsDelta(a.rps, b.rps);
+  const { returnDelta, pressureDelta, stabilityDelta, dnavDelta } =
+    buildRpsDelta(snapshotToRpsBlock(a), snapshotToRpsBlock(b));
+
+  const aLabel = `${a.companyName} · ${a.periodLabel}`;
+  const bLabel = `${b.companyName} · ${b.periodLabel}`;
+
   const pressureDirection = directionLabel(pressureDelta, "higher-pressure", "lower-pressure");
   const stabilityDirection = directionLabel(stabilityDelta, "higher-stability", "lower-stability");
-  const postureLine = `System ${b.label} shifts into a ${pressureDirection}, ${stabilityDirection} configuration versus ${a.label}.`;
+  const postureLine = `System ${bLabel} shifts into a ${pressureDirection}, ${stabilityDirection} configuration versus ${aLabel}.`;
+
   const returnLine = describeDelta("Return", returnDelta, "improves", "pulls back");
   const stabilityLine = describeDelta("Stability", stabilityDelta, "improves", "erodes");
   const pressureLine = describeDelta("Pressure", pressureDelta, "intensifies", "releases");
@@ -93,10 +130,13 @@ function buildPhysicsSummary(a: SystemSnapshot, b: SystemSnapshot, context: Comp
   const details = [returnLine, pressureLine, stabilityLine, dnavLine].join(" ");
 
   if (context === "benchmark") {
-    return `${postureLine} ${details}`;
+    return details;
   }
-  return `${postureLine} ${details}`;
+
+  return details;
 }
+
+
 
 export function classifyPosture(rps: RpsBlock):
   | "calm & repeatable"
@@ -115,14 +155,21 @@ export function classifyPosture(rps: RpsBlock):
 }
 
 function buildPostureSummary(a: SystemSnapshot, b: SystemSnapshot, context: ComparativeContext): string {
-  const postureA = classifyPosture(a.rps);
-  const postureB = classifyPosture(b.rps);
-  if (postureA === postureB) {
-    return `${b.label} holds a ${postureB} posture similar to ${a.label}, keeping behavioral physics consistent.`;
-  }
-  const verb = context === "timeframe" ? "evolves" : "sits";
-  return `${b.label} ${verb} in a ${postureB} stance while ${a.label} reads ${postureA}, signaling a behavioral shift.`;
+  const postureA = classifyPosture(snapshotToRpsBlock(a));
+  const postureB = classifyPosture(snapshotToRpsBlock(b));
+
+  const aLabel = `${a.companyName} · ${a.periodLabel}`;
+  const bLabel = `${b.companyName} · ${b.periodLabel}`;
+
+  const postureLine =
+    postureA === postureB
+      ? `System ${bLabel} holds a ${postureB} posture similar to ${aLabel}, keeping behavioral physics consistent.`
+      : `System ${bLabel} shifts posture from ${postureA} to ${postureB} versus ${aLabel}.`;
+
+  return postureLine;
 }
+
+
 
 function topCategories(categories: SystemSnapshot["categories"], limit = 3) {
   return [...categories]
@@ -152,15 +199,22 @@ function buildTerrainSummary(a: SystemSnapshot, b: SystemSnapshot, context: Comp
   const gainText = gains.length ? `Energy tilts toward ${gains.join(", ")}` : "Energy mix stays stable";
   const lossText = losses.length ? `while ${losses.join(", ")} lose share` : "with no major pullbacks";
 
-  const comparison = context === "cross-system"
-    ? `${b.label} concentrates on ${leadB}, whereas ${a.label} leans into ${leadA}.`
-    : `${b.label} now emphasizes ${leadB} versus ${leadA} previously.`;
+    const aLabel = `${a.companyName} · ${a.periodLabel}`;
+  const bLabel = `${b.companyName} · ${b.periodLabel}`;
+
+  const comparison =
+    context === "cross-system"
+      ? `System ${bLabel} concentrates on ${leadB}, whereas System ${aLabel} leans into ${leadA}.`
+      : `System ${bLabel} now emphasizes ${leadB} versus ${leadA} previously.`;
 
   return `${comparison} ${gainText} ${lossText}.`;
 }
 
+
 function dominantArchetypes(archetypes: SystemSnapshot["archetypes"], limit = 2) {
-  return [...archetypes].sort((a, b) => b.share - a.share).slice(0, limit);
+    return [...archetypes]
+    .sort((a, b) => b.percentage - a.percentage)
+    .slice(0, limit);
 }
 
 function buildArchetypeSummary(a: SystemSnapshot, b: SystemSnapshot, context: ComparativeContext): string {
@@ -170,14 +224,17 @@ function buildArchetypeSummary(a: SystemSnapshot, b: SystemSnapshot, context: Co
   const leadB = topB.map((a) => a.name).join(" / ");
 
   const deltaPrimary = topB[0] && topA[0]
-    ? topB[0].share - topA[0].share
+    ? topB[0].percentage - topA[0].percentage
     : 0;
   const posture = classifyDelta(deltaPrimary);
   const direction = deltaPrimary > 0 ? "dominates more" : deltaPrimary < 0 ? "gives back ground" : "remains steady";
 
+  const aLabel = `${a.companyName} ${a.periodLabel}`;
+  const bLabel = `${b.companyName} ${b.periodLabel}`;
+
   const descriptor = context === "benchmark"
-    ? `${b.label} expresses a ${leadB} fingerprint relative to benchmark ${a.label}`
-    : `${b.label} expresses ${leadB} while ${a.label} shows ${leadA}`;
+  ? `${bLabel} expresses a ${leadB} fingerprint relative to benchmark ${aLabel}`
+  : `${bLabel} expresses ${leadB} while ${aLabel} shows ${leadA}`;
 
   return `${descriptor}, where the lead archetype ${direction} ${posture === "none" ? "with minimal change" : adverbForDelta[posture]} against the comparator.`;
 }
@@ -194,11 +251,14 @@ function buildLearningSummary(a: SystemSnapshot, b: SystemSnapshot, context: Com
     ? "recovery depth cannot be compared"
     : describeDelta("Average recovery decisions", recoveryDelta, "lengthens", "shortens");
 
-  const lead = context === "timeframe"
-    ? `${b.label} shows an updated learning loop versus ${a.label}.`
-    : `${b.label} operates with a distinct learning tempo versus ${a.label}.`;
+  const aLabel = `${a.companyName} ${a.periodLabel}`;
+const bLabel = `${b.companyName} ${b.periodLabel}`;
 
-  return `${lead} ${learningPhrase} ${recoveryPhrase}`;
+const lead = context === "timeframe"
+  ? `${bLabel} shows an updated learning loop versus ${aLabel}.`
+  : `${bLabel} operates with a distinct learning tempo versus ${aLabel}.`;
+
+return `${lead} ${learningPhrase} ${recoveryPhrase}.`;
 }
 
 function buildHeadline(
@@ -208,14 +268,20 @@ function buildHeadline(
   rpsDelta: RpsDelta,
 ): string {
   const hotness = directionWord(rpsDelta.pressureDelta, "runs hotter", "runs cooler");
-  const intent = directionWord(rpsDelta.dnavDelta, "more intentional", "less intentional");
+    const intent = directionWord(rpsDelta.dnavDelta, "more intentional", "less intentional");
+
+  const aLabel = `${a.companyName} ${a.periodLabel}`;
+  const bLabel = `${b.companyName} ${b.periodLabel}`;
+
   if (context === "timeframe") {
-    return `${b.label} ${hotness} and ${intent} than ${a.label}.`;
+    return `${bLabel} is ${hotness} and ${intent} than ${aLabel}.`;
   }
+
   if (context === "cross-system") {
-    return `${b.label} and ${a.label} operate with different judgment engines — ${b.label} ${hotness} and ${intent}.`;
+    return `${bLabel} and ${aLabel} operate with different judgment engines — ${bLabel} is ${hotness} and ${intent}.`;
   }
-  return `${b.label} diverges from benchmark ${a.label}, operating ${hotness} and ${intent}.`;
+
+  return `${bLabel} diverges from benchmark ${aLabel}, operating ${hotness} and ${intent}.`;
 }
 
 function gatherBullets(summary: string[]): string[] {
@@ -227,7 +293,7 @@ export function buildComparativeNarrative(
   b: SystemSnapshot,
   context: ComparativeContext,
 ): ComparativeNarrative {
-  const rpsDelta = buildRpsDelta(a.rps, b.rps);
+  const rpsDelta = buildRpsDelta(snapshotToRpsBlock(a), snapshotToRpsBlock(b));
   const physicsSummary = buildPhysicsSummary(a, b, context);
   const postureSummary = buildPostureSummary(a, b, context);
   const terrainSummary = buildTerrainSummary(a, b, context);
