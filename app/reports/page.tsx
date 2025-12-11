@@ -7,6 +7,13 @@ import { useRouter, useSearchParams } from "next/navigation";
 import SystemComparePanel from "@/components/SystemComparePanel";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import {
   buildCompanyPeriodSnapshot,
@@ -14,6 +21,7 @@ import {
   FullInterpretation,
   generateFullInterpretation,
 } from "@/lib/dnavSummaryEngine";
+import { getDatasetMeta, REPORT_DATASETS, type DatasetId } from "@/lib/reportDatasets";
 import { useNetlifyIdentity } from "@/hooks/use-netlify-identity";
 import {
   TIMEFRAMES,
@@ -23,6 +31,7 @@ import {
 } from "@/hooks/useReportsData";
 import { type DecisionEntry } from "@/lib/storage";
 import { cn } from "@/lib/utils";
+import { buildJudgmentDashboard } from "@/utils/judgmentDashboard";
 import { FileDown } from "lucide-react";
 import * as XLSX from "xlsx";
 
@@ -100,6 +109,31 @@ const createCsvContent = (decisions: DecisionEntry[]) => {
   return [headers.map(serialize).join(","), ...rows.map((row) => row.map(serialize).join(","))].join("\n");
 };
 
+const buildSnapshotForDataset = (id: DatasetId): CompanyPeriodSnapshot | null => {
+  try {
+    const meta = getDatasetMeta(id);
+    const dashboard = buildJudgmentDashboard(meta.decisions, meta.company);
+
+    return buildCompanyPeriodSnapshot({
+      company: dashboard.companyContext ?? meta.company,
+      baseline: dashboard.baseline,
+      categories: dashboard.categories,
+      archetypes: dashboard.archetypes.rows,
+      learning: {
+        lci: dashboard.learning?.lci ?? 0,
+        decisionsToRecover: dashboard.learning?.decisionsToRecover ?? 0,
+        winRate: dashboard.learning?.winRate ?? 0,
+        decisionDebt: dashboard.hygiene?.decisionDebt ?? 0,
+      },
+      timeframeKey: id,
+      timeframeLabel: meta.company.timeframeLabel ?? meta.displayLabel,
+    });
+  } catch (error) {
+    console.error("Failed to build snapshot for dataset", id, error);
+    return null;
+  }
+};
+
 function ReportsPageContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -112,7 +146,14 @@ function ReportsPageContent() {
     [queryTimeframe],
   );
   const [selectedTimeframe, setSelectedTimeframe] = useState<TimeframeValue>(resolvedTimeframe);
+  const [datasetAId, setDatasetAId] = useState<DatasetId>("apple-2020-2025");
+  const [datasetBId, setDatasetBId] = useState<DatasetId>("apple-2020-2025");
   const { isLoggedIn, openLogin } = useNetlifyIdentity();
+
+  const datasetOptions = useMemo(
+    () => REPORT_DATASETS.map((dataset) => ({ value: dataset.id, label: dataset.displayLabel })),
+    [],
+  );
 
   useEffect(() => {
     setSelectedTimeframe(resolvedTimeframe);
@@ -176,6 +217,12 @@ function ReportsPageContent() {
     }),
     [learning.decisionDebt, learning.decisionsToRecover, learning.lci, learning.winRate],
   );
+
+  const datasetAMeta = useMemo(() => getDatasetMeta(datasetAId), [datasetAId]);
+  const datasetBMeta = useMemo(() => getDatasetMeta(datasetBId), [datasetBId]);
+
+  const snapshotA = useMemo(() => buildSnapshotForDataset(datasetAId), [datasetAId]);
+  const snapshotB = useMemo(() => buildSnapshotForDataset(datasetBId), [datasetBId]);
 
   const snapshot = useMemo<CompanyPeriodSnapshot>(() => {
     return buildCompanyPeriodSnapshot({
@@ -366,9 +413,55 @@ function ReportsPageContent() {
               learningStats={learningStats}
             />
 
-            {/* System-level compare (v1: self vs self) */}
-            <section className="no-print mt-10 print:hidden">
-              <SystemComparePanel left={snapshot} right={snapshot} />
+            {/* System-level compare */}
+            <section className="no-print mt-10 space-y-4 print:hidden">
+              <div className="grid gap-3 sm:grid-cols-2">
+                <div className="rounded-2xl border bg-card/70 p-4 shadow-sm">
+                  <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">System A</p>
+                  <p className="text-xs text-muted-foreground">{datasetAMeta.displayLabel}</p>
+                  <div className="mt-2">
+                    <Select value={datasetAId} onValueChange={(value) => setDatasetAId(value as DatasetId)}>
+                      <SelectTrigger className="w-full">
+                        <SelectValue placeholder="Select dataset" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {datasetOptions.map((option) => (
+                          <SelectItem key={option.value} value={option.value}>
+                            {option.label}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+
+                <div className="rounded-2xl border bg-card/70 p-4 shadow-sm">
+                  <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">System B</p>
+                  <p className="text-xs text-muted-foreground">{datasetBMeta.displayLabel}</p>
+                  <div className="mt-2">
+                    <Select value={datasetBId} onValueChange={(value) => setDatasetBId(value as DatasetId)}>
+                      <SelectTrigger className="w-full">
+                        <SelectValue placeholder="Select dataset" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {datasetOptions.map((option) => (
+                          <SelectItem key={option.value} value={option.value}>
+                            {option.label}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+              </div>
+
+              {snapshotA && snapshotB ? (
+                <SystemComparePanel left={snapshotA} right={snapshotB} />
+              ) : (
+                <div className="rounded-2xl border bg-muted/40 p-4 text-sm text-muted-foreground">
+                  Unable to load comparison snapshots. Try selecting a different dataset.
+                </div>
+              )}
             </section>
           </div>
         </section>
