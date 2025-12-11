@@ -2,7 +2,9 @@
 
 import { useEffect, useMemo, useState } from "react";
 
-import { loadCompanyContext, loadLog, type DecisionEntry } from "@/lib/storage";
+import { loadDecisionsForDataset } from "@/lib/reportSnapshot";
+import { getDatasetMeta, type DatasetId } from "@/lib/reportDatasets";
+import { type DecisionEntry } from "@/lib/storage";
 import { type CompanyContext } from "@/types/company";
 import { computeDashboardStats, type DashboardStats } from "@/utils/dashboardStats";
 import {
@@ -53,19 +55,28 @@ export interface ReportsDataResult {
   judgmentDashboard: JudgmentDashboardData;
 }
 
-export function useReportsData({ timeframe }: { timeframe: TimeframeValue }): ReportsDataResult {
-  const [decisions, setDecisions] = useState<DecisionEntry[]>(() => loadLog());
-  const [company, setCompany] = useState<CompanyContext | null>(() => loadCompanyContext());
+export function useReportsData({
+  timeframe,
+  datasetId,
+}: {
+  timeframe: TimeframeValue;
+  datasetId: DatasetId;
+}): ReportsDataResult {
+  const [decisions, setDecisions] = useState<DecisionEntry[]>([]);
+  const company = useMemo<CompanyContext>(() => getDatasetMeta(datasetId).company, [datasetId]);
 
   useEffect(() => {
-    const handleStorage = () => {
-      setDecisions(loadLog());
-      setCompany(loadCompanyContext());
-    };
+    let cancelled = false;
+    loadDecisionsForDataset(datasetId).then((entries) => {
+      if (!cancelled) {
+        setDecisions(entries);
+      }
+    });
 
-    window.addEventListener("storage", handleStorage);
-    return () => window.removeEventListener("storage", handleStorage);
-  }, []);
+    return () => {
+      cancelled = true;
+    };
+  }, [datasetId]);
 
   const timeframeDays = useMemo(() => mapTimeframeToDays(timeframe), [timeframe]);
 

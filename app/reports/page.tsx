@@ -4,6 +4,7 @@ export const dynamic = "force-dynamic";
 import { Suspense, useEffect, useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 
+import DatasetSelect from "@/components/DatasetSelect";
 import SystemComparePanel from "@/components/SystemComparePanel";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -22,6 +23,8 @@ import {
   generateFullInterpretation,
 } from "@/lib/dnavSummaryEngine";
 import { getDatasetMeta, REPORT_DATASETS, type DatasetId } from "@/lib/reportDatasets";
+import { loadSnapshotForDataset } from "@/lib/reportSnapshot";
+import { useDataset } from "@/components/DatasetProvider";
 import { useNetlifyIdentity } from "@/hooks/use-netlify-identity";
 import {
   TIMEFRAMES,
@@ -31,7 +34,6 @@ import {
 } from "@/hooks/useReportsData";
 import { type DecisionEntry } from "@/lib/storage";
 import { cn } from "@/lib/utils";
-import { buildJudgmentDashboard } from "@/utils/judgmentDashboard";
 import { FileDown } from "lucide-react";
 import * as XLSX from "xlsx";
 
@@ -109,31 +111,6 @@ const createCsvContent = (decisions: DecisionEntry[]) => {
   return [headers.map(serialize).join(","), ...rows.map((row) => row.map(serialize).join(","))].join("\n");
 };
 
-const buildSnapshotForDataset = (id: DatasetId): CompanyPeriodSnapshot | null => {
-  try {
-    const meta = getDatasetMeta(id);
-    const dashboard = buildJudgmentDashboard(meta.decisions, meta.company);
-
-    return buildCompanyPeriodSnapshot({
-      company: dashboard.companyContext ?? meta.company,
-      baseline: dashboard.baseline,
-      categories: dashboard.categories,
-      archetypes: dashboard.archetypes.rows,
-      learning: {
-        lci: dashboard.learning?.lci ?? 0,
-        decisionsToRecover: dashboard.learning?.decisionsToRecover ?? 0,
-        winRate: dashboard.learning?.winRate ?? 0,
-        decisionDebt: dashboard.hygiene?.decisionDebt ?? 0,
-      },
-      timeframeKey: id,
-      timeframeLabel: meta.company.timeframeLabel ?? meta.displayLabel,
-    });
-  } catch (error) {
-    console.error("Failed to build snapshot for dataset", id, error);
-    return null;
-  }
-};
-
 function ReportsPageContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -145,9 +122,12 @@ function ReportsPageContent() {
         : "all",
     [queryTimeframe],
   );
+  const { datasetId } = useDataset();
   const [selectedTimeframe, setSelectedTimeframe] = useState<TimeframeValue>(resolvedTimeframe);
-  const [datasetAId, setDatasetAId] = useState<DatasetId>("apple-2020-2025");
+  const [datasetAId, setDatasetAId] = useState<DatasetId>(datasetId);
   const [datasetBId, setDatasetBId] = useState<DatasetId>("apple-2020-2025");
+  const [snapshotA, setSnapshotA] = useState<CompanyPeriodSnapshot | null>(null);
+  const [snapshotB, setSnapshotB] = useState<CompanyPeriodSnapshot | null>(null);
   const { isLoggedIn, openLogin } = useNetlifyIdentity();
 
   const datasetOptions = useMemo(
@@ -159,6 +139,32 @@ function ReportsPageContent() {
     setSelectedTimeframe(resolvedTimeframe);
   }, [resolvedTimeframe]);
 
+  useEffect(() => {
+    setDatasetAId(datasetId);
+  }, [datasetId]);
+
+  useEffect(() => {
+    let cancelled = false;
+    loadSnapshotForDataset(datasetAId).then((snapshot) => {
+      if (!cancelled) setSnapshotA(snapshot);
+    });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [datasetAId]);
+
+  useEffect(() => {
+    let cancelled = false;
+    loadSnapshotForDataset(datasetBId).then((snapshot) => {
+      if (!cancelled) setSnapshotB(snapshot);
+    });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [datasetBId]);
+
   const {
     company,
     baseline,
@@ -167,7 +173,7 @@ function ReportsPageContent() {
     learning,
     stats,
     filteredDecisions,
-  } = useReportsData({ timeframe: selectedTimeframe });
+  } = useReportsData({ timeframe: selectedTimeframe, datasetId });
 
   const timeframeConfig = useMemo(
     () => TIMEFRAMES.find((timeframe) => timeframe.value === selectedTimeframe) ?? TIMEFRAMES[0],
@@ -220,9 +226,6 @@ function ReportsPageContent() {
 
   const datasetAMeta = useMemo(() => getDatasetMeta(datasetAId), [datasetAId]);
   const datasetBMeta = useMemo(() => getDatasetMeta(datasetBId), [datasetBId]);
-
-  const snapshotA = useMemo(() => buildSnapshotForDataset(datasetAId), [datasetAId]);
-  const snapshotB = useMemo(() => buildSnapshotForDataset(datasetBId), [datasetBId]);
 
   const snapshot = useMemo<CompanyPeriodSnapshot>(() => {
     return buildCompanyPeriodSnapshot({
@@ -321,6 +324,7 @@ function ReportsPageContent() {
                 <span>{dataHighlight}</span>
               </div>
             </div>
+            <DatasetSelect label="Base dataset" />
             <div className="flex flex-wrap items-center gap-2">
               <Button
                 variant="outline"

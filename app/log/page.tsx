@@ -1,5 +1,7 @@
 "use client";
 
+import DatasetSelect from "@/components/DatasetSelect";
+import { useDataset } from "@/components/DatasetProvider";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -15,7 +17,7 @@ import {
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Textarea } from "@/components/ui/textarea";
 import { DecisionEntry, computeMetrics, parseCSV } from "@/lib/calculations";
-import { clearLog, loadCompanyContext, loadLog, removeDecision, saveCompanyContext, saveLog } from "@/lib/storage";
+import { loadDecisionsForDataset } from "@/lib/reportSnapshot";
 import { type CompanyContext } from "@/types/company";
 import {
   AlertTriangle,
@@ -56,44 +58,43 @@ export default function LogPage() {
     timeframeLabel: "",
     type: undefined,
   });
+  const { datasetId, meta } = useDataset();
+  const [isLoadingDataset, setIsLoadingDataset] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  // Load decisions on component mount
   useEffect(() => {
-    setDecisions(loadLog());
-  }, []);
+    let cancelled = false;
+    setIsLoadingDataset(true);
+    setLoadError(null);
 
-  useEffect(() => {
-    const stored = loadCompanyContext();
-    if (stored) {
-      setCompanyContext({
-        companyName: stored.companyName ?? "",
-        timeframeLabel: stored.timeframeLabel ?? "",
-        ticker: stored.ticker ?? undefined,
-        type: stored.type,
-        sector: stored.sector ?? undefined,
-        stage: stored.stage,
-        source: stored.source,
-        contextNote: stored.contextNote ?? undefined,
+    loadDecisionsForDataset(datasetId)
+      .then((entries) => {
+        if (!cancelled) {
+          setDecisions(entries);
+          setCompanyContext(meta.company);
+        }
+      })
+      .catch(() => {
+        if (!cancelled) setLoadError("Unable to load dataset");
+      })
+      .finally(() => {
+        if (!cancelled) setIsLoadingDataset(false);
       });
-    }
-  }, []);
 
-  useEffect(() => {
-    if (!companyContext.companyName && !companyContext.timeframeLabel) return;
-    saveCompanyContext(companyContext);
-  }, [companyContext]);
+    return () => {
+      cancelled = true;
+    };
+  }, [datasetId, meta.company]);
 
   const handleDeleteDecision = (timestamp: number) => {
     if (confirm("Are you sure you want to delete this decision?")) {
-      removeDecision(timestamp);
-      setDecisions(loadLog());
+      setDecisions((prev) => prev.filter((decision) => decision.ts !== timestamp));
     }
   };
 
   const handleClearAll = () => {
     if (confirm("Are you sure you want to clear all decisions? This action cannot be undone.")) {
-      clearLog();
       setDecisions([]);
     }
   };
@@ -460,7 +461,7 @@ export default function LogPage() {
       return;
     }
 
-    const existing = loadLog();
+    const existing = decisions;
     const seen = new Set(
       existing
         .map((decision) => buildDecisionKey(decision))
@@ -487,7 +488,6 @@ export default function LogPage() {
     }
 
     const merged = [...unique, ...existing].sort((a, b) => b.ts - a.ts);
-    saveLog(merged);
     setDecisions(merged);
     setImportError(null);
     const duplicateNote = duplicates ? ` (${duplicates} duplicate${duplicates === 1 ? "" : "s"} skipped)` : "";
@@ -668,6 +668,18 @@ export default function LogPage() {
 
   return (
     <div className="max-w-6xl mx-auto grid gap-4 grid-cols-1">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <DatasetSelect label="Dataset" />
+        {loadError ? (
+          <div className="rounded-md border border-destructive/50 bg-destructive/10 px-3 py-2 text-xs text-destructive">
+            {loadError}
+          </div>
+        ) : isLoadingDataset ? (
+          <div className="rounded-md border border-muted/60 bg-muted/20 px-3 py-2 text-xs text-muted-foreground">
+            Loading dataset…
+          </div>
+        ) : null}
+      </div>
       <Card>
         <CardHeader>
           <CardTitle>Company Context</CardTitle>
