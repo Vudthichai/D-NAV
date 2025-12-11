@@ -456,7 +456,12 @@ function ReportsPageContent() {
               </div>
 
               {snapshotA && snapshotB ? (
-                <SystemComparePanel left={snapshotA} right={snapshotB} />
+                <SystemComparePanel
+                  left={snapshotA}
+                  right={snapshotB}
+                  labelA={datasetAMeta.displayLabel}
+                  labelB={datasetBMeta.displayLabel}
+                />
               ) : (
                 <div className="rounded-2xl border bg-muted/40 p-4 text-sm text-muted-foreground">
                   Unable to load comparison snapshots. Try selecting a different dataset.

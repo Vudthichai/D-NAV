@@ -7,9 +7,11 @@ import { generateSystemCompareSummary } from "@/lib/dnavSummaryEngine";
 interface SystemComparePanelProps {
   left: CompanyPeriodSnapshot; // "A"
   right: CompanyPeriodSnapshot; // "B"
+  labelA?: string;
+  labelB?: string;
 }
 
-const SystemComparePanel: React.FC<SystemComparePanelProps> = ({ left, right }) => {
+const SystemComparePanel: React.FC<SystemComparePanelProps> = ({ left, right, labelA, labelB }) => {
   const summary = useMemo(() => generateSystemCompareSummary(left, right), [left, right]);
 
   const leftRps = left.rpsBaseline;
@@ -21,7 +23,7 @@ const SystemComparePanel: React.FC<SystemComparePanelProps> = ({ left, right }) 
         <div>
           <h2 className="text-lg font-semibold">System Compare</h2>
           <p className="text-sm text-muted-foreground">
-            A: {summary.labelA} · B: {summary.labelB}
+            A: {labelA ?? summary.labelA} · B: {labelB ?? summary.labelB}
           </p>
         </div>
       </div>
