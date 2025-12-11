@@ -1,4 +1,5 @@
 import ConditionalLayout from "@/components/layout/ConditionalLayout";
+import { DatasetProvider } from "@/components/DatasetProvider";
 import { ThemeProvider } from "@/components/theme-provider";
 import type { Metadata } from "next";
 import Script from "next/script";
@@ -71,7 +72,9 @@ export default function RootLayout({
           enableSystem
           disableTransitionOnChange
         >
-          <ConditionalLayout>{children}</ConditionalLayout>
+          <DatasetProvider>
+            <ConditionalLayout>{children}</ConditionalLayout>
+          </DatasetProvider>
         </ThemeProvider>
       </body>
     </html>

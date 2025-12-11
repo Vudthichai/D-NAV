@@ -5,6 +5,8 @@ import SliderRow from "@/components/SliderRow";
 import StatCard from "@/components/StatCard";
 import SummaryCard from "@/components/SummaryCard";
 import { InfoTooltip } from "@/components/InfoTooltip";
+import DatasetSelect from "@/components/DatasetSelect";
+import { useDataset } from "@/components/DatasetProvider";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -29,7 +31,7 @@ import {
   getArchetype,
 } from "@/lib/calculations";
 import { CompanyPeriodSnapshot, generateFullInterpretation } from "@/lib/dnavSummaryEngine";
-import { addDecision, loadCompanyContext, loadLog } from "@/lib/storage";
+import { loadDecisionsForDataset } from "@/lib/reportSnapshot";
 import { useNetlifyIdentity } from "@/hooks/use-netlify-identity";
 import {
   BarChart3,
@@ -451,6 +453,9 @@ export default function TheDNavPage() {
   const [isGeneratingStatsPdf, setIsGeneratingStatsPdf] = useState(false);
   const statsContainerRef = useRef<HTMLDivElement>(null);
   const { isLoggedIn, openLogin, logout } = useNetlifyIdentity();
+  const { datasetId, meta } = useDataset();
+  const [isLoadingDataset, setIsLoadingDataset] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [categorySort, setCategorySort] = useState<{ key: CategorySortKey; direction: "asc" | "desc" }>(
     { key: "decisionCount", direction: "desc" },
   );
@@ -491,15 +496,10 @@ export default function TheDNavPage() {
       category: decisionCategory.trim(),
     };
 
-    try {
-      addDecision(decisionEntry);
-      setIsSaved(true);
+    setDecisions((prev) => [decisionEntry, ...prev]);
+    setIsSaved(true);
 
-      setTimeout(() => setIsSaved(false), 3000);
-    } catch (error) {
-      console.error("Failed to save decision:", error);
-      alert("Failed to save decision. Please try again.");
-    }
+    setTimeout(() => setIsSaved(false), 3000);
   };
 
   const handleReset = () => {
@@ -510,16 +510,32 @@ export default function TheDNavPage() {
     setIsSaved(false);
   };
 
-  const [decisions, setDecisions] = useState<DecisionEntry[]>(() => loadLog());
+  const [decisions, setDecisions] = useState<DecisionEntry[]>([]);
   const [companyContext, setCompanyContext] = useState<CompanyContext | null>(null);
 
   useEffect(() => {
-    setDecisions(loadLog());
-  }, [isSaved]);
+    let cancelled = false;
+    setIsLoadingDataset(true);
+    setLoadError(null);
 
-  useEffect(() => {
-    setCompanyContext(loadCompanyContext());
-  }, []);
+    loadDecisionsForDataset(datasetId)
+      .then((entries) => {
+        if (!cancelled) {
+          setDecisions(entries);
+          setCompanyContext(meta.company);
+        }
+      })
+      .catch(() => {
+        if (!cancelled) setLoadError("Unable to load dataset");
+      })
+      .finally(() => {
+        if (!cancelled) setIsLoadingDataset(false);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [datasetId, meta.company]);
 
   const timeframeDays = useMemo<number | null>(() => {
     if (timeWindow === "0") return null;
@@ -1003,6 +1019,7 @@ export default function TheDNavPage() {
               </p>
             </div>
             <div className="flex gap-2 self-start items-center">
+              <DatasetSelect label="Dataset" />
               {isLoggedIn ? (
                 <button
                   type="button"
@@ -1018,6 +1035,16 @@ export default function TheDNavPage() {
               </Button>
             </div>
           </div>
+
+          {loadError ? (
+            <div className="rounded-lg border border-destructive/40 bg-destructive/10 px-4 py-3 text-sm text-destructive">
+              {loadError}
+            </div>
+          ) : isLoadingDataset ? (
+            <div className="rounded-lg border border-muted/60 bg-muted/20 px-4 py-3 text-sm text-muted-foreground">
+              Loading dataset…
+            </div>
+          ) : null}
 
           <section className="mt-8 space-y-10">
             <div className="grid grid-cols-1 gap-6 md:grid-cols-3">
