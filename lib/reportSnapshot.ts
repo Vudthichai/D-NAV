@@ -29,8 +29,9 @@ const hydrateDecision = (decision: RawDecision): DecisionEntry => {
   return { ...decision, ...metrics };
 };
 
-export async function loadDecisionsForDataset(id: DatasetId): Promise<DecisionEntry[]> {
+export async function loadDecisionsForDataset(id: DatasetId | null): Promise<DecisionEntry[]> {
   const meta = getDatasetMeta(id);
+  if (!meta.path) return [];
 
   try {
     const response = await fetch(meta.path, { cache: "force-cache" });
@@ -47,10 +48,11 @@ export async function loadDecisionsForDataset(id: DatasetId): Promise<DecisionEn
 }
 
 export async function loadSnapshotForDataset(
-  id: DatasetId,
+  id: DatasetId | null,
 ): Promise<CompanyPeriodSnapshot | null> {
   try {
     const meta = getDatasetMeta(id);
+    if (!meta.path) return null;
     const decisions = await loadDecisionsForDataset(id);
 
     const dashboard = buildJudgmentDashboard(decisions, meta.company);

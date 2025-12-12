@@ -42,7 +42,29 @@ export const REPORT_DATASETS = [
   },
 ] as const satisfies ReportDatasetMeta[];
 
-export function getDatasetMeta(id: DatasetId): ReportDatasetMeta {
+const EMPTY_DATASET_META: ReportDatasetMeta = {
+  id: "",
+  companyName: "",
+  periodLabel: "",
+  displayLabel: "",
+  path: "",
+  company: {
+    companyName: "",
+    timeframeLabel: "",
+    source: undefined,
+  },
+};
+
+export function getDatasetMeta(id: DatasetId | null | undefined): ReportDatasetMeta {
+  if (!id) return EMPTY_DATASET_META;
   const meta = REPORT_DATASETS.find((dataset) => dataset.id === id);
-  return meta ?? REPORT_DATASETS[0];
+  return meta ?? EMPTY_DATASET_META;
+}
+
+export function getDatasetDisplayLabel(index: number): string {
+  return `Dataset ${index + 1}`;
+}
+
+export function getEmptyDatasetMeta(): ReportDatasetMeta {
+  return EMPTY_DATASET_META;
 }
