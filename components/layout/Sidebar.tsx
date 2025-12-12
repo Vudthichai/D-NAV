@@ -27,12 +27,12 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 
 const items: Array<{ href: string; label: string; icon: LucideIcon }> = [
+  { href: "/reports", label: "Reports", icon: FileText },
   { href: "/", label: "Home", icon: Gauge },
   { href: "/calculator", label: "The D-NAV", icon: Calculator },
   { href: "/log", label: "Log", icon: ListOrdered },
   { href: "/definitions", label: "Definitions", icon: BookOpen },
   { href: "/use-cases", label: "Use Cases", icon: Users },
-  { href: "/reports", label: "Reports", icon: FileText },
   { href: "/contact", label: "Contact", icon: MessageSquare },
 ];
 
