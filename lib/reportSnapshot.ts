@@ -3,7 +3,7 @@ import {
   buildCompanyPeriodSnapshot,
   type CompanyPeriodSnapshot,
 } from "@/lib/dnavSummaryEngine";
-import { getDatasetMeta, type DatasetId } from "@/lib/reportDatasets";
+import { type DatasetState } from "@/types/dataset";
 import { buildJudgmentDashboard } from "@/utils/judgmentDashboard";
 
 type RawDecision = {
@@ -29,12 +29,13 @@ const hydrateDecision = (decision: RawDecision): DecisionEntry => {
   return { ...decision, ...metrics };
 };
 
-export async function loadDecisionsForDataset(id: DatasetId | null): Promise<DecisionEntry[]> {
-  const meta = getDatasetMeta(id);
-  if (!meta.path) return [];
+export async function loadDecisionsForDataset(dataset: DatasetState | null): Promise<DecisionEntry[]> {
+  if (!dataset) return [];
+  if (dataset.decisions.length > 0) return dataset.decisions;
+  if (!dataset.meta.path) return [];
 
   try {
-    const response = await fetch(meta.path, { cache: "force-cache" });
+    const response = await fetch(dataset.meta.path, { cache: "force-cache" });
     if (!response.ok) {
       throw new Error(`Failed to load dataset: ${response.status} ${response.statusText}`);
     }
@@ -42,23 +43,22 @@ export async function loadDecisionsForDataset(id: DatasetId | null): Promise<Dec
     const raw = (await response.json()) as RawDecision[];
     return raw.map(hydrateDecision).sort((a, b) => b.ts - a.ts);
   } catch (error) {
-    console.error("Unable to load decisions for dataset", id, error);
+    console.error("Unable to load decisions for dataset", dataset.id, error);
     return [];
   }
 }
 
 export async function loadSnapshotForDataset(
-  id: DatasetId | null,
+  dataset: DatasetState | null,
 ): Promise<CompanyPeriodSnapshot | null> {
   try {
-    const meta = getDatasetMeta(id);
-    if (!id || !meta.path) return null;
-    const decisions = await loadDecisionsForDataset(id);
+    if (!dataset) return null;
+    const decisions = await loadDecisionsForDataset(dataset);
 
-    const dashboard = buildJudgmentDashboard(decisions, meta.company);
+    const dashboard = buildJudgmentDashboard(decisions, dataset.meta.company);
 
     return buildCompanyPeriodSnapshot({
-      company: dashboard.companyContext ?? meta.company,
+      company: dashboard.companyContext ?? dataset.meta.company,
       baseline: dashboard.baseline,
       categories: dashboard.categories,
       archetypes: dashboard.archetypes.rows,
@@ -68,11 +68,11 @@ export async function loadSnapshotForDataset(
         winRate: dashboard.learning?.winRate ?? 0,
         decisionDebt: dashboard.hygiene?.decisionDebt ?? 0,
       },
-      timeframeKey: id,
-      timeframeLabel: meta.periodLabel ?? meta.displayLabel,
+      timeframeKey: dataset.id,
+      timeframeLabel: dataset.meta.periodLabel ?? dataset.meta.displayLabel,
     });
   } catch (error) {
-    console.error("Failed to build snapshot for dataset", id, error);
+    console.error("Failed to build snapshot for dataset", dataset?.id, error);
     return null;
   }
 }

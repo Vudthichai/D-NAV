@@ -9,7 +9,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { REPORT_DATASETS, getDatasetDisplayLabel, type DatasetId } from "@/lib/reportDatasets";
+import { getDatasetDisplayLabel } from "@/lib/reportDatasets";
+import { type DatasetId } from "@/types/dataset";
 import { useDataset } from "./DatasetProvider";
 
 interface DatasetSelectProps {
@@ -18,15 +19,15 @@ interface DatasetSelectProps {
 }
 
 export function DatasetSelect({ label, side }: DatasetSelectProps): ReactElement {
-  const { datasetId, setDatasetId } = useDataset();
+  const { datasets, datasetId, setDatasetId } = useDataset();
 
   const options = useMemo(
     () =>
-      REPORT_DATASETS.map((dataset, index) => ({
+      datasets.map((dataset, index) => ({
         value: dataset.id,
         label: getDatasetDisplayLabel(index),
       })),
-    [],
+    [datasets],
   );
 
   return (
