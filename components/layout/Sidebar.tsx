@@ -27,8 +27,8 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 
 const items: Array<{ href: string; label: string; icon: LucideIcon }> = [
-  { href: "/reports", label: "Reports", icon: FileText },
   { href: "/", label: "Home", icon: Gauge },
+  { href: "/reports", label: "Reports", icon: FileText },
   { href: "/calculator", label: "The D-NAV", icon: Calculator },
   { href: "/log", label: "Log", icon: ListOrdered },
   { href: "/definitions", label: "Definitions", icon: BookOpen },
