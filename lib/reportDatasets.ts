@@ -26,20 +26,6 @@ export const REPORT_DATASETS = [
       source: "Synthetic demo dataset",
     },
   },
-  {
-    id: "benchmark-2024-2025",
-    companyName: "Benchmark Co.",
-    periodLabel: "2024–2025",
-    displayLabel: "Benchmark · 2024–2025",
-    path: "/data/benchmark-2024-2025/decisions.json",
-    company: {
-      companyName: "Benchmark Co.",
-      timeframeLabel: "2024–2025",
-      sector: "Enterprise Software",
-      stage: "Growth",
-      source: "Synthetic demo dataset",
-    },
-  },
 ] as const satisfies ReportDatasetMeta[];
 
 const EMPTY_DATASET_META: ReportDatasetMeta = {
