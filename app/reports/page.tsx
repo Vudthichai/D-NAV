@@ -22,7 +22,12 @@ import {
   FullInterpretation,
   generateFullInterpretation,
 } from "@/lib/dnavSummaryEngine";
-import { getDatasetMeta, REPORT_DATASETS, type DatasetId } from "@/lib/reportDatasets";
+import {
+  REPORT_DATASETS,
+  getDatasetDisplayLabel,
+  getDatasetMeta,
+  type DatasetId,
+} from "@/lib/reportDatasets";
 import { loadSnapshotForDataset } from "@/lib/reportSnapshot";
 import { useDataset } from "@/components/DatasetProvider";
 import { useNetlifyIdentity } from "@/hooks/use-netlify-identity";
@@ -124,16 +129,23 @@ function ReportsPageContent() {
   );
   const { datasetId } = useDataset();
   const [selectedTimeframe, setSelectedTimeframe] = useState<TimeframeValue>(resolvedTimeframe);
-  const [datasetAId, setDatasetAId] = useState<DatasetId>(datasetId);
-  const [datasetBId, setDatasetBId] = useState<DatasetId>("apple-2020-2025");
+  const [datasetAId, setDatasetAId] = useState<DatasetId | null>(datasetId);
+  const [datasetBId, setDatasetBId] = useState<DatasetId | null>(REPORT_DATASETS[1]?.id ?? null);
   const [snapshotA, setSnapshotA] = useState<CompanyPeriodSnapshot | null>(null);
   const [snapshotB, setSnapshotB] = useState<CompanyPeriodSnapshot | null>(null);
   const { isLoggedIn, openLogin } = useNetlifyIdentity();
 
   const datasetOptions = useMemo(
-    () => REPORT_DATASETS.map((dataset) => ({ value: dataset.id, label: dataset.displayLabel })),
+    () =>
+      REPORT_DATASETS.map((dataset, index) => ({
+        value: dataset.id,
+        label: getDatasetDisplayLabel(index),
+      })),
     [],
   );
+  const datasetLabelMap = useMemo(() => new Map(datasetOptions.map((option) => [option.value, option.label])), [
+    datasetOptions,
+  ]);
 
   useEffect(() => {
     setSelectedTimeframe(resolvedTimeframe);
@@ -145,6 +157,13 @@ function ReportsPageContent() {
 
   useEffect(() => {
     let cancelled = false;
+    if (!datasetAId) {
+      setSnapshotA(null);
+      return () => {
+        cancelled = true;
+      };
+    }
+
     loadSnapshotForDataset(datasetAId).then((snapshot) => {
       if (!cancelled) setSnapshotA(snapshot);
     });
@@ -156,6 +175,13 @@ function ReportsPageContent() {
 
   useEffect(() => {
     let cancelled = false;
+    if (!datasetBId) {
+      setSnapshotB(null);
+      return () => {
+        cancelled = true;
+      };
+    }
+
     loadSnapshotForDataset(datasetBId).then((snapshot) => {
       if (!cancelled) setSnapshotB(snapshot);
     });
@@ -414,9 +440,11 @@ function ReportsPageContent() {
               <div className="grid gap-3 sm:grid-cols-2">
                 <div className="rounded-2xl border bg-card/70 p-4 shadow-sm">
                   <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">System A</p>
-                  <p className="text-xs text-muted-foreground">{datasetAMeta.displayLabel}</p>
+                  <p className="text-xs text-muted-foreground">
+                    {datasetLabelMap.get(datasetAId ?? "") ?? datasetAMeta.displayLabel}
+                  </p>
                   <div className="mt-2">
-                    <Select value={datasetAId} onValueChange={(value) => setDatasetAId(value as DatasetId)}>
+                    <Select value={datasetAId ?? undefined} onValueChange={(value) => setDatasetAId(value as DatasetId)}>
                       <SelectTrigger className="w-full">
                         <SelectValue placeholder="Select dataset" />
                       </SelectTrigger>
@@ -433,9 +461,11 @@ function ReportsPageContent() {
 
                 <div className="rounded-2xl border bg-card/70 p-4 shadow-sm">
                   <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">System B</p>
-                  <p className="text-xs text-muted-foreground">{datasetBMeta.displayLabel}</p>
+                  <p className="text-xs text-muted-foreground">
+                    {datasetLabelMap.get(datasetBId ?? "") ?? datasetBMeta.displayLabel}
+                  </p>
                   <div className="mt-2">
-                    <Select value={datasetBId} onValueChange={(value) => setDatasetBId(value as DatasetId)}>
+                    <Select value={datasetBId ?? undefined} onValueChange={(value) => setDatasetBId(value as DatasetId)}>
                       <SelectTrigger className="w-full">
                         <SelectValue placeholder="Select dataset" />
                       </SelectTrigger>
@@ -455,8 +485,8 @@ function ReportsPageContent() {
                 <SystemComparePanel
                   left={snapshotA}
                   right={snapshotB}
-                  labelA={datasetAMeta.displayLabel}
-                  labelB={datasetBMeta.displayLabel}
+                  labelA={datasetLabelMap.get(datasetAId ?? "") ?? datasetAMeta.displayLabel}
+                  labelB={datasetLabelMap.get(datasetBId ?? "") ?? datasetBMeta.displayLabel}
                 />
               ) : (
                 <div className="rounded-2xl border bg-muted/40 p-4 text-sm text-muted-foreground">

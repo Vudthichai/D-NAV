@@ -522,7 +522,15 @@ export default function TheDNavPage() {
       .then((entries) => {
         if (!cancelled) {
           setDecisions(entries);
-          setCompanyContext(meta.company);
+          if (entries.length > 0) {
+            setCompanyContext(meta.company);
+          } else {
+            setCompanyContext({
+              companyName: "",
+              timeframeLabel: "",
+              type: undefined,
+            });
+          }
         }
       })
       .catch(() => {

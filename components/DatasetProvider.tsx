@@ -2,18 +2,18 @@
 
 import { createContext, useContext, useMemo, useState, type ReactElement, type ReactNode } from "react";
 
-import { getDatasetMeta, type DatasetId, type ReportDatasetMeta } from "@/lib/reportDatasets";
+import { REPORT_DATASETS, getDatasetMeta, type DatasetId, type ReportDatasetMeta } from "@/lib/reportDatasets";
 
 interface DatasetContextValue {
-  datasetId: DatasetId;
-  setDatasetId: (id: DatasetId) => void;
+  datasetId: DatasetId | null;
+  setDatasetId: (id: DatasetId | null) => void;
   meta: ReportDatasetMeta;
 }
 
 const DatasetContext = createContext<DatasetContextValue | undefined>(undefined);
 
 export function DatasetProvider({ children }: { children: ReactNode }): ReactElement {
-  const [datasetId, setDatasetId] = useState<DatasetId>("apple-2020-2025");
+  const [datasetId, setDatasetId] = useState<DatasetId | null>(REPORT_DATASETS[0]?.id ?? null);
 
   const meta = useMemo(() => getDatasetMeta(datasetId), [datasetId]);
 

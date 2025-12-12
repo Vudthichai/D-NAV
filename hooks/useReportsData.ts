@@ -61,7 +61,7 @@ export function useReportsData({
   datasetId,
 }: {
   timeframe: TimeframeValue;
-  datasetId: DatasetId;
+  datasetId: DatasetId | null;
 }): ReportsDataResult {
   const [decisions, setDecisions] = useState<DecisionEntry[]>([]);
   const company = useMemo<CompanyContext>(() => getDatasetMeta(datasetId).company, [datasetId]);
