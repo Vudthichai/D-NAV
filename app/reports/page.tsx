@@ -25,7 +25,6 @@ import {
 import {
   REPORT_DATASETS,
   getDatasetDisplayLabel,
-  getDatasetMeta,
   type DatasetId,
 } from "@/lib/reportDatasets";
 import { loadSnapshotForDataset } from "@/lib/reportSnapshot";
@@ -128,9 +127,12 @@ function ReportsPageContent() {
     [queryTimeframe],
   );
   const { datasetId } = useDataset();
+  const hasAtLeastTwoDatasets = REPORT_DATASETS.length >= 2;
+  const defaultDatasetAId = REPORT_DATASETS[0]?.id ?? null;
+  const defaultDatasetBId = REPORT_DATASETS.at(1)?.id ?? null;
   const [selectedTimeframe, setSelectedTimeframe] = useState<TimeframeValue>(resolvedTimeframe);
-  const [datasetAId, setDatasetAId] = useState<DatasetId | null>(datasetId);
-  const [datasetBId, setDatasetBId] = useState<DatasetId | null>(REPORT_DATASETS[1]?.id ?? null);
+  const [datasetAId, setDatasetAId] = useState<DatasetId | null>(defaultDatasetAId);
+  const [datasetBId, setDatasetBId] = useState<DatasetId | null>(defaultDatasetBId);
   const [snapshotA, setSnapshotA] = useState<CompanyPeriodSnapshot | null>(null);
   const [snapshotB, setSnapshotB] = useState<CompanyPeriodSnapshot | null>(null);
   const { isLoggedIn, openLogin } = useNetlifyIdentity();
@@ -147,13 +149,24 @@ function ReportsPageContent() {
     datasetOptions,
   ]);
 
+  const resolveDatasetLabel = (id: DatasetId | null) => {
+    if (!id) return "";
+    const mapped = datasetLabelMap.get(id);
+    if (mapped) return mapped;
+    const index = REPORT_DATASETS.findIndex((dataset) => dataset.id === id);
+    return index >= 0 ? getDatasetDisplayLabel(index) : "";
+  };
+
+  const datasetALabel = resolveDatasetLabel(datasetAId);
+  const datasetBLabel = resolveDatasetLabel(datasetBId);
+
   useEffect(() => {
     setSelectedTimeframe(resolvedTimeframe);
   }, [resolvedTimeframe]);
 
   useEffect(() => {
-    setDatasetAId(datasetId);
-  }, [datasetId]);
+    setDatasetAId(datasetId ?? defaultDatasetAId);
+  }, [datasetId, defaultDatasetAId]);
 
   useEffect(() => {
     let cancelled = false;
@@ -249,9 +262,6 @@ function ReportsPageContent() {
     }),
     [learning.decisionDebt, learning.decisionsToRecover, learning.lci, learning.winRate],
   );
-
-  const datasetAMeta = useMemo(() => getDatasetMeta(datasetAId), [datasetAId]);
-  const datasetBMeta = useMemo(() => getDatasetMeta(datasetBId), [datasetBId]);
 
   const snapshot = useMemo<CompanyPeriodSnapshot>(() => {
     return buildCompanyPeriodSnapshot({
@@ -441,7 +451,7 @@ function ReportsPageContent() {
                 <div className="rounded-2xl border bg-card/70 p-4 shadow-sm">
                   <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">System A</p>
                   <p className="text-xs text-muted-foreground">
-                    {datasetLabelMap.get(datasetAId ?? "") ?? datasetAMeta.displayLabel}
+                    {datasetALabel || "Select a dataset"}
                   </p>
                   <div className="mt-2">
                     <Select value={datasetAId ?? undefined} onValueChange={(value) => setDatasetAId(value as DatasetId)}>
@@ -462,12 +472,18 @@ function ReportsPageContent() {
                 <div className="rounded-2xl border bg-card/70 p-4 shadow-sm">
                   <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">System B</p>
                   <p className="text-xs text-muted-foreground">
-                    {datasetLabelMap.get(datasetBId ?? "") ?? datasetBMeta.displayLabel}
+                    {hasAtLeastTwoDatasets ? datasetBLabel || "Select a dataset" : "Add another dataset to compare"}
                   </p>
                   <div className="mt-2">
-                    <Select value={datasetBId ?? undefined} onValueChange={(value) => setDatasetBId(value as DatasetId)}>
-                      <SelectTrigger className="w-full">
-                        <SelectValue placeholder="Select dataset" />
+                    <Select
+                      value={datasetBId ?? undefined}
+                      onValueChange={(value) => setDatasetBId(value as DatasetId)}
+                      disabled={!hasAtLeastTwoDatasets}
+                    >
+                      <SelectTrigger className="w-full" disabled={!hasAtLeastTwoDatasets}>
+                        <SelectValue
+                          placeholder={hasAtLeastTwoDatasets ? "Select dataset" : "Need at least two datasets"}
+                        />
                       </SelectTrigger>
                       <SelectContent>
                         {datasetOptions.map((option) => (
@@ -481,16 +497,15 @@ function ReportsPageContent() {
                 </div>
               </div>
 
-              {snapshotA && snapshotB ? (
-                <SystemComparePanel
-                  left={snapshotA}
-                  right={snapshotB}
-                  labelA={datasetLabelMap.get(datasetAId ?? "") ?? datasetAMeta.displayLabel}
-                  labelB={datasetLabelMap.get(datasetBId ?? "") ?? datasetBMeta.displayLabel}
-                />
-              ) : (
+              {hasAtLeastTwoDatasets && datasetAId && datasetBId && snapshotA && snapshotB ? (
+                <SystemComparePanel left={snapshotA} right={snapshotB} labelA={datasetALabel} labelB={datasetBLabel} />
+              ) : hasAtLeastTwoDatasets ? (
                 <div className="rounded-2xl border bg-muted/40 p-4 text-sm text-muted-foreground">
                   Unable to load comparison snapshots. Try selecting a different dataset.
+                </div>
+              ) : (
+                <div className="rounded-2xl border bg-muted/40 p-4 text-sm text-muted-foreground">
+                  Add at least two datasets to run a comparison.
                 </div>
               )}
             </section>

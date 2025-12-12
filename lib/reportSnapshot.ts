@@ -52,7 +52,7 @@ export async function loadSnapshotForDataset(
 ): Promise<CompanyPeriodSnapshot | null> {
   try {
     const meta = getDatasetMeta(id);
-    if (!meta.path) return null;
+    if (!id || !meta.path) return null;
     const decisions = await loadDecisionsForDataset(id);
 
     const dashboard = buildJudgmentDashboard(decisions, meta.company);

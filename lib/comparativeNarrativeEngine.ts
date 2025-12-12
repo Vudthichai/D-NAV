@@ -18,7 +18,7 @@ function snapshotToRpsBlock(snapshot: SystemSnapshot): RpsBlock {
   };
 }
 
-export type ComparativeContext = "timeframe" | "cross-system" | "benchmark";
+export type ComparativeContext = "timeframe" | "cross-system";
 
 export type ComparativeNarrative = {
   context: ComparativeContext;
@@ -111,7 +111,7 @@ function describeDelta(metric: string, delta: number, higherPhrase: string, lowe
   return `${metric} ${adverbForDelta[size]} ${direction}.`;
 }
 
-function buildPhysicsSummary(a: SystemSnapshot, b: SystemSnapshot, context: ComparativeContext): string {
+function buildPhysicsSummary(a: SystemSnapshot, b: SystemSnapshot): string {
   const { returnDelta, pressureDelta, stabilityDelta, dnavDelta } =
     buildRpsDelta(snapshotToRpsBlock(a), snapshotToRpsBlock(b));
 
@@ -129,11 +129,7 @@ function buildPhysicsSummary(a: SystemSnapshot, b: SystemSnapshot, context: Comp
 
   const details = [returnLine, pressureLine, stabilityLine, dnavLine].join(" ");
 
-  if (context === "benchmark") {
-    return details;
-  }
-
-  return details;
+  return `${postureLine} ${details}`;
 }
 
 
@@ -154,7 +150,7 @@ export function classifyPosture(rps: RpsBlock):
   return "balanced";
 }
 
-function buildPostureSummary(a: SystemSnapshot, b: SystemSnapshot, context: ComparativeContext): string {
+function buildPostureSummary(a: SystemSnapshot, b: SystemSnapshot): string {
   const postureA = classifyPosture(snapshotToRpsBlock(a));
   const postureB = classifyPosture(snapshotToRpsBlock(b));
 
@@ -217,7 +213,7 @@ function dominantArchetypes(archetypes: SystemSnapshot["archetypes"], limit = 2)
     .slice(0, limit);
 }
 
-function buildArchetypeSummary(a: SystemSnapshot, b: SystemSnapshot, context: ComparativeContext): string {
+function buildArchetypeSummary(a: SystemSnapshot, b: SystemSnapshot): string {
   const topA = dominantArchetypes(a.archetypes);
   const topB = dominantArchetypes(b.archetypes);
   const leadA = topA.map((a) => a.name).join(" / ");
@@ -232,9 +228,7 @@ function buildArchetypeSummary(a: SystemSnapshot, b: SystemSnapshot, context: Co
   const aLabel = `${a.companyName} ${a.periodLabel}`;
   const bLabel = `${b.companyName} ${b.periodLabel}`;
 
-  const descriptor = context === "benchmark"
-  ? `${bLabel} expresses a ${leadB} fingerprint relative to benchmark ${aLabel}`
-  : `${bLabel} expresses ${leadB} while ${aLabel} shows ${leadA}`;
+  const descriptor = `${bLabel} expresses ${leadB} while ${aLabel} shows ${leadA}`;
 
   return `${descriptor}, where the lead archetype ${direction} ${posture === "none" ? "with minimal change" : adverbForDelta[posture]} against the comparator.`;
 }
@@ -281,7 +275,7 @@ function buildHeadline(
     return `${bLabel} and ${aLabel} operate with different judgment engines — ${bLabel} is ${hotness} and ${intent}.`;
   }
 
-  return `${bLabel} diverges from benchmark ${aLabel}, operating ${hotness} and ${intent}.`;
+  return `${bLabel} is ${hotness} and ${intent} than ${aLabel}.`;
 }
 
 function gatherBullets(summary: string[]): string[] {
@@ -294,10 +288,10 @@ export function buildComparativeNarrative(
   context: ComparativeContext,
 ): ComparativeNarrative {
   const rpsDelta = buildRpsDelta(snapshotToRpsBlock(a), snapshotToRpsBlock(b));
-  const physicsSummary = buildPhysicsSummary(a, b, context);
-  const postureSummary = buildPostureSummary(a, b, context);
+  const physicsSummary = buildPhysicsSummary(a, b);
+  const postureSummary = buildPostureSummary(a, b);
   const terrainSummary = buildTerrainSummary(a, b, context);
-  const archetypeSummary = buildArchetypeSummary(a, b, context);
+  const archetypeSummary = buildArchetypeSummary(a, b);
   const learningSummary = buildLearningSummary(a, b, context);
   const headline = buildHeadline(a, b, context, rpsDelta);
 
