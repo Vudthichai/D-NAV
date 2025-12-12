@@ -28,7 +28,9 @@ export default function Header() {
   };
 
   return (
-    <header className="dn-app-chrome flex h-16 shrink-0 items-center gap-3 border-b bg-sidebar px-4">
+    <header
+      className="dn-app-chrome sticky top-0 z-30 flex h-16 shrink-0 items-center gap-3 border-b bg-sidebar/95 px-4 backdrop-blur supports-[backdrop-filter]:bg-sidebar/75"
+    >
       <SidebarTrigger className="-ml-1" />
       <div className="flex flex-1 items-center">
         <Link
