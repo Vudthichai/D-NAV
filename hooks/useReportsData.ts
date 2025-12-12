@@ -1,9 +1,10 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useMemo } from "react";
 
-import { loadDecisionsForDataset } from "@/lib/reportSnapshot";
-import { getDatasetMeta, type DatasetId } from "@/lib/reportDatasets";
+import { useDataset } from "@/components/DatasetProvider";
+import { getEmptyDatasetMeta } from "@/lib/reportDatasets";
+import { type DatasetId } from "@/types/dataset";
 import { type DecisionEntry } from "@/lib/storage";
 import { type CompanyContext } from "@/types/company";
 import { computeDashboardStats, type DashboardStats } from "@/utils/dashboardStats";
@@ -63,21 +64,10 @@ export function useReportsData({
   timeframe: TimeframeValue;
   datasetId: DatasetId | null;
 }): ReportsDataResult {
-  const [decisions, setDecisions] = useState<DecisionEntry[]>([]);
-  const company = useMemo<CompanyContext>(() => getDatasetMeta(datasetId).company, [datasetId]);
-
-  useEffect(() => {
-    let cancelled = false;
-    loadDecisionsForDataset(datasetId).then((entries) => {
-      if (!cancelled) {
-        setDecisions(entries);
-      }
-    });
-
-    return () => {
-      cancelled = true;
-    };
-  }, [datasetId]);
+  const { getDatasetById } = useDataset();
+  const dataset = useMemo(() => getDatasetById(datasetId) ?? null, [datasetId, getDatasetById]);
+  const decisions = dataset?.decisions ?? [];
+  const company = useMemo<CompanyContext>(() => dataset?.meta.company ?? getEmptyDatasetMeta().company, [dataset]);
 
   const timeframeDays = useMemo(() => mapTimeframeToDays(timeframe), [timeframe]);
 

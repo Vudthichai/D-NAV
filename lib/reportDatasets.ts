@@ -1,15 +1,4 @@
-import { type CompanyContext } from "@/types/company";
-
-export type DatasetId = (typeof REPORT_DATASETS)[number]["id"];
-
-export interface ReportDatasetMeta {
-  id: string;
-  companyName: string;
-  periodLabel: string;
-  displayLabel: string;
-  path: string;
-  company: CompanyContext;
-}
+import { type DatasetId, type ReportDatasetMeta } from "@/types/dataset";
 
 export const REPORT_DATASETS = [
   {

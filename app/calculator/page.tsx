@@ -31,7 +31,6 @@ import {
   getArchetype,
 } from "@/lib/calculations";
 import { CompanyPeriodSnapshot, generateFullInterpretation } from "@/lib/dnavSummaryEngine";
-import { loadDecisionsForDataset } from "@/lib/reportSnapshot";
 import { useNetlifyIdentity } from "@/hooks/use-netlify-identity";
 import {
   BarChart3,
@@ -453,9 +452,7 @@ export default function TheDNavPage() {
   const [isGeneratingStatsPdf, setIsGeneratingStatsPdf] = useState(false);
   const statsContainerRef = useRef<HTMLDivElement>(null);
   const { isLoggedIn, openLogin, logout } = useNetlifyIdentity();
-  const { datasetId, meta } = useDataset();
-  const [isLoadingDataset, setIsLoadingDataset] = useState(true);
-  const [loadError, setLoadError] = useState<string | null>(null);
+  const { datasetId, meta, decisions, setDecisions, addDataset, isDatasetLoading, loadError } = useDataset();
   const [categorySort, setCategorySort] = useState<{ key: CategorySortKey; direction: "asc" | "desc" }>(
     { key: "decisionCount", direction: "desc" },
   );
@@ -510,40 +507,19 @@ export default function TheDNavPage() {
     setIsSaved(false);
   };
 
-  const [decisions, setDecisions] = useState<DecisionEntry[]>([]);
   const [companyContext, setCompanyContext] = useState<CompanyContext | null>(null);
 
   useEffect(() => {
-    let cancelled = false;
-    setIsLoadingDataset(true);
-    setLoadError(null);
-
-    loadDecisionsForDataset(datasetId)
-      .then((entries) => {
-        if (!cancelled) {
-          setDecisions(entries);
-          if (entries.length > 0) {
-            setCompanyContext(meta.company);
-          } else {
-            setCompanyContext({
-              companyName: "",
-              timeframeLabel: "",
-              type: undefined,
-            });
-          }
-        }
-      })
-      .catch(() => {
-        if (!cancelled) setLoadError("Unable to load dataset");
-      })
-      .finally(() => {
-        if (!cancelled) setIsLoadingDataset(false);
+    if (decisions.length > 0) {
+      setCompanyContext(meta.company);
+    } else {
+      setCompanyContext({
+        companyName: "",
+        timeframeLabel: "",
+        type: undefined,
       });
-
-    return () => {
-      cancelled = true;
-    };
-  }, [datasetId, meta.company]);
+    }
+  }, [datasetId, decisions.length, meta.company]);
 
   const timeframeDays = useMemo<number | null>(() => {
     if (timeWindow === "0") return null;
@@ -1027,7 +1003,12 @@ export default function TheDNavPage() {
               </p>
             </div>
             <div className="flex gap-2 self-start items-center">
-              <DatasetSelect label="Dataset" />
+              <div className="flex items-center gap-2">
+                <DatasetSelect label="Dataset" />
+                <Button variant="outline" size="sm" onClick={addDataset}>
+                  Add dataset
+                </Button>
+              </div>
               {isLoggedIn ? (
                 <button
                   type="button"
@@ -1048,7 +1029,7 @@ export default function TheDNavPage() {
             <div className="rounded-lg border border-destructive/40 bg-destructive/10 px-4 py-3 text-sm text-destructive">
               {loadError}
             </div>
-          ) : isLoadingDataset ? (
+          ) : isDatasetLoading ? (
             <div className="rounded-lg border border-muted/60 bg-muted/20 px-4 py-3 text-sm text-muted-foreground">
               Loading dataset…
             </div>

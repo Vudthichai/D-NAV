@@ -22,13 +22,10 @@ import {
   FullInterpretation,
   generateFullInterpretation,
 } from "@/lib/dnavSummaryEngine";
-import {
-  REPORT_DATASETS,
-  getDatasetDisplayLabel,
-  type DatasetId,
-} from "@/lib/reportDatasets";
+import { getDatasetDisplayLabel } from "@/lib/reportDatasets";
 import { loadSnapshotForDataset } from "@/lib/reportSnapshot";
 import { useDataset } from "@/components/DatasetProvider";
+import { type DatasetId } from "@/types/dataset";
 import { useNetlifyIdentity } from "@/hooks/use-netlify-identity";
 import {
   TIMEFRAMES,
@@ -126,10 +123,10 @@ function ReportsPageContent() {
         : "all",
     [queryTimeframe],
   );
-  const { datasetId } = useDataset();
-  const hasAtLeastTwoDatasets = REPORT_DATASETS.length >= 2;
-  const defaultDatasetAId = REPORT_DATASETS[0]?.id ?? null;
-  const defaultDatasetBId = REPORT_DATASETS.at(1)?.id ?? null;
+  const { datasetId, datasets, getDatasetById } = useDataset();
+  const hasAtLeastTwoDatasets = datasets.length >= 2;
+  const defaultDatasetAId = datasets[0]?.id ?? null;
+  const defaultDatasetBId = datasets.at(1)?.id ?? null;
   const [selectedTimeframe, setSelectedTimeframe] = useState<TimeframeValue>(resolvedTimeframe);
   const [datasetAId, setDatasetAId] = useState<DatasetId | null>(defaultDatasetAId);
   const [datasetBId, setDatasetBId] = useState<DatasetId | null>(defaultDatasetBId);
@@ -139,11 +136,11 @@ function ReportsPageContent() {
 
   const datasetOptions = useMemo(
     () =>
-      REPORT_DATASETS.map((dataset, index) => ({
+      datasets.map((dataset, index) => ({
         value: dataset.id,
         label: getDatasetDisplayLabel(index),
       })),
-    [],
+    [datasets],
   );
   const datasetLabelMap = useMemo(() => new Map(datasetOptions.map((option) => [option.value, option.label])), [
     datasetOptions,
@@ -153,7 +150,7 @@ function ReportsPageContent() {
     if (!id) return "";
     const mapped = datasetLabelMap.get(id);
     if (mapped) return mapped;
-    const index = REPORT_DATASETS.findIndex((dataset) => dataset.id === id);
+    const index = datasets.findIndex((dataset) => dataset.id === id);
     return index >= 0 ? getDatasetDisplayLabel(index) : "";
   };
 
@@ -168,41 +165,44 @@ function ReportsPageContent() {
     setDatasetAId(datasetId ?? defaultDatasetAId);
   }, [datasetId, defaultDatasetAId]);
 
+  const datasetA = useMemo(() => getDatasetById(datasetAId) ?? null, [datasetAId, getDatasetById]);
+  const datasetB = useMemo(() => getDatasetById(datasetBId) ?? null, [datasetBId, getDatasetById]);
+
   useEffect(() => {
     let cancelled = false;
-    if (!datasetAId) {
+    if (!datasetA) {
       setSnapshotA(null);
       return () => {
         cancelled = true;
       };
     }
 
-    loadSnapshotForDataset(datasetAId).then((snapshot) => {
+    loadSnapshotForDataset(datasetA).then((snapshot) => {
       if (!cancelled) setSnapshotA(snapshot);
     });
 
     return () => {
       cancelled = true;
     };
-  }, [datasetAId]);
+  }, [datasetA]);
 
   useEffect(() => {
     let cancelled = false;
-    if (!datasetBId) {
+    if (!datasetB) {
       setSnapshotB(null);
       return () => {
         cancelled = true;
       };
     }
 
-    loadSnapshotForDataset(datasetBId).then((snapshot) => {
+    loadSnapshotForDataset(datasetB).then((snapshot) => {
       if (!cancelled) setSnapshotB(snapshot);
     });
 
     return () => {
       cancelled = true;
     };
-  }, [datasetBId]);
+  }, [datasetB]);
 
   const {
     company,

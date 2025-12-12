@@ -17,7 +17,6 @@ import {
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Textarea } from "@/components/ui/textarea";
 import { DecisionEntry, computeMetrics, parseCSV } from "@/lib/calculations";
-import { loadDecisionsForDataset } from "@/lib/reportSnapshot";
 import { type CompanyContext } from "@/types/company";
 import {
   AlertTriangle,
@@ -49,7 +48,6 @@ type ParsedRecord =
   Record<string, unknown>;
 
 export default function LogPage() {
-  const [decisions, setDecisions] = useState<DecisionEntry[]>([]);
   const [isCompact, setIsCompact] = useState(false);
   const [importStatus, setImportStatus] = useState<string | null>(null);
   const [importError, setImportError] = useState<string | null>(null);
@@ -58,42 +56,20 @@ export default function LogPage() {
     timeframeLabel: "",
     type: undefined,
   });
-  const { datasetId, meta } = useDataset();
-  const [isLoadingDataset, setIsLoadingDataset] = useState(true);
-  const [loadError, setLoadError] = useState<string | null>(null);
+  const { datasetId, meta, decisions, setDecisions, addDataset, isDatasetLoading, loadError } = useDataset();
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
-    let cancelled = false;
-    setIsLoadingDataset(true);
-    setLoadError(null);
-
-    loadDecisionsForDataset(datasetId)
-      .then((entries) => {
-        if (!cancelled) {
-          setDecisions(entries);
-          if (entries.length > 0) {
-            setCompanyContext(meta.company);
-          } else {
-            setCompanyContext({
-              companyName: "",
-              timeframeLabel: "",
-              type: undefined,
-            });
-          }
-        }
-      })
-      .catch(() => {
-        if (!cancelled) setLoadError("Unable to load dataset");
-      })
-      .finally(() => {
-        if (!cancelled) setIsLoadingDataset(false);
+    if (decisions.length > 0) {
+      setCompanyContext(meta.company);
+    } else {
+      setCompanyContext({
+        companyName: "",
+        timeframeLabel: "",
+        type: undefined,
       });
-
-    return () => {
-      cancelled = true;
-    };
-  }, [datasetId, meta.company]);
+    }
+  }, [datasetId, decisions.length, meta.company]);
 
   const handleDeleteDecision = (timestamp: number) => {
     if (confirm("Are you sure you want to delete this decision?")) {
@@ -677,12 +653,17 @@ export default function LogPage() {
   return (
     <div className="max-w-6xl mx-auto grid gap-4 grid-cols-1">
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <DatasetSelect label="Dataset" />
+        <div className="flex items-center gap-2">
+          <DatasetSelect label="Dataset" />
+          <Button variant="outline" size="sm" onClick={addDataset}>
+            Add dataset
+          </Button>
+        </div>
         {loadError ? (
           <div className="rounded-md border border-destructive/50 bg-destructive/10 px-3 py-2 text-xs text-destructive">
             {loadError}
           </div>
-        ) : isLoadingDataset ? (
+        ) : isDatasetLoading ? (
           <div className="rounded-md border border-muted/60 bg-muted/20 px-3 py-2 text-xs text-muted-foreground">
             Loading dataset…
           </div>
