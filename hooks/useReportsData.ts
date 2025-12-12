@@ -49,6 +49,7 @@ export interface ReportsDataResult {
     decisionDebt: number;
   };
   stats: DashboardStats;
+  allDecisions: DecisionEntry[];
   filteredDecisions: DecisionEntry[];
   timeframeDays: number | null;
   observedSpanDays: number | null;
@@ -129,6 +130,7 @@ export function useReportsData({
     archetypes,
     learning,
     stats,
+    allDecisions: decisions,
     filteredDecisions,
     timeframeDays,
     observedSpanDays,

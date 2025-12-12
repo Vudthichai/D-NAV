@@ -172,7 +172,7 @@ function ReportsPageContent() {
     archetypes,
     learning,
     stats,
-    filteredDecisions,
+    allDecisions,
   } = useReportsData({ timeframe: selectedTimeframe, datasetId });
 
   const timeframeConfig = useMemo(
@@ -254,10 +254,6 @@ function ReportsPageContent() {
     [archetypeProfile],
   );
 
-  const dataHighlight = hasData
-    ? `Exports ${stats.totalDecisions} decision${stats.totalDecisions === 1 ? "" : "s"} with full variables, returns, stability, pressure, and D-NAV.`
-    : "No decisions logged in this window yet.";
-
   const handleUpdateTimeframe = (value: TimeframeValue) => {
     setSelectedTimeframe(value);
     const params = new URLSearchParams(searchParams.toString());
@@ -275,16 +271,16 @@ function ReportsPageContent() {
   };
 
   const handleExportCsv = () => {
-    if (!isLoggedIn || filteredDecisions.length === 0) return;
-    const csvContent = createCsvContent(filteredDecisions);
+    if (!isLoggedIn || allDecisions.length === 0) return;
+    const csvContent = createCsvContent(allDecisions);
     const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8" });
     const filename = `dnav-decision-log-${slugify(timeframeConfig.label)}.csv`;
     downloadBlob(blob, filename);
   };
 
   const handleExportExcel = () => {
-    if (!isLoggedIn || filteredDecisions.length === 0) return;
-    const rows = buildDecisionRows(filteredDecisions);
+    if (!isLoggedIn || allDecisions.length === 0) return;
+    const rows = buildDecisionRows(allDecisions);
     const worksheet = XLSX.utils.json_to_sheet(rows);
     const workbook = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(workbook, worksheet, "Decisions");
@@ -319,10 +315,6 @@ function ReportsPageContent() {
                 <h1 className="text-2xl font-semibold">Share decision intelligence</h1>
                 <p className="text-sm text-muted-foreground">Download structured decision data without leaving D-NAV.</p>
               </div>
-              <div className="inline-flex items-center gap-2 rounded-lg bg-muted/60 px-3 py-2 text-xs text-muted-foreground">
-                <FileDown className="h-4 w-4 text-primary" />
-                <span>{dataHighlight}</span>
-              </div>
             </div>
             <DatasetSelect label="Base dataset" />
             <div className="flex flex-wrap items-center gap-2">
@@ -330,7 +322,7 @@ function ReportsPageContent() {
                 variant="outline"
                 size="sm"
                 onClick={handleExportCsv}
-                disabled={!isLoggedIn || filteredDecisions.length === 0}
+                disabled={!isLoggedIn || allDecisions.length === 0}
               >
                 Export CSV
               </Button>
@@ -338,7 +330,7 @@ function ReportsPageContent() {
                 variant="outline"
                 size="sm"
                 onClick={handleExportExcel}
-                disabled={!isLoggedIn || filteredDecisions.length === 0}
+                disabled={!isLoggedIn || allDecisions.length === 0}
               >
                 Export Excel
               </Button>
