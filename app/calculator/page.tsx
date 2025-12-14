@@ -71,6 +71,7 @@ import {
 } from "@/utils/judgmentDashboard";
 import { cn } from "@/lib/utils";
 import { type CompanyContext } from "@/types/company";
+import { datasetMetaToCompanyContext } from "@/types/dataset";
 
 const DEFAULT_VARIABLES: DecisionVariables = {
   impact: 1,
@@ -452,7 +453,15 @@ export default function TheDNavPage() {
   const [isGeneratingStatsPdf, setIsGeneratingStatsPdf] = useState(false);
   const statsContainerRef = useRef<HTMLDivElement>(null);
   const { isLoggedIn, openLogin, logout } = useNetlifyIdentity();
-  const { datasetId, meta, decisions, setDecisions, addDataset, isDatasetLoading, loadError } = useDataset();
+  const {
+    activeDatasetId: datasetId,
+    meta,
+    decisions,
+    setDecisions,
+    addDataset,
+    isDatasetLoading,
+    loadError,
+  } = useDataset();
   const [categorySort, setCategorySort] = useState<{ key: CategorySortKey; direction: "asc" | "desc" }>(
     { key: "decisionCount", direction: "desc" },
   );
@@ -510,16 +519,8 @@ export default function TheDNavPage() {
   const [companyContext, setCompanyContext] = useState<CompanyContext | null>(null);
 
   useEffect(() => {
-    if (decisions.length > 0) {
-      setCompanyContext(meta.company);
-    } else {
-      setCompanyContext({
-        companyName: "",
-        timeframeLabel: "",
-        type: undefined,
-      });
-    }
-  }, [datasetId, decisions.length, meta.company]);
+    setCompanyContext(datasetMetaToCompanyContext(meta));
+  }, [datasetId, meta]);
 
   const timeframeDays = useMemo<number | null>(() => {
     if (timeWindow === "0") return null;

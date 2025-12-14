@@ -3,8 +3,7 @@
 import { useMemo } from "react";
 
 import { useDataset } from "@/components/DatasetProvider";
-import { getEmptyDatasetMeta } from "@/lib/reportDatasets";
-import { type DatasetId } from "@/types/dataset";
+import { datasetMetaToCompanyContext, getEmptyDatasetMeta, type DatasetId } from "@/types/dataset";
 import { type DecisionEntry } from "@/lib/storage";
 import { type CompanyContext } from "@/types/company";
 import { computeDashboardStats, type DashboardStats } from "@/utils/dashboardStats";
@@ -67,7 +66,10 @@ export function useReportsData({
   const { getDatasetById } = useDataset();
   const dataset = useMemo(() => getDatasetById(datasetId) ?? null, [datasetId, getDatasetById]);
   const decisions = dataset?.decisions ?? [];
-  const company = useMemo<CompanyContext>(() => dataset?.meta.company ?? getEmptyDatasetMeta().company, [dataset]);
+  const company = useMemo<CompanyContext>(
+    () => datasetMetaToCompanyContext(dataset?.meta ?? getEmptyDatasetMeta()),
+    [dataset],
+  );
 
   const timeframeDays = useMemo(() => mapTimeframeToDays(timeframe), [timeframe]);
 

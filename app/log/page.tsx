@@ -18,6 +18,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Textarea } from "@/components/ui/textarea";
 import { DecisionEntry, computeMetrics, parseCSV } from "@/lib/calculations";
 import { type CompanyContext } from "@/types/company";
+import { datasetMetaToCompanyContext, type DatasetMeta } from "@/types/dataset";
 import {
   AlertTriangle,
   ArrowDown,
@@ -56,20 +57,23 @@ export default function LogPage() {
     timeframeLabel: "",
     type: undefined,
   });
-  const { datasetId, meta, decisions, setDecisions, addDataset, isDatasetLoading, loadError } = useDataset();
+  const {
+    datasets,
+    activeDatasetId: datasetId,
+    meta,
+    decisions,
+    setDecisions,
+    addDataset,
+    deleteDataset,
+    setDatasetMeta,
+    isDatasetLoading,
+    loadError,
+  } = useDataset();
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
-    if (decisions.length > 0) {
-      setCompanyContext(meta.company);
-    } else {
-      setCompanyContext({
-        companyName: "",
-        timeframeLabel: "",
-        type: undefined,
-      });
-    }
-  }, [datasetId, decisions.length, meta.company]);
+    setCompanyContext(datasetMetaToCompanyContext(meta));
+  }, [datasetId, meta]);
 
   const handleDeleteDecision = (timestamp: number) => {
     if (confirm("Are you sure you want to delete this decision?")) {
@@ -83,6 +87,33 @@ export default function LogPage() {
     }
   };
 
+  const applyMetaPatch = (field: keyof CompanyContext, value: string | CompanyContext["type"] | CompanyContext["stage"] | CompanyContext["source"] | undefined) => {
+    if (!datasetId) return;
+
+    const metaPatch: Partial<DatasetMeta> = {};
+    if (field === "companyName") {
+      metaPatch.companyName = typeof value === "string" ? value : "";
+    } else if (field === "timeframeLabel") {
+      const label = typeof value === "string" ? value : "";
+      metaPatch.periodLabel = label;
+      metaPatch.displayLabel = label;
+    } else if (field === "sector") {
+      metaPatch.sector = typeof value === "string" ? value : undefined;
+    } else if (field === "contextNote") {
+      metaPatch.contextNote = typeof value === "string" ? value : undefined;
+    } else if (field === "ticker") {
+      metaPatch.ticker = typeof value === "string" ? value : undefined;
+    } else if (field === "stage") {
+      metaPatch.stage = value as CompanyContext["stage"];
+    } else if (field === "type") {
+      metaPatch.type = value as CompanyContext["type"];
+    } else if (field === "source") {
+      metaPatch.source = value as CompanyContext["source"];
+    }
+
+    setDatasetMeta(datasetId, metaPatch);
+  };
+
   const handleContextChange = (
     field: keyof CompanyContext,
     value: string | CompanyContext["type"] | CompanyContext["stage"] | CompanyContext["source"],
@@ -91,11 +122,24 @@ export default function LogPage() {
       ...prev,
       [field]: typeof value === "string" ? value : value || undefined,
     }));
+    applyMetaPatch(field, value);
   };
 
   const handleContextInput = (event: ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const { name, value } = event.target;
     handleContextChange(name as keyof CompanyContext, value);
+  };
+
+  const handleDeleteDataset = () => {
+    if (!datasetId) return;
+    if (datasets.length <= 1) return;
+    if (decisions.length > 0) {
+      const confirmed = confirm(
+        "Delete this dataset and all of its decisions? This action cannot be undone.",
+      );
+      if (!confirmed) return;
+    }
+    deleteDataset(datasetId);
   };
 
   const downloadBlob = (blob: Blob, filename: string) => {
@@ -657,6 +701,14 @@ export default function LogPage() {
           <DatasetSelect label="Dataset" />
           <Button variant="outline" size="sm" onClick={addDataset}>
             Add dataset
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            disabled={datasets.length <= 1}
+            onClick={handleDeleteDataset}
+          >
+            Delete dataset
           </Button>
         </div>
         {loadError ? (

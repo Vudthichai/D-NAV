@@ -3,7 +3,7 @@ import {
   buildCompanyPeriodSnapshot,
   type CompanyPeriodSnapshot,
 } from "@/lib/dnavSummaryEngine";
-import { type DatasetState } from "@/types/dataset";
+import { datasetMetaToCompanyContext, getEmptyDatasetMeta, type DatasetState } from "@/types/dataset";
 import { buildJudgmentDashboard } from "@/utils/judgmentDashboard";
 
 type RawDecision = {
@@ -55,10 +55,13 @@ export async function loadSnapshotForDataset(
     if (!dataset) return null;
     const decisions = await loadDecisionsForDataset(dataset);
 
-    const dashboard = buildJudgmentDashboard(decisions, dataset.meta.company);
+    const dashboard = buildJudgmentDashboard(
+      decisions,
+      datasetMetaToCompanyContext(dataset.meta ?? getEmptyDatasetMeta()),
+    );
 
     return buildCompanyPeriodSnapshot({
-      company: dashboard.companyContext ?? dataset.meta.company,
+      company: dashboard.companyContext ?? datasetMetaToCompanyContext(dataset.meta ?? getEmptyDatasetMeta()),
       baseline: dashboard.baseline,
       categories: dashboard.categories,
       archetypes: dashboard.archetypes.rows,

@@ -22,7 +22,6 @@ import {
   FullInterpretation,
   generateFullInterpretation,
 } from "@/lib/dnavSummaryEngine";
-import { getDatasetDisplayLabel } from "@/lib/reportDatasets";
 import { loadSnapshotForDataset } from "@/lib/reportSnapshot";
 import { useDataset } from "@/components/DatasetProvider";
 import { type DatasetId } from "@/types/dataset";
@@ -123,7 +122,7 @@ function ReportsPageContent() {
         : "all",
     [queryTimeframe],
   );
-  const { datasetId, datasets, getDatasetById } = useDataset();
+  const { activeDatasetId: datasetId, datasets, getDatasetById } = useDataset();
   const hasAtLeastTwoDatasets = datasets.length >= 2;
   const defaultDatasetAId = datasets[0]?.id ?? null;
   const defaultDatasetBId = datasets.at(1)?.id ?? null;
@@ -136,9 +135,9 @@ function ReportsPageContent() {
 
   const datasetOptions = useMemo(
     () =>
-      datasets.map((dataset, index) => ({
+      datasets.map((dataset) => ({
         value: dataset.id,
-        label: getDatasetDisplayLabel(index),
+        label: dataset.label,
       })),
     [datasets],
   );
@@ -151,7 +150,7 @@ function ReportsPageContent() {
     const mapped = datasetLabelMap.get(id);
     if (mapped) return mapped;
     const index = datasets.findIndex((dataset) => dataset.id === id);
-    return index >= 0 ? getDatasetDisplayLabel(index) : "";
+    return index >= 0 ? datasets[index]?.label ?? "" : "";
   };
 
   const datasetALabel = resolveDatasetLabel(datasetAId);
@@ -164,6 +163,15 @@ function ReportsPageContent() {
   useEffect(() => {
     setDatasetAId(datasetId ?? defaultDatasetAId);
   }, [datasetId, defaultDatasetAId]);
+
+  useEffect(() => {
+    if (datasetAId && !datasets.some((dataset) => dataset.id === datasetAId)) {
+      setDatasetAId(datasets[0]?.id ?? null);
+    }
+    if (datasetBId && !datasets.some((dataset) => dataset.id === datasetBId)) {
+      setDatasetBId(datasets.at(1)?.id ?? null);
+    }
+  }, [datasetAId, datasetBId, datasets]);
 
   const datasetA = useMemo(() => getDatasetById(datasetAId) ?? null, [datasetAId, getDatasetById]);
   const datasetB = useMemo(() => getDatasetById(datasetBId) ?? null, [datasetBId, getDatasetById]);
@@ -499,6 +507,10 @@ function ReportsPageContent() {
 
               {hasAtLeastTwoDatasets && datasetAId && datasetBId && snapshotA && snapshotB ? (
                 <SystemComparePanel left={snapshotA} right={snapshotB} labelA={datasetALabel} labelB={datasetBLabel} />
+              ) : hasAtLeastTwoDatasets && !datasetBId ? (
+                <div className="rounded-2xl border bg-muted/40 p-4 text-sm text-muted-foreground">
+                  Select a second dataset to compare.
+                </div>
               ) : hasAtLeastTwoDatasets ? (
                 <div className="rounded-2xl border bg-muted/40 p-4 text-sm text-muted-foreground">
                   Unable to load comparison snapshots. Try selecting a different dataset.
