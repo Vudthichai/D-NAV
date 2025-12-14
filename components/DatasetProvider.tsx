@@ -9,21 +9,27 @@ import {
   useState,
   type ReactElement,
   type ReactNode,
+  type SetStateAction,
 } from "react";
 
-import { getEmptyDatasetMeta, REPORT_DATASETS } from "@/lib/reportDatasets";
 import { computeMetrics, type DecisionEntry } from "@/lib/calculations";
-import { type DatasetId, type DatasetState, type ReportDatasetMeta } from "@/types/dataset";
+import { getDatasetDisplayLabel } from "@/lib/reportDatasets";
+import { getEmptyDatasetMeta, type DatasetId, type DatasetMeta, type DatasetState } from "@/types/dataset";
 
 interface DatasetContextValue {
   datasets: DatasetState[];
-  datasetId: DatasetId | null;
-  setDatasetId: (id: DatasetId | null) => void;
-  meta: ReportDatasetMeta;
+  activeDatasetId: DatasetId | null;
+  activeDataset: DatasetState | null;
+  setActiveDatasetId: (id: DatasetId | null) => void;
+  meta: DatasetMeta;
   decisions: DecisionEntry[];
-  setDecisions: (entries: DecisionEntry[]) => void;
-  setDecisionsForDataset: (id: DatasetId, entries: DecisionEntry[]) => void;
+  setDecisions: (entries: SetStateAction<DecisionEntry[]>) => void;
+  setDecisionsForDataset: (id: DatasetId, entries: SetStateAction<DecisionEntry[]>) => void;
   addDataset: () => DatasetId;
+  deleteDataset: (id: DatasetId) => void;
+  setDatasetMeta: (id: DatasetId, metaPatch: Partial<DatasetMeta>) => void;
+  clearDatasetDecisions: (id: DatasetId) => void;
+  clearAllDatasets: () => void;
   getDatasetById: (id: DatasetId | null) => DatasetState | undefined;
   isDatasetLoading: boolean;
   loadError: string | null;
@@ -34,7 +40,7 @@ interface StoredDatasetState {
   activeDatasetId: DatasetId | null;
 }
 
-const STORAGE_KEY = "dnav_datasets_state_v1";
+const STORAGE_KEY = "dnav_datasets_state_v2";
 
 const hydrateDecision = (decision: {
   ts: number;
@@ -57,75 +63,137 @@ const hydrateDecision = (decision: {
   return { ...decision, ...metrics };
 };
 
+const createInitialDataset = (): DatasetState => ({
+  id: "dataset-1",
+  label: "Dataset 1",
+  meta: getEmptyDatasetMeta(),
+  decisions: [],
+});
+
+function normalizeDatasets(raw: DatasetState[] | undefined): DatasetState[] {
+  if (!raw || raw.length === 0) return [createInitialDataset()];
+
+  return raw.map((dataset, index) => ({
+    id: dataset.id || `dataset-${index + 1}`,
+    label: dataset.label || getDatasetDisplayLabel(index),
+    meta: { ...getEmptyDatasetMeta(), ...dataset.meta },
+    decisions: dataset.decisions ?? [],
+  }));
+}
+
 function loadStoredState(): StoredDatasetState {
   if (typeof window === "undefined") {
-    const seedMeta = REPORT_DATASETS[0];
-    const initialDataset: DatasetState | undefined = seedMeta
-      ? { id: "dataset-1", meta: { ...seedMeta, id: "dataset-1" }, decisions: [] }
-      : undefined;
-
-    return {
-      datasets: initialDataset ? [initialDataset] : [],
-      activeDatasetId: initialDataset?.id ?? null,
-    };
+    const initial = createInitialDataset();
+    return { datasets: [initial], activeDatasetId: initial.id };
   }
 
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
     if (raw) {
       const parsed = JSON.parse(raw) as StoredDatasetState;
-      return parsed;
+      const datasets = normalizeDatasets(parsed.datasets);
+      const activeDatasetId = datasets.find((dataset) => dataset.id === parsed.activeDatasetId)?.id ?? datasets[0]?.id ?? null;
+      return { datasets, activeDatasetId };
     }
   } catch (error) {
     console.error("Failed to load dataset state", error);
   }
 
-  const seedMeta = REPORT_DATASETS[0];
-  const initialDataset: DatasetState | undefined = seedMeta
-    ? { id: "dataset-1", meta: { ...seedMeta, id: "dataset-1" }, decisions: [] }
-    : undefined;
-
-  return {
-    datasets: initialDataset ? [initialDataset] : [],
-    activeDatasetId: initialDataset?.id ?? null,
-  };
+  const initial = createInitialDataset();
+  return { datasets: [initial], activeDatasetId: initial.id };
 }
 
 const DatasetContext = createContext<DatasetContextValue | undefined>(undefined);
 
 export function DatasetProvider({ children }: { children: ReactNode }): ReactElement {
-  const [datasets, setDatasets] = useState<DatasetState[]>(() => loadStoredState().datasets);
-  const [datasetId, setDatasetId] = useState<DatasetId | null>(() => loadStoredState().activeDatasetId);
+  const initialState = useMemo(() => loadStoredState(), []);
+  const [datasets, setDatasets] = useState<DatasetState[]>(initialState.datasets);
+  const [activeDatasetId, setActiveDatasetId] = useState<DatasetId | null>(initialState.activeDatasetId);
   const [loadingMap, setLoadingMap] = useState<Record<DatasetId, boolean>>({});
   const [loadErrors, setLoadErrors] = useState<Record<DatasetId, string | null>>({});
 
   useEffect(() => {
     if (typeof window === "undefined") return;
-    const state: StoredDatasetState = { datasets, activeDatasetId: datasetId };
+    const state: StoredDatasetState = { datasets, activeDatasetId };
     localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
-  }, [datasetId, datasets]);
+  }, [activeDatasetId, datasets]);
 
-  const setDecisionsForDataset = useCallback((id: DatasetId, entries: DecisionEntry[]) => {
-    setDatasets((prev) => prev.map((dataset) => (dataset.id === id ? { ...dataset, decisions: entries } : dataset)));
-  }, []);
+  const resolveDecisionsUpdate = useCallback(
+    (update: SetStateAction<DecisionEntry[]>, current: DecisionEntry[]): DecisionEntry[] =>
+      typeof update === "function" ? update(current) : update,
+    [],
+  );
+
+  const setDecisionsForDataset = useCallback(
+    (id: DatasetId, entries: SetStateAction<DecisionEntry[]>) => {
+      setDatasets((prev) =>
+        prev.map((dataset) =>
+          dataset.id === id ? { ...dataset, decisions: resolveDecisionsUpdate(entries, dataset.decisions) } : dataset,
+        ),
+      );
+    },
+    [resolveDecisionsUpdate],
+  );
 
   const setDecisions = useCallback(
-    (entries: DecisionEntry[]) => {
-      if (!datasetId) return;
-      setDecisionsForDataset(datasetId, entries);
+    (entries: SetStateAction<DecisionEntry[]>) => {
+      if (!activeDatasetId) return;
+      setDecisionsForDataset(activeDatasetId, entries);
     },
-    [datasetId, setDecisionsForDataset],
+    [activeDatasetId, setDecisionsForDataset],
   );
 
   const addDataset = useCallback((): DatasetId => {
     const nextIndex = datasets.length + 1;
     const id = `dataset-${nextIndex}`;
-    const meta: ReportDatasetMeta = { ...getEmptyDatasetMeta(), id };
-    const nextDataset: DatasetState = { id, meta, decisions: [] };
+    const label = getDatasetDisplayLabel(nextIndex - 1);
+    const meta: DatasetMeta = { ...getEmptyDatasetMeta() };
+    const nextDataset: DatasetState = { id, label, meta, decisions: [] };
     setDatasets((prev) => [...prev, nextDataset]);
-    setDatasetId(id);
+    setActiveDatasetId(id);
     return id;
   }, [datasets.length]);
+
+  const deleteDataset = useCallback(
+    (id: DatasetId) => {
+      setDatasets((prev) => {
+        if (prev.length <= 1) return prev;
+        const filtered = prev.filter((dataset) => dataset.id !== id);
+        if (filtered.length === 0) return prev;
+        const relabeled = filtered.map((dataset, index) => ({
+          ...dataset,
+          label: getDatasetDisplayLabel(index),
+        }));
+
+        setActiveDatasetId((current) => {
+          if (!current || current === id) return relabeled[0]?.id ?? null;
+          const stillExists = relabeled.some((dataset) => dataset.id === current);
+          return stillExists ? current : relabeled[0]?.id ?? null;
+        });
+
+        return relabeled;
+      });
+    },
+    [],
+  );
+
+  const setDatasetMeta = useCallback((id: DatasetId, metaPatch: Partial<DatasetMeta>) => {
+    setDatasets((prev) =>
+      prev.map((dataset) =>
+        dataset.id === id ? { ...dataset, meta: { ...dataset.meta, ...metaPatch } } : dataset,
+      ),
+    );
+  }, []);
+
+  const clearDatasetDecisions = useCallback((id: DatasetId) => {
+    setDecisionsForDataset(id, []);
+  }, [setDecisionsForDataset]);
+
+  const clearAllDatasets = useCallback(() => {
+    const initial = createInitialDataset();
+    setDatasets([initial]);
+    setActiveDatasetId(initial.id);
+  }, []);
 
   const getDatasetById = useCallback(
     (id: DatasetId | null) => datasets.find((dataset) => dataset.id === id),
@@ -168,36 +236,46 @@ export function DatasetProvider({ children }: { children: ReactNode }): ReactEle
     });
   }, [datasets, loadingMap, setDecisionsForDataset]);
 
-  const activeDataset = useMemo(() => getDatasetById(datasetId), [datasetId, getDatasetById]);
+  const activeDataset = useMemo(() => getDatasetById(activeDatasetId) ?? null, [activeDatasetId, getDatasetById]);
 
-  const meta = activeDataset?.meta ?? getEmptyDatasetMeta();
-  const decisions = activeDataset?.decisions ?? [];
-  const isDatasetLoading = datasetId ? Boolean(loadingMap[datasetId]) : false;
-  const loadError = datasetId ? loadErrors[datasetId] ?? null : null;
+  const meta = useMemo(() => activeDataset?.meta ?? getEmptyDatasetMeta(), [activeDataset]);
+  const decisions = useMemo(() => activeDataset?.decisions ?? [], [activeDataset]);
+  const isDatasetLoading = activeDatasetId ? Boolean(loadingMap[activeDatasetId]) : false;
+  const loadError = activeDatasetId ? loadErrors[activeDatasetId] ?? null : null;
 
   const value = useMemo(
     () => ({
       datasets,
-      datasetId,
-      setDatasetId,
+      activeDatasetId,
+      activeDataset,
+      setActiveDatasetId,
       meta,
       decisions,
       setDecisions,
       setDecisionsForDataset,
       addDataset,
+      deleteDataset,
+      setDatasetMeta,
+      clearDatasetDecisions,
+      clearAllDatasets,
       getDatasetById,
       isDatasetLoading,
       loadError,
     }),
     [
+      activeDataset,
+      activeDatasetId,
       addDataset,
-      datasetId,
-      datasets,
+      clearAllDatasets,
+      clearDatasetDecisions,
       decisions,
+      deleteDataset,
+      datasets,
       getDatasetById,
       isDatasetLoading,
       loadError,
       meta,
+      setDatasetMeta,
       setDecisions,
       setDecisionsForDataset,
     ],
