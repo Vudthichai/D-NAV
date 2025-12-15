@@ -9,7 +9,7 @@ interface SystemComparePanelProps {
 }
 
 const SystemComparePanel: React.FC<SystemComparePanelProps> = ({ result, warning }) => {
-  const { cohortA, cohortB, deltas, narrative, velocity, developerDetails } = result;
+  const { cohortA, cohortB, deltas, narrative, velocity } = result;
 
   const metrics = [
     {
@@ -84,17 +84,6 @@ const SystemComparePanel: React.FC<SystemComparePanelProps> = ({ result, warning
         </div>
       )}
 
-      {developerDetails && (
-        <details className="rounded-xl border bg-muted/30 p-3">
-          <summary className="cursor-pointer text-sm font-semibold">Developer details</summary>
-          <div className="mt-2 space-y-2 text-xs text-muted-foreground">
-            <ExplainabilityRow label="Layer 1 · Raw Inputs" value={developerDetails.layer1Raw} />
-            <ExplainabilityRow label="Layer 2 · Thresholds" value={developerDetails.layer2Thresholds} />
-            <ExplainabilityRow label="Layer 3 · Intermediates" value={developerDetails.layer3Intermediates} />
-            <ExplainabilityRow label="Layer 4 · Punchline" value={developerDetails.layer4Punchline} />
-          </div>
-        </details>
-      )}
     </section>
   );
 };
@@ -120,17 +109,6 @@ function VelocityCard({ label, result }: { label: string; result: VelocityResult
         )}
         {result.reason && <p className="text-xs text-muted-foreground">{result.reason}</p>}
       </div>
-    </div>
-  );
-}
-
-function ExplainabilityRow({ label, value }: { label: string; value: unknown }) {
-  return (
-    <div>
-      <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">{label}</p>
-      <pre className="mt-1 max-h-56 overflow-auto whitespace-pre-wrap rounded-lg bg-background/60 p-2 text-[11px] leading-relaxed text-muted-foreground">
-        {typeof value === "string" ? value : JSON.stringify(value, null, 2)}
-      </pre>
     </div>
   );
 }

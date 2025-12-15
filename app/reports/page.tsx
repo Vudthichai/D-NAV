@@ -47,6 +47,9 @@ import { filterDecisionsByTimeframe } from "@/utils/judgmentDashboard";
 import { FileDown } from "lucide-react";
 import * as XLSX from "xlsx";
 
+const SHOW_DEBUG_CONTROLS =
+  process.env.NEXT_PUBLIC_SHOW_DEBUG === "true" || process.env.NODE_ENV !== "production";
+
 const slugify = (value: string) =>
   value
     .toLowerCase()
@@ -674,17 +677,19 @@ function ReportsPageContent() {
                     {compareResult?.modeSummary ?? "Choose a mode to compare systems."}
                   </p>
                 </div>
-                {compareResult && (
+                {compareResult && (compareWarning || SHOW_DEBUG_CONTROLS) && (
                   <div className="flex items-center gap-2">
                     {compareWarning && <Badge variant="outline">Normalized</Badge>}
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      onClick={() => handleExportCompare(compareResult)}
-                      disabled={!compareResult}
-                    >
-                      Export Compare JSON
-                    </Button>
+                    {SHOW_DEBUG_CONTROLS && (
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => handleExportCompare(compareResult)}
+                        disabled={!compareResult}
+                      >
+                        Export Compare JSON
+                      </Button>
+                    )}
                   </div>
                 )}
               </div>
