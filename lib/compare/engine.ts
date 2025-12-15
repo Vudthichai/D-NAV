@@ -1,4 +1,5 @@
 import { DecisionEntry } from "../calculations";
+import { stdev } from "@/utils/stats";
 import type {
   CohortBuildRequest,
   CohortSummary,
@@ -12,7 +13,7 @@ import type {
 } from "./types";
 
 const DEFAULT_THRESHOLDS: VelocityThresholds = {
-  pressureStabilize: 1,
+  pressureBand: 0.5,
   stabilityFloor: 0,
   stabilityBand: 0.5,
   returnLift: 1,
@@ -33,7 +34,7 @@ type VelocityCheckFn = (window: DecisionEntry[], thresholds: VelocityThresholds)
 
 const VELOCITY_TARGET_CHECKS: Record<VelocityGoalTarget, VelocityCheckFn> = {
   PRESSURE_STABILIZE: (window, thresholds) =>
-    Math.abs(average(window, "pressure")) <= thresholds.pressureStabilize &&
+    Math.abs(average(window, "pressure")) <= thresholds.pressureBand &&
     average(window, "stability") >= thresholds.stabilityFloor,
   RETURN_RISE: (window, thresholds) => average(window, "return") >= thresholds.returnLift,
   STABILITY_STABILIZE: (window, thresholds) =>
@@ -47,9 +48,29 @@ export function buildCohortSummary({ decisions, request }: BuildCohortSummaryInp
       acc.returnTotal += decision.return;
       acc.pressureTotal += decision.pressure;
       acc.stabilityTotal += decision.stability;
+      acc.impactTotal += decision.impact;
+      acc.costTotal += decision.cost;
+      acc.riskTotal += decision.risk;
+      acc.urgencyTotal += decision.urgency;
+      acc.confidenceTotal += decision.confidence;
+      acc.returnValues.push(decision.return);
+      acc.pressureValues.push(decision.pressure);
+      acc.stabilityValues.push(decision.stability);
       return acc;
     },
-    { returnTotal: 0, pressureTotal: 0, stabilityTotal: 0 },
+    {
+      returnTotal: 0,
+      pressureTotal: 0,
+      stabilityTotal: 0,
+      impactTotal: 0,
+      costTotal: 0,
+      riskTotal: 0,
+      urgencyTotal: 0,
+      confidenceTotal: 0,
+      returnValues: [] as number[],
+      pressureValues: [] as number[],
+      stabilityValues: [] as number[],
+    },
   );
 
   const count = decisions.length || 1;
@@ -62,15 +83,29 @@ export function buildCohortSummary({ decisions, request }: BuildCohortSummaryInp
     avgReturn: totals.returnTotal / count,
     avgPressure: totals.pressureTotal / count,
     avgStability: totals.stabilityTotal / count,
+    stdReturn: stdev(totals.returnValues),
+    stdPressure: stdev(totals.pressureValues),
+    stdStability: stdev(totals.stabilityValues),
+    avgImpact: totals.impactTotal / count,
+    avgCost: totals.costTotal / count,
+    avgRisk: totals.riskTotal / count,
+    avgUrgency: totals.urgencyTotal / count,
+    avgConfidence: totals.confidenceTotal / count,
   };
 }
 
 export function computeVelocity(
   decisions: DecisionEntry[],
   target: VelocityGoalTarget,
-  options?: { windowSize?: number; thresholds?: Partial<VelocityThresholds>; normalizationBasis?: NormalizationBasis },
+  options?: {
+    windowSize?: number;
+    consecutiveWindows?: number;
+    thresholds?: Partial<VelocityThresholds>;
+    normalizationBasis?: NormalizationBasis;
+  },
 ): VelocityResult {
   const windowSize = options?.windowSize ?? 5;
+  const consecutiveWindows = options?.consecutiveWindows ?? 3;
   const thresholds: VelocityThresholds = { ...DEFAULT_THRESHOLDS, ...(options?.thresholds ?? {}) };
   const sorted = [...decisions].sort((a, b) => a.ts - b.ts);
   const targetLabel = VELOCITY_LABELS[target];
@@ -80,6 +115,7 @@ export function computeVelocity(
     thresholds,
     targetLabel,
     normalizationBasis: options?.normalizationBasis,
+    consecutiveWindows,
   });
 
   if (sorted.length < windowSize) {
@@ -90,6 +126,8 @@ export function computeVelocity(
       windowsEvaluated: 0,
       targetReached: false,
       thresholds,
+      consecutiveWindows,
+      windowSize,
       reason: `Need at least ${windowSize} decisions to evaluate velocity`,
       explainability: {
         ...explainability,
@@ -101,6 +139,7 @@ export function computeVelocity(
   const checkFn = VELOCITY_TARGET_CHECKS[target];
   let decisionsToTarget: number | null = null;
   const intermediateWindows: { index: number; avgReturn: number; avgPressure: number; avgStability: number }[] = [];
+  let streak = 0;
 
   for (let i = 0; i <= sorted.length - windowSize; i++) {
     const window = sorted.slice(i, i + windowSize);
@@ -111,8 +150,13 @@ export function computeVelocity(
     };
     intermediateWindows.push({ index: i, ...windowAverages });
     if (checkFn(window, thresholds)) {
-      decisionsToTarget = i + windowSize;
-      break;
+      streak += 1;
+      if (streak >= consecutiveWindows) {
+        decisionsToTarget = i + windowSize;
+        break;
+      }
+    } else {
+      streak = 0;
     }
   }
 
@@ -126,12 +170,15 @@ export function computeVelocity(
     windowsEvaluated,
     targetReached,
     thresholds,
+    consecutiveWindows,
+    windowSize,
     explainability: {
       ...explainability,
       layer2Thresholds: thresholds,
       layer3Intermediates: {
         windowSize,
         windowsEvaluated,
+        consecutiveWindows,
         intermediateWindows,
       },
       layer4Punchline: targetReached
@@ -150,6 +197,7 @@ export function runCompare({
   decisionsA,
   decisionsB,
   windowSize,
+  consecutiveWindows,
   thresholds,
   warnings,
 }: {
@@ -161,18 +209,27 @@ export function runCompare({
   decisionsA: DecisionEntry[];
   decisionsB: DecisionEntry[];
   windowSize?: number;
+  consecutiveWindows?: number;
   thresholds?: Partial<VelocityThresholds>;
   warnings?: string[];
 }): CompareResult {
   const returnDelta = cohortB.avgReturn - cohortA.avgReturn;
   const pressureDelta = cohortB.avgPressure - cohortA.avgPressure;
   const stabilityDelta = cohortB.avgStability - cohortA.avgStability;
+  const driverDeltas = {
+    impact: cohortB.avgImpact - cohortA.avgImpact,
+    cost: cohortB.avgCost - cohortA.avgCost,
+    risk: cohortB.avgRisk - cohortA.avgRisk,
+    urgency: cohortB.avgUrgency - cohortA.avgUrgency,
+    confidence: cohortB.avgConfidence - cohortA.avgConfidence,
+  };
 
   const hasVelocity = mode === "velocity" && velocityTarget;
 
   const velocityA = hasVelocity
     ? computeVelocity(decisionsA, velocityTarget, {
         windowSize,
+        consecutiveWindows,
         thresholds,
         normalizationBasis,
       })
@@ -180,6 +237,7 @@ export function runCompare({
   const velocityB = hasVelocity
     ? computeVelocity(decisionsB, velocityTarget, {
         windowSize,
+        consecutiveWindows,
         thresholds,
         normalizationBasis,
       })
@@ -193,6 +251,7 @@ export function runCompare({
           cohortA,
           cohortB,
           deltas: { returnDelta, pressureDelta, stabilityDelta },
+          driverDeltas,
         });
 
   const explainability = buildExplainabilitySkeleton({
@@ -201,6 +260,7 @@ export function runCompare({
     thresholds: { ...DEFAULT_THRESHOLDS, ...(thresholds ?? {}) },
     targetLabel: hasVelocity && velocityTarget ? VELOCITY_LABELS[velocityTarget] : "Compare",
     normalizationBasis,
+    consecutiveWindows: consecutiveWindows ?? 3,
   });
 
   const posture = buildPosture({
@@ -208,6 +268,7 @@ export function runCompare({
     cohortA,
     cohortB,
     deltas: { returnDelta, pressureDelta, stabilityDelta },
+    driverDeltas,
   });
 
   const developerDetails: ExplainabilityLayers = hasVelocity && velocityA && velocityB
@@ -221,7 +282,7 @@ export function runCompare({
       }
     : {
         ...explainability,
-        layer3Intermediates: { deltas: { returnDelta, pressureDelta, stabilityDelta } },
+        layer3Intermediates: { deltas: { returnDelta, pressureDelta, stabilityDelta }, drivers: driverDeltas },
         layer4Punchline: punchline,
       };
 
@@ -234,6 +295,20 @@ export function runCompare({
       pressureDelta,
       stabilityDelta,
     },
+    driverDeltas,
+    consistency: {
+      cohortAStd: {
+        return: cohortA.stdReturn,
+        pressure: cohortA.stdPressure,
+        stability: cohortA.stdStability,
+      },
+      cohortBStd: {
+        return: cohortB.stdReturn,
+        pressure: cohortB.stdPressure,
+        stability: cohortB.stdStability,
+      },
+    },
+    topDrivers: getTopDrivers(driverDeltas),
     narrative: posture,
     modeSummary: getModeSummary(mode),
     velocity:
@@ -295,12 +370,14 @@ function buildExplainabilitySkeleton({
   thresholds,
   targetLabel,
   normalizationBasis,
+  consecutiveWindows,
 }: {
   decisions: DecisionEntry[];
   windowSize: number;
   thresholds: VelocityThresholds;
   targetLabel: string;
   normalizationBasis?: NormalizationBasis;
+  consecutiveWindows?: number;
 }): ExplainabilityLayers {
   return {
     layer1Raw: {
@@ -308,6 +385,7 @@ function buildExplainabilitySkeleton({
       windowSize,
       normalizationBasis: normalizationBasis ?? "shared_timeframe",
       timespan: summarizeTimespan(decisions),
+      consecutiveWindows: consecutiveWindows ?? null,
     },
     layer2Thresholds: thresholds,
     layer3Intermediates: {},
@@ -326,11 +404,13 @@ function buildPosture({
   cohortA,
   cohortB,
   deltas,
+  driverDeltas,
 }: {
   mode: CompareMode;
   cohortA: CohortSummary;
   cohortB: CohortSummary;
   deltas: { returnDelta: number; pressureDelta: number; stabilityDelta: number };
+  driverDeltas: { impact: number; cost: number; risk: number; urgency: number; confidence: number };
 }): string {
   const leader = deltas.returnDelta >= 0 ? cohortB : cohortA;
   const trailer = leader === cohortA ? cohortB : cohortA;
@@ -341,7 +421,34 @@ function buildPosture({
   const stabilityText = `${leader.avgStability.toFixed(1)} stability vs ${trailer.avgStability.toFixed(1)}`;
 
   const modeLabel = getModeSummary(mode);
-  return `${modeLabel} ${returnText}; ${pressureText}; ${stabilityText}.`;
+  const topDriverLabels = getTopDrivers(driverDeltas).slice(0, 2);
+  const driverText =
+    topDriverLabels.length > 0
+      ? ` Key drivers: ${topDriverLabels.join(" and ")}.`
+      : "";
+
+  return `${modeLabel} ${returnText}; ${pressureText}; ${stabilityText}.${driverText}`;
+}
+
+function getTopDrivers(driverDeltas: { impact: number; cost: number; risk: number; urgency: number; confidence: number }) {
+  const entries = Object.entries(driverDeltas).map(([key, value]) => ({ key, value, magnitude: Math.abs(value) }));
+  const ordered = entries
+    .filter((entry) => entry.magnitude > 0.01)
+    .sort((a, b) => b.magnitude - a.magnitude)
+    .map((entry) => formatDriver(entry.key, entry.value));
+  return ordered.slice(0, 5);
+}
+
+function formatDriver(key: string, delta: number) {
+  const labelMap: Record<string, string> = {
+    impact: "Impact",
+    cost: "Cost",
+    risk: "Risk",
+    urgency: "Urgency",
+    confidence: "Confidence",
+  };
+  const direction = delta > 0 ? "higher" : "lower";
+  return `${labelMap[key] ?? key} ${direction}`;
 }
 
 function getModeSummary(mode: CompareMode): string {

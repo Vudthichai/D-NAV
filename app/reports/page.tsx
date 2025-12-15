@@ -8,6 +8,7 @@ import DatasetSelect from "@/components/DatasetSelect";
 import SystemComparePanel from "@/components/SystemComparePanel";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import {
   Select,
   SelectContent,
@@ -15,6 +16,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { Switch } from "@/components/ui/switch";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import {
   buildCompanyPeriodSnapshot,
@@ -46,9 +48,6 @@ import {
 import { filterDecisionsByTimeframe } from "@/utils/judgmentDashboard";
 import { FileDown } from "lucide-react";
 import * as XLSX from "xlsx";
-
-const SHOW_DEBUG_CONTROLS =
-  process.env.NEXT_PUBLIC_SHOW_DEBUG === "true" || process.env.NODE_ENV !== "production";
 
 const slugify = (value: string) =>
   value
@@ -127,12 +126,24 @@ const createCsvContent = (decisions: DecisionEntry[]) => {
 const resolveTimeframeLabel = (value: TimeframeValue) =>
   TIMEFRAMES.find((timeframe) => timeframe.value === value)?.label ?? "All Time";
 
+type DateRange = { start: string | null; end: string | null };
+
+const msInDay = 24 * 60 * 60 * 1000;
+
 const normalizePeriods = (
   periodADays: number | null,
   periodBDays: number | null,
+  shouldNormalize: boolean,
 ): { normalizedDays: number | null; warning: string | null } => {
   if (periodADays === periodBDays) {
-    return { normalizedDays: periodADays, warning: null };
+    return { normalizedDays: shouldNormalize ? periodADays : null, warning: null };
+  }
+
+  if (!shouldNormalize) {
+    return {
+      normalizedDays: null,
+      warning: "Warning: Period lengths differ. Enable normalization to trim to the shorter range.",
+    };
   }
 
   if (periodADays === null && periodBDays === null) {
@@ -142,14 +153,14 @@ const normalizePeriods = (
   if (periodADays === null) {
     return {
       normalizedDays: periodBDays,
-      warning: "Period A uses all time; trimming to match Period B window.",
+      warning: `Normalized both periods to ${periodBDays} days (Period B length).`,
     };
   }
 
   if (periodBDays === null) {
     return {
       normalizedDays: periodADays,
-      warning: "Period B uses all time; trimming to match Period A window.",
+      warning: `Normalized both periods to ${periodADays} days (Period A length).`,
     };
   }
 
@@ -157,10 +168,51 @@ const normalizePeriods = (
   return { normalizedDays, warning: `Normalized both periods to ${normalizedDays} days for strict comparison.` };
 };
 
+const filterDecisionsByDateRange = (decisions: DecisionEntry[], start: number | null, end: number | null) =>
+  decisions.filter((decision) => {
+    if (start && decision.ts < start) return false;
+    if (end && decision.ts > end) return false;
+    return true;
+  });
+
+const resolveDateRange = (value: TimeframeValue, range: DateRange) => {
+  const startDate = range.start ? new Date(range.start) : null;
+  const endDate = range.end ? new Date(range.end) : null;
+  if (startDate && endDate && !Number.isNaN(startDate.getTime()) && !Number.isNaN(endDate.getTime())) {
+    const days = Math.max(Math.ceil((endDate.getTime() - startDate.getTime()) / msInDay) + 1, 1);
+    return {
+      days,
+      label: `${startDate.toLocaleDateString()} – ${endDate.toLocaleDateString()}`,
+      start: startDate.getTime(),
+      end: endDate.getTime(),
+      isCustom: true,
+    } as const;
+  }
+
+  return {
+    days: mapTimeframeToDays(value),
+    label: resolveTimeframeLabel(value),
+    start: null,
+    end: null,
+    isCustom: false,
+  } as const;
+};
+
+const DEFAULT_VELOCITY_THRESHOLDS = {
+  returnLift: 1,
+  pressureBand: 0.5,
+  stabilityFloor: 0,
+  stabilityBand: 0.5,
+};
+
 function ReportsPageContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const queryTimeframe = useMemo(() => searchParams.get("window"), [searchParams]);
+  const debugEnabled = useMemo(
+    () => process.env.NEXT_PUBLIC_DNAV_DEBUG === "1" || searchParams.get("debug") === "1",
+    [searchParams],
+  );
   const resolvedTimeframe = useMemo<TimeframeValue>(
     () =>
       TIMEFRAMES.some(({ value }) => value === queryTimeframe)
@@ -179,7 +231,13 @@ function ReportsPageContent() {
   const [compareTimeframe, setCompareTimeframe] = useState<TimeframeValue>(resolvedTimeframe);
   const [temporalPeriodA, setTemporalPeriodA] = useState<TimeframeValue>("30");
   const [temporalPeriodB, setTemporalPeriodB] = useState<TimeframeValue>("90");
+  const [customTemporalPeriodA, setCustomTemporalPeriodA] = useState<DateRange>({ start: null, end: null });
+  const [customTemporalPeriodB, setCustomTemporalPeriodB] = useState<DateRange>({ start: null, end: null });
+  const [normalizeTemporalRanges, setNormalizeTemporalRanges] = useState(false);
   const [velocityTimeframe, setVelocityTimeframe] = useState<TimeframeValue>(resolvedTimeframe);
+  const [velocityWindowSize, setVelocityWindowSize] = useState(5);
+  const [velocityConsecutiveWindows, setVelocityConsecutiveWindows] = useState(3);
+  const [velocityThresholds, setVelocityThresholds] = useState(DEFAULT_VELOCITY_THRESHOLDS);
   const [isCompareLoading, setIsCompareLoading] = useState(false);
   const [compareMode, setCompareMode] = useState<CompareMode>("entity");
   const [velocityTarget, setVelocityTarget] = useState<VelocityGoalTarget>("PRESSURE_STABILIZE");
@@ -216,6 +274,10 @@ function ReportsPageContent() {
   useEffect(() => {
     setSelectedTimeframe(resolvedTimeframe);
   }, [resolvedTimeframe]);
+
+  useEffect(() => {
+    setVelocityThresholds(DEFAULT_VELOCITY_THRESHOLDS);
+  }, [velocityTarget]);
 
   useEffect(() => {
     setDatasetAId(datasetId ?? defaultDatasetAId);
@@ -302,32 +364,53 @@ function ReportsPageContent() {
           return;
         }
 
-        const daysA = mapTimeframeToDays(temporalPeriodA);
-        const daysB = mapTimeframeToDays(temporalPeriodB);
-        const { normalizedDays, warning } = normalizePeriods(daysA, daysB);
+        const periodAConfig = resolveDateRange(temporalPeriodA, customTemporalPeriodA);
+        const periodBConfig = resolveDateRange(temporalPeriodB, customTemporalPeriodB);
+
+        if (periodAConfig.start && periodAConfig.end && periodAConfig.start > periodAConfig.end) {
+          setCompareWarning("Period A dates are invalid (start is after end).");
+          setIsCompareLoading(false);
+          return;
+        }
+        if (periodBConfig.start && periodBConfig.end && periodBConfig.start > periodBConfig.end) {
+          setCompareWarning("Period B dates are invalid (start is after end).");
+          setIsCompareLoading(false);
+          return;
+        }
+
+        const { normalizedDays, warning } = normalizePeriods(
+          periodAConfig.days,
+          periodBConfig.days,
+          normalizeTemporalRanges,
+        );
         if (warning) setCompareWarning(warning);
 
-        const timeframeLabelA = resolveTimeframeLabel(temporalPeriodA);
-        const timeframeLabelB = resolveTimeframeLabel(temporalPeriodB);
-        const normalizedBasis: NormalizationBasis =
-          normalizedDays === daysA && normalizedDays === daysB ? "shared_timeframe" : "normalized_windows";
+        const timeframeLabelA = periodAConfig.label;
+        const timeframeLabelB = periodBConfig.label;
+        const normalizedBasis: NormalizationBasis = normalizedDays ? "normalized_windows" : "shared_timeframe";
 
         const [periodASummary, periodBSummary] = await Promise.all([
           buildCohortSummaryFromDataset({
             dataset: temporalDataset,
             label: `${resolveDatasetLabel(temporalDatasetId)} · Period A`,
-            timeframeDays: normalizedDays ?? daysA,
+            timeframeDays: periodAConfig.days,
             timeframeLabel: timeframeLabelA,
             normalizationBasis: normalizedBasis,
             normalizeToDays: normalizedDays,
+            customRange: periodAConfig.isCustom
+              ? { start: periodAConfig.start, end: periodAConfig.end }
+              : undefined,
           }),
           buildCohortSummaryFromDataset({
             dataset: temporalDataset,
             label: `${resolveDatasetLabel(temporalDatasetId)} · Period B`,
-            timeframeDays: normalizedDays ?? daysB,
+            timeframeDays: periodBConfig.days,
             timeframeLabel: timeframeLabelB,
             normalizationBasis: normalizedBasis,
             normalizeToDays: normalizedDays,
+            customRange: periodBConfig.isCustom
+              ? { start: periodBConfig.start, end: periodBConfig.end }
+              : undefined,
           }),
         ]);
 
@@ -391,6 +474,9 @@ function ReportsPageContent() {
           cohortB: summaryB.summary,
           decisionsA: summaryA.decisions,
           decisionsB: summaryB.decisions,
+          windowSize: velocityWindowSize,
+          consecutiveWindows: velocityConsecutiveWindows,
+          thresholds: velocityThresholds,
         });
 
         setCompareResult(result);
@@ -415,9 +501,15 @@ function ReportsPageContent() {
     temporalDatasetId,
     temporalPeriodA,
     temporalPeriodB,
+    customTemporalPeriodA,
+    customTemporalPeriodB,
+    normalizeTemporalRanges,
     resolveDatasetLabel,
     velocityTarget,
     velocityTimeframe,
+    velocityWindowSize,
+    velocityConsecutiveWindows,
+    velocityThresholds,
   ]);
 
   const {
@@ -677,10 +769,10 @@ function ReportsPageContent() {
                     {compareResult?.modeSummary ?? "Choose a mode to compare systems."}
                   </p>
                 </div>
-                {compareResult && (compareWarning || SHOW_DEBUG_CONTROLS) && (
+                {compareResult && (compareWarning || debugEnabled) && (
                   <div className="flex items-center gap-2">
-                    {compareWarning && <Badge variant="outline">Normalized</Badge>}
-                    {SHOW_DEBUG_CONTROLS && (
+                    {compareWarning && <Badge variant="outline">Notice</Badge>}
+                    {debugEnabled && (
                       <Button
                         size="sm"
                         variant="outline"
@@ -840,6 +932,121 @@ function ReportsPageContent() {
                 </div>
               )}
 
+              {compareMode === "velocity" && (
+                <div className="grid gap-3 rounded-2xl border bg-card/60 p-4 shadow-sm md:grid-cols-2">
+                  <div className="space-y-2">
+                    <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Compare settings</p>
+                    <p className="text-xs text-muted-foreground">Tune the rolling window and how strict the target rule is.</p>
+                    <div className="grid gap-2 sm:grid-cols-2">
+                      <div className="space-y-1">
+                        <p className="text-[11px] uppercase text-muted-foreground">Window size (decisions)</p>
+                        <Select
+                          value={velocityWindowSize.toString()}
+                          onValueChange={(value) => setVelocityWindowSize(Number.parseInt(value, 10))}
+                        >
+                          <SelectTrigger className="w-full">
+                            <SelectValue placeholder="Select window" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {[3, 5, 10].map((size) => (
+                              <SelectItem key={size} value={size.toString()}>{size}</SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      <div className="space-y-1">
+                        <p className="text-[11px] uppercase text-muted-foreground">Consecutive windows (k)</p>
+                        <Select
+                          value={velocityConsecutiveWindows.toString()}
+                          onValueChange={(value) => setVelocityConsecutiveWindows(Number.parseInt(value, 10))}
+                        >
+                          <SelectTrigger className="w-full">
+                            <SelectValue placeholder="Select k" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {[2, 3, 5].map((count) => (
+                              <SelectItem key={count} value={count.toString()}>
+                                {count}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="space-y-3">
+                    <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Target thresholds</p>
+                    {velocityTarget === "RETURN_RISE" && (
+                      <div className="space-y-1">
+                        <p className="text-[11px] uppercase text-muted-foreground">Return lift (ΔR)</p>
+                        <Input
+                          type="number"
+                          step="0.1"
+                          value={velocityThresholds.returnLift}
+                          onChange={(event) =>
+                            setVelocityThresholds((prev) => ({
+                              ...prev,
+                              returnLift: Number.parseFloat(event.target.value) || 0,
+                            }))
+                          }
+                        />
+                      </div>
+                    )}
+
+                    {velocityTarget === "PRESSURE_STABILIZE" && (
+                      <div className="space-y-1">
+                        <p className="text-[11px] uppercase text-muted-foreground">Pressure band (±)</p>
+                        <Input
+                          type="number"
+                          step="0.1"
+                          value={velocityThresholds.pressureBand}
+                          onChange={(event) =>
+                            setVelocityThresholds((prev) => ({
+                              ...prev,
+                              pressureBand: Number.parseFloat(event.target.value) || 0,
+                            }))
+                          }
+                        />
+                      </div>
+                    )}
+
+                    {velocityTarget === "STABILITY_STABILIZE" && (
+                      <div className="grid gap-2 sm:grid-cols-2">
+                        <div className="space-y-1">
+                          <p className="text-[11px] uppercase text-muted-foreground">Stability floor</p>
+                          <Input
+                            type="number"
+                            step="0.1"
+                            value={velocityThresholds.stabilityFloor}
+                            onChange={(event) =>
+                              setVelocityThresholds((prev) => ({
+                                ...prev,
+                                stabilityFloor: Number.parseFloat(event.target.value) || 0,
+                              }))
+                            }
+                          />
+                        </div>
+                        <div className="space-y-1">
+                          <p className="text-[11px] uppercase text-muted-foreground">Stability band (±)</p>
+                          <Input
+                            type="number"
+                            step="0.1"
+                            value={velocityThresholds.stabilityBand}
+                            onChange={(event) =>
+                              setVelocityThresholds((prev) => ({
+                                ...prev,
+                                stabilityBand: Number.parseFloat(event.target.value) || 0,
+                              }))
+                            }
+                          />
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
+
               {compareMode === "temporal" && (
                 <div className="grid gap-3 rounded-2xl border bg-card/60 p-4 shadow-sm md:grid-cols-2">
                   <div className="space-y-2">
@@ -860,6 +1067,23 @@ function ReportsPageContent() {
                         </Button>
                       ))}
                     </div>
+                    <div className="grid gap-2 sm:grid-cols-2">
+                      <Input
+                        type="date"
+                        value={customTemporalPeriodA.start ?? ""}
+                        onChange={(event) =>
+                          setCustomTemporalPeriodA((current) => ({ ...current, start: event.target.value || null }))
+                        }
+                      />
+                      <Input
+                        type="date"
+                        value={customTemporalPeriodA.end ?? ""}
+                        onChange={(event) =>
+                          setCustomTemporalPeriodA((current) => ({ ...current, end: event.target.value || null }))
+                        }
+                      />
+                    </div>
+                    <p className="text-[11px] text-muted-foreground">Custom dates override quick picks for this period.</p>
                   </div>
                   <div className="space-y-2">
                     <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Period B</p>
@@ -879,7 +1103,36 @@ function ReportsPageContent() {
                         </Button>
                       ))}
                     </div>
+                    <div className="grid gap-2 sm:grid-cols-2">
+                      <Input
+                        type="date"
+                        value={customTemporalPeriodB.start ?? ""}
+                        onChange={(event) =>
+                          setCustomTemporalPeriodB((current) => ({ ...current, start: event.target.value || null }))
+                        }
+                      />
+                      <Input
+                        type="date"
+                        value={customTemporalPeriodB.end ?? ""}
+                        onChange={(event) =>
+                          setCustomTemporalPeriodB((current) => ({ ...current, end: event.target.value || null }))
+                        }
+                      />
+                    </div>
+                    <p className="text-[11px] text-muted-foreground">Use matching date ranges for apples-to-apples comparisons.</p>
                   </div>
+                </div>
+              )}
+
+              {compareMode === "temporal" && (
+                <div className="flex items-center justify-between gap-3 rounded-xl border bg-muted/40 p-3">
+                  <div>
+                    <p className="text-sm font-semibold text-foreground">Normalize to shorter range</p>
+                    <p className="text-[11px] text-muted-foreground">
+                      When on, both periods are clamped to the shorter duration to enforce equal windows.
+                    </p>
+                  </div>
+                  <Switch checked={normalizeTemporalRanges} onCheckedChange={setNormalizeTemporalRanges} />
                 </div>
               )}
 
@@ -893,7 +1146,11 @@ function ReportsPageContent() {
                 {isCompareLoading ? (
                   <div className="text-sm text-muted-foreground">Loading compare…</div>
                 ) : compareResult ? (
-                  <SystemComparePanel result={compareResult} warning={compareWarning ?? undefined} />
+                  <SystemComparePanel
+                    result={compareResult}
+                    warning={compareWarning ?? undefined}
+                    showDebug={debugEnabled}
+                  />
                 ) : (
                   <div className="text-sm text-muted-foreground">
                     {compareMode === "temporal"
@@ -948,6 +1205,7 @@ async function buildCohortSummaryFromDataset({
   timeframeLabel,
   normalizationBasis,
   normalizeToDays,
+  customRange,
 }: {
   dataset: DatasetState | null;
   label: string;
@@ -955,12 +1213,16 @@ async function buildCohortSummaryFromDataset({
   timeframeLabel: string;
   normalizationBasis: NormalizationBasis;
   normalizeToDays?: number | null;
+  customRange?: { start: number | null; end: number | null };
 }): Promise<{ summary: CohortSummary; decisions: DecisionEntry[] } | null> {
   if (!dataset) return null;
   const decisions = await loadDecisionsForDataset(dataset);
   const sorted = [...decisions].sort((a, b) => b.ts - a.ts);
   const effectiveDays = normalizeToDays ?? timeframeDays;
-  const filtered = filterDecisionsByTimeframe(sorted, effectiveDays);
+  const filteredByRange = customRange
+    ? filterDecisionsByDateRange(sorted, customRange.start, customRange.end)
+    : sorted;
+  const filtered = filterDecisionsByTimeframe(filteredByRange, effectiveDays);
   if (filtered.length === 0) return null;
 
   const summary = buildCohortSummary({

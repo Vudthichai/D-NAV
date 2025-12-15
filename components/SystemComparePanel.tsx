@@ -6,10 +6,11 @@ import type { CompareResult, VelocityResult } from "@/lib/compare/types";
 interface SystemComparePanelProps {
   result: CompareResult;
   warning?: string;
+  showDebug?: boolean;
 }
 
-const SystemComparePanel: React.FC<SystemComparePanelProps> = ({ result, warning }) => {
-  const { cohortA, cohortB, deltas, narrative, velocity } = result;
+const SystemComparePanel: React.FC<SystemComparePanelProps> = ({ result, warning, showDebug }) => {
+  const { cohortA, cohortB, deltas, narrative, velocity, driverDeltas, consistency, topDrivers } = result;
 
   const metrics = [
     {
@@ -30,6 +31,14 @@ const SystemComparePanel: React.FC<SystemComparePanelProps> = ({ result, warning
       b: cohortB.avgStability,
       delta: deltas.stabilityDelta,
     },
+  ];
+
+  const driverMetrics = [
+    { label: "Impact", delta: driverDeltas.impact },
+    { label: "Cost", delta: driverDeltas.cost },
+    { label: "Risk", delta: driverDeltas.risk },
+    { label: "Urgency", delta: driverDeltas.urgency },
+    { label: "Confidence", delta: driverDeltas.confidence },
   ];
 
   return (
@@ -68,9 +77,53 @@ const SystemComparePanel: React.FC<SystemComparePanelProps> = ({ result, warning
         ))}
       </div>
 
+      <div className="grid gap-4 md:grid-cols-3">
+        <div className="rounded-xl border bg-muted/40 p-4">
+          <h3 className="mb-2 text-sm font-semibold">Consistency (std dev)</h3>
+          <p className="text-xs text-muted-foreground">Lower values mean steadier outcomes in the timeframe.</p>
+          <div className="mt-3 space-y-2 text-xs text-muted-foreground">
+            <div className="flex items-center justify-between">
+              <span className="font-medium text-foreground">{cohortA.label}</span>
+              <span>
+                R {formatValue(consistency.cohortAStd.return)} · P {formatValue(consistency.cohortAStd.pressure)} · S {" "}
+                {formatValue(consistency.cohortAStd.stability)}
+              </span>
+            </div>
+            <div className="flex items-center justify-between">
+              <span className="font-medium text-foreground">{cohortB.label}</span>
+              <span>
+                R {formatValue(consistency.cohortBStd.return)} · P {formatValue(consistency.cohortBStd.pressure)} · S {" "}
+                {formatValue(consistency.cohortBStd.stability)}
+              </span>
+            </div>
+          </div>
+        </div>
+
+        <div className="rounded-xl border bg-muted/40 p-4 md:col-span-2">
+          <h3 className="mb-1 text-sm font-semibold">Drivers (A → B)</h3>
+          <p className="text-xs text-muted-foreground">Comparing averages for Impact, Cost, Risk, Urgency, Confidence.</p>
+          <div className="mt-3 grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+            {driverMetrics.map((driver) => (
+              <div key={driver.label} className="rounded-lg border border-dashed bg-background/60 px-3 py-2 text-xs">
+                <div className="flex items-center justify-between">
+                  <span className="font-medium text-foreground">{driver.label}</span>
+                  <span className="text-muted-foreground">Δ {formatDelta(driver.delta)}</span>
+                </div>
+                <p className="text-[11px] text-muted-foreground">
+                  {describeDriverShift(driver.label, driver.delta, cohortA.label, cohortB.label)}
+                </p>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+
       <div className="rounded-xl border bg-muted/40 p-4">
         <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Posture</p>
         <p className="mt-1 text-sm text-muted-foreground">{narrative}</p>
+        {topDrivers.length > 0 && (
+          <p className="mt-2 text-xs text-muted-foreground">Top drivers: {topDrivers.slice(0, 2).join(" · ")}</p>
+        )}
       </div>
 
       {velocity && (
@@ -84,6 +137,14 @@ const SystemComparePanel: React.FC<SystemComparePanelProps> = ({ result, warning
         </div>
       )}
 
+      {showDebug && result.developerDetails && (
+        <div className="rounded-xl border bg-muted/40 p-4">
+          <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Developer details (debug)</p>
+          <pre className="mt-2 max-h-80 overflow-auto whitespace-pre-wrap rounded-lg bg-background/60 p-3 text-[11px] text-muted-foreground">
+            {JSON.stringify(result.developerDetails, null, 2)}
+          </pre>
+        </div>
+      )}
     </section>
   );
 };
@@ -101,12 +162,15 @@ function VelocityCard({ label, result }: { label: string; result: VelocityResult
         </div>
         <span className="text-xs text-muted-foreground">{result.windowsEvaluated} windows</span>
       </div>
-      <div className="mt-3 space-y-1 text-sm text-muted-foreground">
+      <div className="mt-3 space-y-2 text-sm text-muted-foreground">
         {result.targetReached && result.decisionsToTarget ? (
-          <p className="text-sm font-semibold text-foreground">Reached after {result.decisionsToTarget} decisions</p>
+          <p className="text-sm font-semibold text-foreground">
+            Reached after {result.decisionsToTarget} decisions (first time the target rule holds for {result.consecutiveWindows} windows).
+          </p>
         ) : (
-          <p className="text-sm font-semibold text-foreground">Target not reached</p>
+          <p className="text-sm font-semibold text-foreground">Target not reached in this timeframe (based on current rule).</p>
         )}
+        <p className="text-xs text-muted-foreground">What this means: {describeVelocityRule(result)}</p>
         {result.reason && <p className="text-xs text-muted-foreground">{result.reason}</p>}
       </div>
     </div>
@@ -121,4 +185,22 @@ function formatDelta(value: number) {
   if (Math.abs(value) < 0.05) return "0";
   const prefix = value > 0 ? "+" : "";
   return `${prefix}${formatValue(value)}`;
+}
+
+function describeDriverShift(label: string, delta: number, cohortALabel: string, cohortBLabel: string) {
+  if (Math.abs(delta) < 0.05) return `${label} is similar across both.`;
+  return delta > 0
+    ? `${cohortBLabel} shows higher ${label.toLowerCase()} than ${cohortALabel}.`
+    : `${cohortBLabel} shows lower ${label.toLowerCase()} than ${cohortALabel}.`;
+}
+
+function describeVelocityRule(result: VelocityResult) {
+  const { thresholds, windowSize, consecutiveWindows } = result;
+  if (result.target === "RETURN_RISE") {
+    return `Target reached when the rolling return over the last ${windowSize} decisions is ≥ ${thresholds.returnLift.toFixed(1)} for ${consecutiveWindows} consecutive windows.`;
+  }
+  if (result.target === "PRESSURE_STABILIZE") {
+    return `Target reached when the rolling pressure over the last ${windowSize} decisions stays within ±${thresholds.pressureBand.toFixed(1)} and stability is at least ${thresholds.stabilityFloor.toFixed(1)} for ${consecutiveWindows} consecutive windows.`;
+  }
+  return `Target reached when the rolling stability over the last ${windowSize} decisions stays within ±${thresholds.stabilityBand.toFixed(1)} and above ${thresholds.stabilityFloor.toFixed(1)} for ${consecutiveWindows} consecutive windows.`;
 }
