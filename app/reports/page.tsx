@@ -5,7 +5,6 @@ import { Suspense, useEffect, useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 
 import DatasetSelect from "@/components/DatasetSelect";
-import SystemComparePanel from "@/components/SystemComparePanel";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -16,24 +15,27 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { TooltipProvider } from "@/components/ui/tooltip";
+import { runComparison, type CompareMode, type VelocityTarget, type CohortSpec } from "@/lib/compare/compareEngine";
+import { type NormalizationBasis, type VelocityGoalType, type CompareResult } from "@/lib/compare/types";
 import {
   buildCompanyPeriodSnapshot,
   CompanyPeriodSnapshot,
   FullInterpretation,
   generateFullInterpretation,
 } from "@/lib/dnavSummaryEngine";
-import { loadSnapshotForDataset } from "@/lib/reportSnapshot";
 import { useDataset } from "@/components/DatasetProvider";
-import { type DatasetId } from "@/types/dataset";
+import { type DatasetId, type DatasetState } from "@/types/dataset";
 import { useNetlifyIdentity } from "@/hooks/use-netlify-identity";
 import {
   TIMEFRAMES,
+  mapTimeframeToDays,
   timeframeDescriptions,
   type TimeframeValue,
   useReportsData,
 } from "@/hooks/useReportsData";
 import { type DecisionEntry } from "@/lib/storage";
 import { cn } from "@/lib/utils";
+import { filterDecisionsByTimeframe } from "@/utils/judgmentDashboard";
 import { FileDown } from "lucide-react";
 import * as XLSX from "xlsx";
 
@@ -111,6 +113,42 @@ const createCsvContent = (decisions: DecisionEntry[]) => {
   return [headers.map(serialize).join(","), ...rows.map((row) => row.map(serialize).join(","))].join("\n");
 };
 
+const normalizationLabels: Record<NormalizationBasis, string> = {
+  PER_DECISION: "Per decision",
+  PER_DAY: "Per day",
+  PER_WEEK: "Per week",
+  PER_MONTH: "Per month",
+  PER_QUARTER: "Per quarter",
+};
+
+const velocityTargetFromGoal = (goalType: VelocityGoalType, normalization: NormalizationBasis): VelocityTarget => {
+  switch (goalType) {
+    case "STABILIZATION":
+      return { goalType, metricKey: "PRESSURE", threshold: -2, direction: "LTE", normalization };
+    case "ADAPTATION":
+      return { goalType, metricKey: "STABILITY", threshold: 2.5, direction: "GTE", normalization };
+    default:
+      return { goalType, metricKey: "RETURN", threshold: 1, direction: "GTE", normalization };
+  }
+};
+
+const buildCohort = (dataset: DatasetState | null, timeframe: TimeframeValue, labelFallback: string) => {
+  const timeframeDays = mapTimeframeToDays(timeframe);
+  const decisions = filterDecisionsByTimeframe(dataset?.decisions ?? [], timeframeDays);
+  const timestamps = decisions.map((d) => d.ts);
+  const startTs = timestamps.length ? Math.min(...timestamps) : Date.now();
+  const endTs = timestamps.length ? Math.max(...timestamps) : Date.now();
+
+  return {
+    cohort: {
+      entityId: dataset?.meta.companyName || dataset?.id || "unknown-entity",
+      entityLabel: dataset?.label || labelFallback || "Entity",
+      timeframe: { start: new Date(startTs).toISOString(), end: new Date(endTs).toISOString() },
+    },
+    decisions,
+  };
+};
+
 function ReportsPageContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -129,8 +167,12 @@ function ReportsPageContent() {
   const [selectedTimeframe, setSelectedTimeframe] = useState<TimeframeValue>(resolvedTimeframe);
   const [datasetAId, setDatasetAId] = useState<DatasetId | null>(defaultDatasetAId);
   const [datasetBId, setDatasetBId] = useState<DatasetId | null>(defaultDatasetBId);
-  const [snapshotA, setSnapshotA] = useState<CompanyPeriodSnapshot | null>(null);
-  const [snapshotB, setSnapshotB] = useState<CompanyPeriodSnapshot | null>(null);
+  const [compareMode, setCompareMode] = useState<CompareMode>("ENTITY");
+  const [compareTimeframeA, setCompareTimeframeA] = useState<TimeframeValue>("30");
+  const [compareTimeframeB, setCompareTimeframeB] = useState<TimeframeValue>("30");
+  const [velocityGoal, setVelocityGoal] = useState<VelocityGoalType>("VALUE_CREATION");
+  const [normalizationBasis, setNormalizationBasis] = useState<NormalizationBasis>("PER_DECISION");
+  const [compareResult, setCompareResult] = useState<CompareResult | null>(null);
   const { isLoggedIn, openLogin } = useNetlifyIdentity();
 
   const datasetOptions = useMemo(
@@ -161,6 +203,11 @@ function ReportsPageContent() {
   }, [resolvedTimeframe]);
 
   useEffect(() => {
+    setCompareTimeframeA(selectedTimeframe);
+    setCompareTimeframeB(selectedTimeframe);
+  }, [selectedTimeframe]);
+
+  useEffect(() => {
     setDatasetAId(datasetId ?? defaultDatasetAId);
   }, [datasetId, defaultDatasetAId]);
 
@@ -175,42 +222,6 @@ function ReportsPageContent() {
 
   const datasetA = useMemo(() => getDatasetById(datasetAId) ?? null, [datasetAId, getDatasetById]);
   const datasetB = useMemo(() => getDatasetById(datasetBId) ?? null, [datasetBId, getDatasetById]);
-
-  useEffect(() => {
-    let cancelled = false;
-    if (!datasetA) {
-      setSnapshotA(null);
-      return () => {
-        cancelled = true;
-      };
-    }
-
-    loadSnapshotForDataset(datasetA).then((snapshot) => {
-      if (!cancelled) setSnapshotA(snapshot);
-    });
-
-    return () => {
-      cancelled = true;
-    };
-  }, [datasetA]);
-
-  useEffect(() => {
-    let cancelled = false;
-    if (!datasetB) {
-      setSnapshotB(null);
-      return () => {
-        cancelled = true;
-      };
-    }
-
-    loadSnapshotForDataset(datasetB).then((snapshot) => {
-      if (!cancelled) setSnapshotB(snapshot);
-    });
-
-    return () => {
-      cancelled = true;
-    };
-  }, [datasetB]);
 
   const {
     company,
@@ -346,6 +357,57 @@ function ReportsPageContent() {
     window.print();
   };
 
+  const handleRunCompare = () => {
+    const placeholderCohort: CohortSpec = {
+      entityId: "unknown",
+      entityLabel: "",
+      timeframe: { start: new Date().toISOString(), end: new Date().toISOString() },
+    };
+    const datasetForA = datasetA;
+    const datasetForB = compareMode === "TEMPORAL" ? datasetA : datasetB;
+
+    if (!datasetForA || !datasetForB) {
+      setCompareResult({
+        mode: compareMode,
+        cohortA: datasetForA ? buildCohort(datasetForA, compareTimeframeA, datasetALabel).cohort : placeholderCohort,
+        cohortB: datasetForB ? buildCohort(datasetForB, compareTimeframeB, datasetBLabel).cohort : placeholderCohort,
+        summaryA: null,
+        summaryB: null,
+        delta: null,
+        failureModes: [],
+        explainability: { question: "", contractLine: "", methodBullets: [], resultHeadline: "" },
+        warnings: [],
+        errors: ["Select both cohorts before running a comparison."],
+      });
+      return;
+    }
+
+    const timeframeForA = compareTimeframeA;
+    const timeframeForB = compareMode === "ENTITY" ? compareTimeframeA : compareTimeframeB;
+    const cohortAInput = buildCohort(datasetForA, timeframeForA, datasetALabel);
+    const cohortBInput = buildCohort(datasetForB, timeframeForB, datasetBLabel || datasetALabel);
+
+    const velocityTarget =
+      compareMode === "VELOCITY" ? velocityTargetFromGoal(velocityGoal, normalizationBasis) : undefined;
+
+    const result = runComparison({
+      mode: compareMode,
+      cohortA: cohortAInput.cohort,
+      cohortB: cohortBInput.cohort,
+      decisionsA: cohortAInput.decisions,
+      decisionsB: cohortBInput.decisions,
+      velocityTarget,
+    });
+
+    setCompareResult(result);
+  };
+
+  const handleExportCompareJson = () => {
+    if (!compareResult) return;
+    const blob = new Blob([JSON.stringify(compareResult, null, 2)], { type: "application/json" });
+    downloadBlob(blob, `compare-result-${compareMode.toLowerCase()}.json`);
+  };
+
   return (
     <TooltipProvider>
       <div className="dn-reports-root flex flex-col gap-8">
@@ -453,71 +515,440 @@ function ReportsPageContent() {
               learningStats={learningStats}
             />
 
-            {/* System-level compare */}
+            {/* Compare workbench */}
             <section className="no-print mt-10 space-y-4 print:hidden">
-              <div className="grid gap-3 sm:grid-cols-2">
-                <div className="rounded-2xl border bg-card/70 p-4 shadow-sm">
-                  <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">System A</p>
-                  <p className="text-xs text-muted-foreground">
-                    {datasetALabel || "Select a dataset"}
-                  </p>
-                  <div className="mt-2">
-                    <Select value={datasetAId ?? undefined} onValueChange={(value) => setDatasetAId(value as DatasetId)}>
-                      <SelectTrigger className="w-full">
-                        <SelectValue placeholder="Select dataset" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {datasetOptions.map((option) => (
-                          <SelectItem key={option.value} value={option.value}>
-                            {option.label}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
+              <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border bg-card/70 p-4 shadow-sm">
+                <div>
+                  <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Compare Mode</p>
+                  <p className="text-xs text-muted-foreground">ENTITY · TEMPORAL · VELOCITY</p>
                 </div>
-
-                <div className="rounded-2xl border bg-card/70 p-4 shadow-sm">
-                  <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">System B</p>
-                  <p className="text-xs text-muted-foreground">
-                    {hasAtLeastTwoDatasets ? datasetBLabel || "Select a dataset" : "Add another dataset to compare"}
-                  </p>
-                  <div className="mt-2">
-                    <Select
-                      value={datasetBId ?? undefined}
-                      onValueChange={(value) => setDatasetBId(value as DatasetId)}
-                      disabled={!hasAtLeastTwoDatasets}
+                <div className="flex flex-wrap gap-2">
+                  {(["ENTITY", "TEMPORAL", "VELOCITY"] as CompareMode[]).map((mode) => (
+                    <Button
+                      key={mode}
+                      size="sm"
+                      variant={compareMode === mode ? "default" : "outline"}
+                      onClick={() => setCompareMode(mode)}
+                      className="rounded-full"
                     >
-                      <SelectTrigger className="w-full" disabled={!hasAtLeastTwoDatasets}>
-                        <SelectValue
-                          placeholder={hasAtLeastTwoDatasets ? "Select dataset" : "Need at least two datasets"}
-                        />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {datasetOptions.map((option) => (
-                          <SelectItem key={option.value} value={option.value}>
-                            {option.label}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
+                      {mode}
+                    </Button>
+                  ))}
                 </div>
               </div>
 
-              {hasAtLeastTwoDatasets && datasetAId && datasetBId && snapshotA && snapshotB ? (
-                <SystemComparePanel left={snapshotA} right={snapshotB} labelA={datasetALabel} labelB={datasetBLabel} />
-              ) : hasAtLeastTwoDatasets && !datasetBId ? (
-                <div className="rounded-2xl border bg-muted/40 p-4 text-sm text-muted-foreground">
-                  Select a second dataset to compare.
+              {compareMode === "ENTITY" && (
+                <div className="grid gap-3 sm:grid-cols-3">
+                  <div className="rounded-2xl border bg-card/70 p-4 shadow-sm">
+                    <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Entity A</p>
+                    <p className="text-xs text-muted-foreground">{datasetALabel || "Select a dataset"}</p>
+                    <div className="mt-2">
+                      <Select value={datasetAId ?? undefined} onValueChange={(value) => setDatasetAId(value as DatasetId)}>
+                        <SelectTrigger className="w-full">
+                          <SelectValue placeholder="Select dataset" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {datasetOptions.map((option) => (
+                            <SelectItem key={option.value} value={option.value}>
+                              {option.label}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </div>
+
+                  <div className="rounded-2xl border bg-card/70 p-4 shadow-sm">
+                    <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Entity B</p>
+                    <p className="text-xs text-muted-foreground">
+                      {hasAtLeastTwoDatasets ? datasetBLabel || "Select a dataset" : "Add another dataset"}
+                    </p>
+                    <div className="mt-2">
+                      <Select
+                        value={datasetBId ?? undefined}
+                        onValueChange={(value) => setDatasetBId(value as DatasetId)}
+                        disabled={!hasAtLeastTwoDatasets}
+                      >
+                        <SelectTrigger className="w-full" disabled={!hasAtLeastTwoDatasets}>
+                          <SelectValue placeholder={hasAtLeastTwoDatasets ? "Select dataset" : "Need at least two datasets"} />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {datasetOptions.map((option) => (
+                            <SelectItem key={option.value} value={option.value}>
+                              {option.label}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </div>
+
+                  <div className="rounded-2xl border bg-card/70 p-4 shadow-sm">
+                    <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Shared timeframe</p>
+                    <div className="mt-2">
+                      <Select
+                        value={compareTimeframeA}
+                        onValueChange={(value) => {
+                          setCompareTimeframeA(value as TimeframeValue);
+                          setCompareTimeframeB(value as TimeframeValue);
+                        }}
+                      >
+                        <SelectTrigger className="w-full">
+                          <SelectValue placeholder="Select timeframe" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {TIMEFRAMES.map((frame) => (
+                            <SelectItem key={frame.value} value={frame.value}>
+                              {frame.label}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <p className="mt-1 text-[11px] text-muted-foreground">Hard constraint: timeframes must match.</p>
+                  </div>
                 </div>
-              ) : hasAtLeastTwoDatasets ? (
-                <div className="rounded-2xl border bg-muted/40 p-4 text-sm text-muted-foreground">
-                  Unable to load comparison snapshots. Try selecting a different dataset.
+              )}
+
+              {compareMode === "TEMPORAL" && (
+                <div className="grid gap-3 sm:grid-cols-3">
+                  <div className="rounded-2xl border bg-card/70 p-4 shadow-sm">
+                    <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Entity</p>
+                    <p className="text-xs text-muted-foreground">{datasetALabel || "Select a dataset"}</p>
+                    <div className="mt-2">
+                      <Select value={datasetAId ?? undefined} onValueChange={(value) => setDatasetAId(value as DatasetId)}>
+                        <SelectTrigger className="w-full">
+                          <SelectValue placeholder="Select dataset" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {datasetOptions.map((option) => (
+                            <SelectItem key={option.value} value={option.value}>
+                              {option.label}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <p className="mt-1 text-[11px] text-muted-foreground">Same entity, different timeframes only.</p>
+                  </div>
+
+                  <div className="rounded-2xl border bg-card/70 p-4 shadow-sm">
+                    <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Window A</p>
+                    <div className="mt-2">
+                      <Select value={compareTimeframeA} onValueChange={(value) => setCompareTimeframeA(value as TimeframeValue)}>
+                        <SelectTrigger className="w-full">
+                          <SelectValue placeholder="Select timeframe" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {TIMEFRAMES.map((frame) => (
+                            <SelectItem key={frame.value} value={frame.value}>
+                              {frame.label}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </div>
+
+                  <div className="rounded-2xl border bg-card/70 p-4 shadow-sm">
+                    <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Window B</p>
+                    <div className="mt-2">
+                      <Select value={compareTimeframeB} onValueChange={(value) => setCompareTimeframeB(value as TimeframeValue)}>
+                        <SelectTrigger className="w-full">
+                          <SelectValue placeholder="Select timeframe" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {TIMEFRAMES.map((frame) => (
+                            <SelectItem key={frame.value} value={frame.value}>
+                              {frame.label}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {compareMode === "VELOCITY" && (
+                <div className="space-y-3">
+                  <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                    <div className="rounded-2xl border bg-card/70 p-4 shadow-sm">
+                      <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Cohort A</p>
+                      <p className="text-xs text-muted-foreground">{datasetALabel || "Select a dataset"}</p>
+                      <div className="mt-2">
+                        <Select value={datasetAId ?? undefined} onValueChange={(value) => setDatasetAId(value as DatasetId)}>
+                          <SelectTrigger className="w-full">
+                            <SelectValue placeholder="Select dataset" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {datasetOptions.map((option) => (
+                              <SelectItem key={option.value} value={option.value}>
+                                {option.label}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    </div>
+
+                    <div className="rounded-2xl border bg-card/70 p-4 shadow-sm">
+                      <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Cohort B</p>
+                      <p className="text-xs text-muted-foreground">
+                        {hasAtLeastTwoDatasets ? datasetBLabel || "Select a dataset" : "Add another dataset"}
+                      </p>
+                      <div className="mt-2">
+                        <Select
+                          value={datasetBId ?? undefined}
+                          onValueChange={(value) => setDatasetBId(value as DatasetId)}
+                          disabled={!hasAtLeastTwoDatasets}
+                        >
+                          <SelectTrigger className="w-full" disabled={!hasAtLeastTwoDatasets}>
+                            <SelectValue placeholder={hasAtLeastTwoDatasets ? "Select dataset" : "Need at least two datasets"} />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {datasetOptions.map((option) => (
+                              <SelectItem key={option.value} value={option.value}>
+                                {option.label}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    </div>
+
+                    <div className="rounded-2xl border bg-card/70 p-4 shadow-sm">
+                      <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Goal type</p>
+                      <div className="mt-2">
+                        <Select value={velocityGoal} onValueChange={(value) => setVelocityGoal(value as VelocityGoalType)}>
+                          <SelectTrigger className="w-full">
+                            <SelectValue placeholder="Select goal" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="VALUE_CREATION">Value creation</SelectItem>
+                            <SelectItem value="STABILIZATION">Stabilization</SelectItem>
+                            <SelectItem value="ADAPTATION">Adaptation</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      <p className="mt-1 text-[11px] text-muted-foreground">Target metric auto-selected.</p>
+                    </div>
+                  </div>
+
+                  <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                    <div className="rounded-2xl border bg-card/70 p-4 shadow-sm">
+                      <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Timeframe A</p>
+                      <div className="mt-2">
+                        <Select value={compareTimeframeA} onValueChange={(value) => setCompareTimeframeA(value as TimeframeValue)}>
+                          <SelectTrigger className="w-full">
+                            <SelectValue placeholder="Select timeframe" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {TIMEFRAMES.map((frame) => (
+                              <SelectItem key={frame.value} value={frame.value}>
+                                {frame.label}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    </div>
+
+                    <div className="rounded-2xl border bg-card/70 p-4 shadow-sm">
+                      <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Timeframe B</p>
+                      <div className="mt-2">
+                        <Select value={compareTimeframeB} onValueChange={(value) => setCompareTimeframeB(value as TimeframeValue)}>
+                          <SelectTrigger className="w-full">
+                            <SelectValue placeholder="Select timeframe" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {TIMEFRAMES.map((frame) => (
+                              <SelectItem key={frame.value} value={frame.value}>
+                                {frame.label}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      <p className="mt-1 text-[11px] text-muted-foreground">Velocity allows unequal timeframes.</p>
+                    </div>
+
+                    <div className="rounded-2xl border bg-card/70 p-4 shadow-sm">
+                      <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Normalization</p>
+                      <div className="mt-2">
+                        <Select
+                          value={normalizationBasis}
+                          onValueChange={(value) => setNormalizationBasis(value as NormalizationBasis)}
+                        >
+                          <SelectTrigger className="w-full">
+                            <SelectValue placeholder="Select basis" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {(Object.keys(normalizationLabels) as NormalizationBasis[]).map((basis) => (
+                              <SelectItem key={basis} value={basis}>
+                                {normalizationLabels[basis]}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              <div className="flex flex-wrap items-center gap-3">
+                <Button onClick={handleRunCompare} variant="default" size="sm">
+                  Run comparison
+                </Button>
+                <Button onClick={handleExportCompareJson} variant="outline" size="sm" disabled={!compareResult}>
+                  Export Compare JSON
+                </Button>
+              </div>
+
+              {compareResult ? (
+                <div className="space-y-3 rounded-2xl border bg-muted/40 p-4">
+                  {compareResult.errors && compareResult.errors.length > 0 ? (
+                    <div className="rounded-lg border border-destructive/40 bg-destructive/10 p-3 text-sm text-destructive">
+                      <p className="font-semibold">Comparison blocked</p>
+                      <ul className="list-disc space-y-1 pl-4">
+                        {compareResult.errors.map((error) => (
+                          <li key={error}>{error}</li>
+                        ))}
+                      </ul>
+                    </div>
+                  ) : (
+                    <>
+                      <div className="flex flex-col gap-2 rounded-lg border bg-background/60 p-3">
+                        <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                          Layer 1 · Question
+                        </p>
+                        <p className="text-sm">{compareResult.explainability.question}</p>
+                        <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Layer 2 · Contract</p>
+                        <p className="text-sm text-muted-foreground">{compareResult.explainability.contractLine}</p>
+                        <details className="rounded-md border bg-card/50 p-3 text-sm">
+                          <summary className="cursor-pointer font-semibold">Layer 3 · How this is measured</summary>
+                          <ul className="mt-2 list-disc space-y-1 pl-5 text-muted-foreground">
+                            {compareResult.explainability.methodBullets.map((item) => (
+                              <li key={item}>{item}</li>
+                            ))}
+                          </ul>
+                        </details>
+                        <div className="rounded-md bg-primary/10 p-3 text-sm font-semibold text-primary">
+                          Layer 4 · {compareResult.explainability.resultHeadline}
+                        </div>
+                      </div>
+
+                      {compareResult.warnings && compareResult.warnings.length > 0 && (
+                        <div className="rounded-md border border-amber-300/60 bg-amber-100/60 p-3 text-sm text-amber-900">
+                          <p className="font-semibold">Warnings</p>
+                          <ul className="list-disc space-y-1 pl-4">
+                            {compareResult.warnings.map((warning) => (
+                              <li key={warning}>{warning}</li>
+                            ))}
+                          </ul>
+                        </div>
+                      )}
+
+                      {compareResult.summaryA && compareResult.summaryB && (
+                        <div className="grid gap-3 md:grid-cols-2">
+                          <div className="rounded-lg border bg-background/60 p-3">
+                            <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Cohort A</p>
+                            <p className="text-sm">{compareResult.cohortA.entityLabel}</p>
+                            <p className="text-xs text-muted-foreground">
+                              Avg D-NAV {compareResult.summaryA.avgDnav.toFixed(2)} · R {compareResult.summaryA.avgReturn.toFixed(2)} · P {" "}
+                              {compareResult.summaryA.avgPressure.toFixed(2)} · S {compareResult.summaryA.avgStability.toFixed(2)}
+                            </p>
+                          </div>
+                          <div className="rounded-lg border bg-background/60 p-3">
+                            <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Cohort B</p>
+                            <p className="text-sm">{compareResult.cohortB.entityLabel}</p>
+                            <p className="text-xs text-muted-foreground">
+                              Avg D-NAV {compareResult.summaryB.avgDnav.toFixed(2)} · R {compareResult.summaryB.avgReturn.toFixed(2)} · P {" "}
+                              {compareResult.summaryB.avgPressure.toFixed(2)} · S {compareResult.summaryB.avgStability.toFixed(2)}
+                            </p>
+                          </div>
+                          <div className="rounded-lg border bg-background/60 p-3 md:col-span-2">
+                            <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Deltas (A - B)</p>
+                            <p className="text-sm text-muted-foreground">
+                              D-NAV {compareResult.delta.avgDnav.toFixed(2)} · Return {compareResult.delta.avgReturn.toFixed(2)} · Pressure {" "}
+                              {compareResult.delta.avgPressure.toFixed(2)} · Stability {compareResult.delta.avgStability.toFixed(2)}
+                            </p>
+                          </div>
+                        </div>
+                      )}
+
+                      {compareResult.velocity && (
+                        <div className="rounded-lg border bg-background/60 p-3">
+                          <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Velocity</p>
+                          <p className="text-sm font-semibold">{compareResult.velocity.comparisonLine}</p>
+                          <p className="text-xs text-muted-foreground">
+                            Target: {compareResult.velocity.target.metricKey} {compareResult.velocity.target.direction} {compareResult.velocity.target.threshold} ({
+                              normalizationLabels[compareResult.velocity.target.normalization]
+                            })
+                          </p>
+                        </div>
+                      )}
+
+                      {compareResult.decisionTerrain && (
+                        <div className="grid gap-3 md:grid-cols-2">
+                          <div className="rounded-lg border bg-background/60 p-3">
+                            <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Category terrain</p>
+                            <p className="text-sm font-semibold">Top increases in B</p>
+                            <ul className="list-disc space-y-1 pl-5 text-xs text-muted-foreground">
+                              {compareResult.decisionTerrain.topIncreases.map((row) => (
+                                <li key={row.category}>
+                                  {row.category} (+{(row.deltaWeight * 100).toFixed(1)} pp)
+                                </li>
+                              ))}
+                              {compareResult.decisionTerrain.topIncreases.length === 0 && <li>No increases.</li>}
+                            </ul>
+                            <p className="mt-2 text-sm font-semibold">New in B</p>
+                            <p className="text-xs text-muted-foreground">
+                              {compareResult.decisionTerrain.newInB.length > 0
+                                ? compareResult.decisionTerrain.newInB.join(", ")
+                                : "No new categories."}
+                            </p>
+                          </div>
+                          <div className="rounded-lg border bg-background/60 p-3">
+                            <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Category losses</p>
+                            <p className="text-sm font-semibold">Top decreases in B</p>
+                            <ul className="list-disc space-y-1 pl-5 text-xs text-muted-foreground">
+                              {compareResult.decisionTerrain.topDecreases.map((row) => (
+                                <li key={row.category}>
+                                  {row.category} ({(row.deltaWeight * 100).toFixed(1)} pp)
+                                </li>
+                              ))}
+                              {compareResult.decisionTerrain.topDecreases.length === 0 && <li>No decreases.</li>}
+                            </ul>
+                            <p className="mt-2 text-sm font-semibold">Missing in B</p>
+                            <p className="text-xs text-muted-foreground">
+                              {compareResult.decisionTerrain.missingInB.length > 0
+                                ? compareResult.decisionTerrain.missingInB.join(", ")
+                                : "No missing categories."}
+                            </p>
+                          </div>
+                        </div>
+                      )}
+
+                      {compareResult.failureModes.length > 0 && (
+                        <div className="rounded-lg border bg-background/60 p-3">
+                          <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Failure modes</p>
+                          <ul className="mt-1 space-y-1 text-sm text-muted-foreground">
+                            {compareResult.failureModes.map((mode) => (
+                              <li key={mode.code}>
+                                <span className="font-semibold">{mode.title}:</span> {mode.reason}
+                              </li>
+                            ))}
+                          </ul>
+                        </div>
+                      )}
+                    </>
+                  )}
                 </div>
               ) : (
                 <div className="rounded-2xl border bg-muted/40 p-4 text-sm text-muted-foreground">
-                  Add at least two datasets to run a comparison.
+                  Configure cohorts and run a comparison to see explainability layers.
                 </div>
               )}
             </section>
