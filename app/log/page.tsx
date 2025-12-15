@@ -708,7 +708,7 @@ export default function LogPage() {
             disabled={datasets.length <= 1}
             onClick={handleDeleteDataset}
           >
-            Delete dataset
+            Remove dataset
           </Button>
         </div>
         {loadError ? (
