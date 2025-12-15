@@ -35,8 +35,13 @@ import {
 } from "@/hooks/useReportsData";
 import { type DecisionEntry } from "@/lib/storage";
 import { cn } from "@/lib/utils";
-import { runEntityCompare } from "@/lib/compare/engine";
-import { type CohortSummary } from "@/lib/compare/types";
+import { buildCohortSummary, runCompare } from "@/lib/compare/engine";
+import {
+  type CohortSummary,
+  type CompareMode,
+  type NormalizationBasis,
+  type VelocityGoalTarget,
+} from "@/lib/compare/types";
 import { filterDecisionsByTimeframe } from "@/utils/judgmentDashboard";
 import { FileDown } from "lucide-react";
 import * as XLSX from "xlsx";
@@ -135,8 +140,13 @@ function ReportsPageContent() {
   const [datasetBId, setDatasetBId] = useState<DatasetId | null>(defaultDatasetBId);
   const [cohortA, setCohortA] = useState<CohortSummary | null>(null);
   const [cohortB, setCohortB] = useState<CohortSummary | null>(null);
+  const [cohortADecisions, setCohortADecisions] = useState<DecisionEntry[]>([]);
+  const [cohortBDecisions, setCohortBDecisions] = useState<DecisionEntry[]>([]);
   const [compareTimeframe, setCompareTimeframe] = useState<TimeframeValue>(resolvedTimeframe);
   const [isCompareLoading, setIsCompareLoading] = useState(false);
+  const [compareMode, setCompareMode] = useState<CompareMode>("system");
+  const [velocityTarget, setVelocityTarget] = useState<VelocityGoalTarget>("PRESSURE_STABILIZE");
+  const [normalizationBasis, setNormalizationBasis] = useState<NormalizationBasis>("shared_timeframe");
   const { isLoggedIn, openLogin } = useNetlifyIdentity();
 
   const datasetOptions = useMemo(
@@ -204,24 +214,28 @@ function ReportsPageContent() {
         label: datasetALabel || "System A",
         timeframeDays,
         timeframeLabel,
+        normalizationBasis,
       }),
       buildCohortSummaryFromDataset({
         dataset: datasetB,
         label: datasetBLabel || "System B",
         timeframeDays,
         timeframeLabel,
+        normalizationBasis,
       }),
     ]).then(([summaryA, summaryB]) => {
       if (cancelled) return;
-      setCohortA(summaryA);
-      setCohortB(summaryB);
+      setCohortA(summaryA?.summary ?? null);
+      setCohortB(summaryB?.summary ?? null);
+      setCohortADecisions(summaryA?.decisions ?? []);
+      setCohortBDecisions(summaryB?.decisions ?? []);
       setIsCompareLoading(false);
     });
 
     return () => {
       cancelled = true;
     };
-  }, [compareTimeframe, datasetA, datasetALabel, datasetB, datasetBLabel]);
+  }, [compareTimeframe, datasetA, datasetALabel, datasetB, datasetBLabel, normalizationBasis]);
 
   const {
     company,
@@ -310,8 +324,27 @@ function ReportsPageContent() {
   );
 
   const compareResult = useMemo(
-    () => (cohortA && cohortB ? runEntityCompare({ cohortA, cohortB }) : null),
-    [cohortA, cohortB],
+    () =>
+      cohortA && cohortB
+        ? runCompare({
+            mode: compareMode,
+            normalizationBasis,
+            velocityTarget,
+            cohortA,
+            cohortB,
+            decisionsA: cohortADecisions,
+            decisionsB: cohortBDecisions,
+          })
+        : null,
+    [
+      cohortA,
+      cohortB,
+      cohortADecisions,
+      cohortBDecisions,
+      compareMode,
+      normalizationBasis,
+      velocityTarget,
+    ],
   );
 
   const handleUpdateTimeframe = (value: TimeframeValue) => {
@@ -349,6 +382,13 @@ function ReportsPageContent() {
       type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
     });
     const filename = `dnav-decision-log-${slugify(timeframeConfig.label)}.xlsx`;
+    downloadBlob(blob, filename);
+  };
+
+  const handleExportCompare = (result: unknown) => {
+    if (!result) return;
+    const blob = new Blob([JSON.stringify(result, null, 2)], { type: "application/json" });
+    const filename = `dnav-compare-${slugify(timeframeConfig.label)}.json`;
     downloadBlob(blob, filename);
   };
 
@@ -471,53 +511,94 @@ function ReportsPageContent() {
 
             {/* System-level compare */}
             <section className="no-print mt-10 space-y-4 print:hidden">
-              <div className="grid gap-3 sm:grid-cols-2">
-                <div className="rounded-2xl border bg-card/70 p-4 shadow-sm">
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <div className="space-y-1">
+                  <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Compare</p>
+                  <p className="text-xs text-muted-foreground">Decide what to compare and how to measure speed.</p>
+                </div>
+                {compareResult && (
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => handleExportCompare(compareResult)}
+                    disabled={!compareResult}
+                  >
+                    Export Compare JSON
+                  </Button>
+                )}
+              </div>
+
+              <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+                <div className="rounded-2xl border bg-card/70 p-4 shadow-sm space-y-2">
                   <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">System A</p>
-                  <p className="text-xs text-muted-foreground">
-                    {datasetALabel || "Select a dataset"}
-                  </p>
-                  <div className="mt-2">
-                    <Select value={datasetAId ?? undefined} onValueChange={(value) => setDatasetAId(value as DatasetId)}>
-                      <SelectTrigger className="w-full">
-                        <SelectValue placeholder="Select dataset" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {datasetOptions.map((option) => (
-                          <SelectItem key={option.value} value={option.value}>
-                            {option.label}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
+                  <p className="text-xs text-muted-foreground">{datasetALabel || "Select a dataset"}</p>
+                  <Select value={datasetAId ?? undefined} onValueChange={(value) => setDatasetAId(value as DatasetId)}>
+                    <SelectTrigger className="w-full">
+                      <SelectValue placeholder="Select dataset" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {datasetOptions.map((option) => (
+                        <SelectItem key={option.value} value={option.value}>
+                          {option.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                 </div>
 
-                <div className="rounded-2xl border bg-card/70 p-4 shadow-sm">
+                <div className="rounded-2xl border bg-card/70 p-4 shadow-sm space-y-2">
                   <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">System B</p>
                   <p className="text-xs text-muted-foreground">
                     {hasAtLeastTwoDatasets ? datasetBLabel || "Select a dataset" : "Add another dataset to compare"}
                   </p>
-                  <div className="mt-2">
-                    <Select
-                      value={datasetBId ?? undefined}
-                      onValueChange={(value) => setDatasetBId(value as DatasetId)}
-                      disabled={!hasAtLeastTwoDatasets}
-                    >
-                      <SelectTrigger className="w-full" disabled={!hasAtLeastTwoDatasets}>
-                        <SelectValue
-                          placeholder={hasAtLeastTwoDatasets ? "Select dataset" : "Need at least two datasets"}
-                        />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {datasetOptions.map((option) => (
-                          <SelectItem key={option.value} value={option.value}>
-                            {option.label}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
+                  <Select
+                    value={datasetBId ?? undefined}
+                    onValueChange={(value) => setDatasetBId(value as DatasetId)}
+                    disabled={!hasAtLeastTwoDatasets}
+                  >
+                    <SelectTrigger className="w-full" disabled={!hasAtLeastTwoDatasets}>
+                      <SelectValue placeholder={hasAtLeastTwoDatasets ? "Select dataset" : "Need at least two datasets"} />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {datasetOptions.map((option) => (
+                        <SelectItem key={option.value} value={option.value}>
+                          {option.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div className="rounded-2xl border bg-card/70 p-4 shadow-sm space-y-2">
+                  <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Compare mode</p>
+                  <Select value={compareMode} onValueChange={(value) => setCompareMode(value as CompareMode)}>
+                    <SelectTrigger className="w-full">
+                      <SelectValue placeholder="Select mode" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="system">System</SelectItem>
+                      <SelectItem value="category">Category</SelectItem>
+                      <SelectItem value="failure_mode">Failure mode</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  <p className="text-[11px] text-muted-foreground">Normalization: {normalizationBasis.replace("_", " ")}</p>
+                </div>
+
+                <div className="rounded-2xl border bg-card/70 p-4 shadow-sm space-y-2">
+                  <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Speed of what?</p>
+                  <Select value={velocityTarget} onValueChange={(value) => setVelocityTarget(value as VelocityGoalTarget)}>
+                    <SelectTrigger className="w-full">
+                      <SelectValue placeholder="Select target" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="PRESSURE_STABILIZE">Pressure stabilizes</SelectItem>
+                      <SelectItem value="RETURN_STABILIZE">Return stabilizes</SelectItem>
+                      <SelectItem value="STABILITY_RISE">Stability rise</SelectItem>
+                      <SelectItem value="RETURN_RISE">Return rise</SelectItem>
+                      <SelectItem value="PRESSURE_DROP">Pressure relief</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  <p className="text-[11px] text-muted-foreground">Layered explainability ready for export.</p>
                 </div>
               </div>
 
@@ -537,6 +618,18 @@ function ReportsPageContent() {
                       {label}
                     </Button>
                   ))}
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="text-xs"
+                    onClick={() =>
+                      setNormalizationBasis((prev) =>
+                        prev === "shared_timeframe" ? "normalized_windows" : "shared_timeframe",
+                      )
+                    }
+                  >
+                    {normalizationBasis === "shared_timeframe" ? "Use normalized windows" : "Use shared timeframe"}
+                  </Button>
                 </div>
               )}
 
@@ -609,36 +702,25 @@ async function buildCohortSummaryFromDataset({
   label,
   timeframeDays,
   timeframeLabel,
+  normalizationBasis,
 }: {
   dataset: DatasetState | null;
   label: string;
   timeframeDays: number | null;
   timeframeLabel: string;
-}): Promise<CohortSummary | null> {
+  normalizationBasis: NormalizationBasis;
+}): Promise<{ summary: CohortSummary; decisions: DecisionEntry[] } | null> {
   if (!dataset) return null;
   const decisions = await loadDecisionsForDataset(dataset);
   const filtered = filterDecisionsByTimeframe(decisions, timeframeDays);
   if (filtered.length === 0) return null;
 
-  const totals = filtered.reduce(
-    (acc, decision) => {
-      acc.returnTotal += decision.return;
-      acc.pressureTotal += decision.pressure;
-      acc.stabilityTotal += decision.stability;
-      return acc;
-    },
-    { returnTotal: 0, pressureTotal: 0, stabilityTotal: 0 },
-  );
+  const summary = buildCohortSummary({
+    decisions: filtered,
+    request: { label, timeframeLabel, normalizationBasis },
+  });
 
-  const count = filtered.length || 1;
-
-  return {
-    label,
-    timeframeLabel,
-    avgReturn: totals.returnTotal / count,
-    avgPressure: totals.pressureTotal / count,
-    avgStability: totals.stabilityTotal / count,
-  };
+  return { summary, decisions: filtered };
 }
 
 type LearningStats = {
