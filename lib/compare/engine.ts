@@ -5,7 +5,6 @@ import type {
   CompareMode,
   CompareResult,
   ExplainabilityLayers,
-  FailureMode,
   NormalizationBasis,
   VelocityGoalTarget,
   VelocityResult,
@@ -15,18 +14,14 @@ import type {
 const DEFAULT_THRESHOLDS: VelocityThresholds = {
   pressureStabilize: 1,
   stabilityFloor: 0,
-  returnFloor: 0,
+  stabilityBand: 0.5,
   returnLift: 1,
-  returnStabilizeBand: 0.5,
-  pressureDrop: -1,
 };
 
 const VELOCITY_LABELS: Record<VelocityGoalTarget, string> = {
-  PRESSURE_DROP: "Pressure relief",
   PRESSURE_STABILIZE: "Pressure stabilizes",
   RETURN_RISE: "Return rises",
-  RETURN_STABILIZE: "Return stabilizes",
-  STABILITY_RISE: "Stability rises",
+  STABILITY_STABILIZE: "Stability stabilizes",
 };
 
 type BuildCohortSummaryInput = {
@@ -37,14 +32,13 @@ type BuildCohortSummaryInput = {
 type VelocityCheckFn = (window: DecisionEntry[], thresholds: VelocityThresholds) => boolean;
 
 const VELOCITY_TARGET_CHECKS: Record<VelocityGoalTarget, VelocityCheckFn> = {
-  PRESSURE_DROP: (window, thresholds) => average(window, "pressure") <= thresholds.pressureDrop,
   PRESSURE_STABILIZE: (window, thresholds) =>
     Math.abs(average(window, "pressure")) <= thresholds.pressureStabilize &&
     average(window, "stability") >= thresholds.stabilityFloor,
   RETURN_RISE: (window, thresholds) => average(window, "return") >= thresholds.returnLift,
-  RETURN_STABILIZE: (window, thresholds) =>
-    Math.abs(average(window, "return")) <= thresholds.returnStabilizeBand,
-  STABILITY_RISE: (window, thresholds) => average(window, "stability") >= thresholds.stabilityFloor + 1,
+  STABILITY_STABILIZE: (window, thresholds) =>
+    Math.abs(average(window, "stability")) <= thresholds.stabilityBand &&
+    average(window, "stability") >= thresholds.stabilityFloor,
 };
 
 export function buildCohortSummary({ decisions, request }: BuildCohortSummaryInput): CohortSummary {
@@ -157,48 +151,82 @@ export function runCompare({
   decisionsB,
   windowSize,
   thresholds,
+  warnings,
 }: {
   mode: CompareMode;
   normalizationBasis: NormalizationBasis;
-  velocityTarget: VelocityGoalTarget;
+  velocityTarget?: VelocityGoalTarget;
   cohortA: CohortSummary;
   cohortB: CohortSummary;
   decisionsA: DecisionEntry[];
   decisionsB: DecisionEntry[];
   windowSize?: number;
   thresholds?: Partial<VelocityThresholds>;
+  warnings?: string[];
 }): CompareResult {
   const returnDelta = cohortB.avgReturn - cohortA.avgReturn;
   const pressureDelta = cohortB.avgPressure - cohortA.avgPressure;
   const stabilityDelta = cohortB.avgStability - cohortA.avgStability;
 
-  const velocityA = computeVelocity(decisionsA, velocityTarget, {
-    windowSize,
-    thresholds,
-    normalizationBasis,
-  });
-  const velocityB = computeVelocity(decisionsB, velocityTarget, {
-    windowSize,
-    thresholds,
-    normalizationBasis,
-  });
+  const hasVelocity = mode === "velocity" && velocityTarget;
 
-  const punchline = buildVelocityPunchline(cohortA.label, cohortB.label, velocityA, velocityB);
+  const velocityA = hasVelocity
+    ? computeVelocity(decisionsA, velocityTarget, {
+        windowSize,
+        thresholds,
+        normalizationBasis,
+      })
+    : null;
+  const velocityB = hasVelocity
+    ? computeVelocity(decisionsB, velocityTarget, {
+        windowSize,
+        thresholds,
+        normalizationBasis,
+      })
+    : null;
+
+  const punchline =
+    hasVelocity && velocityA && velocityB
+      ? buildVelocityPunchline(cohortA.label, cohortB.label, velocityA, velocityB)
+      : buildPosture({
+          mode,
+          cohortA,
+          cohortB,
+          deltas: { returnDelta, pressureDelta, stabilityDelta },
+        });
 
   const explainability = buildExplainabilitySkeleton({
     decisions: [...decisionsA, ...decisionsB],
     windowSize: windowSize ?? 5,
     thresholds: { ...DEFAULT_THRESHOLDS, ...(thresholds ?? {}) },
-    targetLabel: VELOCITY_LABELS[velocityTarget],
+    targetLabel: hasVelocity && velocityTarget ? VELOCITY_LABELS[velocityTarget] : "Compare",
     normalizationBasis,
   });
 
-  const failureModes = buildFailureModes();
+  const posture = buildPosture({
+    mode,
+    cohortA,
+    cohortB,
+    deltas: { returnDelta, pressureDelta, stabilityDelta },
+  });
+
+  const developerDetails: ExplainabilityLayers = hasVelocity && velocityA && velocityB
+    ? {
+        ...explainability,
+        layer3Intermediates: {
+          cohortA: velocityA.explainability.layer3Intermediates,
+          cohortB: velocityB.explainability.layer3Intermediates,
+        },
+        layer4Punchline: punchline,
+      }
+    : {
+        ...explainability,
+        layer3Intermediates: { deltas: { returnDelta, pressureDelta, stabilityDelta } },
+        layer4Punchline: punchline,
+      };
 
   return {
     mode,
-    velocityTarget,
-    normalizationBasis,
     cohortA,
     cohortB,
     deltas: {
@@ -206,20 +234,20 @@ export function runCompare({
       pressureDelta,
       stabilityDelta,
     },
-    velocity: {
-      a: velocityA,
-      b: velocityB,
-      punchline,
-    },
-    failureModes,
-    explainability: {
-      ...explainability,
-      layer3Intermediates: {
-        cohortA: velocityA.explainability.layer3Intermediates,
-        cohortB: velocityB.explainability.layer3Intermediates,
-      },
-      layer4Punchline: punchline,
-    },
+    narrative: posture,
+    modeSummary: getModeSummary(mode),
+    velocity:
+      hasVelocity && velocityA && velocityB && velocityTarget
+        ? {
+            target: velocityTarget,
+            targetLabel: VELOCITY_LABELS[velocityTarget],
+            a: velocityA,
+            b: velocityB,
+            punchline,
+          }
+        : undefined,
+    developerDetails,
+    warnings,
   };
 }
 
@@ -293,25 +321,31 @@ function summarizeTimespan(decisions: DecisionEntry[]) {
   return { start: sorted[0].ts, end: sorted[sorted.length - 1].ts };
 }
 
-function buildFailureModes(): FailureMode[] {
-  return [
-    {
-      key: "slow_stabilization",
-      label: "Slow stabilization",
-      description: "Cohort took significantly more decisions to reach a steady state.",
-      floor: 15,
-    },
-    {
-      key: "pressure_drag",
-      label: "Pressure drag",
-      description: "High sustained pressure prevented stabilization.",
-      floor: 1,
-    },
-    {
-      key: "return_volatility",
-      label: "Volatile return",
-      description: "Return swings kept the system from settling.",
-      floor: 0,
-    },
-  ];
+function buildPosture({
+  mode,
+  cohortA,
+  cohortB,
+  deltas,
+}: {
+  mode: CompareMode;
+  cohortA: CohortSummary;
+  cohortB: CohortSummary;
+  deltas: { returnDelta: number; pressureDelta: number; stabilityDelta: number };
+}): string {
+  const leader = deltas.returnDelta >= 0 ? cohortB : cohortA;
+  const trailer = leader === cohortA ? cohortB : cohortA;
+  const leaderLabel = leader.label;
+
+  const returnText = `${leaderLabel} shows stronger return (${leader.avgReturn.toFixed(1)} vs ${trailer.avgReturn.toFixed(1)})`;
+  const pressureText = `${leader.avgPressure.toFixed(1)} pressure vs ${trailer.avgPressure.toFixed(1)}`;
+  const stabilityText = `${leader.avgStability.toFixed(1)} stability vs ${trailer.avgStability.toFixed(1)}`;
+
+  const modeLabel = getModeSummary(mode);
+  return `${modeLabel} ${returnText}; ${pressureText}; ${stabilityText}.`;
+}
+
+function getModeSummary(mode: CompareMode): string {
+  if (mode === "temporal") return "Temporal: Compare the same system across equal windows.";
+  if (mode === "velocity") return "Velocity: Compare how quickly each system reaches a target state.";
+  return "Entity: Compare two systems over the same timeframe.";
 }

@@ -1,7 +1,7 @@
 "use client";
 export const dynamic = "force-dynamic";
 
-import { Suspense, useEffect, useMemo, useState } from "react";
+import { Suspense, useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 
 import DatasetSelect from "@/components/DatasetSelect";
@@ -39,6 +39,7 @@ import { buildCohortSummary, runCompare } from "@/lib/compare/engine";
 import {
   type CohortSummary,
   type CompareMode,
+  type CompareResult,
   type NormalizationBasis,
   type VelocityGoalTarget,
 } from "@/lib/compare/types";
@@ -120,6 +121,39 @@ const createCsvContent = (decisions: DecisionEntry[]) => {
   return [headers.map(serialize).join(","), ...rows.map((row) => row.map(serialize).join(","))].join("\n");
 };
 
+const resolveTimeframeLabel = (value: TimeframeValue) =>
+  TIMEFRAMES.find((timeframe) => timeframe.value === value)?.label ?? "All Time";
+
+const normalizePeriods = (
+  periodADays: number | null,
+  periodBDays: number | null,
+): { normalizedDays: number | null; warning: string | null } => {
+  if (periodADays === periodBDays) {
+    return { normalizedDays: periodADays, warning: null };
+  }
+
+  if (periodADays === null && periodBDays === null) {
+    return { normalizedDays: null, warning: null };
+  }
+
+  if (periodADays === null) {
+    return {
+      normalizedDays: periodBDays,
+      warning: "Period A uses all time; trimming to match Period B window.",
+    };
+  }
+
+  if (periodBDays === null) {
+    return {
+      normalizedDays: periodADays,
+      warning: "Period B uses all time; trimming to match Period A window.",
+    };
+  }
+
+  const normalizedDays = Math.min(periodADays, periodBDays);
+  return { normalizedDays, warning: `Normalized both periods to ${normalizedDays} days for strict comparison.` };
+};
+
 function ReportsPageContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -138,15 +172,16 @@ function ReportsPageContent() {
   const [selectedTimeframe, setSelectedTimeframe] = useState<TimeframeValue>(resolvedTimeframe);
   const [datasetAId, setDatasetAId] = useState<DatasetId | null>(defaultDatasetAId);
   const [datasetBId, setDatasetBId] = useState<DatasetId | null>(defaultDatasetBId);
-  const [cohortA, setCohortA] = useState<CohortSummary | null>(null);
-  const [cohortB, setCohortB] = useState<CohortSummary | null>(null);
-  const [cohortADecisions, setCohortADecisions] = useState<DecisionEntry[]>([]);
-  const [cohortBDecisions, setCohortBDecisions] = useState<DecisionEntry[]>([]);
+  const [temporalDatasetId, setTemporalDatasetId] = useState<DatasetId | null>(defaultDatasetAId);
   const [compareTimeframe, setCompareTimeframe] = useState<TimeframeValue>(resolvedTimeframe);
+  const [temporalPeriodA, setTemporalPeriodA] = useState<TimeframeValue>("30");
+  const [temporalPeriodB, setTemporalPeriodB] = useState<TimeframeValue>("90");
+  const [velocityTimeframe, setVelocityTimeframe] = useState<TimeframeValue>(resolvedTimeframe);
   const [isCompareLoading, setIsCompareLoading] = useState(false);
-  const [compareMode, setCompareMode] = useState<CompareMode>("system");
+  const [compareMode, setCompareMode] = useState<CompareMode>("entity");
   const [velocityTarget, setVelocityTarget] = useState<VelocityGoalTarget>("PRESSURE_STABILIZE");
-  const [normalizationBasis, setNormalizationBasis] = useState<NormalizationBasis>("shared_timeframe");
+  const [compareResult, setCompareResult] = useState<CompareResult | null>(null);
+  const [compareWarning, setCompareWarning] = useState<string | null>(null);
   const { isLoggedIn, openLogin } = useNetlifyIdentity();
 
   const datasetOptions = useMemo(
@@ -161,13 +196,16 @@ function ReportsPageContent() {
     datasetOptions,
   ]);
 
-  const resolveDatasetLabel = (id: DatasetId | null) => {
-    if (!id) return "";
-    const mapped = datasetLabelMap.get(id);
-    if (mapped) return mapped;
-    const index = datasets.findIndex((dataset) => dataset.id === id);
-    return index >= 0 ? datasets[index]?.label ?? "" : "";
-  };
+  const resolveDatasetLabel = useCallback(
+    (id: DatasetId | null) => {
+      if (!id) return "";
+      const mapped = datasetLabelMap.get(id);
+      if (mapped) return mapped;
+      const index = datasets.findIndex((dataset) => dataset.id === id);
+      return index >= 0 ? datasets[index]?.label ?? "" : "";
+    },
+    [datasetLabelMap, datasets],
+  );
 
   const datasetALabel = resolveDatasetLabel(datasetAId);
   const datasetBLabel = resolveDatasetLabel(datasetBId);
@@ -178,6 +216,7 @@ function ReportsPageContent() {
 
   useEffect(() => {
     setDatasetAId(datasetId ?? defaultDatasetAId);
+    setTemporalDatasetId((current) => current ?? datasetId ?? defaultDatasetAId);
   }, [datasetId, defaultDatasetAId]);
 
   useEffect(() => {
@@ -187,55 +226,196 @@ function ReportsPageContent() {
     if (datasetBId && !datasets.some((dataset) => dataset.id === datasetBId)) {
       setDatasetBId(datasets.at(1)?.id ?? null);
     }
-  }, [datasetAId, datasetBId, datasets]);
+    if (temporalDatasetId && !datasets.some((dataset) => dataset.id === temporalDatasetId)) {
+      setTemporalDatasetId(datasets[0]?.id ?? null);
+    }
+  }, [datasetAId, datasetBId, datasets, temporalDatasetId]);
 
   const datasetA = useMemo(() => getDatasetById(datasetAId) ?? null, [datasetAId, getDatasetById]);
   const datasetB = useMemo(() => getDatasetById(datasetBId) ?? null, [datasetBId, getDatasetById]);
+  const temporalDataset = useMemo(
+    () => getDatasetById(temporalDatasetId) ?? null,
+    [getDatasetById, temporalDatasetId],
+  );
 
   useEffect(() => {
     let cancelled = false;
-    const timeframeDays = mapTimeframeToDays(compareTimeframe);
-    const timeframeLabel = TIMEFRAMES.find((timeframe) => timeframe.value === compareTimeframe)?.label ?? "All Time";
-
-    if (!datasetA && !datasetB) {
-      setCohortA(null);
-      setCohortB(null);
-      setIsCompareLoading(false);
-      return () => {
-        cancelled = true;
-      };
-    }
-
+    setCompareResult(null);
+    setCompareWarning(null);
     setIsCompareLoading(true);
 
-    Promise.all([
-      buildCohortSummaryFromDataset({
-        dataset: datasetA,
-        label: datasetALabel || "System A",
-        timeframeDays,
-        timeframeLabel,
-        normalizationBasis,
-      }),
-      buildCohortSummaryFromDataset({
-        dataset: datasetB,
-        label: datasetBLabel || "System B",
-        timeframeDays,
-        timeframeLabel,
-        normalizationBasis,
-      }),
-    ]).then(([summaryA, summaryB]) => {
-      if (cancelled) return;
-      setCohortA(summaryA?.summary ?? null);
-      setCohortB(summaryB?.summary ?? null);
-      setCohortADecisions(summaryA?.decisions ?? []);
-      setCohortBDecisions(summaryB?.decisions ?? []);
-      setIsCompareLoading(false);
-    });
+    const basisForMode: NormalizationBasis = compareMode === "temporal" ? "normalized_windows" : "shared_timeframe";
+
+    const build = async () => {
+      if (compareMode === "entity") {
+        if (!datasetA || !datasetB) {
+          if (!hasAtLeastTwoDatasets) setCompareWarning("Add at least two datasets to compare.");
+          setIsCompareLoading(false);
+          return;
+        }
+
+        const timeframeDays = mapTimeframeToDays(compareTimeframe);
+        const timeframeLabel = resolveTimeframeLabel(compareTimeframe);
+        const [summaryA, summaryB] = await Promise.all([
+          buildCohortSummaryFromDataset({
+            dataset: datasetA,
+            label: datasetALabel || "System A",
+            timeframeDays,
+            timeframeLabel,
+            normalizationBasis: basisForMode,
+          }),
+          buildCohortSummaryFromDataset({
+            dataset: datasetB,
+            label: datasetBLabel || "System B",
+            timeframeDays,
+            timeframeLabel,
+            normalizationBasis: basisForMode,
+          }),
+        ]);
+
+        if (cancelled) return;
+        if (!summaryA || !summaryB) {
+          setIsCompareLoading(false);
+          return;
+        }
+
+        const result = runCompare({
+          mode: "entity",
+          normalizationBasis: basisForMode,
+          cohortA: summaryA.summary,
+          cohortB: summaryB.summary,
+          decisionsA: summaryA.decisions,
+          decisionsB: summaryB.decisions,
+        });
+
+        setCompareResult(result);
+        setIsCompareLoading(false);
+        return;
+      }
+
+      if (compareMode === "temporal") {
+        if (!temporalDataset) {
+          setIsCompareLoading(false);
+          return;
+        }
+
+        const daysA = mapTimeframeToDays(temporalPeriodA);
+        const daysB = mapTimeframeToDays(temporalPeriodB);
+        const { normalizedDays, warning } = normalizePeriods(daysA, daysB);
+        if (warning) setCompareWarning(warning);
+
+        const timeframeLabelA = resolveTimeframeLabel(temporalPeriodA);
+        const timeframeLabelB = resolveTimeframeLabel(temporalPeriodB);
+        const normalizedBasis: NormalizationBasis =
+          normalizedDays === daysA && normalizedDays === daysB ? "shared_timeframe" : "normalized_windows";
+
+        const [periodASummary, periodBSummary] = await Promise.all([
+          buildCohortSummaryFromDataset({
+            dataset: temporalDataset,
+            label: `${resolveDatasetLabel(temporalDatasetId)} · Period A`,
+            timeframeDays: normalizedDays ?? daysA,
+            timeframeLabel: timeframeLabelA,
+            normalizationBasis: normalizedBasis,
+            normalizeToDays: normalizedDays,
+          }),
+          buildCohortSummaryFromDataset({
+            dataset: temporalDataset,
+            label: `${resolveDatasetLabel(temporalDatasetId)} · Period B`,
+            timeframeDays: normalizedDays ?? daysB,
+            timeframeLabel: timeframeLabelB,
+            normalizationBasis: normalizedBasis,
+            normalizeToDays: normalizedDays,
+          }),
+        ]);
+
+        if (cancelled) return;
+        if (!periodASummary || !periodBSummary) {
+          setIsCompareLoading(false);
+          return;
+        }
+
+        const result = runCompare({
+          mode: "temporal",
+          normalizationBasis: normalizedBasis,
+          cohortA: periodASummary.summary,
+          cohortB: periodBSummary.summary,
+          decisionsA: periodASummary.decisions,
+          decisionsB: periodBSummary.decisions,
+          warnings: warning ? [warning] : undefined,
+        });
+
+        setCompareResult(result);
+        setIsCompareLoading(false);
+        return;
+      }
+
+      if (compareMode === "velocity") {
+        if (!datasetA || !datasetB) {
+          setIsCompareLoading(false);
+          return;
+        }
+
+        const timeframeDays = mapTimeframeToDays(velocityTimeframe);
+        const timeframeLabel = resolveTimeframeLabel(velocityTimeframe);
+        const [summaryA, summaryB] = await Promise.all([
+          buildCohortSummaryFromDataset({
+            dataset: datasetA,
+            label: datasetALabel || "System A",
+            timeframeDays,
+            timeframeLabel,
+            normalizationBasis: basisForMode,
+          }),
+          buildCohortSummaryFromDataset({
+            dataset: datasetB,
+            label: datasetBLabel || "System B",
+            timeframeDays,
+            timeframeLabel,
+            normalizationBasis: basisForMode,
+          }),
+        ]);
+
+        if (cancelled) return;
+        if (!summaryA || !summaryB) {
+          setIsCompareLoading(false);
+          return;
+        }
+
+        const result = runCompare({
+          mode: "velocity",
+          normalizationBasis: basisForMode,
+          velocityTarget,
+          cohortA: summaryA.summary,
+          cohortB: summaryB.summary,
+          decisionsA: summaryA.decisions,
+          decisionsB: summaryB.decisions,
+        });
+
+        setCompareResult(result);
+        setIsCompareLoading(false);
+      }
+    };
+
+    build();
 
     return () => {
       cancelled = true;
     };
-  }, [compareTimeframe, datasetA, datasetALabel, datasetB, datasetBLabel, normalizationBasis]);
+  }, [
+    compareMode,
+    compareTimeframe,
+    datasetA,
+    datasetALabel,
+    datasetB,
+    datasetBLabel,
+    hasAtLeastTwoDatasets,
+    temporalDataset,
+    temporalDatasetId,
+    temporalPeriodA,
+    temporalPeriodB,
+    resolveDatasetLabel,
+    velocityTarget,
+    velocityTimeframe,
+  ]);
 
   const {
     company,
@@ -321,30 +501,6 @@ function ReportsPageContent() {
   const sortedArchetypes = useMemo(
     () => [...archetypeProfile].sort((a, b) => b.count - a.count),
     [archetypeProfile],
-  );
-
-  const compareResult = useMemo(
-    () =>
-      cohortA && cohortB
-        ? runCompare({
-            mode: compareMode,
-            normalizationBasis,
-            velocityTarget,
-            cohortA,
-            cohortB,
-            decisionsA: cohortADecisions,
-            decisionsB: cohortBDecisions,
-          })
-        : null,
-    [
-      cohortA,
-      cohortB,
-      cohortADecisions,
-      cohortBDecisions,
-      compareMode,
-      normalizationBasis,
-      velocityTarget,
-    ],
   );
 
   const handleUpdateTimeframe = (value: TimeframeValue) => {
@@ -514,95 +670,134 @@ function ReportsPageContent() {
               <div className="flex flex-wrap items-center justify-between gap-3">
                 <div className="space-y-1">
                   <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Compare</p>
-                  <p className="text-xs text-muted-foreground">Decide what to compare and how to measure speed.</p>
+                  <p className="text-xs text-muted-foreground">
+                    {compareResult?.modeSummary ?? "Choose a mode to compare systems."}
+                  </p>
                 </div>
                 {compareResult && (
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    onClick={() => handleExportCompare(compareResult)}
-                    disabled={!compareResult}
-                  >
-                    Export Compare JSON
-                  </Button>
+                  <div className="flex items-center gap-2">
+                    {compareWarning && <Badge variant="outline">Normalized</Badge>}
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => handleExportCompare(compareResult)}
+                      disabled={!compareResult}
+                    >
+                      Export Compare JSON
+                    </Button>
+                  </div>
                 )}
               </div>
 
-              <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+              <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-4">
                 <div className="rounded-2xl border bg-card/70 p-4 shadow-sm space-y-2">
-                  <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">System A</p>
-                  <p className="text-xs text-muted-foreground">{datasetALabel || "Select a dataset"}</p>
-                  <Select value={datasetAId ?? undefined} onValueChange={(value) => setDatasetAId(value as DatasetId)}>
-                    <SelectTrigger className="w-full">
-                      <SelectValue placeholder="Select dataset" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {datasetOptions.map((option) => (
-                        <SelectItem key={option.value} value={option.value}>
-                          {option.label}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-
-                <div className="rounded-2xl border bg-card/70 p-4 shadow-sm space-y-2">
-                  <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">System B</p>
-                  <p className="text-xs text-muted-foreground">
-                    {hasAtLeastTwoDatasets ? datasetBLabel || "Select a dataset" : "Add another dataset to compare"}
-                  </p>
-                  <Select
-                    value={datasetBId ?? undefined}
-                    onValueChange={(value) => setDatasetBId(value as DatasetId)}
-                    disabled={!hasAtLeastTwoDatasets}
-                  >
-                    <SelectTrigger className="w-full" disabled={!hasAtLeastTwoDatasets}>
-                      <SelectValue placeholder={hasAtLeastTwoDatasets ? "Select dataset" : "Need at least two datasets"} />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {datasetOptions.map((option) => (
-                        <SelectItem key={option.value} value={option.value}>
-                          {option.label}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-
-                <div className="rounded-2xl border bg-card/70 p-4 shadow-sm space-y-2">
-                  <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Compare mode</p>
+                  <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Mode</p>
                   <Select value={compareMode} onValueChange={(value) => setCompareMode(value as CompareMode)}>
                     <SelectTrigger className="w-full">
                       <SelectValue placeholder="Select mode" />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="system">System</SelectItem>
-                      <SelectItem value="category">Category</SelectItem>
-                      <SelectItem value="failure_mode">Failure mode</SelectItem>
+                      <SelectItem value="entity">Entity</SelectItem>
+                      <SelectItem value="temporal">Temporal</SelectItem>
+                      <SelectItem value="velocity">Velocity</SelectItem>
                     </SelectContent>
                   </Select>
-                  <p className="text-[11px] text-muted-foreground">Normalization: {normalizationBasis.replace("_", " ")}</p>
+                  <p className="text-[11px] text-muted-foreground">
+                    {compareMode === "entity"
+                      ? "Compare two systems over the same timeframe."
+                      : compareMode === "temporal"
+                        ? "Compare the same system across equal windows."
+                        : "Compare how quickly each system reaches a target state."}
+                  </p>
                 </div>
 
-                <div className="rounded-2xl border bg-card/70 p-4 shadow-sm space-y-2">
-                  <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Speed of what?</p>
-                  <Select value={velocityTarget} onValueChange={(value) => setVelocityTarget(value as VelocityGoalTarget)}>
-                    <SelectTrigger className="w-full">
-                      <SelectValue placeholder="Select target" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="PRESSURE_STABILIZE">Pressure stabilizes</SelectItem>
-                      <SelectItem value="RETURN_STABILIZE">Return stabilizes</SelectItem>
-                      <SelectItem value="STABILITY_RISE">Stability rise</SelectItem>
-                      <SelectItem value="RETURN_RISE">Return rise</SelectItem>
-                      <SelectItem value="PRESSURE_DROP">Pressure relief</SelectItem>
-                    </SelectContent>
-                  </Select>
-                  <p className="text-[11px] text-muted-foreground">Layered explainability ready for export.</p>
-                </div>
+                {compareMode !== "temporal" && (
+                  <div className="rounded-2xl border bg-card/70 p-4 shadow-sm space-y-2">
+                    <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">System A</p>
+                    <p className="text-xs text-muted-foreground">{datasetALabel || "Select a dataset"}</p>
+                    <Select value={datasetAId ?? undefined} onValueChange={(value) => setDatasetAId(value as DatasetId)}>
+                      <SelectTrigger className="w-full">
+                        <SelectValue placeholder="Select dataset" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {datasetOptions.map((option) => (
+                          <SelectItem key={option.value} value={option.value}>
+                            {option.label}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                )}
+
+                {compareMode !== "temporal" && (
+                  <div className="rounded-2xl border bg-card/70 p-4 shadow-sm space-y-2">
+                    <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">System B</p>
+                    <p className="text-xs text-muted-foreground">
+                      {hasAtLeastTwoDatasets ? datasetBLabel || "Select a dataset" : "Add another dataset to compare"}
+                    </p>
+                    <Select
+                      value={datasetBId ?? undefined}
+                      onValueChange={(value) => setDatasetBId(value as DatasetId)}
+                      disabled={!hasAtLeastTwoDatasets}
+                    >
+                      <SelectTrigger className="w-full" disabled={!hasAtLeastTwoDatasets}>
+                        <SelectValue placeholder={hasAtLeastTwoDatasets ? "Select dataset" : "Need at least two datasets"} />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {datasetOptions.map((option) => (
+                          <SelectItem key={option.value} value={option.value}>
+                            {option.label}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                )}
+
+                {compareMode === "velocity" && (
+                  <div className="rounded-2xl border bg-card/70 p-4 shadow-sm space-y-2">
+                    <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Metric target</p>
+                    <Select value={velocityTarget} onValueChange={(value) => setVelocityTarget(value as VelocityGoalTarget)}>
+                      <SelectTrigger className="w-full">
+                        <SelectValue placeholder="Select target" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="RETURN_RISE">Return rises</SelectItem>
+                        <SelectItem value="PRESSURE_STABILIZE">Pressure stabilizes</SelectItem>
+                        <SelectItem value="STABILITY_STABILIZE">Stability stabilizes</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    <p className="text-[11px] text-muted-foreground">See when each system reaches the goal.</p>
+                  </div>
+                )}
+
+                {compareMode === "temporal" && (
+                  <div className="rounded-2xl border bg-card/70 p-4 shadow-sm space-y-2 md:col-span-2 lg:col-span-2">
+                    <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Dataset</p>
+                    <p className="text-xs text-muted-foreground">
+                      {resolveDatasetLabel(temporalDatasetId) || "Select a dataset"}
+                    </p>
+                    <Select
+                      value={temporalDatasetId ?? undefined}
+                      onValueChange={(value) => setTemporalDatasetId(value as DatasetId)}
+                    >
+                      <SelectTrigger className="w-full">
+                        <SelectValue placeholder="Select dataset" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {datasetOptions.map((option) => (
+                          <SelectItem key={option.value} value={option.value}>
+                            {option.label}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                )}
               </div>
 
-              {hasAtLeastTwoDatasets && (
+              {compareMode === "entity" && (
                 <div className="flex flex-wrap items-center gap-2">
                   {TIMEFRAMES.map(({ value, label }) => (
                     <Button
@@ -618,46 +813,90 @@ function ReportsPageContent() {
                       {label}
                     </Button>
                   ))}
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    className="text-xs"
-                    onClick={() =>
-                      setNormalizationBasis((prev) =>
-                        prev === "shared_timeframe" ? "normalized_windows" : "shared_timeframe",
-                      )
-                    }
-                  >
-                    {normalizationBasis === "shared_timeframe" ? "Use normalized windows" : "Use shared timeframe"}
-                  </Button>
                 </div>
               )}
 
-              {hasAtLeastTwoDatasets ? (
-                isCompareLoading ? (
-                  <div className="rounded-2xl border bg-muted/40 p-4 text-sm text-muted-foreground">Loading compare…</div>
-                ) : datasetAId && datasetBId ? (
-                  compareResult ? (
-                    <SystemComparePanel result={compareResult} />
-                  ) : (
-                    <div className="rounded-2xl border bg-muted/40 p-4 text-sm text-muted-foreground">
-                      Select datasets with data in this timeframe to compare.
-                    </div>
-                  )
-                ) : !datasetBId ? (
-                  <div className="rounded-2xl border bg-muted/40 p-4 text-sm text-muted-foreground">
-                    Select a second dataset to compare.
-                  </div>
-                ) : (
-                  <div className="rounded-2xl border bg-muted/40 p-4 text-sm text-muted-foreground">
-                    Select datasets to run a comparison.
-                  </div>
-                )
-              ) : (
-                <div className="rounded-2xl border bg-muted/40 p-4 text-sm text-muted-foreground">
-                  Add at least two datasets to run a comparison.
+              {compareMode === "velocity" && (
+                <div className="flex flex-wrap items-center gap-2">
+                  {TIMEFRAMES.map(({ value, label }) => (
+                    <Button
+                      key={value}
+                      variant={velocityTimeframe === value ? "default" : "outline"}
+                      size="sm"
+                      onClick={() => setVelocityTimeframe(value)}
+                      className={cn(
+                        "rounded-full px-3 text-xs",
+                        velocityTimeframe === value ? "shadow-sm" : "bg-muted/60 text-foreground",
+                      )}
+                    >
+                      {label}
+                    </Button>
+                  ))}
                 </div>
               )}
+
+              {compareMode === "temporal" && (
+                <div className="grid gap-3 rounded-2xl border bg-card/60 p-4 shadow-sm md:grid-cols-2">
+                  <div className="space-y-2">
+                    <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Period A</p>
+                    <div className="flex flex-wrap gap-2">
+                      {TIMEFRAMES.map(({ value, label }) => (
+                        <Button
+                          key={value}
+                          variant={temporalPeriodA === value ? "default" : "outline"}
+                          size="sm"
+                          onClick={() => setTemporalPeriodA(value)}
+                          className={cn(
+                            "rounded-full px-3 text-xs",
+                            temporalPeriodA === value ? "shadow-sm" : "bg-muted/60 text-foreground",
+                          )}
+                        >
+                          {label}
+                        </Button>
+                      ))}
+                    </div>
+                  </div>
+                  <div className="space-y-2">
+                    <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Period B</p>
+                    <div className="flex flex-wrap gap-2">
+                      {TIMEFRAMES.map(({ value, label }) => (
+                        <Button
+                          key={value}
+                          variant={temporalPeriodB === value ? "default" : "outline"}
+                          size="sm"
+                          onClick={() => setTemporalPeriodB(value)}
+                          className={cn(
+                            "rounded-full px-3 text-xs",
+                            temporalPeriodB === value ? "shadow-sm" : "bg-muted/60 text-foreground",
+                          )}
+                        >
+                          {label}
+                        </Button>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {compareWarning && (
+                <div className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-xs text-amber-900">
+                  {compareWarning}
+                </div>
+              )}
+
+              <div className="rounded-2xl border bg-muted/30 p-4">
+                {isCompareLoading ? (
+                  <div className="text-sm text-muted-foreground">Loading compare…</div>
+                ) : compareResult ? (
+                  <SystemComparePanel result={compareResult} warning={compareWarning ?? undefined} />
+                ) : (
+                  <div className="text-sm text-muted-foreground">
+                    {compareMode === "temporal"
+                      ? "Select a dataset and two windows of equal length."
+                      : "Select datasets and a timeframe to run a comparison."}
+                  </div>
+                )}
+              </div>
             </section>
           </div>
         </section>
@@ -703,16 +942,20 @@ async function buildCohortSummaryFromDataset({
   timeframeDays,
   timeframeLabel,
   normalizationBasis,
+  normalizeToDays,
 }: {
   dataset: DatasetState | null;
   label: string;
   timeframeDays: number | null;
   timeframeLabel: string;
   normalizationBasis: NormalizationBasis;
+  normalizeToDays?: number | null;
 }): Promise<{ summary: CohortSummary; decisions: DecisionEntry[] } | null> {
   if (!dataset) return null;
   const decisions = await loadDecisionsForDataset(dataset);
-  const filtered = filterDecisionsByTimeframe(decisions, timeframeDays);
+  const sorted = [...decisions].sort((a, b) => b.ts - a.ts);
+  const effectiveDays = normalizeToDays ?? timeframeDays;
+  const filtered = filterDecisionsByTimeframe(sorted, effectiveDays);
   if (filtered.length === 0) return null;
 
   const summary = buildCohortSummary({
