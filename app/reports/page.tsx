@@ -22,18 +22,22 @@ import {
   FullInterpretation,
   generateFullInterpretation,
 } from "@/lib/dnavSummaryEngine";
-import { loadSnapshotForDataset } from "@/lib/reportSnapshot";
+import { loadDecisionsForDataset } from "@/lib/reportSnapshot";
 import { useDataset } from "@/components/DatasetProvider";
-import { type DatasetId } from "@/types/dataset";
+import { type DatasetId, type DatasetState } from "@/types/dataset";
 import { useNetlifyIdentity } from "@/hooks/use-netlify-identity";
 import {
   TIMEFRAMES,
   timeframeDescriptions,
   type TimeframeValue,
   useReportsData,
+  mapTimeframeToDays,
 } from "@/hooks/useReportsData";
 import { type DecisionEntry } from "@/lib/storage";
 import { cn } from "@/lib/utils";
+import { runEntityCompare } from "@/lib/compare/engine";
+import { type CohortSummary } from "@/lib/compare/types";
+import { filterDecisionsByTimeframe } from "@/utils/judgmentDashboard";
 import { FileDown } from "lucide-react";
 import * as XLSX from "xlsx";
 
@@ -129,8 +133,10 @@ function ReportsPageContent() {
   const [selectedTimeframe, setSelectedTimeframe] = useState<TimeframeValue>(resolvedTimeframe);
   const [datasetAId, setDatasetAId] = useState<DatasetId | null>(defaultDatasetAId);
   const [datasetBId, setDatasetBId] = useState<DatasetId | null>(defaultDatasetBId);
-  const [snapshotA, setSnapshotA] = useState<CompanyPeriodSnapshot | null>(null);
-  const [snapshotB, setSnapshotB] = useState<CompanyPeriodSnapshot | null>(null);
+  const [cohortA, setCohortA] = useState<CohortSummary | null>(null);
+  const [cohortB, setCohortB] = useState<CohortSummary | null>(null);
+  const [compareTimeframe, setCompareTimeframe] = useState<TimeframeValue>(resolvedTimeframe);
+  const [isCompareLoading, setIsCompareLoading] = useState(false);
   const { isLoggedIn, openLogin } = useNetlifyIdentity();
 
   const datasetOptions = useMemo(
@@ -178,39 +184,44 @@ function ReportsPageContent() {
 
   useEffect(() => {
     let cancelled = false;
-    if (!datasetA) {
-      setSnapshotA(null);
+    const timeframeDays = mapTimeframeToDays(compareTimeframe);
+    const timeframeLabel = TIMEFRAMES.find((timeframe) => timeframe.value === compareTimeframe)?.label ?? "All Time";
+
+    if (!datasetA && !datasetB) {
+      setCohortA(null);
+      setCohortB(null);
+      setIsCompareLoading(false);
       return () => {
         cancelled = true;
       };
     }
 
-    loadSnapshotForDataset(datasetA).then((snapshot) => {
-      if (!cancelled) setSnapshotA(snapshot);
+    setIsCompareLoading(true);
+
+    Promise.all([
+      buildCohortSummaryFromDataset({
+        dataset: datasetA,
+        label: datasetALabel || "System A",
+        timeframeDays,
+        timeframeLabel,
+      }),
+      buildCohortSummaryFromDataset({
+        dataset: datasetB,
+        label: datasetBLabel || "System B",
+        timeframeDays,
+        timeframeLabel,
+      }),
+    ]).then(([summaryA, summaryB]) => {
+      if (cancelled) return;
+      setCohortA(summaryA);
+      setCohortB(summaryB);
+      setIsCompareLoading(false);
     });
 
     return () => {
       cancelled = true;
     };
-  }, [datasetA]);
-
-  useEffect(() => {
-    let cancelled = false;
-    if (!datasetB) {
-      setSnapshotB(null);
-      return () => {
-        cancelled = true;
-      };
-    }
-
-    loadSnapshotForDataset(datasetB).then((snapshot) => {
-      if (!cancelled) setSnapshotB(snapshot);
-    });
-
-    return () => {
-      cancelled = true;
-    };
-  }, [datasetB]);
+  }, [compareTimeframe, datasetA, datasetALabel, datasetB, datasetBLabel]);
 
   const {
     company,
@@ -296,6 +307,11 @@ function ReportsPageContent() {
   const sortedArchetypes = useMemo(
     () => [...archetypeProfile].sort((a, b) => b.count - a.count),
     [archetypeProfile],
+  );
+
+  const compareResult = useMemo(
+    () => (cohortA && cohortB ? runEntityCompare({ cohortA, cohortB }) : null),
+    [cohortA, cohortB],
   );
 
   const handleUpdateTimeframe = (value: TimeframeValue) => {
@@ -505,16 +521,45 @@ function ReportsPageContent() {
                 </div>
               </div>
 
-              {hasAtLeastTwoDatasets && datasetAId && datasetBId && snapshotA && snapshotB ? (
-                <SystemComparePanel left={snapshotA} right={snapshotB} labelA={datasetALabel} labelB={datasetBLabel} />
-              ) : hasAtLeastTwoDatasets && !datasetBId ? (
-                <div className="rounded-2xl border bg-muted/40 p-4 text-sm text-muted-foreground">
-                  Select a second dataset to compare.
+              {hasAtLeastTwoDatasets && (
+                <div className="flex flex-wrap items-center gap-2">
+                  {TIMEFRAMES.map(({ value, label }) => (
+                    <Button
+                      key={value}
+                      variant={compareTimeframe === value ? "default" : "outline"}
+                      size="sm"
+                      onClick={() => setCompareTimeframe(value)}
+                      className={cn(
+                        "rounded-full px-3 text-xs",
+                        compareTimeframe === value ? "shadow-sm" : "bg-muted/60 text-foreground",
+                      )}
+                    >
+                      {label}
+                    </Button>
+                  ))}
                 </div>
-              ) : hasAtLeastTwoDatasets ? (
-                <div className="rounded-2xl border bg-muted/40 p-4 text-sm text-muted-foreground">
-                  Unable to load comparison snapshots. Try selecting a different dataset.
-                </div>
+              )}
+
+              {hasAtLeastTwoDatasets ? (
+                isCompareLoading ? (
+                  <div className="rounded-2xl border bg-muted/40 p-4 text-sm text-muted-foreground">Loading compare…</div>
+                ) : datasetAId && datasetBId ? (
+                  compareResult ? (
+                    <SystemComparePanel result={compareResult} />
+                  ) : (
+                    <div className="rounded-2xl border bg-muted/40 p-4 text-sm text-muted-foreground">
+                      Select datasets with data in this timeframe to compare.
+                    </div>
+                  )
+                ) : !datasetBId ? (
+                  <div className="rounded-2xl border bg-muted/40 p-4 text-sm text-muted-foreground">
+                    Select a second dataset to compare.
+                  </div>
+                ) : (
+                  <div className="rounded-2xl border bg-muted/40 p-4 text-sm text-muted-foreground">
+                    Select datasets to run a comparison.
+                  </div>
+                )
               ) : (
                 <div className="rounded-2xl border bg-muted/40 p-4 text-sm text-muted-foreground">
                   Add at least two datasets to run a comparison.
@@ -558,6 +603,43 @@ type ArchetypeSummary = {
   avgS: number;
   count: number;
 };
+
+async function buildCohortSummaryFromDataset({
+  dataset,
+  label,
+  timeframeDays,
+  timeframeLabel,
+}: {
+  dataset: DatasetState | null;
+  label: string;
+  timeframeDays: number | null;
+  timeframeLabel: string;
+}): Promise<CohortSummary | null> {
+  if (!dataset) return null;
+  const decisions = await loadDecisionsForDataset(dataset);
+  const filtered = filterDecisionsByTimeframe(decisions, timeframeDays);
+  if (filtered.length === 0) return null;
+
+  const totals = filtered.reduce(
+    (acc, decision) => {
+      acc.returnTotal += decision.return;
+      acc.pressureTotal += decision.pressure;
+      acc.stabilityTotal += decision.stability;
+      return acc;
+    },
+    { returnTotal: 0, pressureTotal: 0, stabilityTotal: 0 },
+  );
+
+  const count = filtered.length || 1;
+
+  return {
+    label,
+    timeframeLabel,
+    avgReturn: totals.returnTotal / count,
+    avgPressure: totals.pressureTotal / count,
+    avgStability: totals.stabilityTotal / count,
+  };
+}
 
 type LearningStats = {
   lci: number;
