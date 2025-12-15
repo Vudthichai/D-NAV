@@ -69,9 +69,10 @@ test("runCompare builds punchline for faster cohort", () => {
   });
 
   const result = runCompare({
-    mode: "system",
+    mode: "entity",
     normalizationBasis: "shared_timeframe",
     velocityTarget: "PRESSURE_STABILIZE",
+    includeVelocity: true,
     cohortA,
     cohortB,
     decisionsA: cohortADecisions,
@@ -79,6 +80,6 @@ test("runCompare builds punchline for faster cohort", () => {
     windowSize: 3,
   });
 
-  assert.ok(result.velocity.punchline.includes("stabilized"));
-  assert.equal(result.velocity.a.targetReached, true);
+  assert.ok(result.velocity?.punchline.includes("reached"));
+  assert.equal(result.velocity?.a.targetReached, true);
 });

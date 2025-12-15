@@ -4,8 +4,6 @@ import type {
   CohortSummary,
   CompareMode,
   CompareResult,
-  ExplainabilityLayers,
-  FailureMode,
   NormalizationBasis,
   VelocityGoalTarget,
   VelocityResult,
@@ -22,11 +20,11 @@ const DEFAULT_THRESHOLDS: VelocityThresholds = {
 };
 
 const VELOCITY_LABELS: Record<VelocityGoalTarget, string> = {
-  PRESSURE_DROP: "Pressure relief",
+  PRESSURE_DROP: "Recovery improves",
   PRESSURE_STABILIZE: "Pressure stabilizes",
   RETURN_RISE: "Return rises",
   RETURN_STABILIZE: "Return stabilizes",
-  STABILITY_RISE: "Stability rises",
+  STABILITY_RISE: "Stability stabilizes",
 };
 
 type BuildCohortSummaryInput = {
@@ -80,13 +78,6 @@ export function computeVelocity(
   const thresholds: VelocityThresholds = { ...DEFAULT_THRESHOLDS, ...(options?.thresholds ?? {}) };
   const sorted = [...decisions].sort((a, b) => a.ts - b.ts);
   const targetLabel = VELOCITY_LABELS[target];
-  const explainability = buildExplainabilitySkeleton({
-    decisions: sorted,
-    windowSize,
-    thresholds,
-    targetLabel,
-    normalizationBasis: options?.normalizationBasis,
-  });
 
   if (sorted.length < windowSize) {
     return {
@@ -95,27 +86,15 @@ export function computeVelocity(
       decisionsToTarget: null,
       windowsEvaluated: 0,
       targetReached: false,
-      thresholds,
       reason: `Need at least ${windowSize} decisions to evaluate velocity`,
-      explainability: {
-        ...explainability,
-        layer4Punchline: "Not enough decisions to evaluate velocity.",
-      },
     };
   }
 
   const checkFn = VELOCITY_TARGET_CHECKS[target];
   let decisionsToTarget: number | null = null;
-  const intermediateWindows: { index: number; avgReturn: number; avgPressure: number; avgStability: number }[] = [];
 
   for (let i = 0; i <= sorted.length - windowSize; i++) {
     const window = sorted.slice(i, i + windowSize);
-    const windowAverages = {
-      avgReturn: average(window, "return"),
-      avgPressure: average(window, "pressure"),
-      avgStability: average(window, "stability"),
-    };
-    intermediateWindows.push({ index: i, ...windowAverages });
     if (checkFn(window, thresholds)) {
       decisionsToTarget = i + windowSize;
       break;
@@ -131,19 +110,7 @@ export function computeVelocity(
     decisionsToTarget,
     windowsEvaluated,
     targetReached,
-    thresholds,
-    explainability: {
-      ...explainability,
-      layer2Thresholds: thresholds,
-      layer3Intermediates: {
-        windowSize,
-        windowsEvaluated,
-        intermediateWindows,
-      },
-      layer4Punchline: targetReached
-        ? `${targetLabel} after ${decisionsToTarget} decisions`
-        : `${targetLabel} not reached in ${sorted.length} decisions`,
-    },
+    reason: targetReached ? undefined : `${targetLabel} not reached in ${sorted.length} decisions`,
   };
 }
 
@@ -151,6 +118,7 @@ export function runCompare({
   mode,
   normalizationBasis,
   velocityTarget,
+  includeVelocity,
   cohortA,
   cohortB,
   decisionsA,
@@ -160,7 +128,8 @@ export function runCompare({
 }: {
   mode: CompareMode;
   normalizationBasis: NormalizationBasis;
-  velocityTarget: VelocityGoalTarget;
+  velocityTarget?: VelocityGoalTarget;
+  includeVelocity?: boolean;
   cohortA: CohortSummary;
   cohortB: CohortSummary;
   decisionsA: DecisionEntry[];
@@ -172,32 +141,30 @@ export function runCompare({
   const pressureDelta = cohortB.avgPressure - cohortA.avgPressure;
   const stabilityDelta = cohortB.avgStability - cohortA.avgStability;
 
-  const velocityA = computeVelocity(decisionsA, velocityTarget, {
-    windowSize,
-    thresholds,
-    normalizationBasis,
-  });
-  const velocityB = computeVelocity(decisionsB, velocityTarget, {
-    windowSize,
-    thresholds,
-    normalizationBasis,
-  });
+  const includeVelocityInsights = includeVelocity && velocityTarget;
+  const velocityA = includeVelocityInsights
+    ? computeVelocity(decisionsA, velocityTarget!, {
+        windowSize,
+        thresholds,
+        normalizationBasis,
+      })
+    : undefined;
+  const velocityB = includeVelocityInsights
+    ? computeVelocity(decisionsB, velocityTarget!, {
+        windowSize,
+        thresholds,
+        normalizationBasis,
+      })
+    : undefined;
 
-  const punchline = buildVelocityPunchline(cohortA.label, cohortB.label, velocityA, velocityB);
-
-  const explainability = buildExplainabilitySkeleton({
-    decisions: [...decisionsA, ...decisionsB],
-    windowSize: windowSize ?? 5,
-    thresholds: { ...DEFAULT_THRESHOLDS, ...(thresholds ?? {}) },
-    targetLabel: VELOCITY_LABELS[velocityTarget],
-    normalizationBasis,
-  });
-
-  const failureModes = buildFailureModes();
+  const punchline =
+    includeVelocityInsights && velocityA && velocityB
+      ? buildVelocityPunchline(cohortA.label, cohortB.label, velocityA, velocityB)
+      : undefined;
 
   return {
     mode,
-    velocityTarget,
+    velocityTarget: includeVelocityInsights ? velocityTarget : undefined,
     normalizationBasis,
     cohortA,
     cohortB,
@@ -206,20 +173,19 @@ export function runCompare({
       pressureDelta,
       stabilityDelta,
     },
-    velocity: {
-      a: velocityA,
-      b: velocityB,
-      punchline,
-    },
-    failureModes,
-    explainability: {
-      ...explainability,
-      layer3Intermediates: {
-        cohortA: velocityA.explainability.layer3Intermediates,
-        cohortB: velocityB.explainability.layer3Intermediates,
-      },
-      layer4Punchline: punchline,
-    },
+    summary: buildPostureSummary(cohortA.label, cohortB.label, {
+      returnDelta,
+      pressureDelta,
+      stabilityDelta,
+    }),
+    velocity:
+      includeVelocityInsights && velocityA && velocityB && punchline
+        ? {
+            a: velocityA,
+            b: velocityB,
+            punchline,
+          }
+        : undefined,
   };
 }
 
@@ -234,84 +200,39 @@ function buildVelocityPunchline(
   velocityA: VelocityResult,
   velocityB: VelocityResult,
 ): string {
-  if (!velocityA.decisionsToTarget && !velocityB.decisionsToTarget) {
-    return "Neither cohort has enough decisions to reach the target yet.";
+  const reachedA = typeof velocityA.decisionsToTarget === "number";
+  const reachedB = typeof velocityB.decisionsToTarget === "number";
+
+  if (!reachedA && !reachedB) {
+    return "Neither system has reached the target yet.";
   }
 
-  if (!velocityA.decisionsToTarget) {
-    return `${labelB} reached the target while ${labelA} has insufficient data.`;
+  if (reachedA && reachedB) {
+    return `${labelA} reached the target in ${velocityA.decisionsToTarget} decisions; ${labelB} reached it in ${velocityB.decisionsToTarget}.`;
   }
 
-  if (!velocityB.decisionsToTarget) {
-    return `${labelA} reached the target while ${labelB} has insufficient data.`;
+  if (reachedA) {
+    return `${labelA} reached the target in ${velocityA.decisionsToTarget} decisions. ${labelB} has not yet reached it.`;
   }
 
-  const speedRatio = velocityA.decisionsToTarget && velocityB.decisionsToTarget
-    ? Math.max(velocityA.decisionsToTarget, velocityB.decisionsToTarget) /
-      Math.max(1, Math.min(velocityA.decisionsToTarget, velocityB.decisionsToTarget))
-    : null;
-
-  const faster = velocityA.decisionsToTarget < velocityB.decisionsToTarget ? labelA : labelB;
-  const slower = faster === labelA ? labelB : labelA;
-  const fasterDecisions = Math.min(velocityA.decisionsToTarget, velocityB.decisionsToTarget);
-  const slowerDecisions = Math.max(velocityA.decisionsToTarget, velocityB.decisionsToTarget);
-
-  return speedRatio
-    ? `${faster} stabilized in ${fasterDecisions} decisions; ${slower} required ${slowerDecisions} (${speedRatio.toFixed(1)}× difference).`
-    : `${faster} reached the target faster than ${slower}.`;
+  return `${labelB} reached the target in ${velocityB.decisionsToTarget} decisions. ${labelA} has not yet reached it.`;
 }
 
-function buildExplainabilitySkeleton({
-  decisions,
-  windowSize,
-  thresholds,
-  targetLabel,
-  normalizationBasis,
-}: {
-  decisions: DecisionEntry[];
-  windowSize: number;
-  thresholds: VelocityThresholds;
-  targetLabel: string;
-  normalizationBasis?: NormalizationBasis;
-}): ExplainabilityLayers {
-  return {
-    layer1Raw: {
-      totalDecisions: decisions.length,
-      windowSize,
-      normalizationBasis: normalizationBasis ?? "shared_timeframe",
-      timespan: summarizeTimespan(decisions),
-    },
-    layer2Thresholds: thresholds,
-    layer3Intermediates: {},
-    layer4Punchline: `${targetLabel} evaluation pending`,
-  };
-}
+function buildPostureSummary(
+  labelA: string,
+  labelB: string,
+  deltas: { returnDelta: number; pressureDelta: number; stabilityDelta: number },
+): string {
+  const parts: string[] = [];
 
-function summarizeTimespan(decisions: DecisionEntry[]) {
-  if (decisions.length === 0) return null;
-  const sorted = [...decisions].sort((a, b) => a.ts - b.ts);
-  return { start: sorted[0].ts, end: sorted[sorted.length - 1].ts };
-}
+  if (deltas.returnDelta > 0.05) parts.push("higher return");
+  if (deltas.pressureDelta < -0.05) parts.push("lower pressure");
+  if (deltas.stabilityDelta > 0.05) parts.push("stronger stability");
 
-function buildFailureModes(): FailureMode[] {
-  return [
-    {
-      key: "slow_stabilization",
-      label: "Slow stabilization",
-      description: "Cohort took significantly more decisions to reach a steady state.",
-      floor: 15,
-    },
-    {
-      key: "pressure_drag",
-      label: "Pressure drag",
-      description: "High sustained pressure prevented stabilization.",
-      floor: 1,
-    },
-    {
-      key: "return_volatility",
-      label: "Volatile return",
-      description: "Return swings kept the system from settling.",
-      floor: 0,
-    },
-  ];
+  if (parts.length === 0) {
+    return `${labelA} and ${labelB} perform similarly across return, pressure, and stability.`;
+  }
+
+  const summary = parts.join(" and ");
+  return `${labelB} delivers ${summary} versus ${labelA}.`;
 }

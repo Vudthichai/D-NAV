@@ -1,4 +1,4 @@
-export type CompareMode = "system" | "category" | "failure_mode";
+export type CompareMode = "entity" | "temporal";
 
 export type VelocityGoalTarget =
   | "PRESSURE_STABILIZE"
@@ -8,13 +8,6 @@ export type VelocityGoalTarget =
   | "PRESSURE_DROP";
 
 export type NormalizationBasis = "shared_timeframe" | "normalized_windows";
-
-export type FailureMode = {
-  key: string;
-  label: string;
-  description: string;
-  floor: number;
-};
 
 export type CohortSummary = {
   label: string;
@@ -35,27 +28,18 @@ export type VelocityThresholds = {
   pressureDrop: number;
 };
 
-export type ExplainabilityLayers = {
-  layer1Raw: Record<string, unknown>;
-  layer2Thresholds: Record<string, unknown>;
-  layer3Intermediates: Record<string, unknown>;
-  layer4Punchline: string;
-};
-
 export type VelocityResult = {
   target: VelocityGoalTarget;
   targetLabel: string;
   decisionsToTarget: number | null;
   windowsEvaluated: number;
   targetReached: boolean;
-  thresholds: VelocityThresholds;
   reason?: string;
-  explainability: ExplainabilityLayers;
 };
 
 export type CompareResult = {
   mode: CompareMode;
-  velocityTarget: VelocityGoalTarget;
+  velocityTarget?: VelocityGoalTarget;
   normalizationBasis: NormalizationBasis;
   cohortA: CohortSummary;
   cohortB: CohortSummary;
@@ -64,13 +48,12 @@ export type CompareResult = {
     pressureDelta: number;
     stabilityDelta: number;
   };
-  velocity: {
+  summary: string;
+  velocity?: {
     a: VelocityResult;
     b: VelocityResult;
     punchline: string;
   };
-  failureModes?: FailureMode[];
-  explainability: ExplainabilityLayers;
 };
 
 export type CohortBuildRequest = {

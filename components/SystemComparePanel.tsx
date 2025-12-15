@@ -8,16 +8,14 @@ interface SystemComparePanelProps {
 }
 
 const SystemComparePanel: React.FC<SystemComparePanelProps> = ({ result }) => {
-  const { cohortA, cohortB, deltas, velocity, normalizationBasis, explainability, velocityTarget } = result;
+  const { cohortA, cohortB, deltas, velocity, normalizationBasis, summary, mode } = result;
 
   return (
     <section className="mt-4 space-y-4">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div>
-          <h2 className="text-lg font-semibold">Compare</h2>
-          <p className="text-sm text-muted-foreground">
-            Mode: {result.mode} · Target: {velocityTarget}
-          </p>
+          <h2 className="text-lg font-semibold">{mode === "temporal" ? "Temporal Compare" : "Entity Compare"}</h2>
+          <p className="text-sm text-muted-foreground">{summary}</p>
         </div>
         <p className="text-xs text-muted-foreground">
           {cohortA.timeframeLabel} · {normalizationBasis.replace("_", " ")}
@@ -54,25 +52,19 @@ const SystemComparePanel: React.FC<SystemComparePanelProps> = ({ result }) => {
         ))}
       </div>
 
-      <div className="grid gap-4 lg:grid-cols-2">
-        <VelocityCard label={`Velocity — ${cohortA.label}`} result={velocity.a} />
-        <VelocityCard label={`Velocity — ${cohortB.label}`} result={velocity.b} />
-      </div>
+      {velocity && (
+        <div className="space-y-3">
+          <div className="grid gap-4 lg:grid-cols-2">
+            <VelocityCard label={`Velocity — ${cohortA.label}`} result={velocity.a} />
+            <VelocityCard label={`Velocity — ${cohortB.label}`} result={velocity.b} />
+          </div>
 
-      <div className="rounded-xl border bg-muted/40 p-4">
-        <h3 className="mb-2 text-sm font-semibold">Punchline</h3>
-        <p className="text-sm text-muted-foreground">{velocity.punchline}</p>
-      </div>
-
-      <div className="grid gap-3 rounded-xl border bg-muted/40 p-4 text-xs text-muted-foreground">
-        <ExplainabilityRow label="Layer 1 · Raw Inputs" value={JSON.stringify(explainability.layer1Raw, null, 2)} />
-        <ExplainabilityRow label="Layer 2 · Thresholds" value={JSON.stringify(explainability.layer2Thresholds, null, 2)} />
-        <ExplainabilityRow
-          label="Layer 3 · Intermediates"
-          value={JSON.stringify(explainability.layer3Intermediates, null, 2)}
-        />
-        <ExplainabilityRow label="Layer 4 · Punchline" value={explainability.layer4Punchline} />
-      </div>
+          <div className="rounded-xl border bg-muted/40 p-4">
+            <h3 className="mb-2 text-sm font-semibold">Velocity insight</h3>
+            <p className="text-sm text-muted-foreground">{velocity.punchline}</p>
+          </div>
+        </div>
+      )}
     </section>
   );
 };
@@ -86,7 +78,6 @@ function VelocityCard({ label, result }: { label: string; result: VelocityResult
         <div>
           <p className="text-[11px] uppercase tracking-wide text-muted-foreground">{label}</p>
           <h3 className="text-sm font-semibold text-foreground">{result.targetLabel}</h3>
-          <p className="text-xs text-muted-foreground">Windowed velocity</p>
         </div>
         <span className="text-xs text-muted-foreground">{result.windowsEvaluated} windows</span>
       </div>
@@ -100,17 +91,6 @@ function VelocityCard({ label, result }: { label: string; result: VelocityResult
         )}
         {result.reason && <p className="text-xs text-muted-foreground">{result.reason}</p>}
       </div>
-    </div>
-  );
-}
-
-function ExplainabilityRow({ label, value }: { label: string; value: string }) {
-  return (
-    <div>
-      <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">{label}</p>
-      <pre className="mt-1 whitespace-pre-wrap rounded-lg bg-background/60 p-2 text-[11px] leading-relaxed text-muted-foreground">
-        {value}
-      </pre>
     </div>
   );
 }
