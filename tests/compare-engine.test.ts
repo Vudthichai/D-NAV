@@ -24,12 +24,16 @@ const sampleDecision = (ts: number, overrides: Partial<DecisionEntry> = {}): Dec
 
 test("computeVelocity detects stabilization within window", () => {
   const decisions = [
-    sampleDecision(1, { pressure: 1, stability: 0 }),
-    sampleDecision(2, { pressure: 0.5, stability: 0.2 }),
+    sampleDecision(1, { pressure: 0.4, stability: 0 }),
+    sampleDecision(2, { pressure: 0.3, stability: 0.2 }),
     sampleDecision(3, { pressure: 0.2, stability: 0.3 }),
   ];
 
-  const result = computeVelocity(decisions, "PRESSURE_STABILIZE", { windowSize: 3 });
+  const result = computeVelocity(decisions, "PRESSURE_STABILIZE", {
+    windowSize: 3,
+    consecutiveWindows: 1,
+    thresholds: { pressureBand: 0.5 },
+  });
 
   assert.equal(result.targetReached, true);
   assert.equal(result.decisionsToTarget, 3);
@@ -69,7 +73,7 @@ test("runCompare builds punchline for faster cohort", () => {
   });
 
   const result = runCompare({
-    mode: "system",
+    mode: "velocity",
     normalizationBasis: "shared_timeframe",
     velocityTarget: "PRESSURE_STABILIZE",
     cohortA,
@@ -77,6 +81,8 @@ test("runCompare builds punchline for faster cohort", () => {
     decisionsA: cohortADecisions,
     decisionsB: cohortBDecisions,
     windowSize: 3,
+    consecutiveWindows: 1,
+    thresholds: { pressureBand: 1 },
   });
 
   assert.ok(result.velocity.punchline.includes("stabilized"));

@@ -22,10 +22,18 @@ export type CohortSummary = {
   avgReturn: number;
   avgPressure: number;
   avgStability: number;
+  stdReturn: number;
+  stdPressure: number;
+  stdStability: number;
+  avgImpact: number;
+  avgCost: number;
+  avgRisk: number;
+  avgUrgency: number;
+  avgConfidence: number;
 };
 
 export type VelocityThresholds = {
-  pressureStabilize: number;
+  pressureBand: number;
   stabilityFloor: number;
   stabilityBand: number;
   returnLift: number;
@@ -45,6 +53,8 @@ export type VelocityResult = {
   windowsEvaluated: number;
   targetReached: boolean;
   thresholds: VelocityThresholds;
+  consecutiveWindows: number;
+  windowSize: number;
   reason?: string;
   explainability: ExplainabilityLayers;
 };
@@ -58,6 +68,18 @@ export type CompareResult = {
     pressureDelta: number;
     stabilityDelta: number;
   };
+  driverDeltas: {
+    impact: number;
+    cost: number;
+    risk: number;
+    urgency: number;
+    confidence: number;
+  };
+  consistency: {
+    cohortAStd: { return: number; pressure: number; stability: number };
+    cohortBStd: { return: number; pressure: number; stability: number };
+  };
+  topDrivers: string[];
   narrative: string;
   modeSummary: string;
   warnings?: string[];
