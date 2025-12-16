@@ -765,12 +765,13 @@ export default function LogPage() {
             <Input
               id="judgmentUnitLabel"
               name="judgmentUnitLabel"
-              placeholder="e.g., NFL play call"
+              placeholder="e.g. move, play, trade"
               value={meta.judgmentUnitLabel ?? ""}
               onChange={(event) => handleJudgmentUnitChange(event.target.value)}
             />
             <p className="text-xs text-muted-foreground">
-              What does one decision represent in this dataset? Examples: “NFL play call”, “Chess move”, “Trade”.
+              What does one decision represent in this dataset? Examples: moves, plays, trades. Defaults to
+              “decisions”.
             </p>
           </div>
 
