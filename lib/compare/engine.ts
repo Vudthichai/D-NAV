@@ -1,5 +1,6 @@
 import { DecisionEntry } from "../calculations";
 import { stdev } from "@/utils/stats";
+import { formatUnitCount, getUnitLabels } from "@/utils/judgmentUnits";
 import type {
   CohortBuildRequest,
   CohortSummary,
@@ -77,7 +78,12 @@ export function buildCohortSummary({ decisions, request }: BuildCohortSummaryInp
 
   return {
     label: request.label,
+    datasetLabel: request.datasetLabel,
     timeframeLabel: request.timeframeLabel,
+    timeframeMode: request.timeframeMode,
+    sequenceRange: request.sequenceRange,
+    totalAvailableDecisions: request.totalAvailableDecisions,
+    judgmentUnitLabel: request.judgmentUnitLabel,
     normalizationBasis: request.normalizationBasis,
     totalDecisions: decisions.length,
     avgReturn: totals.returnTotal / count,
@@ -102,6 +108,7 @@ export function computeVelocity(
     consecutiveWindows?: number;
     thresholds?: Partial<VelocityThresholds>;
     normalizationBasis?: NormalizationBasis;
+    judgmentUnitLabel?: string | null;
   },
 ): VelocityResult {
   const windowSize = options?.windowSize ?? 5;
@@ -109,6 +116,7 @@ export function computeVelocity(
   const thresholds: VelocityThresholds = { ...DEFAULT_THRESHOLDS, ...(options?.thresholds ?? {}) };
   const sorted = [...decisions].sort((a, b) => a.ts - b.ts);
   const targetLabel = VELOCITY_LABELS[target];
+  const unitLabels = getUnitLabels(options?.judgmentUnitLabel);
   const explainability = buildExplainabilitySkeleton({
     decisions: sorted,
     windowSize,
@@ -128,10 +136,10 @@ export function computeVelocity(
       thresholds,
       consecutiveWindows,
       windowSize,
-      reason: `Need at least ${windowSize} decisions to evaluate velocity`,
+      reason: `Need at least ${windowSize} ${unitLabels.plural} to evaluate velocity`,
       explainability: {
         ...explainability,
-        layer4Punchline: "Not enough decisions to evaluate velocity.",
+        layer4Punchline: `Not enough ${unitLabels.plural} to evaluate velocity.`,
       },
     };
   }
@@ -182,8 +190,8 @@ export function computeVelocity(
         intermediateWindows,
       },
       layer4Punchline: targetReached
-        ? `${targetLabel} after ${decisionsToTarget} decisions`
-        : `${targetLabel} not reached in ${sorted.length} decisions`,
+        ? `${targetLabel} after ${formatUnitCount(decisionsToTarget ?? 0, options?.judgmentUnitLabel)}`
+        : `${targetLabel} not reached in ${formatUnitCount(sorted.length, options?.judgmentUnitLabel)}`,
     },
   };
 }
@@ -230,6 +238,7 @@ export function runCompare({
   };
 
   const hasVelocity = mode === "velocity" && velocityTarget;
+  const unitLabel = cohortA.judgmentUnitLabel || cohortB.judgmentUnitLabel;
 
   const velocityA = hasVelocity
     ? computeVelocity(decisionsA, velocityTarget, {
@@ -237,6 +246,7 @@ export function runCompare({
         consecutiveWindows,
         thresholds,
         normalizationBasis,
+        judgmentUnitLabel: unitLabel,
       })
     : null;
   const velocityB = hasVelocity
@@ -245,12 +255,19 @@ export function runCompare({
         consecutiveWindows,
         thresholds,
         normalizationBasis,
+        judgmentUnitLabel: unitLabel,
       })
     : null;
 
   const punchline =
     hasVelocity && velocityA && velocityB
-      ? buildVelocityPunchline(cohortA.label, cohortB.label, velocityA, velocityB)
+      ? buildVelocityPunchline(
+          cohortA.label,
+          cohortB.label,
+          velocityA,
+          velocityB,
+          unitLabel,
+        )
       : buildPosture({
           mode,
           cohortA,
@@ -295,6 +312,7 @@ export function runCompare({
     mode,
     cohortA,
     cohortB,
+    judgmentUnitLabel: unitLabel,
     deltas,
     driverDeltas,
     consistency: {
@@ -337,9 +355,11 @@ function buildVelocityPunchline(
   labelB: string,
   velocityA: VelocityResult,
   velocityB: VelocityResult,
+  judgmentUnitLabel?: string | null,
 ): string {
+  const unitLabels = getUnitLabels(judgmentUnitLabel);
   if (!velocityA.decisionsToTarget && !velocityB.decisionsToTarget) {
-    return "Neither cohort has enough decisions to reach the target yet.";
+    return `Neither cohort has enough ${unitLabels.plural} to reach the target yet.`;
   }
 
   if (!velocityA.decisionsToTarget) {
@@ -361,7 +381,7 @@ function buildVelocityPunchline(
   const slowerDecisions = Math.max(velocityA.decisionsToTarget, velocityB.decisionsToTarget);
 
   return speedRatio
-    ? `${faster} stabilized in ${fasterDecisions} decisions; ${slower} required ${slowerDecisions} (${speedRatio.toFixed(1)}× difference).`
+    ? `${faster} stabilized in ${formatUnitCount(fasterDecisions, judgmentUnitLabel)}; ${slower} required ${formatUnitCount(slowerDecisions, judgmentUnitLabel)} (${speedRatio.toFixed(1)}× difference).`
     : `${faster} reached the target faster than ${slower}.`;
 }
 
@@ -453,7 +473,7 @@ function formatDriver(key: string, delta: number) {
 }
 
 function getModeSummary(mode: CompareMode): string {
-  if (mode === "temporal") return "Temporal: Compare the same system across equal windows.";
-  if (mode === "velocity") return "Velocity: Compare how quickly each system reaches a target state.";
-  return "Entity: Compare two systems over the same timeframe.";
+  if (mode === "temporal") return "Change: What’s different?";
+  if (mode === "velocity") return "Speed: How fast do meaningful patterns form?";
+  return "Posture: What kind of judgment system is this?";
 }
