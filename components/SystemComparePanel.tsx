@@ -64,6 +64,27 @@ const SystemComparePanel: React.FC<SystemComparePanelProps> = ({ result, warning
         </div>
       )}
 
+      <details className="rounded-xl border bg-muted/40 p-4 text-xs text-muted-foreground">
+        <summary className="cursor-pointer text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+          Advanced details
+        </summary>
+        <div className="mt-2 grid gap-3 sm:grid-cols-2">
+          <div className="rounded-lg border bg-background/60 p-3">
+            <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">{cohortA.label}</p>
+            <p className="text-xs text-muted-foreground">Decisions: {cohortA.totalDecisions}</p>
+            <p className="text-xs text-muted-foreground">Normalization: {cohortA.normalizationBasis}</p>
+            <p className="text-xs text-muted-foreground">Timeframe: {cohortA.timeframeLabel}</p>
+          </div>
+          <div className="rounded-lg border bg-background/60 p-3">
+            <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">{cohortB.label}</p>
+            <p className="text-xs text-muted-foreground">Decisions: {cohortB.totalDecisions}</p>
+            <p className="text-xs text-muted-foreground">Normalization: {cohortB.normalizationBasis}</p>
+            <p className="text-xs text-muted-foreground">Timeframe: {cohortB.timeframeLabel}</p>
+          </div>
+        </div>
+        <p className="mt-2 text-[11px] text-muted-foreground">Mode summary: {result.modeSummary}</p>
+      </details>
+
       <div className="grid gap-4 md:grid-cols-3">
         {metrics.map((metric) => (
           <div key={metric.label} className="rounded-xl border bg-muted/40 p-4">
@@ -173,6 +194,31 @@ function VelocityCard({ label, result }: { label: string; result: VelocityResult
         <p className="text-xs text-muted-foreground">What this means: {describeVelocityRule(result)}</p>
         {result.reason && <p className="text-xs text-muted-foreground">{result.reason}</p>}
       </div>
+      <details className="mt-3 rounded-lg border bg-background/60 p-3 text-xs text-muted-foreground">
+        <summary className="cursor-pointer text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+          Show details
+        </summary>
+        <div className="mt-2 space-y-2">
+          <p className="text-[11px] text-muted-foreground">
+            Window size: {result.windowSize} · Consecutive windows: {result.consecutiveWindows}
+          </p>
+          <div className="rounded-md border bg-muted/30 p-2">
+            <p className="text-[11px] font-semibold text-foreground">Thresholds</p>
+            <ul className="mt-1 list-disc space-y-1 pl-4 text-[11px] text-muted-foreground">
+              <li>Return lift: {result.thresholds.returnLift.toFixed(1)}</li>
+              <li>Pressure band: ±{result.thresholds.pressureBand.toFixed(1)}</li>
+              <li>Stability floor: {result.thresholds.stabilityFloor.toFixed(1)}</li>
+              <li>Stability band: ±{result.thresholds.stabilityBand.toFixed(1)}</li>
+            </ul>
+          </div>
+          {result.explainability?.layer4Punchline && (
+            <div className="rounded-md border bg-muted/30 p-2">
+              <p className="text-[11px] font-semibold text-foreground">Advanced details</p>
+              <p className="text-[11px] text-muted-foreground">{result.explainability.layer4Punchline}</p>
+            </div>
+          )}
+        </div>
+      </details>
     </div>
   );
 }
