@@ -216,6 +216,11 @@ export function runCompare({
   const returnDelta = cohortB.avgReturn - cohortA.avgReturn;
   const pressureDelta = cohortB.avgPressure - cohortA.avgPressure;
   const stabilityDelta = cohortB.avgStability - cohortA.avgStability;
+  const deltas = {
+    returnDelta,
+    pressureDelta,
+    stabilityDelta,
+  };
   const driverDeltas = {
     impact: cohortB.avgImpact - cohortA.avgImpact,
     cost: cohortB.avgCost - cohortA.avgCost,
@@ -250,7 +255,7 @@ export function runCompare({
           mode,
           cohortA,
           cohortB,
-          deltas: { returnDelta, pressureDelta, stabilityDelta },
+          deltas,
           driverDeltas,
         });
 
@@ -267,7 +272,7 @@ export function runCompare({
     mode,
     cohortA,
     cohortB,
-    deltas: { returnDelta, pressureDelta, stabilityDelta },
+    deltas,
     driverDeltas,
   });
 
@@ -282,7 +287,7 @@ export function runCompare({
       }
     : {
         ...explainability,
-        layer3Intermediates: { deltas: { returnDelta, pressureDelta, stabilityDelta }, drivers: driverDeltas },
+        layer3Intermediates: { deltas, drivers: driverDeltas },
         layer4Punchline: punchline,
       };
 
@@ -290,11 +295,7 @@ export function runCompare({
     mode,
     cohortA,
     cohortB,
-    deltas: {
-      returnDelta,
-      pressureDelta,
-      stabilityDelta,
-    },
+    deltas,
     driverDeltas,
     consistency: {
       cohortAStd: {

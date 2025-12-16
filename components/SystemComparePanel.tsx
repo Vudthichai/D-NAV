@@ -101,7 +101,9 @@ const SystemComparePanel: React.FC<SystemComparePanelProps> = ({ result, warning
       <div className="grid gap-4 md:grid-cols-3">
         <div className="rounded-xl border bg-muted/40 p-4">
           <h3 className="mb-2 text-sm font-semibold">Consistency (std dev)</h3>
-          <p className="text-xs text-muted-foreground">Lower values mean steadier outcomes in the timeframe.</p>
+          <p className="text-xs text-muted-foreground">
+            Lower values mean the system&apos;s outcomes are steadier in the timeframe.
+          </p>
           <div className="mt-3 space-y-2 text-xs text-muted-foreground">
             <div className="flex items-center justify-between">
               <span className="font-medium text-foreground">{cohortA.label}</span>
