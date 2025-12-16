@@ -55,6 +55,7 @@ export default function LogPage() {
   const [companyContext, setCompanyContext] = useState<CompanyContext>({
     companyName: "",
     timeframeLabel: "",
+    judgmentUnit: "",
     type: undefined,
   });
   const {
@@ -97,6 +98,8 @@ export default function LogPage() {
       const label = typeof value === "string" ? value : "";
       metaPatch.periodLabel = label;
       metaPatch.displayLabel = label;
+    } else if (field === "judgmentUnit") {
+      metaPatch.judgmentUnit = typeof value === "string" ? value : undefined;
     } else if (field === "sector") {
       metaPatch.sector = typeof value === "string" ? value : undefined;
     } else if (field === "contextNote") {
@@ -751,6 +754,20 @@ export default function LogPage() {
                 onChange={handleContextInput}
               />
             </div>
+          </div>
+
+          <div className="space-y-2">
+            <label className="text-sm font-medium text-foreground" htmlFor="judgmentUnit">
+              Judgment Unit <span className="text-muted-foreground">(optional)</span>
+            </label>
+            <Input
+              id="judgmentUnit"
+              name="judgmentUnit"
+              placeholder="e.g., NFL play call, chess move, trade, board-level decision..."
+              value={companyContext.judgmentUnit || ""}
+              onChange={handleContextInput}
+            />
+            <p className="text-xs text-muted-foreground">What does one row represent in this dataset?</p>
           </div>
 
           <div className="grid grid-cols-1 gap-3 md:grid-cols-3">

@@ -63,6 +63,8 @@ export type CompareResult = {
   mode: CompareMode;
   cohortA: CohortSummary;
   cohortB: CohortSummary;
+  judgmentUnit?: string;
+  scopeLabel?: string;
   deltas: {
     returnDelta: number;
     pressureDelta: number;

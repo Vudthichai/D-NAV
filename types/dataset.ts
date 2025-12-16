@@ -7,6 +7,7 @@ export interface DatasetMeta {
   companyName: string;
   periodLabel: string;
   displayLabel?: string;
+  judgmentUnit?: string;
   ticker?: string;
   sector?: string;
   stage?: CompanyContext["stage"];
@@ -27,6 +28,7 @@ const EMPTY_DATASET_META: DatasetMeta = {
   companyName: "",
   periodLabel: "",
   displayLabel: "",
+  judgmentUnit: "",
   ticker: "",
   sector: "",
   stage: undefined,
@@ -44,6 +46,7 @@ export function datasetMetaToCompanyContext(meta: DatasetMeta): CompanyContext {
   return {
     companyName: meta.companyName ?? "",
     timeframeLabel: meta.periodLabel ?? meta.displayLabel ?? "",
+    judgmentUnit: meta.judgmentUnit || undefined,
     ticker: meta.ticker || undefined,
     sector: meta.sector || undefined,
     stage: meta.stage,

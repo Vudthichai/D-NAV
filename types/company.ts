@@ -1,6 +1,7 @@
 export interface CompanyContext {
   companyName: string;
   timeframeLabel: string;
+  judgmentUnit?: string;
   ticker?: string;
   type?: "Public" | "Private" | "Startup" | "Non-profit" | "Fund" | "Other";
   sector?: string;

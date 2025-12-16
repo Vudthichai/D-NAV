@@ -353,7 +353,11 @@ function ReportsPageContent() {
           decisionsB: summaryB.decisions,
         });
 
-        setCompareResult(result);
+        setCompareResult({
+          ...result,
+          judgmentUnit: datasetA?.meta.judgmentUnit || datasetB?.meta.judgmentUnit || undefined,
+          scopeLabel: timeframeLabel,
+        });
         setIsCompareLoading(false);
         return;
       }
@@ -430,7 +434,12 @@ function ReportsPageContent() {
           warnings: warning ? [warning] : undefined,
         });
 
-        setCompareResult(result);
+        const scopeLabel = `${timeframeLabelA} vs ${timeframeLabelB}`;
+        setCompareResult({
+          ...result,
+          judgmentUnit: temporalDataset?.meta.judgmentUnit || undefined,
+          scopeLabel,
+        });
         setIsCompareLoading(false);
         return;
       }
@@ -479,7 +488,11 @@ function ReportsPageContent() {
           thresholds: velocityThresholds,
         });
 
-        setCompareResult(result);
+        setCompareResult({
+          ...result,
+          judgmentUnit: datasetA?.meta.judgmentUnit || datasetB?.meta.judgmentUnit || undefined,
+          scopeLabel: timeframeLabel,
+        });
         setIsCompareLoading(false);
       }
     };
