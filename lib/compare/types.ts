@@ -16,7 +16,12 @@ export type FailureMode = {
 
 export type CohortSummary = {
   label: string;
+  datasetLabel?: string;
   timeframeLabel: string;
+  timeframeMode?: "time" | "sequence";
+  sequenceRange?: { start: number; end: number } | null;
+  totalAvailableDecisions?: number;
+  judgmentUnitLabel?: string;
   normalizationBasis: NormalizationBasis;
   totalDecisions: number;
   avgReturn: number;
@@ -63,6 +68,7 @@ export type CompareResult = {
   mode: CompareMode;
   cohortA: CohortSummary;
   cohortB: CohortSummary;
+  judgmentUnitLabel?: string;
   deltas: {
     returnDelta: number;
     pressureDelta: number;
@@ -97,4 +103,9 @@ export type CohortBuildRequest = {
   label: string;
   timeframeLabel: string;
   normalizationBasis: NormalizationBasis;
+  datasetLabel?: string;
+  judgmentUnitLabel?: string;
+  timeframeMode?: "time" | "sequence";
+  sequenceRange?: { start: number; end: number } | null;
+  totalAvailableDecisions?: number;
 };

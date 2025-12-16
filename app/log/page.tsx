@@ -142,6 +142,11 @@ export default function LogPage() {
     deleteDataset(datasetId);
   };
 
+  const handleJudgmentUnitChange = (value: string) => {
+    if (!datasetId) return;
+    setDatasetMeta(datasetId, { judgmentUnitLabel: value });
+  };
+
   const downloadBlob = (blob: Blob, filename: string) => {
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
@@ -751,6 +756,22 @@ export default function LogPage() {
                 onChange={handleContextInput}
               />
             </div>
+          </div>
+
+          <div className="space-y-2">
+            <label className="text-sm font-medium text-foreground" htmlFor="judgmentUnitLabel">
+              Judgment Unit (optional)
+            </label>
+            <Input
+              id="judgmentUnitLabel"
+              name="judgmentUnitLabel"
+              placeholder="e.g., NFL play call"
+              value={meta.judgmentUnitLabel ?? ""}
+              onChange={(event) => handleJudgmentUnitChange(event.target.value)}
+            />
+            <p className="text-xs text-muted-foreground">
+              What does one decision represent in this dataset? Examples: “NFL play call”, “Chess move”, “Trade”.
+            </p>
           </div>
 
           <div className="grid grid-cols-1 gap-3 md:grid-cols-3">

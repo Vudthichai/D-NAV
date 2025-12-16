@@ -46,6 +46,7 @@ import {
   type VelocityGoalTarget,
 } from "@/lib/compare/types";
 import { filterDecisionsByTimeframe } from "@/utils/judgmentDashboard";
+import { buildRangeLabel, formatUnitCount, getUnitLabels } from "@/utils/judgmentUnits";
 import { FileDown } from "lucide-react";
 import * as XLSX from "xlsx";
 
@@ -198,6 +199,21 @@ const resolveDateRange = (value: TimeframeValue, range: DateRange) => {
   } as const;
 };
 
+const clampSequenceRange = (range: { start: number; end: number }, total: number) => {
+  if (total <= 0) return { start: 1, end: 1 };
+  const start = Math.max(1, Math.min(range.start, total));
+  const end = Math.max(start, Math.min(range.end, total));
+  return { start, end };
+};
+
+const buildDefaultSequenceRanges = (total: number) => {
+  const midpoint = Math.max(1, Math.floor(total / 2));
+  return {
+    a: { start: 1, end: midpoint },
+    b: { start: midpoint + 1, end: total },
+  };
+};
+
 const DEFAULT_VELOCITY_THRESHOLDS = {
   returnLift: 1,
   pressureBand: 0.5,
@@ -233,6 +249,15 @@ function ReportsPageContent() {
   const [temporalPeriodB, setTemporalPeriodB] = useState<TimeframeValue>("90");
   const [customTemporalPeriodA, setCustomTemporalPeriodA] = useState<DateRange>({ start: null, end: null });
   const [customTemporalPeriodB, setCustomTemporalPeriodB] = useState<DateRange>({ start: null, end: null });
+  const [temporalSequenceMode, setTemporalSequenceMode] = useState(false);
+  const [temporalSequenceRangeA, setTemporalSequenceRangeA] = useState<{ start: number; end: number }>({
+    start: 1,
+    end: 1,
+  });
+  const [temporalSequenceRangeB, setTemporalSequenceRangeB] = useState<{ start: number; end: number }>({
+    start: 1,
+    end: 1,
+  });
   const [normalizeTemporalRanges, setNormalizeTemporalRanges] = useState(false);
   const [velocityTimeframe, setVelocityTimeframe] = useState<TimeframeValue>(resolvedTimeframe);
   const [velocityWindowSize, setVelocityWindowSize] = useState(5);
@@ -302,6 +327,37 @@ function ReportsPageContent() {
     () => getDatasetById(temporalDatasetId) ?? null,
     [getDatasetById, temporalDatasetId],
   );
+  const temporalUnitLabel = temporalDataset?.meta.judgmentUnitLabel;
+  const velocityUnitLabel = datasetA?.meta.judgmentUnitLabel || datasetB?.meta.judgmentUnitLabel;
+  const velocityUnitLabels = getUnitLabels(velocityUnitLabel);
+  const temporalDecisionCount = temporalDataset?.decisions.length ?? 0;
+  const clampedRangeA = useMemo(
+    () => clampSequenceRange(temporalSequenceRangeA, temporalDecisionCount),
+    [temporalDecisionCount, temporalSequenceRangeA],
+  );
+  const clampedRangeB = useMemo(
+    () => clampSequenceRange(temporalSequenceRangeB, temporalDecisionCount),
+    [temporalDecisionCount, temporalSequenceRangeB],
+  );
+
+  useEffect(() => {
+    const total = temporalDataset?.decisions.length ?? 0;
+    if (total <= 0) {
+      setTemporalSequenceRangeA({ start: 1, end: 1 });
+      setTemporalSequenceRangeB({ start: 1, end: 1 });
+      return;
+    }
+
+    const defaults = buildDefaultSequenceRanges(total);
+    setTemporalSequenceRangeA((current) => {
+      if (current.start === 1 && current.end === 1) return defaults.a;
+      return clampSequenceRange(current, total);
+    });
+    setTemporalSequenceRangeB((current) => {
+      if (current.start === 1 && current.end === 1) return defaults.b;
+      return clampSequenceRange(current, total);
+    });
+  }, [temporalDataset]);
 
   useEffect(() => {
     let cancelled = false;
@@ -328,6 +384,7 @@ function ReportsPageContent() {
             timeframeDays,
             timeframeLabel,
             normalizationBasis: basisForMode,
+            judgmentUnitLabel: datasetA.meta.judgmentUnitLabel,
           }),
           buildCohortSummaryFromDataset({
             dataset: datasetB,
@@ -335,6 +392,7 @@ function ReportsPageContent() {
             timeframeDays,
             timeframeLabel,
             normalizationBasis: basisForMode,
+            judgmentUnitLabel: datasetB.meta.judgmentUnitLabel,
           }),
         ]);
 
@@ -360,6 +418,57 @@ function ReportsPageContent() {
 
       if (compareMode === "temporal") {
         if (!temporalDataset) {
+          setIsCompareLoading(false);
+          return;
+        }
+
+        if (temporalSequenceMode) {
+          const total = temporalDataset.decisions.length;
+          const rangeA = clampSequenceRange(temporalSequenceRangeA, total);
+          const rangeB = clampSequenceRange(temporalSequenceRangeB, total);
+          const timeframeLabelA = buildRangeLabel(rangeA.start, rangeA.end, temporalUnitLabel);
+          const timeframeLabelB = buildRangeLabel(rangeB.start, rangeB.end, temporalUnitLabel);
+          const normalizationBasis: NormalizationBasis = "shared_timeframe";
+
+          const [periodASummary, periodBSummary] = await Promise.all([
+            buildCohortSummaryFromDataset({
+              dataset: temporalDataset,
+              label: `${resolveDatasetLabel(temporalDatasetId)} · Period A`,
+              timeframeDays: null,
+              timeframeLabel: timeframeLabelA,
+              normalizationBasis,
+              judgmentUnitLabel: temporalUnitLabel,
+              sequenceMode: true,
+              sequenceRange: rangeA,
+            }),
+            buildCohortSummaryFromDataset({
+              dataset: temporalDataset,
+              label: `${resolveDatasetLabel(temporalDatasetId)} · Period B`,
+              timeframeDays: null,
+              timeframeLabel: timeframeLabelB,
+              normalizationBasis,
+              judgmentUnitLabel: temporalUnitLabel,
+              sequenceMode: true,
+              sequenceRange: rangeB,
+            }),
+          ]);
+
+          if (cancelled) return;
+          if (!periodASummary || !periodBSummary) {
+            setIsCompareLoading(false);
+            return;
+          }
+
+          const result = runCompare({
+            mode: "temporal",
+            normalizationBasis,
+            cohortA: periodASummary.summary,
+            cohortB: periodBSummary.summary,
+            decisionsA: periodASummary.decisions,
+            decisionsB: periodBSummary.decisions,
+          });
+
+          setCompareResult(result);
           setIsCompareLoading(false);
           return;
         }
@@ -400,6 +509,7 @@ function ReportsPageContent() {
             customRange: periodAConfig.isCustom
               ? { start: periodAConfig.start, end: periodAConfig.end }
               : undefined,
+            judgmentUnitLabel: temporalUnitLabel,
           }),
           buildCohortSummaryFromDataset({
             dataset: temporalDataset,
@@ -411,6 +521,7 @@ function ReportsPageContent() {
             customRange: periodBConfig.isCustom
               ? { start: periodBConfig.start, end: periodBConfig.end }
               : undefined,
+            judgmentUnitLabel: temporalUnitLabel,
           }),
         ]);
 
@@ -450,6 +561,7 @@ function ReportsPageContent() {
             timeframeDays,
             timeframeLabel,
             normalizationBasis: basisForMode,
+            judgmentUnitLabel: datasetA.meta.judgmentUnitLabel,
           }),
           buildCohortSummaryFromDataset({
             dataset: datasetB,
@@ -457,6 +569,7 @@ function ReportsPageContent() {
             timeframeDays,
             timeframeLabel,
             normalizationBasis: basisForMode,
+            judgmentUnitLabel: datasetB.meta.judgmentUnitLabel,
           }),
         ]);
 
@@ -503,7 +616,11 @@ function ReportsPageContent() {
     temporalPeriodB,
     customTemporalPeriodA,
     customTemporalPeriodB,
+    temporalSequenceMode,
+    temporalSequenceRangeA,
+    temporalSequenceRangeB,
     normalizeTemporalRanges,
+    temporalUnitLabel,
     resolveDatasetLabel,
     velocityTarget,
     velocityTimeframe,
@@ -871,10 +988,23 @@ function ReportsPageContent() {
 
                 {compareMode === "temporal" && (
                   <div className="rounded-2xl border bg-card/70 p-4 shadow-sm space-y-2 md:col-span-2 lg:col-span-2">
-                    <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Dataset</p>
-                    <p className="text-xs text-muted-foreground">
-                      {resolveDatasetLabel(temporalDatasetId) || "Select a dataset"}
-                    </p>
+                    <div className="flex flex-wrap items-start justify-between gap-3">
+                      <div>
+                        <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Dataset</p>
+                        <p className="text-xs text-muted-foreground">
+                          {resolveDatasetLabel(temporalDatasetId) || "Select a dataset"}
+                        </p>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <div className="text-right">
+                          <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+                            Sequence mode
+                          </p>
+                          <p className="text-[11px] text-muted-foreground">Use index ranges when timestamps are missing.</p>
+                        </div>
+                        <Switch checked={temporalSequenceMode} onCheckedChange={setTemporalSequenceMode} />
+                      </div>
+                    </div>
                     <Select
                       value={temporalDatasetId ?? undefined}
                       onValueChange={(value) => setTemporalDatasetId(value as DatasetId)}
@@ -939,7 +1069,7 @@ function ReportsPageContent() {
                     <p className="text-xs text-muted-foreground">Tune the rolling window and how strict the target rule is.</p>
                     <div className="grid gap-2 sm:grid-cols-2">
                       <div className="space-y-1">
-                        <p className="text-[11px] uppercase text-muted-foreground">Window size (decisions)</p>
+                        <p className="text-[11px] uppercase text-muted-foreground">Window size ({velocityUnitLabels.plural})</p>
                         <Select
                           value={velocityWindowSize.toString()}
                           onValueChange={(value) => setVelocityWindowSize(Number.parseInt(value, 10))}
@@ -1047,84 +1177,160 @@ function ReportsPageContent() {
                 </div>
               )}
 
-              {compareMode === "temporal" && (
-                <div className="grid gap-3 rounded-2xl border bg-card/60 p-4 shadow-sm md:grid-cols-2">
-                  <div className="space-y-2">
-                    <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Period A</p>
-                    <div className="flex flex-wrap gap-2">
-                      {TIMEFRAMES.map(({ value, label }) => (
-                        <Button
-                          key={value}
-                          variant={temporalPeriodA === value ? "default" : "outline"}
-                          size="sm"
-                          onClick={() => setTemporalPeriodA(value)}
-                          className={cn(
-                            "rounded-full px-3 text-xs",
-                            temporalPeriodA === value ? "shadow-sm" : "bg-muted/60 text-foreground",
-                          )}
-                        >
-                          {label}
-                        </Button>
-                      ))}
-                    </div>
-                    <div className="grid gap-2 sm:grid-cols-2">
-                      <Input
-                        type="date"
-                        value={customTemporalPeriodA.start ?? ""}
-                        onChange={(event) =>
-                          setCustomTemporalPeriodA((current) => ({ ...current, start: event.target.value || null }))
-                        }
-                      />
-                      <Input
-                        type="date"
-                        value={customTemporalPeriodA.end ?? ""}
-                        onChange={(event) =>
-                          setCustomTemporalPeriodA((current) => ({ ...current, end: event.target.value || null }))
-                        }
-                      />
-                    </div>
-                    <p className="text-[11px] text-muted-foreground">Custom dates override quick picks for this period.</p>
-                  </div>
-                  <div className="space-y-2">
-                    <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Period B</p>
-                    <div className="flex flex-wrap gap-2">
-                      {TIMEFRAMES.map(({ value, label }) => (
-                        <Button
-                          key={value}
-                          variant={temporalPeriodB === value ? "default" : "outline"}
-                          size="sm"
-                          onClick={() => setTemporalPeriodB(value)}
-                          className={cn(
-                            "rounded-full px-3 text-xs",
-                            temporalPeriodB === value ? "shadow-sm" : "bg-muted/60 text-foreground",
-                          )}
-                        >
-                          {label}
-                        </Button>
-                      ))}
-                    </div>
-                    <div className="grid gap-2 sm:grid-cols-2">
-                      <Input
-                        type="date"
-                        value={customTemporalPeriodB.start ?? ""}
-                        onChange={(event) =>
-                          setCustomTemporalPeriodB((current) => ({ ...current, start: event.target.value || null }))
-                        }
-                      />
-                      <Input
-                        type="date"
-                        value={customTemporalPeriodB.end ?? ""}
-                        onChange={(event) =>
-                          setCustomTemporalPeriodB((current) => ({ ...current, end: event.target.value || null }))
-                        }
-                      />
-                    </div>
-                    <p className="text-[11px] text-muted-foreground">Use matching date ranges for apples-to-apples comparisons.</p>
-                  </div>
+            {compareMode === "temporal" && (
+              <div className="grid gap-3 rounded-2xl border bg-card/60 p-4 shadow-sm md:grid-cols-2">
+                <div className="space-y-2">
+                  <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Period A</p>
+                  {temporalSequenceMode ? (
+                    <>
+                      <div className="grid gap-2 sm:grid-cols-2">
+                        <Input
+                          type="number"
+                          min={1}
+                          value={clampedRangeA.start}
+                          onChange={(event) =>
+                            setTemporalSequenceRangeA((current) =>
+                              clampSequenceRange(
+                                { ...current, start: Number.parseInt(event.target.value || "1", 10) },
+                                temporalDecisionCount,
+                              ),
+                            )
+                          }
+                        />
+                        <Input
+                          type="number"
+                          min={1}
+                          value={clampedRangeA.end}
+                          onChange={(event) =>
+                            setTemporalSequenceRangeA((current) =>
+                              clampSequenceRange(
+                                { ...current, end: Number.parseInt(event.target.value || "1", 10) },
+                                temporalDecisionCount,
+                              ),
+                            )
+                          }
+                        />
+                      </div>
+                      <p className="text-[11px] text-muted-foreground">
+                        {buildRangeLabel(clampedRangeA.start, clampedRangeA.end, temporalUnitLabel)} · {formatUnitCount(temporalDecisionCount, temporalUnitLabel)} total
+                      </p>
+                    </>
+                  ) : (
+                    <>
+                      <div className="flex flex-wrap gap-2">
+                        {TIMEFRAMES.map(({ value, label }) => (
+                          <Button
+                            key={value}
+                            variant={temporalPeriodA === value ? "default" : "outline"}
+                            size="sm"
+                            onClick={() => setTemporalPeriodA(value)}
+                            className={cn(
+                              "rounded-full px-3 text-xs",
+                              temporalPeriodA === value ? "shadow-sm" : "bg-muted/60 text-foreground",
+                            )}
+                          >
+                            {label}
+                          </Button>
+                        ))}
+                      </div>
+                      <div className="grid gap-2 sm:grid-cols-2">
+                        <Input
+                          type="date"
+                          value={customTemporalPeriodA.start ?? ""}
+                          onChange={(event) =>
+                            setCustomTemporalPeriodA((current) => ({ ...current, start: event.target.value || null }))
+                          }
+                        />
+                        <Input
+                          type="date"
+                          value={customTemporalPeriodA.end ?? ""}
+                          onChange={(event) =>
+                            setCustomTemporalPeriodA((current) => ({ ...current, end: event.target.value || null }))
+                          }
+                        />
+                      </div>
+                      <p className="text-[11px] text-muted-foreground">Custom dates override quick picks for this period.</p>
+                    </>
+                  )}
                 </div>
-              )}
+                <div className="space-y-2">
+                  <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Period B</p>
+                  {temporalSequenceMode ? (
+                    <>
+                      <div className="grid gap-2 sm:grid-cols-2">
+                        <Input
+                          type="number"
+                          min={1}
+                          value={clampedRangeB.start}
+                          onChange={(event) =>
+                            setTemporalSequenceRangeB((current) =>
+                              clampSequenceRange(
+                                { ...current, start: Number.parseInt(event.target.value || "1", 10) },
+                                temporalDecisionCount,
+                              ),
+                            )
+                          }
+                        />
+                        <Input
+                          type="number"
+                          min={1}
+                          value={clampedRangeB.end}
+                          onChange={(event) =>
+                            setTemporalSequenceRangeB((current) =>
+                              clampSequenceRange(
+                                { ...current, end: Number.parseInt(event.target.value || "1", 10) },
+                                temporalDecisionCount,
+                              ),
+                            )
+                          }
+                        />
+                      </div>
+                      <p className="text-[11px] text-muted-foreground">
+                        {buildRangeLabel(clampedRangeB.start, clampedRangeB.end, temporalUnitLabel)} · {formatUnitCount(temporalDecisionCount, temporalUnitLabel)} total
+                      </p>
+                    </>
+                  ) : (
+                    <>
+                      <div className="flex flex-wrap gap-2">
+                        {TIMEFRAMES.map(({ value, label }) => (
+                          <Button
+                            key={value}
+                            variant={temporalPeriodB === value ? "default" : "outline"}
+                            size="sm"
+                            onClick={() => setTemporalPeriodB(value)}
+                            className={cn(
+                              "rounded-full px-3 text-xs",
+                              temporalPeriodB === value ? "shadow-sm" : "bg-muted/60 text-foreground",
+                            )}
+                          >
+                            {label}
+                          </Button>
+                        ))}
+                      </div>
+                      <div className="grid gap-2 sm:grid-cols-2">
+                        <Input
+                          type="date"
+                          value={customTemporalPeriodB.start ?? ""}
+                          onChange={(event) =>
+                            setCustomTemporalPeriodB((current) => ({ ...current, start: event.target.value || null }))
+                          }
+                        />
+                        <Input
+                          type="date"
+                          value={customTemporalPeriodB.end ?? ""}
+                          onChange={(event) =>
+                            setCustomTemporalPeriodB((current) => ({ ...current, end: event.target.value || null }))
+                          }
+                        />
+                      </div>
+                      <p className="text-[11px] text-muted-foreground">Use matching date ranges for apples-to-apples comparisons.</p>
+                    </>
+                  )}
+                </div>
+              </div>
+            )}
 
-              {compareMode === "temporal" && (
+              {compareMode === "temporal" && !temporalSequenceMode && (
                 <div className="flex items-center justify-between gap-3 rounded-xl border bg-muted/40 p-3">
                   <div>
                     <p className="text-sm font-semibold text-foreground">Normalize to shorter range</p>
@@ -1206,6 +1412,9 @@ async function buildCohortSummaryFromDataset({
   normalizationBasis,
   normalizeToDays,
   customRange,
+  judgmentUnitLabel,
+  sequenceMode,
+  sequenceRange,
 }: {
   dataset: DatasetState | null;
   label: string;
@@ -1214,20 +1423,44 @@ async function buildCohortSummaryFromDataset({
   normalizationBasis: NormalizationBasis;
   normalizeToDays?: number | null;
   customRange?: { start: number | null; end: number | null };
+  judgmentUnitLabel?: string | null;
+  sequenceMode?: boolean;
+  sequenceRange?: { start: number; end: number } | null;
 }): Promise<{ summary: CohortSummary; decisions: DecisionEntry[] } | null> {
   if (!dataset) return null;
   const decisions = await loadDecisionsForDataset(dataset);
-  const sorted = [...decisions].sort((a, b) => b.ts - a.ts);
+  const sorted = sequenceMode ? [...decisions].sort((a, b) => a.ts - b.ts) : [...decisions].sort((a, b) => b.ts - a.ts);
   const effectiveDays = normalizeToDays ?? timeframeDays;
-  const filteredByRange = customRange
-    ? filterDecisionsByDateRange(sorted, customRange.start, customRange.end)
-    : sorted;
-  const filtered = filterDecisionsByTimeframe(filteredByRange, effectiveDays);
+  const filteredByRange = sequenceMode
+    ? sorted.slice(
+        clampSequenceRange(sequenceRange ?? { start: 1, end: sorted.length }, sorted.length).start - 1,
+        clampSequenceRange(sequenceRange ?? { start: 1, end: sorted.length }, sorted.length).end,
+      )
+    : customRange
+      ? filterDecisionsByDateRange(sorted, customRange.start, customRange.end)
+      : sorted;
+  const filtered = sequenceMode ? filteredByRange : filterDecisionsByTimeframe(filteredByRange, effectiveDays);
   if (filtered.length === 0) return null;
+
+  const effectiveRange = sequenceMode
+    ? clampSequenceRange(sequenceRange ?? { start: 1, end: sorted.length }, sorted.length)
+    : null;
+  const resolvedTimeframeLabel = sequenceMode && effectiveRange
+    ? buildRangeLabel(effectiveRange.start, effectiveRange.end, judgmentUnitLabel)
+    : timeframeLabel;
 
   const summary = buildCohortSummary({
     decisions: filtered,
-    request: { label, timeframeLabel, normalizationBasis },
+    request: {
+      label,
+      timeframeLabel: resolvedTimeframeLabel,
+      normalizationBasis,
+      judgmentUnitLabel: judgmentUnitLabel ?? undefined,
+      datasetLabel: dataset.label,
+      timeframeMode: sequenceMode ? "sequence" : "time",
+      sequenceRange: effectiveRange,
+      totalAvailableDecisions: decisions.length,
+    },
   });
 
   return { summary, decisions: filtered };
