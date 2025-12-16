@@ -56,6 +56,7 @@ export default function LogPage() {
     companyName: "",
     timeframeLabel: "",
     type: undefined,
+    judgmentUnit: "",
   });
   const {
     datasets,
@@ -101,6 +102,8 @@ export default function LogPage() {
       metaPatch.sector = typeof value === "string" ? value : undefined;
     } else if (field === "contextNote") {
       metaPatch.contextNote = typeof value === "string" ? value : undefined;
+    } else if (field === "judgmentUnit") {
+      metaPatch.judgmentUnit = typeof value === "string" ? value : undefined;
     } else if (field === "ticker") {
       metaPatch.ticker = typeof value === "string" ? value : undefined;
     } else if (field === "stage") {
@@ -833,26 +836,43 @@ export default function LogPage() {
                 <SelectTrigger>
                   <SelectValue placeholder="Select source" />
                 </SelectTrigger>
-                <SelectContent>
-                  {["Public filings", "Internal decision log", "Mixed", "Other"].map((option) => (
-                    <SelectItem key={option} value={option}>
-                      {option}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <SelectContent>
+                {["Public filings", "Internal decision log", "Mixed", "Other"].map((option) => (
+                  <SelectItem key={option} value={option}>
+                    {option}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          </div>
+
+          <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+            <div className="space-y-2">
+              <label className="text-sm font-medium text-foreground" htmlFor="judgmentUnit">
+                Judgment Unit (optional)
+              </label>
+              <Input
+                id="judgmentUnit"
+                name="judgmentUnit"
+                placeholder="e.g., NFL play call, Chess move, Trade, Board-level decision"
+                value={companyContext.judgmentUnit || ""}
+                onChange={handleContextInput}
+                maxLength={40}
+              />
             </div>
             <div className="space-y-2">
               <label className="text-sm font-medium text-foreground" htmlFor="contextNote">
-                Context note
+                Context Note (optional)
               </label>
               <Textarea
                 id="contextNote"
                 name="contextNote"
-                placeholder="50-person SaaS startup..."
+                placeholder="What are we logging? Describe the decision stream in 1–2 sentences."
                 value={companyContext.contextNote || ""}
                 onChange={handleContextInput}
                 rows={3}
+                maxLength={160}
               />
             </div>
           </div>

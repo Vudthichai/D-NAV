@@ -1150,6 +1150,8 @@ function ReportsPageContent() {
                     result={compareResult}
                     warning={compareWarning ?? undefined}
                     showDebug={debugEnabled}
+                    datasetAMeta={compareMode === "temporal" ? temporalDataset?.meta : datasetA?.meta}
+                    datasetBMeta={compareMode === "temporal" ? temporalDataset?.meta : datasetB?.meta}
                   />
                 ) : (
                   <div className="text-sm text-muted-foreground">

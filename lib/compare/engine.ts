@@ -412,22 +412,19 @@ function buildPosture({
   deltas: { returnDelta: number; pressureDelta: number; stabilityDelta: number };
   driverDeltas: { impact: number; cost: number; risk: number; urgency: number; confidence: number };
 }): string {
-  const leader = deltas.returnDelta >= 0 ? cohortB : cohortA;
-  const trailer = leader === cohortA ? cohortB : cohortA;
-  const leaderLabel = leader.label;
+  const summaryParts = [
+    `ΔR ${cohortB.avgReturn.toFixed(1)} vs ${cohortA.avgReturn.toFixed(1)}`,
+    `ΔP ${cohortB.avgPressure.toFixed(1)} vs ${cohortA.avgPressure.toFixed(1)}`,
+    `ΔS ${cohortB.avgStability.toFixed(1)} vs ${cohortA.avgStability.toFixed(1)}`,
+  ];
 
-  const returnText = `${leaderLabel} shows stronger return (${leader.avgReturn.toFixed(1)} vs ${trailer.avgReturn.toFixed(1)})`;
-  const pressureText = `${leader.avgPressure.toFixed(1)} pressure vs ${trailer.avgPressure.toFixed(1)}`;
-  const stabilityText = `${leader.avgStability.toFixed(1)} stability vs ${trailer.avgStability.toFixed(1)}`;
+  if (mode === "temporal") {
+    return `Period B vs Period A: ${summaryParts.join(" · ")}.`;
+  }
 
-  const modeLabel = getModeSummary(mode);
-  const topDriverLabels = getTopDrivers(driverDeltas).slice(0, 2);
-  const driverText =
-    topDriverLabels.length > 0
-      ? ` Key drivers: ${topDriverLabels.join(" and ")}.`
-      : "";
-
-  return `${modeLabel} ${returnText}; ${pressureText}; ${stabilityText}.${driverText}`;
+  const driverLabel = getTopDrivers(driverDeltas)[0];
+  const driverText = driverLabel ? `Primary driver: ${driverLabel}.` : "";
+  return `Posture baseline: ${summaryParts.join(" · ")}. ${driverText}`.trim();
 }
 
 function getTopDrivers(driverDeltas: { impact: number; cost: number; risk: number; urgency: number; confidence: number }) {

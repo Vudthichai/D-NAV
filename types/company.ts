@@ -7,6 +7,7 @@ export interface CompanyContext {
   stage?: "Early" | "Growth" | "Mature" | "Turnaround" | "Other";
   source?: "Public filings" | "Internal decision log" | "Mixed" | string;
   contextNote?: string;
+  judgmentUnit?: string;
 }
 
 export interface ArchetypeSummaryInput {

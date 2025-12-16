@@ -2,14 +2,23 @@
 
 import React from "react";
 import type { CompareResult, VelocityResult } from "@/lib/compare/types";
+import { type DatasetMeta } from "@/types/dataset";
 
 interface SystemComparePanelProps {
   result: CompareResult;
   warning?: string;
   showDebug?: boolean;
+  datasetAMeta?: DatasetMeta | null;
+  datasetBMeta?: DatasetMeta | null;
 }
 
-const SystemComparePanel: React.FC<SystemComparePanelProps> = ({ result, warning, showDebug }) => {
+const SystemComparePanel: React.FC<SystemComparePanelProps> = ({
+  result,
+  warning,
+  showDebug,
+  datasetAMeta,
+  datasetBMeta,
+}) => {
   const { cohortA, cohortB, deltas, narrative, velocity, driverDeltas, consistency, topDrivers } = result;
 
   const metrics = [
@@ -58,11 +67,23 @@ const SystemComparePanel: React.FC<SystemComparePanelProps> = ({ result, warning
         </div>
       </div>
 
+      <div className="rounded-xl border bg-muted/40 p-3 text-xs text-muted-foreground">
+        <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">What we're analyzing</p>
+        <div className="mt-1 flex flex-col gap-1">
+          <p className="text-sm text-foreground">
+            {renderJudgmentUnitLine(datasetAMeta, datasetBMeta)}
+          </p>
+          {renderContextNote(datasetAMeta, datasetBMeta)}
+        </div>
+      </div>
+
       {warning && (
         <div className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-xs text-amber-900">
           {warning}
         </div>
       )}
+
+      <GuidingQuestions result={result} />
 
       <details className="rounded-xl border bg-muted/40 p-4 text-xs text-muted-foreground">
         <summary className="cursor-pointer text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
@@ -249,4 +270,155 @@ function describeVelocityRule(result: VelocityResult) {
     return `Target reached when the rolling pressure over the last ${windowSize} decisions stays within ±${thresholds.pressureBand.toFixed(1)} and stability is at least ${thresholds.stabilityFloor.toFixed(1)} for ${consecutiveWindows} consecutive windows.`;
   }
   return `Target reached when the rolling stability over the last ${windowSize} decisions stays within ±${thresholds.stabilityBand.toFixed(1)} and above ${thresholds.stabilityFloor.toFixed(1)} for ${consecutiveWindows} consecutive windows.`;
+}
+
+function GuidingQuestions({ result }: { result: CompareResult }) {
+  const { cohortA, cohortB, consistency, driverDeltas, velocity } = result;
+  const steadier = determineSteadier(cohortA, cohortB, consistency);
+  const aggressor = determineAggressor(cohortA, cohortB, driverDeltas);
+  const learner = describeLearning(velocity, cohortA.label, cohortB.label);
+  const pressure = describePressure(cohortA, cohortB);
+  const recovery = describeRecovery();
+
+  return (
+    <div className="rounded-xl border bg-muted/30 p-4">
+      <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Guiding Questions</p>
+      <div className="mt-2 grid gap-3 md:grid-cols-2">
+        {[steadier, aggressor, learner, pressure, recovery].map((item) => (
+          <div key={item.question} className="rounded-lg border bg-background/60 p-3 text-sm">
+            <p className="font-semibold text-foreground">{item.question}</p>
+            <p className="mt-1 text-xs text-muted-foreground">{item.answer}</p>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function renderJudgmentUnitLine(metaA?: DatasetMeta | null, metaB?: DatasetMeta | null) {
+  const unitA = metaA?.judgmentUnit?.trim();
+  const unitB = metaB?.judgmentUnit?.trim();
+
+  if (unitA && unitB) {
+    if (unitA === unitB) return `Judgment Unit: ${unitA}`;
+    return `Judgment Unit: ${unitA} and Judgment Unit: ${unitB}`;
+  }
+
+  if (unitA) return `Judgment Unit: ${unitA}`;
+  if (unitB) return `Judgment Unit: ${unitB}`;
+  return "Judgment Unit: Decisions";
+}
+
+function renderContextNote(metaA?: DatasetMeta | null, metaB?: DatasetMeta | null) {
+  const notes = [
+    metaA?.contextNote?.trim(),
+    metaB?.contextNote?.trim(),
+  ].filter((note) => Boolean(note)) as string[];
+
+  if (notes.length === 0) return null;
+
+  const uniqueNotes = Array.from(new Set(notes));
+  const label = uniqueNotes.length > 1 ? "Context notes" : "Context note";
+
+  return (
+    <details className="text-xs text-muted-foreground">
+      <summary className="cursor-pointer text-[11px] uppercase tracking-wide text-muted-foreground">{label}</summary>
+      <div className="mt-1 space-y-1">
+        {uniqueNotes.map((note, index) => (
+          <p key={`${note}-${index}`} className="line-clamp-2 text-muted-foreground">
+            {note}
+          </p>
+        ))}
+      </div>
+    </details>
+  );
+}
+
+function determineSteadier(
+  cohortA: CompareResult["cohortA"],
+  cohortB: CompareResult["cohortB"],
+  consistency: CompareResult["consistency"],
+) {
+  const totalStdA =
+    consistency.cohortAStd.return + consistency.cohortAStd.pressure + consistency.cohortAStd.stability;
+  const totalStdB =
+    consistency.cohortBStd.return + consistency.cohortBStd.pressure + consistency.cohortBStd.stability;
+
+  if (Math.abs(totalStdA - totalStdB) < 0.1) {
+    return { question: "Who’s steadier?", answer: "Both cohorts show similar steadiness (std dev is nearly identical)." };
+  }
+
+  const steadierLabel = totalStdA < totalStdB ? cohortA.label : cohortB.label;
+  return { question: "Who’s steadier?", answer: `${steadierLabel} is steadier (lower variability across R/P/S).` };
+}
+
+function determineAggressor(
+  cohortA: CompareResult["cohortA"],
+  cohortB: CompareResult["cohortB"],
+  driverDeltas: CompareResult["driverDeltas"],
+) {
+  const scoreA = cohortA.avgImpact + cohortA.avgRisk + cohortA.avgUrgency + cohortA.avgReturn;
+  const scoreB = cohortB.avgImpact + cohortB.avgRisk + cohortB.avgUrgency + cohortB.avgReturn;
+  const leader = scoreA > scoreB ? cohortA.label : cohortB.label;
+  const signals: string[] = [];
+  if (Math.abs(driverDeltas.urgency) > 0.05) signals.push(driverDeltas.urgency > 0 ? "higher urgency" : "lower urgency");
+  if (Math.abs(driverDeltas.risk) > 0.05) signals.push(driverDeltas.risk > 0 ? "higher risk" : "lower risk");
+  if (Math.abs(driverDeltas.impact) > 0.05) signals.push(driverDeltas.impact > 0 ? "higher impact" : "lower impact");
+  const descriptor = signals.length > 0 ? signals.join(" + ") : "overall driver mix";
+  return { question: "Who’s more aggressive?", answer: `${leader} is more aggressive (${descriptor}).` };
+}
+
+function describeLearning(
+  velocity: CompareResult["velocity"] | undefined,
+  labelA: string,
+  labelB: string,
+) {
+  if (!velocity) {
+    return { question: "Who learns faster?", answer: "Not measured in this mode." };
+  }
+
+  const { a, b } = velocity;
+  if (!a.decisionsToTarget && !b.decisionsToTarget) {
+    return {
+      question: "Who learns faster?",
+      answer: "Target not established within the observed decisions for either cohort.",
+    };
+  }
+
+  if (a.decisionsToTarget && !b.decisionsToTarget) {
+    return {
+      question: "Who learns faster?",
+      answer: `${labelA} reached the target after ${a.decisionsToTarget} decisions; ${labelB} has not reached it yet.`,
+    };
+  }
+
+  if (!a.decisionsToTarget && b.decisionsToTarget) {
+    return {
+      question: "Who learns faster?",
+      answer: `${labelB} reached the target after ${b.decisionsToTarget} decisions; ${labelA} has not reached it yet.`,
+    };
+  }
+
+  if (a.decisionsToTarget && b.decisionsToTarget) {
+    const faster = a.decisionsToTarget <= b.decisionsToTarget ? labelA : labelB;
+    const slowerDecisions = Math.max(a.decisionsToTarget, b.decisionsToTarget);
+    const fasterDecisions = Math.min(a.decisionsToTarget, b.decisionsToTarget);
+    return {
+      question: "Who learns faster?",
+      answer: `${faster} reached the target sooner (${fasterDecisions} decisions vs ${slowerDecisions}).`,
+    };
+  }
+
+  return { question: "Who learns faster?", answer: "Learning velocity not established." };
+}
+
+function describePressure(cohortA: CompareResult["cohortA"], cohortB: CompareResult["cohortB"]) {
+  const leader = cohortA.avgPressure > cohortB.avgPressure ? cohortA : cohortB;
+  const trailer = leader === cohortA ? cohortB : cohortA;
+  const answer = `${leader.label} runs higher pressure (${leader.avgPressure.toFixed(1)} vs ${trailer.avgPressure.toFixed(1)}), so instability episodes are more likely.`;
+  return { question: "Who breaks under pressure?", answer };
+}
+
+function describeRecovery() {
+  return { question: "Who recovers faster?", answer: "Not yet measured in this version." };
 }
