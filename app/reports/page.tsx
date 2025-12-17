@@ -913,7 +913,7 @@ function ReportsPageContent() {
                     <SelectContent>
                       <SelectItem value="entity">Entity</SelectItem>
                       <SelectItem value="temporal">Temporal</SelectItem>
-                      <SelectItem value="velocity">Velocity</SelectItem>
+                      <SelectItem value="velocity">Recovery Index</SelectItem>
                     </SelectContent>
                   </Select>
                   <p className="text-[11px] text-muted-foreground">
@@ -921,7 +921,7 @@ function ReportsPageContent() {
                       ? "Compare two systems over the same timeframe."
                       : compareMode === "temporal"
                         ? "Compare the same system across equal windows."
-                        : "Compare how quickly each system reaches a target state."}
+                        : "Compare how quickly the system re-enters stability after deviation."}
                   </p>
                 </div>
 

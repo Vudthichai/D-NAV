@@ -1,6 +1,7 @@
 import { DecisionEntry } from "../calculations";
 import { stdev } from "@/utils/stats";
 import { formatUnitCount, getUnitLabels } from "@/utils/judgmentUnits";
+import { buildPostureContrast, computePostureSummary } from "../judgment/posture";
 import type {
   CohortBuildRequest,
   CohortSummary,
@@ -308,6 +309,10 @@ export function runCompare({
         layer4Punchline: punchline,
       };
 
+  const postureA = computePostureSummary(cohortA, decisionsA);
+  const postureB = computePostureSummary(cohortB, decisionsB);
+  const postureContrast = buildPostureContrast(postureA, postureB, { a: cohortA.label, b: cohortB.label });
+
   return {
     mode,
     cohortA,
@@ -342,6 +347,7 @@ export function runCompare({
         : undefined,
     developerDetails,
     warnings,
+    posture: { cohortA: postureA, cohortB: postureB, contrast: postureContrast },
   };
 }
 

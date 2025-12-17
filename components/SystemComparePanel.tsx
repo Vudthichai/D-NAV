@@ -3,6 +3,10 @@
 import React from "react";
 import type { CompareResult, VelocityResult } from "@/lib/compare/types";
 import { formatUnitCount, getUnitLabels, type UnitLabels } from "@/utils/judgmentUnits";
+import { JudgmentRegimeBadge } from "./compare/JudgmentRegimeBadge";
+import { PostureGeometryPanel } from "./compare/PostureGeometryPanel";
+import { TemporalSeismograph } from "./compare/TemporalSeismograph";
+import { EarlyWarningFlags } from "./compare/EarlyWarningFlags";
 
 interface SystemComparePanelProps {
   result: CompareResult;
@@ -21,6 +25,7 @@ const SystemComparePanel: React.FC<SystemComparePanelProps> = ({ result, warning
   const postureNarrative = buildPostureNarrative(executiveSummary, comparisonLabels);
   const datasetLabelA = cohortA.datasetLabel ?? cohortA.label;
   const datasetLabelB = cohortB.datasetLabel ?? cohortB.label;
+  const posture = result.posture;
 
   const metrics = [
     {
@@ -80,6 +85,13 @@ const SystemComparePanel: React.FC<SystemComparePanelProps> = ({ result, warning
         <p className="mt-1 text-sm text-muted-foreground">{summaryText}</p>
       </div>
 
+      {posture && (
+        <div className="grid gap-4 md:grid-cols-2">
+          <JudgmentRegimeBadge label={cohortA.label} regime={posture.cohortA.regime} />
+          <JudgmentRegimeBadge label={cohortB.label} regime={posture.cohortB.regime} />
+        </div>
+      )}
+
       <div className="rounded-xl border bg-muted/40 p-4">
         <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Judgment Executive Summary</p>
         <div className="mt-2 space-y-3">
@@ -91,6 +103,36 @@ const SystemComparePanel: React.FC<SystemComparePanelProps> = ({ result, warning
           ))}
         </div>
       </div>
+
+      {posture && (
+        <div className="grid gap-4 md:grid-cols-2">
+          <PostureGeometryPanel
+            label={cohortA.label}
+            posture={posture.cohortA}
+            interpretation={posture.contrast.postureSummary}
+          />
+          <PostureGeometryPanel
+            label={cohortB.label}
+            posture={posture.cohortB}
+            interpretation={posture.contrast.primaryRisk}
+          />
+        </div>
+      )}
+
+      {posture && result.mode === "temporal" && (
+        <>
+          <TemporalSeismograph
+            data={[
+              { label: cohortA.label, series: posture.cohortA.series, trends: posture.cohortA.trends },
+              { label: cohortB.label, series: posture.cohortB.series, trends: posture.cohortB.trends },
+            ]}
+          />
+          <div className="grid gap-4 md:grid-cols-2">
+            <EarlyWarningFlags label={cohortA.label} posture={posture.cohortA} />
+            <EarlyWarningFlags label={cohortB.label} posture={posture.cohortB} />
+          </div>
+        </>
+      )}
 
       <details className="rounded-xl border bg-muted/40 p-4 text-xs text-muted-foreground">
         <summary className="cursor-pointer text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
@@ -193,7 +235,16 @@ const SystemComparePanel: React.FC<SystemComparePanelProps> = ({ result, warning
 
       <div className="rounded-xl border bg-muted/40 p-4">
         <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Posture narrative</p>
-        <p className="mt-1 text-sm text-muted-foreground">{postureNarrative || narrative}</p>
+        {posture ? (
+          <div className="mt-2 grid gap-2 md:grid-cols-2">
+            <NarrativeTile title="Posture Summary" body={posture.contrast.postureSummary} />
+            <NarrativeTile title="Regime Contrast" body={posture.contrast.regimeContrast} />
+            <NarrativeTile title="Primary Risk" body={posture.contrast.primaryRisk} />
+            <NarrativeTile title="Best Use Case" body={posture.contrast.bestUseCase} />
+          </div>
+        ) : (
+          <p className="mt-1 text-sm text-muted-foreground">{postureNarrative || narrative}</p>
+        )}
         {topDrivers.length > 0 && (
           <p className="mt-2 text-xs text-muted-foreground">Top drivers: {topDrivers.slice(0, 2).join(" · ")}</p>
         )}
@@ -201,8 +252,18 @@ const SystemComparePanel: React.FC<SystemComparePanelProps> = ({ result, warning
 
       {velocity && (
         <div className="grid gap-4 lg:grid-cols-3">
-          <VelocityCard label={`Velocity — ${cohortA.label}`} result={velocity.a} unitLabels={unitLabels} unitLabelRaw={unitLabelRaw} />
-          <VelocityCard label={`Velocity — ${cohortB.label}`} result={velocity.b} unitLabels={unitLabels} unitLabelRaw={unitLabelRaw} />
+          <VelocityCard
+            label={`Recovery Index — ${cohortA.label}`}
+            result={velocity.a}
+            unitLabels={unitLabels}
+            unitLabelRaw={unitLabelRaw}
+          />
+          <VelocityCard
+            label={`Recovery Index — ${cohortB.label}`}
+            result={velocity.b}
+            unitLabels={unitLabels}
+            unitLabelRaw={unitLabelRaw}
+          />
           <div className="rounded-xl border bg-muted/40 p-4">
             <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Punchline</p>
             <p className="mt-1 text-sm text-muted-foreground">{velocity.punchline}</p>
@@ -241,7 +302,7 @@ function VelocityCard({
         <div>
           <p className="text-[11px] uppercase tracking-wide text-muted-foreground">{label}</p>
           <h3 className="text-sm font-semibold text-foreground">{result.targetLabel}</h3>
-          <p className="text-xs text-muted-foreground">Windowed velocity</p>
+          <p className="text-xs text-muted-foreground">How quickly the system re-enters stability after deviation.</p>
         </div>
         <span className="text-xs text-muted-foreground">{result.windowsEvaluated} windows</span>
       </div>
@@ -285,6 +346,15 @@ function VelocityCard({
   );
 }
 
+function NarrativeTile({ title, body }: { title: string; body: string }) {
+  return (
+    <div className="rounded-lg border bg-background/60 p-3">
+      <p className="text-xs font-semibold text-foreground">{title}</p>
+      <p className="text-sm text-muted-foreground">{body}</p>
+    </div>
+  );
+}
+
 function formatValue(value: number) {
   return Number.isInteger(value) ? value.toString() : value.toFixed(1);
 }
@@ -315,7 +385,7 @@ function describeVelocityRule(result: VelocityResult, unitLabels: UnitLabels) {
 
 function getCompareQuestion(mode: CompareResult["mode"]) {
   if (mode === "temporal") return "What’s different?";
-  if (mode === "velocity") return "How fast do meaningful patterns form?";
+  if (mode === "velocity") return "How quickly does the system re-enter stability?";
   return "What kind of judgment system is this?";
 }
 
