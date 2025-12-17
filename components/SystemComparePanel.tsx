@@ -17,8 +17,8 @@ const SystemComparePanel: React.FC<SystemComparePanelProps> = ({ result, warning
   const compareQuestion = getCompareQuestion(result.mode);
   const summaryText = buildSummary(result, unitLabels, unitLabelRaw);
   const comparisonLabels = getComparisonLabels(result.mode, cohortA.label, cohortB.label);
-  const judgmentSummary = buildJudgmentSummary(result, unitLabelRaw, comparisonLabels);
-  const postureNarrative = buildPostureNarrative(judgmentSummary, comparisonLabels);
+  const executiveSummary = buildExecutiveSummary(result, unitLabelRaw, comparisonLabels, unitLabels);
+  const postureNarrative = buildPostureNarrative(executiveSummary, comparisonLabels);
   const datasetLabelA = cohortA.datasetLabel ?? cohortA.label;
   const datasetLabelB = cohortB.datasetLabel ?? cohortB.label;
 
@@ -81,9 +81,9 @@ const SystemComparePanel: React.FC<SystemComparePanelProps> = ({ result, warning
       </div>
 
       <div className="rounded-xl border bg-muted/40 p-4">
-        <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Judgment Summary</p>
+        <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Judgment Executive Summary</p>
         <div className="mt-2 space-y-3">
-          {judgmentSummary.map((item) => (
+          {executiveSummary.map((item) => (
             <div key={item.question} className="rounded-lg border bg-background/60 p-3">
               <p className="text-xs font-semibold text-foreground">{item.question}</p>
               <p className="text-sm text-muted-foreground">{item.answer}</p>
@@ -420,7 +420,7 @@ type ComparisonLabels = {
 type JudgmentInsight = {
   question: string;
   answer: string;
-  theme: "steady" | "aggressive" | "adapt" | "pressure" | "recover";
+  theme: "system" | "steady" | "aggressive" | "adapt" | "pressure" | "recover";
   leader?: "A" | "B" | "tie";
 };
 
@@ -432,12 +432,56 @@ function getComparisonLabels(mode: CompareResult["mode"], labelA: string, labelB
   return { labelA, labelB, subject: "System" };
 }
 
-function buildJudgmentSummary(
+function describeSystemIdentity(
+  result: CompareResult,
+  labels: ComparisonLabels,
+  unitLabels: UnitLabels,
+  unitLabelRaw: string | null | undefined,
+) {
+  const { cohortA, cohortB } = result;
+  const unitSummary =
+    cohortA.totalDecisions && cohortB.totalDecisions
+      ? `Built on ${formatUnitCount(cohortA.totalDecisions, unitLabelRaw)} vs ${formatUnitCount(
+          cohortB.totalDecisions,
+          unitLabelRaw,
+        )} ${unitLabels.plural}.`
+      : "";
+
+  if (result.mode === "temporal") {
+    return [
+      `Same system viewed twice (${cohortA.timeframeLabel} vs ${cohortB.timeframeLabel}) to check how judgment physics shifted.`,
+      unitSummary,
+    ]
+      .filter(Boolean)
+      .join(" ");
+  }
+
+  if (result.mode === "velocity" && result.velocity) {
+    return [
+      `Which system locks into the target pattern faster (${result.velocity.a.targetLabel}).`,
+      unitSummary,
+    ]
+      .filter(Boolean)
+      .join(" ");
+  }
+
+  return [
+    `Side-by-side view of ${labels.labelA} vs ${labels.labelB} in the same window to see how their decision posture differs.`,
+    unitSummary,
+  ]
+    .filter(Boolean)
+    .join(" ");
+}
+
+function buildExecutiveSummary(
   result: CompareResult,
   unitLabelRaw: string | null | undefined,
   labels: ComparisonLabels,
+  unitLabels: UnitLabels,
 ): JudgmentInsight[] {
   const { cohortA, cohortB, deltas, driverDeltas, consistency, velocity } = result;
+  const identityAnswer = describeSystemIdentity(result, labels, unitLabels, unitLabelRaw);
+
   const steadierDelta = deltas.stabilityDelta;
   const steadierLead = determineLeader(
     steadierDelta,
@@ -446,14 +490,14 @@ function buildJudgmentSummary(
   );
   const steadierAnswer =
     steadierLead === "tie"
-      ? `${labels.labelA} and ${labels.labelB} show similar stability.`
-      : `${labelsLabel(steadierLead, labels)} is steadier than ${labelsLabel(oppositeLeader(steadierLead), labels)}.`;
+      ? `${labels.labelA} and ${labels.labelB} keep stability about the same.`
+      : `${labelsLabel(steadierLead, labels)} holds steadier patterns than ${labelsLabel(oppositeLeader(steadierLead), labels)}.`;
 
   const aggressionLead = determineAggressionLeader(deltas.returnDelta, driverDeltas);
   const aggressionAnswer =
     aggressionLead === "tie"
-      ? "Aggression levels are comparable."
-      : `${labelsLabel(aggressionLead, labels)} takes more aggressive actions.`;
+      ? "Aggression looks similar — no one is obviously pushing harder."
+      : `${labelsLabel(aggressionLead, labels)} leans more aggressive in pursuit of returns.`;
 
   const adaptationInsight = buildAdaptationInsight(
     result.mode,
@@ -469,10 +513,6 @@ function buildJudgmentSummary(
     consistency.cohortAStd.pressure,
     consistency.cohortBStd.pressure,
   );
-  const pressureAnswer =
-    pressureLead === "tie"
-      ? "Neither comparison group shows a pressure breakdown."
-      : `${labelsLabel(pressureLead, labels)} shows higher pressure sensitivity.`;
 
   const recoveryInsight = buildRecoveryInsight(
     result.mode,
@@ -483,12 +523,18 @@ function buildJudgmentSummary(
     deltas,
   );
 
+  const recoverAnswer = buildPressureRecoveryAnswer(
+    pressureLead,
+    recoveryInsight,
+    labels,
+  );
+
   return [
-    { question: "Who’s steadier?", answer: steadierAnswer, theme: "steady", leader: steadierLead },
-    { question: "Who’s more aggressive?", answer: aggressionAnswer, theme: "aggressive", leader: aggressionLead },
+    { question: "What kind of judgment system is this?", answer: identityAnswer, theme: "system" },
+    { question: "Who is steadier?", answer: steadierAnswer, theme: "steady", leader: steadierLead },
+    { question: "Who is more aggressive?", answer: aggressionAnswer, theme: "aggressive", leader: aggressionLead },
     { question: "Who adapts faster?", answer: adaptationInsight.answer, theme: "adapt", leader: adaptationInsight.leader },
-    { question: "Who breaks under pressure?", answer: pressureAnswer, theme: "pressure", leader: pressureLead },
-    { question: "Who recovers faster?", answer: recoveryInsight.answer, theme: "recover", leader: recoveryInsight.leader },
+    { question: "Who recovers better under pressure?", answer: recoverAnswer, theme: "recover", leader: recoveryInsight.leader },
   ];
 }
 
@@ -619,6 +665,23 @@ function buildRecoveryInsight(
   }
 
   return { answer: "Recovery speed is similar.", leader: "tie" };
+}
+
+function buildPressureRecoveryAnswer(
+  pressureLeader: "A" | "B" | "tie",
+  recoveryInsight: { answer: string; leader: "A" | "B" | "tie" },
+  labels: ComparisonLabels,
+) {
+  const calmSide =
+    pressureLeader === "tie"
+      ? "Both groups take on similar pressure."
+      : `${labelsLabel(oppositeLeader(pressureLeader), labels)} stays calmer when pressure rises.`;
+
+  if (recoveryInsight.leader === "tie") {
+    return `${calmSide} Recovery pace is comparable when things wobble.`;
+  }
+
+  return `${recoveryInsight.answer} ${calmSide}`.trim();
 }
 
 function determineLeader(delta: number, stdA: number, stdB: number): "A" | "B" | "tie" {
