@@ -628,23 +628,15 @@ export interface FullInterpretation {
   categorySummary: string;
   archetypeSummary: string;
   learningSummary: string;
-  momentumLabel: string;
-  momentumSummary: string;
 }
 
 export function generateFullInterpretation(snapshot: CompanyPeriodSnapshot): FullInterpretation {
   const { companyName, periodLabel, rpsBaseline, categories, archetypes, learningRecovery } = snapshot;
-
-  const momentumLabel = "Momentum Profile";  
-const momentumSummary = "This section analyzes directional judgment momentum."; 
-
 
   return {
     rpsSummary: generateRpsBaselineSummary(companyName, periodLabel, rpsBaseline),
     categorySummary: generateCategoryProfileSummary(companyName, periodLabel, categories),
     archetypeSummary: generateArchetypeProfileSummary(companyName, periodLabel, archetypes),
     learningSummary: generateLearningRecoverySummary(companyName, periodLabel, learningRecovery),
-    momentumLabel,
-    momentumSummary,
   };
 }
