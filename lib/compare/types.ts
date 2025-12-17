@@ -1,3 +1,5 @@
+import type { PostureContrast, PostureSummary } from "../judgment/posture";
+
 export type CompareMode = "entity" | "temporal" | "velocity";
 
 export type VelocityGoalTarget =
@@ -64,6 +66,8 @@ export type VelocityResult = {
   explainability: ExplainabilityLayers;
 };
 
+import type { PostureContrast, PostureSummary } from "../judgment/posture";
+
 export type CompareResult = {
   mode: CompareMode;
   cohortA: CohortSummary;
@@ -97,6 +101,11 @@ export type CompareResult = {
     punchline: string;
   };
   developerDetails?: ExplainabilityLayers;
+  posture?: {
+    cohortA: PostureSummary;
+    cohortB: PostureSummary;
+    contrast: PostureContrast;
+  };
 };
 
 export type CohortBuildRequest = {
