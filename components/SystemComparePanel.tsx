@@ -16,6 +16,9 @@ const SystemComparePanel: React.FC<SystemComparePanelProps> = ({ result, warning
   const unitLabels = getUnitLabels(unitLabelRaw);
   const compareQuestion = getCompareQuestion(result.mode);
   const summaryText = buildSummary(result, unitLabels, unitLabelRaw);
+  const comparisonLabels = getComparisonLabels(result.mode, cohortA.label, cohortB.label);
+  const judgmentSummary = buildJudgmentSummary(result, unitLabelRaw, comparisonLabels);
+  const postureNarrative = buildPostureNarrative(judgmentSummary, comparisonLabels);
   const datasetLabelA = cohortA.datasetLabel ?? cohortA.label;
   const datasetLabelB = cohortB.datasetLabel ?? cohortB.label;
 
@@ -75,6 +78,18 @@ const SystemComparePanel: React.FC<SystemComparePanelProps> = ({ result, warning
         <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Compare Thesis</p>
         <h3 className="text-sm font-semibold text-foreground">{compareQuestion}</h3>
         <p className="mt-1 text-sm text-muted-foreground">{summaryText}</p>
+      </div>
+
+      <div className="rounded-xl border bg-muted/40 p-4">
+        <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Judgment Summary</p>
+        <div className="mt-2 space-y-3">
+          {judgmentSummary.map((item) => (
+            <div key={item.question} className="rounded-lg border bg-background/60 p-3">
+              <p className="text-xs font-semibold text-foreground">{item.question}</p>
+              <p className="text-sm text-muted-foreground">{item.answer}</p>
+            </div>
+          ))}
+        </div>
       </div>
 
       <details className="rounded-xl border bg-muted/40 p-4 text-xs text-muted-foreground">
@@ -178,7 +193,7 @@ const SystemComparePanel: React.FC<SystemComparePanelProps> = ({ result, warning
 
       <div className="rounded-xl border bg-muted/40 p-4">
         <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Posture narrative</p>
-        <p className="mt-1 text-sm text-muted-foreground">{narrative}</p>
+        <p className="mt-1 text-sm text-muted-foreground">{postureNarrative || narrative}</p>
         {topDrivers.length > 0 && (
           <p className="mt-2 text-xs text-muted-foreground">Top drivers: {topDrivers.slice(0, 2).join(" · ")}</p>
         )}
@@ -394,4 +409,264 @@ function summarizeVelocity(
   const slowerCount = fasterIsA ? b.decisionsToTarget ?? 0 : a.decisionsToTarget ?? 0;
   const multiplier = slowerCount && fasterCount ? (slowerCount / Math.max(1, fasterCount)).toFixed(1) : "1.0";
   return `${fasterLabel} reached the target in ${formatUnitCount(fasterCount, unitLabelRaw)}; ${slowerLabel} needed ${formatUnitCount(slowerCount, unitLabelRaw)} (${multiplier}× difference).`;
+}
+
+type ComparisonLabels = {
+  labelA: string;
+  labelB: string;
+  subject: string;
+};
+
+type JudgmentInsight = {
+  question: string;
+  answer: string;
+  theme: "steady" | "aggressive" | "adapt" | "pressure" | "recover";
+  leader?: "A" | "B" | "tie";
+};
+
+const SIGNIFICANT_DELTA = 0.05;
+
+function getComparisonLabels(mode: CompareResult["mode"], labelA: string, labelB: string): ComparisonLabels {
+  if (mode === "temporal") return { labelA, labelB, subject: "Period" };
+  if (mode === "velocity") return { labelA, labelB, subject: "System (speed to stability)" };
+  return { labelA, labelB, subject: "System" };
+}
+
+function buildJudgmentSummary(
+  result: CompareResult,
+  unitLabelRaw: string | null | undefined,
+  labels: ComparisonLabels,
+): JudgmentInsight[] {
+  const { cohortA, cohortB, deltas, driverDeltas, consistency, velocity } = result;
+  const steadierDelta = deltas.stabilityDelta;
+  const steadierLead = determineLeader(
+    steadierDelta,
+    consistency.cohortAStd.stability,
+    consistency.cohortBStd.stability,
+  );
+  const steadierAnswer =
+    steadierLead === "tie"
+      ? `${labels.labelA} and ${labels.labelB} show similar stability.`
+      : `${labelsLabel(steadierLead, labels)} is steadier than ${labelsLabel(oppositeLeader(steadierLead), labels)}.`;
+
+  const aggressionLead = determineAggressionLeader(deltas.returnDelta, driverDeltas);
+  const aggressionAnswer =
+    aggressionLead === "tie"
+      ? "Aggression levels are comparable."
+      : `${labelsLabel(aggressionLead, labels)} takes more aggressive actions.`;
+
+  const adaptationInsight = buildAdaptationInsight(
+    result.mode,
+    velocity,
+    unitLabelRaw,
+    labels,
+    consistency,
+    driverDeltas.confidence,
+  );
+
+  const pressureLead = determineLeader(
+    deltas.pressureDelta,
+    consistency.cohortAStd.pressure,
+    consistency.cohortBStd.pressure,
+  );
+  const pressureAnswer =
+    pressureLead === "tie"
+      ? "Neither comparison group shows a pressure breakdown."
+      : `${labelsLabel(pressureLead, labels)} shows higher pressure sensitivity.`;
+
+  const recoveryInsight = buildRecoveryInsight(
+    result.mode,
+    velocity,
+    unitLabelRaw,
+    labels,
+    consistency,
+    deltas,
+  );
+
+  return [
+    { question: "Who’s steadier?", answer: steadierAnswer, theme: "steady", leader: steadierLead },
+    { question: "Who’s more aggressive?", answer: aggressionAnswer, theme: "aggressive", leader: aggressionLead },
+    { question: "Who adapts faster?", answer: adaptationInsight.answer, theme: "adapt", leader: adaptationInsight.leader },
+    { question: "Who breaks under pressure?", answer: pressureAnswer, theme: "pressure", leader: pressureLead },
+    { question: "Who recovers faster?", answer: recoveryInsight.answer, theme: "recover", leader: recoveryInsight.leader },
+  ];
+}
+
+function determineAggressionLeader(returnDelta: number, driverDeltas: CompareResult["driverDeltas"]): "A" | "B" | "tie" {
+  if (Math.abs(returnDelta) >= SIGNIFICANT_DELTA) return returnDelta > 0 ? "B" : "A";
+  const combinedDriverSignal = (driverDeltas.impact + driverDeltas.urgency) / 2;
+  if (Math.abs(combinedDriverSignal) < SIGNIFICANT_DELTA) return "tie";
+  return combinedDriverSignal > 0 ? "B" : "A";
+}
+
+function buildAdaptationInsight(
+  mode: CompareResult["mode"],
+  velocity: CompareResult["velocity"] | undefined,
+  unitLabelRaw: string | null | undefined,
+  labels: ComparisonLabels,
+  consistency: CompareResult["consistency"],
+  confidenceDelta: number,
+): { answer: string; leader: "A" | "B" | "tie" } {
+  if (mode === "velocity" && velocity) {
+    const decisionsA = velocity.a.decisionsToTarget;
+    const decisionsB = velocity.b.decisionsToTarget;
+    if (decisionsA && decisionsB) {
+      if (decisionsA === decisionsB) {
+        return { answer: "Both reach stability at a similar pace.", leader: "tie" };
+      }
+      const leader = decisionsA < decisionsB ? "A" : "B";
+      const fasterCount = leader === "A" ? decisionsA : decisionsB;
+      const slowerCount = leader === "A" ? decisionsB : decisionsA;
+      return {
+        answer: `${labelsLabel(leader, labels)} adapts faster, reaching stability in ${formatUnitCount(
+          fasterCount,
+          unitLabelRaw,
+        )} versus ${formatUnitCount(slowerCount, unitLabelRaw)} for ${labelsLabel(oppositeLeader(leader), labels)}.`,
+        leader,
+      };
+    }
+    if (decisionsA && !decisionsB)
+      return {
+        answer: `${labels.labelA} adapts faster, reaching the target in ${formatUnitCount(decisionsA, unitLabelRaw)} while ${labels.labelB} has not reached it yet.`,
+        leader: "A",
+      };
+    if (!decisionsA && decisionsB)
+      return {
+        answer: `${labels.labelB} adapts faster, reaching the target in ${formatUnitCount(decisionsB, unitLabelRaw)} while ${labels.labelA} has not reached it yet.`,
+        leader: "B",
+      };
+    return { answer: "Neither group reached the target within the observed window.", leader: "tie" };
+  }
+
+  const consistencyScoreA =
+    (consistency.cohortAStd.return + consistency.cohortAStd.pressure + consistency.cohortAStd.stability) / 3;
+  const consistencyScoreB =
+    (consistency.cohortBStd.return + consistency.cohortBStd.pressure + consistency.cohortBStd.stability) / 3;
+  if (Math.abs(consistencyScoreA - consistencyScoreB) >= SIGNIFICANT_DELTA) {
+    const leader = consistencyScoreA < consistencyScoreB ? "A" : "B";
+    return {
+      answer: `${labelsLabel(leader, labels)} adapts faster, stabilizing earlier than ${labelsLabel(oppositeLeader(leader), labels)}.`,
+      leader,
+    };
+  }
+
+  if (Math.abs(confidenceDelta) >= SIGNIFICANT_DELTA) {
+    const leader = confidenceDelta > 0 ? "B" : "A";
+    return {
+      answer: `${labelsLabel(leader, labels)} shows quicker adaptation, reflected in stronger confidence shifts.`,
+      leader,
+    };
+  }
+
+  return { answer: "Both adapt at a similar pace.", leader: "tie" };
+}
+
+function buildRecoveryInsight(
+  mode: CompareResult["mode"],
+  velocity: CompareResult["velocity"] | undefined,
+  unitLabelRaw: string | null | undefined,
+  labels: ComparisonLabels,
+  consistency: CompareResult["consistency"],
+  deltas: CompareResult["deltas"],
+): { answer: string; leader: "A" | "B" | "tie" } {
+  if (mode === "velocity" && velocity) {
+    const { decisionsToTarget: decisionsA } = velocity.a;
+    const { decisionsToTarget: decisionsB } = velocity.b;
+    if (decisionsA && decisionsB) {
+      if (decisionsA === decisionsB) {
+        return { answer: "Recovery speed is similar for both.", leader: "tie" };
+      }
+      const leader = decisionsA < decisionsB ? "A" : "B";
+      const fasterCount = leader === "A" ? decisionsA : decisionsB;
+      const slowerCount = leader === "A" ? decisionsB : decisionsA;
+      return {
+        answer: `${labelsLabel(leader, labels)} recovers faster after instability, returning inside the target band in ${formatUnitCount(
+          fasterCount,
+          unitLabelRaw,
+        )} versus ${formatUnitCount(slowerCount, unitLabelRaw)}.`,
+        leader,
+      };
+    }
+    if (decisionsA && !decisionsB)
+      return {
+        answer: `${labels.labelA} recovers faster, re-entering stability in ${formatUnitCount(decisionsA, unitLabelRaw)} while ${labels.labelB} remains outside the band.`,
+        leader: "A",
+      };
+    if (!decisionsA && decisionsB)
+      return {
+        answer: `${labels.labelB} recovers faster, re-entering stability in ${formatUnitCount(decisionsB, unitLabelRaw)} while ${labels.labelA} remains outside the band.`,
+        leader: "B",
+      };
+    return { answer: "Recovery speed is similar; neither reached the target band yet.", leader: "tie" };
+  }
+
+  const recoveryScoreA = consistency.cohortAStd.pressure + consistency.cohortAStd.stability;
+  const recoveryScoreB = consistency.cohortBStd.pressure + consistency.cohortBStd.stability;
+  if (Math.abs(recoveryScoreA - recoveryScoreB) >= SIGNIFICANT_DELTA) {
+    const leader = recoveryScoreA < recoveryScoreB ? "A" : "B";
+    return {
+      answer: `${labelsLabel(leader, labels)} recovers faster after instability.`,
+      leader,
+    };
+  }
+
+  if (Math.abs(deltas.stabilityDelta) >= SIGNIFICANT_DELTA) {
+    const leader = deltas.stabilityDelta > 0 ? "B" : "A";
+    return {
+      answer: `${labelsLabel(leader, labels)} shows a slight edge in recovery pace.`,
+      leader,
+    };
+  }
+
+  return { answer: "Recovery speed is similar.", leader: "tie" };
+}
+
+function determineLeader(delta: number, stdA: number, stdB: number): "A" | "B" | "tie" {
+  if (Math.abs(delta) >= SIGNIFICANT_DELTA) return delta > 0 ? "B" : "A";
+  if (Math.abs(stdA - stdB) < SIGNIFICANT_DELTA) return "tie";
+  return stdA < stdB ? "A" : "B";
+}
+
+function labelsLabel(leader: "A" | "B" | "tie", labels: ComparisonLabels) {
+  if (leader === "tie") return `${labels.labelA} and ${labels.labelB}`;
+  return leader === "A" ? labels.labelA : labels.labelB;
+}
+
+function oppositeLeader(leader: "A" | "B" | "tie"): "A" | "B" | "tie" {
+  if (leader === "A") return "B";
+  if (leader === "B") return "A";
+  return "tie";
+}
+
+function buildPostureNarrative(insights: JudgmentInsight[], labels: ComparisonLabels) {
+  const findLeader = (theme: JudgmentInsight["theme"]) =>
+    insights.find((item) => item.theme === theme)?.leader ?? "tie";
+
+  const aggressive = findLeader("aggressive");
+  const adapt = findLeader("adapt");
+  const steady = findLeader("steady");
+  const pressure = findLeader("pressure");
+  const recover = findLeader("recover");
+
+  const headlineParts: string[] = [];
+  if (aggressive !== "tie") headlineParts.push(`${labelsLabel(aggressive, labels)} is more aggressive`);
+  if (adapt !== "tie") headlineParts.push(`${labelsLabel(adapt, labels)} adapts faster`);
+  if (steady !== "tie") headlineParts.push(`${labelsLabel(steady, labels)} stays steadier`);
+
+  const pressureParts: string[] = [];
+  if (pressure !== "tie") {
+    pressureParts.push(`${labelsLabel(pressure, labels)} shows more pressure sensitivity`);
+  }
+  if (recover !== "tie") {
+    pressureParts.push(`${labelsLabel(recover, labels)} recovers faster`);
+  }
+
+  const firstSentence = headlineParts.length
+    ? `${headlineParts.join(", ").replace(/, ([^,]*)$/, " and $1")}.`
+    : "Both groups track closely on the core questions.";
+  const secondSentence = pressureParts.length
+    ? `${pressureParts.join(" while ")}.`
+    : "Pressure response and recovery look similar.";
+
+  return `${firstSentence} ${secondSentence}`.trim();
 }
