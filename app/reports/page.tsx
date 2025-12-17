@@ -1716,15 +1716,6 @@ function OnePageReport({
         </div>
       </section>
 
-      <div className="border-t border-muted/60 pt-6">
-        <section className="report-card rounded-2xl border bg-card/70 p-6 shadow-sm">
-          <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
-            Decision Terrain — System Momentum
-          </p>
-          <h3 className="text-xl font-semibold text-foreground">{interpretation.momentumLabel}</h3>
-          <p className="mt-2 text-sm leading-relaxed text-muted-foreground">{interpretation.momentumSummary}</p>
-        </section>
-      </div>
     </div>
     </div>
   );
