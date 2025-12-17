@@ -2,6 +2,14 @@ import type { PostureContrast, PostureSummary } from "../judgment/posture";
 
 export type CompareMode = "entity" | "temporal" | "velocity";
 
+export type RPSPoint = { x: string | number; R: number; P: number; S: number };
+
+export type RPSLineSeries = {
+  id: string;
+  label: string;
+  data: RPSPoint[];
+};
+
 export type VelocityGoalTarget =
   | "RETURN_RISE"
   | "PRESSURE_STABILIZE"
@@ -65,8 +73,6 @@ export type VelocityResult = {
   reason?: string;
   explainability: ExplainabilityLayers;
 };
-
-import type { PostureContrast, PostureSummary } from "../judgment/posture";
 
 export type CompareResult = {
   mode: CompareMode;

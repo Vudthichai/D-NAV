@@ -1,12 +1,15 @@
 "use client";
 
 import React from "react";
-import type { CompareResult, VelocityResult } from "@/lib/compare/types";
+import type { CompareResult, RPSLineSeries, VelocityResult } from "@/lib/compare/types";
 import { formatUnitCount, getUnitLabels, type UnitLabels } from "@/utils/judgmentUnits";
+import { COMPARE_VISUALS } from "@/lib/flags";
 import { JudgmentRegimeBadge } from "./compare/JudgmentRegimeBadge";
 import { PostureGeometryPanel } from "./compare/PostureGeometryPanel";
 import { TemporalSeismograph } from "./compare/TemporalSeismograph";
 import { EarlyWarningFlags } from "./compare/EarlyWarningFlags";
+import type { PostureSeriesPoint } from "@/lib/judgment/posture";
+import { RPSLineChart } from "./compare/charts/RPSLineChart";
 
 interface SystemComparePanelProps {
   result: CompareResult;
@@ -26,6 +29,8 @@ const SystemComparePanel: React.FC<SystemComparePanelProps> = ({ result, warning
   const datasetLabelA = cohortA.datasetLabel ?? cohortA.label;
   const datasetLabelB = cohortB.datasetLabel ?? cohortB.label;
   const posture = result.posture;
+
+  const compareVisualsEnabled = COMPARE_VISUALS;
 
   const metrics = [
     {
@@ -56,6 +61,27 @@ const SystemComparePanel: React.FC<SystemComparePanelProps> = ({ result, warning
     { label: "Confidence", delta: driverDeltas.confidence },
   ];
 
+  const postureSeriesA = posture?.cohortA.series;
+  const postureSeriesB = posture?.cohortB.series;
+
+  const overlaySeries = compareVisualsEnabled && postureSeriesA && postureSeriesB
+    ? [
+        { id: "A", label: cohortA.label, data: mapSeriesToIndexedPoints(postureSeriesA) },
+        { id: "B", label: cohortB.label, data: mapSeriesToIndexedPoints(postureSeriesB) },
+      ]
+    : [];
+
+  const showOverlay = compareVisualsEnabled && result.mode === "entity";
+
+  const isSequenceMode = result.mode === "temporal" && (cohortA.timeframeMode === "sequence" || cohortB.timeframeMode === "sequence");
+
+  const temporalSeries = compareVisualsEnabled && posture && result.mode === "temporal"
+    ? [
+        { id: "A", label: cohortA.label, data: mapSeriesToTemporalPoints(posture.cohortA.series, isSequenceMode) },
+        { id: "B", label: cohortB.label, data: mapSeriesToTemporalPoints(posture.cohortB.series, isSequenceMode) },
+      ].filter((entry) => entry.data.length > 0)
+    : [];
+
   return (
     <section className="space-y-4">
       <div className="flex flex-wrap items-start justify-between gap-2">
@@ -84,6 +110,32 @@ const SystemComparePanel: React.FC<SystemComparePanelProps> = ({ result, warning
         <h3 className="text-sm font-semibold text-foreground">{compareQuestion}</h3>
         <p className="mt-1 text-sm text-muted-foreground">{summaryText}</p>
       </div>
+
+      {showOverlay && (
+        <div className="rounded-xl border bg-muted/40 p-4">
+          <div className="flex items-start justify-between">
+            <div>
+              <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">R/P/S Overlay</p>
+              <p className="text-sm font-semibold text-foreground">Side-by-side steadiness</p>
+            </div>
+            <span className="text-[11px] text-muted-foreground">X-axis is decision index in the selected window.</span>
+          </div>
+          <div className="mt-3">
+            {overlaySeries.length === 2 && overlaySeries.every((entry) => entry.data.length > 0) ? (
+              <RPSLineChart
+                title={`${cohortA.label} vs ${cohortB.label}`}
+                series={overlaySeries}
+                xLabel="Decision index"
+                yLabel="R / P / S"
+              />
+            ) : (
+              <div className="rounded-lg border bg-background/60 px-3 py-4 text-sm text-muted-foreground">
+                Not enough per-decision data to render overlay. Showing summary stats.
+              </div>
+            )}
+          </div>
+        </div>
+      )}
 
       {posture && (
         <div className="grid gap-4 md:grid-cols-2">
@@ -120,18 +172,60 @@ const SystemComparePanel: React.FC<SystemComparePanelProps> = ({ result, warning
       )}
 
       {posture && result.mode === "temporal" && (
-        <>
-          <TemporalSeismograph
-            data={[
-              { label: cohortA.label, series: posture.cohortA.series, trends: posture.cohortA.trends },
-              { label: cohortB.label, series: posture.cohortB.series, trends: posture.cohortB.trends },
-            ]}
-          />
-          <div className="grid gap-4 md:grid-cols-2">
-            <EarlyWarningFlags label={cohortA.label} posture={posture.cohortA} />
-            <EarlyWarningFlags label={cohortB.label} posture={posture.cohortB} />
-          </div>
-        </>
+        compareVisualsEnabled ? (
+          <>
+            <div className="rounded-xl border bg-muted/40 p-4">
+              <div className="flex items-start justify-between gap-2">
+                <div>
+                  <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Temporal Seismograph</p>
+                  <p className="text-sm font-semibold text-foreground">R · P · S over time</p>
+                </div>
+                <span className="text-[11px] text-muted-foreground">{isSequenceMode ? "Sequence mode" : "Calendar alignment"}</span>
+              </div>
+
+              <div className="mt-2 space-y-1 text-xs text-muted-foreground">
+                <TrendSignals label={cohortA.label} trends={posture.cohortA.trends.slopes} variance={cohortA} />
+                <TrendSignals label={cohortB.label} trends={posture.cohortB.trends.slopes} variance={cohortB} />
+              </div>
+
+              <div className="mt-4 space-y-4">
+                {temporalSeries.length ? (
+                  temporalSeries.map((entry) => (
+                    <RPSLineChart
+                      key={entry.id}
+                      title={entry.label}
+                      series={[entry]}
+                      xLabel={isSequenceMode ? "Sequence" : "Date"}
+                      yLabel="R / P / S"
+                      height={260}
+                    />
+                  ))
+                ) : (
+                  <div className="rounded-lg border bg-background/60 px-3 py-4 text-sm text-muted-foreground">
+                    Not enough per-decision data to render temporal trends. Showing narrative only.
+                  </div>
+                )}
+              </div>
+            </div>
+            <div className="grid gap-4 md:grid-cols-2">
+              <EarlyWarningFlags label={cohortA.label} posture={posture.cohortA} />
+              <EarlyWarningFlags label={cohortB.label} posture={posture.cohortB} />
+            </div>
+          </>
+        ) : (
+          <>
+            <TemporalSeismograph
+              data={[
+                { label: cohortA.label, series: posture.cohortA.series, trends: posture.cohortA.trends },
+                { label: cohortB.label, series: posture.cohortB.series, trends: posture.cohortB.trends },
+              ]}
+            />
+            <div className="grid gap-4 md:grid-cols-2">
+              <EarlyWarningFlags label={cohortA.label} posture={posture.cohortA} />
+              <EarlyWarningFlags label={cohortB.label} posture={posture.cohortB} />
+            </div>
+          </>
+        )
       )}
 
       <details className="rounded-xl border bg-muted/40 p-4 text-xs text-muted-foreground">
@@ -271,6 +365,15 @@ const SystemComparePanel: React.FC<SystemComparePanelProps> = ({ result, warning
         </div>
       )}
 
+      {velocity && compareVisualsEnabled && (
+        <RecoveryTimeline
+          velocity={velocity}
+          labelA={cohortA.label}
+          labelB={cohortB.label}
+          totalDecisions={Math.max(cohortA.totalDecisions, cohortB.totalDecisions)}
+        />
+      )}
+
       {showDebug && result.developerDetails && (
         <div className="rounded-xl border bg-muted/40 p-4">
           <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Developer details (debug)</p>
@@ -346,6 +449,120 @@ function VelocityCard({
   );
 }
 
+function mapSeriesToIndexedPoints(series?: PostureSeriesPoint[]): RPSLineSeries["data"] {
+  if (!series || series.length === 0) return [];
+  return series.map((point, idx) => ({ x: idx + 1, R: point.R, P: point.P, S: point.S }));
+}
+
+function mapSeriesToTemporalPoints(series: PostureSeriesPoint[] | undefined, useSequence: boolean): RPSLineSeries["data"] {
+  if (!series || series.length === 0) return [];
+  return series.map((point, idx) => ({
+    x: useSequence ? idx + 1 : formatTimestamp(point.t) ?? idx + 1,
+    R: point.R,
+    P: point.P,
+    S: point.S,
+  }));
+}
+
+function formatTimestamp(value: number | undefined) {
+  if (!value) return null;
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return null;
+  return date.toISOString().slice(0, 10);
+}
+
+function TrendSignals({
+  label,
+  trends,
+  variance,
+}: {
+  label: string;
+  trends: { R: number; P: number; S: number };
+  variance: { stdReturn: number; stdPressure: number; stdStability: number };
+}) {
+  return (
+    <div className="flex flex-wrap items-center gap-3 rounded-lg border bg-background/60 px-3 py-2">
+      <span className="text-[11px] font-semibold text-foreground">{label}</span>
+      <span className="text-[11px] text-muted-foreground">
+        R {formatTrendSymbol(trends.R)} · P {formatTrendSymbol(trends.P)} · S {formatTrendSymbol(trends.S)}
+      </span>
+      <span className="text-[11px] text-muted-foreground">σ R {formatValue(variance.stdReturn)} · P {formatValue(variance.stdPressure)} · S {formatValue(variance.stdStability)}</span>
+    </div>
+  );
+}
+
+function RecoveryTimeline({
+  velocity,
+  labelA,
+  labelB,
+  totalDecisions,
+}: {
+  velocity: NonNullable<CompareResult["velocity"]>;
+  labelA: string;
+  labelB: string;
+  totalDecisions: number;
+}) {
+  const maxObserved = Math.max(
+    totalDecisions,
+    velocity.a.windowSize + Math.max(velocity.a.windowsEvaluated - 1, 0),
+    velocity.b.windowSize + Math.max(velocity.b.windowsEvaluated - 1, 0),
+    velocity.a.decisionsToTarget ?? 0,
+    velocity.b.decisionsToTarget ?? 0,
+  );
+  const domain = Math.max(maxObserved, 1);
+
+  return (
+    <div className="rounded-xl border bg-muted/40 p-4">
+      <div className="flex items-start justify-between">
+        <div>
+          <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Recovery Timeline</p>
+          <p className="text-sm font-semibold text-foreground">Decisions-to-target</p>
+        </div>
+        <span className="text-[11px] text-muted-foreground">1 → {domain}</span>
+      </div>
+      <div className="mt-3 space-y-3">
+        <TimelineRow label={labelA} target={velocity.a.decisionsToTarget} domain={domain} tone="foreground" />
+        <TimelineRow label={labelB} target={velocity.b.decisionsToTarget} domain={domain} tone="primary" />
+      </div>
+      <p className="mt-3 text-[11px] text-muted-foreground">Marks show the first window where the target was satisfied.</p>
+    </div>
+  );
+}
+
+function TimelineRow({
+  label,
+  target,
+  domain,
+  tone,
+}: {
+  label: string;
+  target: number | null;
+  domain: number;
+  tone: "foreground" | "primary";
+}) {
+  const position = target ? Math.min(100, Math.max(0, (target / domain) * 100)) : null;
+  const markerColor = tone === "foreground" ? "hsl(var(--foreground))" : "hsl(var(--primary))";
+
+  return (
+    <div className="space-y-1 text-xs text-muted-foreground">
+      <div className="flex items-center justify-between">
+        <span className="font-semibold text-foreground">{label}</span>
+        <span>{target ? `Hit at ${target}` : "No hit"}</span>
+      </div>
+      <div className="relative h-2 rounded-full bg-muted">
+        {position !== null ? (
+          <span
+            className="absolute -top-1 h-4 w-4 -translate-x-1/2 rounded-full border border-background"
+            style={{ left: `${position}%`, backgroundColor: markerColor }}
+          />
+        ) : (
+          <span className="absolute -top-2 right-0 text-[11px] text-muted-foreground">No hit</span>
+        )}
+      </div>
+    </div>
+  );
+}
+
 function NarrativeTile({ title, body }: { title: string; body: string }) {
   return (
     <div className="rounded-lg border bg-background/60 p-3">
@@ -357,6 +574,11 @@ function NarrativeTile({ title, body }: { title: string; body: string }) {
 
 function formatValue(value: number) {
   return Number.isInteger(value) ? value.toString() : value.toFixed(1);
+}
+
+function formatTrendSymbol(value: number) {
+  if (Math.abs(value) < 0.01) return "→";
+  return value > 0 ? "↗" : "↘";
 }
 
 function formatDelta(value: number) {
@@ -549,7 +771,7 @@ function buildExecutiveSummary(
   labels: ComparisonLabels,
   unitLabels: UnitLabels,
 ): JudgmentInsight[] {
-  const { cohortA, cohortB, deltas, driverDeltas, consistency, velocity } = result;
+  const { deltas, driverDeltas, consistency, velocity } = result;
   const identityAnswer = describeSystemIdentity(result, labels, unitLabels, unitLabelRaw);
 
   const steadierDelta = deltas.stabilityDelta;
