@@ -17,6 +17,7 @@ import {
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Textarea } from "@/components/ui/textarea";
 import { DecisionEntry, computeMetrics, parseCSV } from "@/lib/calculations";
+import { getDatasetDisplayLabel } from "@/lib/reportDatasets";
 import { type CompanyContext } from "@/types/company";
 import { datasetMetaToCompanyContext, type DatasetMeta } from "@/types/dataset";
 import {
@@ -60,11 +61,13 @@ export default function LogPage() {
   const {
     datasets,
     activeDatasetId: datasetId,
+    activeDataset,
     meta,
     decisions,
     setDecisions,
     addDataset,
     deleteDataset,
+    setDatasetLabel,
     setDatasetMeta,
     isDatasetLoading,
     loadError,
@@ -140,6 +143,20 @@ export default function LogPage() {
       if (!confirmed) return;
     }
     deleteDataset(datasetId);
+  };
+
+  const handleDatasetLabelChange = (value: string) => {
+    if (!datasetId) return;
+    setDatasetLabel(datasetId, value);
+  };
+
+  const handleDatasetLabelBlur = () => {
+    if (!datasetId) return;
+    const trimmed = (activeDataset?.label ?? "").trim();
+    if (trimmed) return;
+    const datasetIndex = datasets.findIndex((dataset) => dataset.id === datasetId);
+    const fallbackLabel = datasetIndex >= 0 ? getDatasetDisplayLabel(datasetIndex) : "Dataset";
+    setDatasetLabel(datasetId, fallbackLabel);
   };
 
   const handleJudgmentUnitChange = (value: string) => {
@@ -725,6 +742,25 @@ export default function LogPage() {
             Loading dataset…
           </div>
         ) : null}
+      </div>
+      <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+        <div className="w-full space-y-2 sm:max-w-md">
+          <label className="text-sm font-medium text-foreground" htmlFor="datasetLabel">
+            Dataset name
+          </label>
+          <Input
+            id="datasetLabel"
+            name="datasetLabel"
+            placeholder="e.g., Apple 2020 decisions"
+            value={activeDataset?.label ?? ""}
+            onChange={(event) => handleDatasetLabelChange(event.target.value)}
+            onBlur={handleDatasetLabelBlur}
+          />
+          <p className="text-xs text-muted-foreground">
+            Give each dataset a clear name so comparisons read naturally (e.g., “Tesla decisions 2023” vs “Apple decisions
+            2020”).
+          </p>
+        </div>
       </div>
       <Card>
         <CardHeader>
