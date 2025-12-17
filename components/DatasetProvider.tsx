@@ -27,6 +27,7 @@ interface DatasetContextValue {
   setDecisionsForDataset: (id: DatasetId, entries: SetStateAction<DecisionEntry[]>) => void;
   addDataset: () => DatasetId;
   deleteDataset: (id: DatasetId) => void;
+  setDatasetLabel: (id: DatasetId, label: string) => void;
   setDatasetMeta: (id: DatasetId, metaPatch: Partial<DatasetMeta>) => void;
   clearDatasetDecisions: (id: DatasetId) => void;
   clearAllDatasets: () => void;
@@ -177,6 +178,16 @@ export function DatasetProvider({ children }: { children: ReactNode }): ReactEle
     [],
   );
 
+  const setDatasetLabel = useCallback((id: DatasetId, label: string) => {
+    setDatasets((prev) =>
+      prev.map((dataset, index) =>
+        dataset.id === id
+          ? { ...dataset, label: label.trim() || getDatasetDisplayLabel(index) }
+          : dataset,
+      ),
+    );
+  }, []);
+
   const setDatasetMeta = useCallback((id: DatasetId, metaPatch: Partial<DatasetMeta>) => {
     setDatasets((prev) =>
       prev.map((dataset) =>
@@ -255,6 +266,7 @@ export function DatasetProvider({ children }: { children: ReactNode }): ReactEle
       setDecisionsForDataset,
       addDataset,
       deleteDataset,
+      setDatasetLabel,
       setDatasetMeta,
       clearDatasetDecisions,
       clearAllDatasets,
@@ -275,6 +287,7 @@ export function DatasetProvider({ children }: { children: ReactNode }): ReactEle
       isDatasetLoading,
       loadError,
       meta,
+      setDatasetLabel,
       setDatasetMeta,
       setDecisions,
       setDecisionsForDataset,
