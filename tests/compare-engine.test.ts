@@ -85,6 +85,10 @@ test("runCompare builds punchline for faster cohort", () => {
     thresholds: { pressureBand: 1 },
   });
 
-  assert.ok(result.velocity.punchline.includes("stabilized"));
-  assert.equal(result.velocity.a.targetReached, true);
+  assert.ok(result.velocity);
+
+  const { velocity } = result;
+
+  assert.ok(velocity.punchline.includes("stabilized"));
+  assert.equal(velocity.a.targetReached, true);
 });
