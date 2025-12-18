@@ -26,6 +26,35 @@ export function rollingStd(values: number[], window: number): number[] {
   });
 }
 
+export function percentile(values: number[], p: number): number {
+  if (!values.length) return 0;
+  const sorted = [...values].sort((a, b) => a - b);
+  const rank = (p / 100) * (sorted.length - 1);
+  const lower = Math.floor(rank);
+  const upper = Math.ceil(rank);
+  if (lower === upper) return sorted[lower];
+  const weight = rank - lower;
+  return sorted[lower] * (1 - weight) + sorted[upper] * weight;
+}
+
+export function clampRange(
+  range: { start: number | null; end: number | null },
+  limits?: { min?: number; max?: number },
+): { start: number | null; end: number | null } {
+  const min = limits?.min ?? Number.NEGATIVE_INFINITY;
+  const max = limits?.max ?? Number.POSITIVE_INFINITY;
+  const start = range.start !== null ? Math.max(min, Math.min(max, range.start)) : null;
+  const end = range.end !== null ? Math.max(min, Math.min(max, range.end)) : null;
+  return { start, end };
+}
+
+export function validateRange(range: { start: number | null; end: number | null }) {
+  if (range.start && range.end && range.start > range.end) {
+    return { ...range, start: range.end, end: range.start, warning: "Start date was after end date; swapped for validity." } as const;
+  }
+  return { ...range, warning: null as string | null } as const;
+}
+
 export function correlation(a: number[], b: number[]): number {
   if (!a.length || !b.length || a.length !== b.length) return 0;
   const meanA = mean(a);
