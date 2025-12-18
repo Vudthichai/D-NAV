@@ -38,6 +38,7 @@ import {
 import { type DecisionEntry } from "@/lib/storage";
 import { cn } from "@/lib/utils";
 import { buildCohortSummary, runCompare } from "@/lib/compare/engine";
+import { validateRange } from "@/lib/compare/stats";
 import {
   type CohortSummary,
   type CompareMode,
@@ -143,7 +144,7 @@ const normalizePeriods = (
   if (!shouldNormalize) {
     return {
       normalizedDays: null,
-      warning: "Warning: Period lengths differ. Enable normalization to trim to the shorter range.",
+      warning: `Warning: Period lengths differ (A ${periodADays ?? "all"} vs B ${periodBDays ?? "all"}). Enable normalization to clamp to the shorter range.`,
     };
   }
 
@@ -179,14 +180,29 @@ const filterDecisionsByDateRange = (decisions: DecisionEntry[], start: number | 
 const resolveDateRange = (value: TimeframeValue, range: DateRange) => {
   const startDate = range.start ? new Date(range.start) : null;
   const endDate = range.end ? new Date(range.end) : null;
-  if (startDate && endDate && !Number.isNaN(startDate.getTime()) && !Number.isNaN(endDate.getTime())) {
-    const days = Math.max(Math.ceil((endDate.getTime() - startDate.getTime()) / msInDay) + 1, 1);
+  if (startDate || endDate) {
+    if (!startDate || !endDate || Number.isNaN(startDate.getTime()) || Number.isNaN(endDate.getTime())) {
+      return {
+        days: null,
+        label: "Custom range",
+        start: null,
+        end: null,
+        isCustom: true,
+        isValid: false,
+        warning: "Provide both start and end dates for a custom range.",
+      } as const;
+    }
+
+    const validated = validateRange({ start: startDate.getTime(), end: endDate.getTime() });
+    const days = Math.max(Math.ceil((validated.end! - validated.start!) / msInDay) + 1, 1);
     return {
       days,
-      label: `${startDate.toLocaleDateString()} – ${endDate.toLocaleDateString()}`,
-      start: startDate.getTime(),
-      end: endDate.getTime(),
+      label: `${new Date(validated.start!).toLocaleDateString()} – ${new Date(validated.end!).toLocaleDateString()}`,
+      start: validated.start,
+      end: validated.end,
       isCustom: true,
+      isValid: true,
+      warning: validated.warning,
     } as const;
   }
 
@@ -196,6 +212,8 @@ const resolveDateRange = (value: TimeframeValue, range: DateRange) => {
     start: null,
     end: null,
     isCustom: false,
+    isValid: true,
+    warning: null,
   } as const;
 };
 
@@ -366,6 +384,7 @@ function ReportsPageContent() {
     setIsCompareLoading(true);
 
     const basisForMode: NormalizationBasis = compareMode === "temporal" ? "normalized_windows" : "shared_timeframe";
+    const warnings: string[] = [];
 
     const build = async () => {
       if (compareMode === "entity") {
@@ -476,23 +495,22 @@ function ReportsPageContent() {
         const periodAConfig = resolveDateRange(temporalPeriodA, customTemporalPeriodA);
         const periodBConfig = resolveDateRange(temporalPeriodB, customTemporalPeriodB);
 
-        if (periodAConfig.start && periodAConfig.end && periodAConfig.start > periodAConfig.end) {
-          setCompareWarning("Period A dates are invalid (start is after end).");
+        if (!periodAConfig.isValid || !periodBConfig.isValid) {
+          const message = periodAConfig.warning || periodBConfig.warning || "Invalid date range.";
+          setCompareWarning(message);
           setIsCompareLoading(false);
           return;
         }
-        if (periodBConfig.start && periodBConfig.end && periodBConfig.start > periodBConfig.end) {
-          setCompareWarning("Period B dates are invalid (start is after end).");
-          setIsCompareLoading(false);
-          return;
-        }
+
+        if (periodAConfig.warning) warnings.push(periodAConfig.warning);
+        if (periodBConfig.warning) warnings.push(periodBConfig.warning);
 
         const { normalizedDays, warning } = normalizePeriods(
           periodAConfig.days,
           periodBConfig.days,
           normalizeTemporalRanges,
         );
-        if (warning) setCompareWarning(warning);
+        if (warning) warnings.push(warning);
 
         const timeframeLabelA = periodAConfig.label;
         const timeframeLabelB = periodBConfig.label;
@@ -538,10 +556,11 @@ function ReportsPageContent() {
           cohortB: periodBSummary.summary,
           decisionsA: periodASummary.decisions,
           decisionsB: periodBSummary.decisions,
-          warnings: warning ? [warning] : undefined,
+          warnings: warnings.length ? warnings : undefined,
         });
 
         setCompareResult(result);
+        setCompareWarning(warnings.length ? warnings.join(" ") : null);
         setIsCompareLoading(false);
         return;
       }

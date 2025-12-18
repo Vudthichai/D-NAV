@@ -10,6 +10,14 @@ export type RPSLineSeries = {
   data: RPSPoint[];
 };
 
+export type ScatterPoint = {
+  xPressure: number;
+  yReturn: number;
+  stability: number;
+  t?: number;
+  label?: string;
+};
+
 export type VelocityGoalTarget =
   | "RETURN_RISE"
   | "PRESSURE_STABILIZE"
