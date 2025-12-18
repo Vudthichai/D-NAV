@@ -1,9 +1,10 @@
 "use client";
 
 import React from "react";
-import { CartesianGrid, Legend, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
+import { Area, CartesianGrid, Legend, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 
 import type { RPSLineSeries } from "@/lib/compare/types";
+import { rollingMean, rollingStd } from "@/lib/compare/stats";
 
 const metricLabels: Record<"R" | "P" | "S", string> = {
   R: "Return",
@@ -31,10 +32,12 @@ type Props = {
   xLabel?: string;
   yLabel?: string;
   height?: number;
+  showVariance?: boolean;
+  rollingWindow?: number;
 };
 
-export function RPSLineChart({ title, series, xLabel, yLabel, height = 260 }: Props) {
-  const mergedData = mergeSeries(series);
+export function RPSLineChart({ title, series, xLabel, yLabel, height = 260, showVariance = false, rollingWindow = 5 }: Props) {
+  const mergedData = mergeSeries(series, { showVariance, rollingWindow });
 
   return (
     <div className="space-y-2">
@@ -72,6 +75,42 @@ export function RPSLineChart({ title, series, xLabel, yLabel, height = 260 }: Pr
                   />
                 ));
               })}
+              {showVariance && series.length === 1 && (
+                (Object.keys(metricLabels) as (keyof typeof metricLabels)[]).map((metric) => (
+                  <React.Fragment key={`variance-${metric}`}>
+                    <Area
+                      type="monotone"
+                      dataKey={`${metric}-${series[0]!.id}-upper`}
+                      stroke="none"
+                      fill={overlayPalette[metric]}
+                      fillOpacity={0.12}
+                      activeDot={false}
+                      isAnimationActive={false}
+                      legendType="none"
+                    />
+                    <Area
+                      type="monotone"
+                      dataKey={`${metric}-${series[0]!.id}-lower`}
+                      stroke="none"
+                      fill={overlayPalette[metric]}
+                      fillOpacity={0.12}
+                      activeDot={false}
+                      isAnimationActive={false}
+                      legendType="none"
+                    />
+                    <Line
+                      type="monotone"
+                      dataKey={`${metric}-${series[0]!.id}-mean`}
+                      stroke={overlayPalette[metric]}
+                      strokeDasharray="5 4"
+                      dot={false}
+                      name={`${metricLabels[metric]} rolling mean`}
+                      strokeWidth={1.5}
+                      isAnimationActive={false}
+                    />
+                  </React.Fragment>
+                ))
+              )}
             </LineChart>
           </ResponsiveContainer>
         ) : (
@@ -82,10 +121,11 @@ export function RPSLineChart({ title, series, xLabel, yLabel, height = 260 }: Pr
   );
 }
 
-function mergeSeries(series: RPSLineSeries[]): Omit<ChartDatum, "order">[] {
+function mergeSeries(series: RPSLineSeries[], options?: { showVariance?: boolean; rollingWindow?: number }): Omit<ChartDatum, "order">[] {
   const merged = new Map<string, ChartDatum>();
 
   series.forEach((entry) => {
+    const stats = options?.showVariance && series.length === 1 ? buildRollingStats(entry.data, options?.rollingWindow ?? 5) : null;
     entry.data.forEach((point, idx) => {
       const key = `${point.x}`;
       const resolvedOrder = typeof point.x === "number" ? point.x : Number.isNaN(Date.parse(point.x)) ? idx : Date.parse(point.x);
@@ -95,6 +135,19 @@ function mergeSeries(series: RPSLineSeries[]): Omit<ChartDatum, "order">[] {
         [`R-${entry.id}`]: point.R,
         [`P-${entry.id}`]: point.P,
         [`S-${entry.id}`]: point.S,
+        ...(stats
+          ? {
+              [`R-${entry.id}-mean`]: stats[idx]?.R?.mean,
+              [`R-${entry.id}-upper`]: stats[idx]?.R?.upper,
+              [`R-${entry.id}-lower`]: stats[idx]?.R?.lower,
+              [`P-${entry.id}-mean`]: stats[idx]?.P?.mean,
+              [`P-${entry.id}-upper`]: stats[idx]?.P?.upper,
+              [`P-${entry.id}-lower`]: stats[idx]?.P?.lower,
+              [`S-${entry.id}-mean`]: stats[idx]?.S?.mean,
+              [`S-${entry.id}-upper`]: stats[idx]?.S?.upper,
+              [`S-${entry.id}-lower`]: stats[idx]?.S?.lower,
+            }
+          : {}),
       });
     });
   });
@@ -114,7 +167,7 @@ function ChartTooltip({ label, payload }: { label?: string | number; payload?: {
       <p className="mb-1 font-semibold text-foreground">{label}</p>
       <div className="space-y-1 text-muted-foreground">
         {payload
-          .filter((item) => typeof item.value === "number")
+          .filter((item) => typeof item.value === "number" && !item.name?.includes("upper") && !item.name?.includes("lower"))
           .map((item) => (
             <div key={item.name} className="flex items-center justify-between gap-6">
               <span>{item.name}</span>
@@ -124,4 +177,25 @@ function ChartTooltip({ label, payload }: { label?: string | number; payload?: {
       </div>
     </div>
   );
+}
+
+function buildRollingStats(
+  data: RPSLineSeries["data"],
+  window: number,
+): { R: { mean: number; upper: number; lower: number }; P: { mean: number; upper: number; lower: number }; S: { mean: number; upper: number; lower: number } }[] {
+  const rValues = data.map((point) => point.R);
+  const pValues = data.map((point) => point.P);
+  const sValues = data.map((point) => point.S);
+  const rMean = rollingMean(rValues, window);
+  const pMean = rollingMean(pValues, window);
+  const sMean = rollingMean(sValues, window);
+  const rStd = rollingStd(rValues, window);
+  const pStd = rollingStd(pValues, window);
+  const sStd = rollingStd(sValues, window);
+
+  return data.map((_, idx) => ({
+    R: { mean: rMean[idx] ?? 0, upper: (rMean[idx] ?? 0) + (rStd[idx] ?? 0), lower: (rMean[idx] ?? 0) - (rStd[idx] ?? 0) },
+    P: { mean: pMean[idx] ?? 0, upper: (pMean[idx] ?? 0) + (pStd[idx] ?? 0), lower: (pMean[idx] ?? 0) - (pStd[idx] ?? 0) },
+    S: { mean: sMean[idx] ?? 0, upper: (sMean[idx] ?? 0) + (sStd[idx] ?? 0), lower: (sMean[idx] ?? 0) - (sStd[idx] ?? 0) },
+  }));
 }

@@ -1,15 +1,20 @@
 "use client";
 
 import React from "react";
+import { Info } from "lucide-react";
 import type { CompareResult, RPSLineSeries, VelocityResult } from "@/lib/compare/types";
 import { formatUnitCount, getUnitLabels, type UnitLabels } from "@/utils/judgmentUnits";
-import { COMPARE_VISUALS } from "@/lib/flags";
+import { COMPARE_VISUALS, COMPARE_VISUALS_V3 } from "@/lib/flags";
 import { JudgmentRegimeBadge } from "./compare/JudgmentRegimeBadge";
 import { PostureGeometryPanel } from "./compare/PostureGeometryPanel";
 import { TemporalSeismograph } from "./compare/TemporalSeismograph";
 import { EarlyWarningFlags } from "./compare/EarlyWarningFlags";
 import type { PostureSeriesPoint } from "@/lib/judgment/posture";
 import { RPSLineChart } from "./compare/charts/RPSLineChart";
+import { RPScatter } from "./compare/charts/RPScatter";
+import { DistributionStrip } from "./compare/charts/DistributionStrip";
+import { correlation, mean } from "@/lib/compare/stats";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 
 interface SystemComparePanelProps {
   result: CompareResult;
@@ -30,7 +35,8 @@ const SystemComparePanel: React.FC<SystemComparePanelProps> = ({ result, warning
   const datasetLabelB = cohortB.datasetLabel ?? cohortB.label;
   const posture = result.posture;
 
-  const compareVisualsEnabled = COMPARE_VISUALS;
+  const compareVisualsV3 = COMPARE_VISUALS_V3;
+  const compareVisualsEnabled = COMPARE_VISUALS || compareVisualsV3;
 
   const metrics = [
     {
@@ -61,10 +67,10 @@ const SystemComparePanel: React.FC<SystemComparePanelProps> = ({ result, warning
     { label: "Confidence", delta: driverDeltas.confidence },
   ];
 
-  const postureSeriesA = posture?.cohortA.series;
-  const postureSeriesB = posture?.cohortB.series;
+  const postureSeriesA = posture?.cohortA.series ?? [];
+  const postureSeriesB = posture?.cohortB.series ?? [];
 
-  const overlaySeries = compareVisualsEnabled && postureSeriesA && postureSeriesB
+  const overlaySeries = compareVisualsEnabled && postureSeriesA.length > 0 && postureSeriesB.length > 0
     ? [
         { id: "A", label: cohortA.label, data: mapSeriesToIndexedPoints(postureSeriesA) },
         { id: "B", label: cohortB.label, data: mapSeriesToIndexedPoints(postureSeriesB) },
@@ -80,6 +86,31 @@ const SystemComparePanel: React.FC<SystemComparePanelProps> = ({ result, warning
         { id: "A", label: cohortA.label, data: mapSeriesToTemporalPoints(posture.cohortA.series, isSequenceMode) },
         { id: "B", label: cohortB.label, data: mapSeriesToTemporalPoints(posture.cohortB.series, isSequenceMode) },
       ].filter((entry) => entry.data.length > 0)
+    : [];
+
+  const scatterA = compareVisualsV3 ? mapScatterPoints(postureSeriesA, isSequenceMode) : [];
+  const scatterB = compareVisualsV3 ? mapScatterPoints(postureSeriesB, isSequenceMode) : [];
+
+  const distributionValues = {
+    R: { a: postureSeriesA.map((point) => point.R), b: postureSeriesB.map((point) => point.R) },
+    P: { a: postureSeriesA.map((point) => point.P), b: postureSeriesB.map((point) => point.P) },
+    S: { a: postureSeriesA.map((point) => point.S), b: postureSeriesB.map((point) => point.S) },
+  };
+
+  const consolidationSummary = compareVisualsV3
+    ? classifyConsolidation(postureSeriesA, postureSeriesB, cohortA, cohortB)
+    : null;
+
+  const visualInsights = compareVisualsV3
+    ? buildVisualInsights({
+        cohortA: cohortA.label,
+        cohortB: cohortB.label,
+        deltas,
+        consistency,
+        scatterA,
+        scatterB,
+        distributionValues,
+      })
     : [];
 
   return (
@@ -110,6 +141,39 @@ const SystemComparePanel: React.FC<SystemComparePanelProps> = ({ result, warning
         <h3 className="text-sm font-semibold text-foreground">{compareQuestion}</h3>
         <p className="mt-1 text-sm text-muted-foreground">{summaryText}</p>
       </div>
+
+      {compareVisualsV3 && result.mode === "entity" && (
+        <>
+          <div className="grid gap-4 lg:grid-cols-[1.2fr_1fr]">
+            <div className="rounded-xl border bg-muted/40 p-4">
+              <RPScatter
+                a={{ label: cohortA.label, points: scatterA, color: "hsl(var(--primary))" }}
+                b={{ label: cohortB.label, points: scatterB, color: "hsl(var(--accent))" }}
+              />
+            </div>
+            <InsightsCard insights={visualInsights} consolidation={consolidationSummary} />
+          </div>
+
+          <div className="rounded-xl border bg-muted/40 p-4 space-y-3">
+            <div className="flex items-start justify-between gap-2">
+              <div>
+                <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">R/P/S Distributions (Tight vs Wild)</p>
+                <p className="text-sm font-semibold text-foreground">Mean vs variance for each signal</p>
+                <p className="text-xs text-muted-foreground">Mean (average) shows where the system lives; variance shows how tightly it clusters.</p>
+              </div>
+              <DefinitionPill
+                term="Consolidation vs Thrash"
+                definition="Consolidation: mean improves while variance contracts (learning). Thrash/Chaos: mean improves while variance stays high or widens (output without mastery)."
+              />
+            </div>
+            <div className="grid gap-3">
+              <DistributionStrip label="Return (R)" valuesA={distributionValues.R.a} valuesB={distributionValues.R.b} labelA={cohortA.label} labelB={cohortB.label} />
+              <DistributionStrip label="Pressure (P)" valuesA={distributionValues.P.a} valuesB={distributionValues.P.b} labelA={cohortA.label} labelB={cohortB.label} />
+              <DistributionStrip label="Stability (S)" valuesA={distributionValues.S.a} valuesB={distributionValues.S.b} labelA={cohortA.label} labelB={cohortB.label} />
+            </div>
+          </div>
+        </>
+      )}
 
       {showOverlay && (
         <div className="rounded-xl border bg-muted/40 p-4">
@@ -144,17 +208,19 @@ const SystemComparePanel: React.FC<SystemComparePanelProps> = ({ result, warning
         </div>
       )}
 
-      <div className="rounded-xl border bg-muted/40 p-4">
-        <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Judgment Executive Summary</p>
-        <div className="mt-2 space-y-3">
-          {executiveSummary.map((item) => (
-            <div key={item.question} className="rounded-lg border bg-background/60 p-3">
-              <p className="text-xs font-semibold text-foreground">{item.question}</p>
-              <p className="text-sm text-muted-foreground">{item.answer}</p>
-            </div>
-          ))}
+      {!compareVisualsV3 && (
+        <div className="rounded-xl border bg-muted/40 p-4">
+          <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Judgment Executive Summary</p>
+          <div className="mt-2 space-y-3">
+            {executiveSummary.map((item) => (
+              <div key={item.question} className="rounded-lg border bg-background/60 p-3">
+                <p className="text-xs font-semibold text-foreground">{item.question}</p>
+                <p className="text-sm text-muted-foreground">{item.answer}</p>
+              </div>
+            ))}
+          </div>
         </div>
-      </div>
+      )}
 
       {posture && (
         <div className="grid gap-4 md:grid-cols-2">
@@ -195,9 +261,11 @@ const SystemComparePanel: React.FC<SystemComparePanelProps> = ({ result, warning
                       key={entry.id}
                       title={entry.label}
                       series={[entry]}
-                      xLabel={isSequenceMode ? "Sequence" : "Date"}
+                      xLabel={isSequenceMode ? "Decision sequence" : "Date (YYYY-MM-DD)"}
                       yLabel="R / P / S"
                       height={260}
+                      showVariance={compareVisualsV3}
+                      rollingWindow={5}
                     />
                   ))
                 ) : (
@@ -207,6 +275,76 @@ const SystemComparePanel: React.FC<SystemComparePanelProps> = ({ result, warning
                 )}
               </div>
             </div>
+            {compareVisualsV3 && (
+              <div className="rounded-xl border bg-muted/40 p-4">
+                <div className="flex items-start justify-between gap-2">
+                  <div>
+                    <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Distribution by Period (Did we tighten?)</p>
+                    <p className="text-sm font-semibold text-foreground">Variance bands by window</p>
+                    <p className="text-xs text-muted-foreground">Consolidation: mean shifts while variance bands contract. Thrash: mean shifts but variance stays wide.</p>
+                  </div>
+                  <DefinitionPill
+                    term="Interpretation rule"
+                    definition="If mean shifts and std contracts = new stable band (learning). If mean shifts and std stays high or increases = still thrashing."
+                  />
+                </div>
+                <div className="mt-3 grid gap-3 md:grid-cols-2">
+                  <div className="space-y-2">
+                    <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Period A — {cohortA.timeframeLabel}</p>
+                    <DistributionStrip
+                      label="Return (R)"
+                      valuesA={distributionValues.R.a}
+                      valuesB={[]}
+                      labelA={cohortA.label}
+                      labelB=""
+                    />
+                    <DistributionStrip
+                      label="Pressure (P)"
+                      valuesA={distributionValues.P.a}
+                      valuesB={[]}
+                      labelA={cohortA.label}
+                      labelB=""
+                    />
+                    <DistributionStrip
+                      label="Stability (S)"
+                      valuesA={distributionValues.S.a}
+                      valuesB={[]}
+                      labelA={cohortA.label}
+                      labelB=""
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Period B — {cohortB.timeframeLabel}</p>
+                    <DistributionStrip
+                      label="Return (R)"
+                      valuesA={distributionValues.R.b}
+                      valuesB={[]}
+                      labelA={cohortB.label}
+                      labelB=""
+                    />
+                    <DistributionStrip
+                      label="Pressure (P)"
+                      valuesA={distributionValues.P.b}
+                      valuesB={[]}
+                      labelA={cohortB.label}
+                      labelB=""
+                    />
+                    <DistributionStrip
+                      label="Stability (S)"
+                      valuesA={distributionValues.S.b}
+                      valuesB={[]}
+                      labelA={cohortB.label}
+                      labelB=""
+                    />
+                  </div>
+                </div>
+                {consolidationSummary && (
+                  <p className="mt-2 text-xs text-muted-foreground">
+                    {consolidationSummary.label}: {consolidationSummary.reason}
+                  </p>
+                )}
+              </div>
+            )}
             <div className="grid gap-4 md:grid-cols-2">
               <EarlyWarningFlags label={cohortA.label} posture={posture.cohortA} />
               <EarlyWarningFlags label={cohortB.label} posture={posture.cohortB} />
@@ -345,33 +483,37 @@ const SystemComparePanel: React.FC<SystemComparePanelProps> = ({ result, warning
       </div>
 
       {velocity && (
-        <div className="grid gap-4 lg:grid-cols-3">
-          <VelocityCard
-            label={`Recovery Index — ${cohortA.label}`}
-            result={velocity.a}
-            unitLabels={unitLabels}
-            unitLabelRaw={unitLabelRaw}
-          />
-          <VelocityCard
-            label={`Recovery Index — ${cohortB.label}`}
-            result={velocity.b}
-            unitLabels={unitLabels}
-            unitLabelRaw={unitLabelRaw}
-          />
-          <div className="rounded-xl border bg-muted/40 p-4">
-            <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Punchline</p>
-            <p className="mt-1 text-sm text-muted-foreground">{velocity.punchline}</p>
+        <div className="space-y-4">
+          {compareVisualsV3 && <VelocitySettingsSummary velocity={velocity} unitLabels={unitLabels} />}
+          <div className={compareVisualsV3 ? "grid gap-4 lg:grid-cols-2" : "grid gap-4 lg:grid-cols-3"}>
+            <VelocityCard
+              label={`Recovery Index — ${cohortA.label}`}
+              result={velocity.a}
+              unitLabels={unitLabels}
+              unitLabelRaw={unitLabelRaw}
+            />
+            <VelocityCard
+              label={`Recovery Index — ${cohortB.label}`}
+              result={velocity.b}
+              unitLabels={unitLabels}
+              unitLabelRaw={unitLabelRaw}
+            />
+            <div className={compareVisualsV3 ? "rounded-xl border bg-muted/40 p-4 lg:col-span-2" : "rounded-xl border bg-muted/40 p-4"}>
+              <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Punchline</p>
+              <p className="mt-1 text-sm text-muted-foreground">{velocity.punchline}</p>
+            </div>
           </div>
-        </div>
-      )}
 
-      {velocity && compareVisualsEnabled && (
-        <RecoveryTimeline
-          velocity={velocity}
-          labelA={cohortA.label}
-          labelB={cohortB.label}
-          totalDecisions={Math.max(cohortA.totalDecisions, cohortB.totalDecisions)}
-        />
+          {compareVisualsEnabled && (
+            <RecoveryTimeline
+              velocity={velocity}
+              labelA={cohortA.label}
+              labelB={cohortB.label}
+              totalDecisions={Math.max(cohortA.totalDecisions, cohortB.totalDecisions)}
+              targetLabel={velocity.targetLabel}
+            />
+          )}
+        </div>
       )}
 
       {showDebug && result.developerDetails && (
@@ -387,6 +529,51 @@ const SystemComparePanel: React.FC<SystemComparePanelProps> = ({ result, warning
 };
 
 export default SystemComparePanel;
+
+function InsightsCard({
+  insights,
+  consolidation,
+}: {
+  insights: VisualInsight[];
+  consolidation: ConsolidationSummary | null;
+}) {
+  return (
+    <div className="rounded-xl border bg-muted/40 p-4 space-y-3">
+      <div className="flex items-start justify-between gap-2">
+        <div>
+          <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Claims + Evidence</p>
+          <p className="text-sm font-semibold text-foreground">Read the variance, not just the averages</p>
+          <p className="text-xs text-muted-foreground">Each claim cites the visual that supports it.</p>
+        </div>
+        <DefinitionPill
+          term="Mean vs Variance"
+          definition="Mean (average): where the dataset tends to live on the -9..+9 lattice. Variance / volatility (steadiness): how tightly points cluster around the mean."
+        />
+      </div>
+      <div className="space-y-2">
+        {insights.map((item) => (
+          <div key={item.title} className="rounded-lg border bg-background/60 p-3">
+            <p className="text-xs font-semibold text-foreground">{item.title}</p>
+            <p className="text-sm text-muted-foreground">{item.detail}</p>
+          </div>
+        ))}
+      </div>
+      {consolidation && (
+        <div className="rounded-lg border border-dashed bg-background/60 p-3 text-xs text-muted-foreground">
+          <div className="flex items-center justify-between gap-2">
+            <p className="font-semibold text-foreground">{consolidation.label}</p>
+            <DefinitionPill
+              term="Consolidate vs Thrash"
+              definition="Consolidation: mean improves while variance contracts (learning). Thrash / Chaos: mean improves while variance stays high or widens (output without mastery)."
+              size="sm"
+            />
+          </div>
+          <p className="mt-1">{consolidation.reason}</p>
+        </div>
+      )}
+    </div>
+  );
+}
 
 function VelocityCard({
   label,
@@ -449,6 +636,181 @@ function VelocityCard({
   );
 }
 
+function VelocitySettingsSummary({
+  velocity,
+  unitLabels,
+}: {
+  velocity: NonNullable<CompareResult["velocity"]>;
+  unitLabels: UnitLabels;
+}) {
+  const thresholds = velocity.a.thresholds;
+  return (
+    <div className="rounded-xl border bg-muted/40 p-4">
+      <div className="flex items-start justify-between gap-2">
+        <div>
+          <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Targets & Settings</p>
+          <p className="text-sm font-semibold text-foreground">{velocity.targetLabel}</p>
+          <p className="text-xs text-muted-foreground">Settings sit directly above the outputs; adjust in Compare controls.</p>
+        </div>
+        <DefinitionPill
+          term="Recovery (Decisions-to-Target)"
+          definition="Recovery (Decisions-to-Target) = number of decisions required to re-enter the target band after deviation, using the rolling window + consecutive windows rule."
+        />
+      </div>
+      <div className="mt-3 grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+        <SettingStat label="Window size" value={`${velocity.a.windowSize} ${unitLabels.plural}`} />
+        <SettingStat label="Consecutive windows (k)" value={velocity.a.consecutiveWindows.toString()} />
+        <SettingStat label="Windows evaluated" value={`${velocity.a.windowsEvaluated}`} />
+      </div>
+      <div className="mt-3 grid gap-2 sm:grid-cols-2 lg:grid-cols-3 text-xs text-muted-foreground">
+        {velocity.target === "RETURN_RISE" && <SettingStat label="Return lift (ΔR)" value={thresholds.returnLift.toFixed(1)} muted />}
+        {velocity.target === "PRESSURE_STABILIZE" && (
+          <>
+            <SettingStat label="Pressure band (±)" value={thresholds.pressureBand.toFixed(1)} muted />
+            <SettingStat label="Stability floor" value={thresholds.stabilityFloor.toFixed(1)} muted />
+          </>
+        )}
+        {velocity.target === "STABILITY_STABILIZE" && (
+          <>
+            <SettingStat label="Stability floor" value={thresholds.stabilityFloor.toFixed(1)} muted />
+            <SettingStat label="Stability band (±)" value={thresholds.stabilityBand.toFixed(1)} muted />
+          </>
+        )}
+      </div>
+      <p className="mt-2 text-[11px] text-muted-foreground">
+        The shaded timeline below shows the first hit index for each cohort and the “inside target” band after that point.
+      </p>
+    </div>
+  );
+}
+
+function SettingStat({ label, value, muted = false }: { label: string; value: string; muted?: boolean }) {
+  return (
+    <div className={`rounded-lg border bg-background/60 p-2 ${muted ? "text-muted-foreground" : "text-foreground"}`}>
+      <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">{label}</p>
+      <p className="text-sm font-semibold">{value}</p>
+    </div>
+  );
+}
+
+type VisualInsightsInput = {
+  cohortA: string;
+  cohortB: string;
+  deltas: CompareResult["deltas"];
+  consistency: CompareResult["consistency"];
+  scatterA: { x: number; y: number }[];
+  scatterB: { x: number; y: number }[];
+  distributionValues: {
+    R: { a: number[]; b: number[] };
+    P: { a: number[]; b: number[] };
+    S: { a: number[]; b: number[] };
+  };
+};
+
+function buildVisualInsights(input: VisualInsightsInput): VisualInsight[] {
+  const { cohortA, cohortB, deltas, consistency, scatterA, scatterB, distributionValues } = input;
+  const volatilityA = mean([consistency.cohortAStd.return, consistency.cohortAStd.pressure, consistency.cohortAStd.stability]);
+  const volatilityB = mean([consistency.cohortBStd.return, consistency.cohortBStd.pressure, consistency.cohortBStd.stability]);
+  const couplingA = correlation(scatterA.map((p) => p.x), scatterA.map((p) => p.y));
+  const couplingB = correlation(scatterB.map((p) => p.x), scatterB.map((p) => p.y));
+  const positivePressureA = mean(
+    distributionValues.R.a
+      .map((value, idx) => ({ value, pressure: distributionValues.P.a[idx] }))
+      .filter((entry) => entry.value > 0)
+      .map((entry) => entry.pressure),
+  );
+  const positivePressureB = mean(
+    distributionValues.R.b
+      .map((value, idx) => ({ value, pressure: distributionValues.P.b[idx] }))
+      .filter((entry) => entry.value > 0)
+      .map((entry) => entry.pressure),
+  );
+  const costEvidence = `${positivePressureA.toFixed(2)} vs ${positivePressureB.toFixed(2)} pressure when returns are positive (see R/P scatter).`;
+
+  const steadinessLeader =
+    volatilityA === volatilityB ? "similar steadiness" : volatilityA < volatilityB ? `${cohortA} is steadier` : `${cohortB} is steadier`;
+  const steadinessEvidence = `σ summary — R ${consistency.cohortAStd.return.toFixed(2)} vs ${consistency.cohortBStd.return.toFixed(2)}, P ${consistency.cohortAStd.pressure.toFixed(2)} vs ${consistency.cohortBStd.pressure.toFixed(2)}, S ${consistency.cohortAStd.stability.toFixed(2)} vs ${consistency.cohortBStd.stability.toFixed(2)} (see R/P/S Distributions).`;
+
+  const couplingLeader =
+    Math.abs(couplingA - couplingB) < 0.05
+      ? "R-P coupling is similar"
+      : couplingA > couplingB
+        ? `${cohortA} trades more return for pressure`
+        : `${cohortB} trades more return for pressure`;
+  const couplingEvidence = `${couplingLeader} (ρ=${couplingA.toFixed(2)} vs ${couplingB.toFixed(2)}). See Return vs Pressure scatter.`;
+
+  const consolidationTrend = deltas.returnDelta > 0
+    ? `Return mean rises ${deltas.returnDelta.toFixed(2)} while pressure changes ${deltas.pressureDelta.toFixed(2)}.`
+    : `Return delta ${deltas.returnDelta.toFixed(2)} with pressure delta ${deltas.pressureDelta.toFixed(2)}.`;
+
+  return [
+    {
+      title: "Steadiness",
+      detail: `${steadinessLeader}. ${steadinessEvidence}`,
+    },
+    {
+      title: "Aggressiveness / coupling",
+      detail: couplingEvidence,
+    },
+    {
+      title: "Cost of return",
+      detail: `Average pressure when R > 0: ${costEvidence}`,
+    },
+    {
+      title: "Consolidation vs thrash",
+      detail: `${consolidationTrend} Use distribution bands + scatter to confirm whether the band tightened.`,
+    },
+  ];
+}
+
+function mapScatterPoints(series: PostureSeriesPoint[], isSequence: boolean): { x: number; y: number; label?: string }[] {
+  return series.map((point, idx) => ({
+    x: point.P,
+    y: point.R,
+    label: isSequence ? `Decision ${idx + 1}` : formatTimestamp(point.t) ?? `Decision ${idx + 1}`,
+  }));
+}
+
+function classifyConsolidation(
+  seriesA: PostureSeriesPoint[],
+  seriesB: PostureSeriesPoint[],
+  cohortA: CompareResult["cohortA"],
+  cohortB: CompareResult["cohortB"],
+): ConsolidationSummary | null {
+  if (!seriesA.length || !seriesB.length) return null;
+  const meanShift = {
+    R: cohortB.avgReturn - cohortA.avgReturn,
+    P: cohortB.avgPressure - cohortA.avgPressure,
+    S: cohortB.avgStability - cohortA.avgStability,
+  };
+  const varianceShift = {
+    R: cohortB.stdReturn - cohortA.stdReturn,
+    P: cohortB.stdPressure - cohortA.stdPressure,
+    S: cohortB.stdStability - cohortA.stdStability,
+  };
+  const compositeMean = mean([meanShift.R, -meanShift.P, meanShift.S]);
+  const compositeVariance = mean([varianceShift.R, varianceShift.P, varianceShift.S]);
+
+  if (Math.abs(compositeMean) < 0.05) {
+    return {
+      label: "Mixed: mean unchanged",
+      reason: "Mean has not materially shifted across periods; focus on variance bands before calling a new regime.",
+    };
+  }
+
+  if (compositeMean > 0 && compositeVariance < 0) {
+    return {
+      label: "Consolidating (learning)",
+      reason: "Mean improves while variance contracts — band is tightening (see distribution strips and temporal variance ribbons).",
+    };
+  }
+
+  return {
+    label: "Thrash / Chaos",
+    reason: "Mean is moving but variance is still high or widening — output without mastery. Watch for tighter bands before declaring stability.",
+  };
+}
+
 function mapSeriesToIndexedPoints(series?: PostureSeriesPoint[]): RPSLineSeries["data"] {
   if (!series || series.length === 0) return [];
   return series.map((point, idx) => ({ x: idx + 1, R: point.R, P: point.P, S: point.S }));
@@ -496,11 +858,13 @@ function RecoveryTimeline({
   labelA,
   labelB,
   totalDecisions,
+  targetLabel,
 }: {
   velocity: NonNullable<CompareResult["velocity"]>;
   labelA: string;
   labelB: string;
   totalDecisions: number;
+  targetLabel: string;
 }) {
   const maxObserved = Math.max(
     totalDecisions,
@@ -510,6 +874,15 @@ function RecoveryTimeline({
     velocity.b.decisionsToTarget ?? 0,
   );
   const domain = Math.max(maxObserved, 1);
+  const hits = [
+    { label: labelA, target: velocity.a.decisionsToTarget, tone: "foreground" as const },
+    { label: labelB, target: velocity.b.decisionsToTarget, tone: "primary" as const },
+  ];
+  const medianHit = median(
+    hits
+      .map((entry) => entry.target)
+      .filter((value): value is number => Boolean(value)),
+  );
 
   return (
     <div className="rounded-xl border bg-muted/40 p-4">
@@ -517,14 +890,18 @@ function RecoveryTimeline({
         <div>
           <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Recovery Timeline</p>
           <p className="text-sm font-semibold text-foreground">Decisions-to-target</p>
+          <p className="text-[11px] text-muted-foreground">Target band: {targetLabel}. Shaded region = inside-target band after the first hit.</p>
         </div>
         <span className="text-[11px] text-muted-foreground">1 → {domain}</span>
       </div>
       <div className="mt-3 space-y-3">
-        <TimelineRow label={labelA} target={velocity.a.decisionsToTarget} domain={domain} tone="foreground" />
-        <TimelineRow label={labelB} target={velocity.b.decisionsToTarget} domain={domain} tone="primary" />
+        {hits.map((entry) => (
+          <TimelineRow key={entry.label} label={entry.label} target={entry.target} domain={domain} tone={entry.tone} />
+        ))}
       </div>
-      <p className="mt-3 text-[11px] text-muted-foreground">Marks show the first window where the target was satisfied.</p>
+      <p className="mt-3 text-[11px] text-muted-foreground">
+        Median decisions-to-hit: {medianHit ? medianHit.toFixed(0) : "No hits yet"}. Recovery (Decisions-to-Target) counts the first window where the rule holds for k consecutive windows.
+      </p>
     </div>
   );
 }
@@ -542,6 +919,8 @@ function TimelineRow({
 }) {
   const position = target ? Math.min(100, Math.max(0, (target / domain) * 100)) : null;
   const markerColor = tone === "foreground" ? "hsl(var(--foreground))" : "hsl(var(--primary))";
+  const bandColor = tone === "foreground" ? "hsl(var(--primary)/0.15)" : "hsl(var(--accent)/0.2)";
+  const bandStart = target ? Math.max(1, target) : null;
 
   return (
     <div className="space-y-1 text-xs text-muted-foreground">
@@ -549,7 +928,18 @@ function TimelineRow({
         <span className="font-semibold text-foreground">{label}</span>
         <span>{target ? `Hit at ${target}` : "No hit"}</span>
       </div>
-      <div className="relative h-2 rounded-full bg-muted">
+      <div className="relative h-3 rounded-full bg-muted">
+        {bandStart !== null && (
+          <span
+            className="absolute inset-y-0 rounded-full"
+            style={{
+              left: `${((bandStart - 1) / domain) * 100}%`,
+              right: 0,
+              backgroundColor: bandColor,
+            }}
+            aria-hidden
+          />
+        )}
         {position !== null ? (
           <span
             className="absolute -top-1 h-4 w-4 -translate-x-1/2 rounded-full border border-background"
@@ -570,6 +960,38 @@ function NarrativeTile({ title, body }: { title: string; body: string }) {
       <p className="text-sm text-muted-foreground">{body}</p>
     </div>
   );
+}
+
+function DefinitionPill({ term, definition, size = "md" }: { term: string; definition: string; size?: "md" | "sm" }) {
+  const dimension = size === "sm" ? "h-7 px-2 text-[11px]" : "h-8 px-3 text-xs";
+  return (
+    <TooltipProvider delayDuration={0}>
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <button
+            type="button"
+            className={`inline-flex items-center gap-1 rounded-full border border-dashed border-muted-foreground/50 bg-background/60 font-semibold text-foreground ${dimension}`}
+            aria-label={`${term} definition`}
+          >
+            <Info className="h-4 w-4" />
+            <span>{term}</span>
+          </button>
+        </TooltipTrigger>
+        <TooltipContent className="max-w-sm text-xs">
+          <p className="font-semibold text-background">{term}</p>
+          <p className="text-muted-foreground">{definition}</p>
+        </TooltipContent>
+      </Tooltip>
+    </TooltipProvider>
+  );
+}
+
+function median(values: number[]) {
+  if (!values.length) return null;
+  const sorted = [...values].sort((a, b) => a - b);
+  const mid = Math.floor(sorted.length / 2);
+  if (sorted.length % 2 === 0) return (sorted[mid - 1] + sorted[mid]) / 2;
+  return sorted[mid];
 }
 
 function formatValue(value: number) {
@@ -715,6 +1137,9 @@ type JudgmentInsight = {
   theme: "system" | "steady" | "aggressive" | "adapt" | "pressure" | "recover";
   leader?: "A" | "B" | "tie";
 };
+
+type VisualInsight = { title: string; detail: string };
+type ConsolidationSummary = { label: string; reason: string };
 
 const SIGNIFICANT_DELTA = 0.05;
 
