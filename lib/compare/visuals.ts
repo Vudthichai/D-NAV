@@ -7,13 +7,24 @@ type ScatterBuildOptions = { useSequence?: boolean };
 export function buildScatterPoints(series: PostureSeriesPoint[] | undefined, mode: CompareMode, options?: ScatterBuildOptions): ScatterPoint[] {
   if (!series || series.length === 0) return [];
   const useSequence = options?.useSequence ?? mode === "temporal";
-  return series.map((point, idx) => ({
-    xPressure: point.P,
-    yReturn: point.R,
-    stability: point.S,
-    t: point.t,
-    label: useSequence ? `Decision ${idx + 1}` : formatTimestamp(point.t) ?? `Decision ${idx + 1}`,
-  }));
+  return series
+    .map((point, idx): ScatterPoint | null => {
+      const xPressure = point.P;
+      const yReturn = point.R;
+      const stability = point.S;
+      const t = point.t;
+
+      if (![xPressure, yReturn, stability, t].every((value) => Number.isFinite(value))) return null;
+
+      return {
+        xPressure,
+        yReturn,
+        stability,
+        t,
+        label: useSequence ? `Decision ${idx + 1}` : formatTimestamp(point.t) ?? `Decision ${idx + 1}`,
+      };
+    })
+    .filter((point): point is ScatterPoint => point !== null);
 }
 
 export function buildVarianceSeries(series: PostureSeriesPoint[] | undefined, window = 5, options?: ScatterBuildOptions): RPSPoint[] {
