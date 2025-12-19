@@ -71,3 +71,44 @@ export function describeVolatility(stdValue: number): "Steady" | "Mixed" | "Chao
   if (stdValue < 1.5) return "Mixed";
   return "Chaotic";
 }
+
+export const DISTRIBUTION_EPSILON = 0.25;
+
+export type DistributionBuckets = {
+  negative: number;
+  neutral: number;
+  positive: number;
+  total: number;
+  pctNegative: number;
+  pctNeutral: number;
+  pctPositive: number;
+};
+
+export function distributionBuckets(values: number[], epsilon: number = DISTRIBUTION_EPSILON): DistributionBuckets {
+  if (!values.length) {
+    return {
+      negative: 0,
+      neutral: 0,
+      positive: 0,
+      total: 0,
+      pctNegative: 0,
+      pctNeutral: 0,
+      pctPositive: 0,
+    };
+  }
+
+  const negative = values.filter((value) => value < -epsilon).length;
+  const neutral = values.filter((value) => value >= -epsilon && value <= epsilon).length;
+  const positive = values.filter((value) => value > epsilon).length;
+  const total = values.length;
+
+  return {
+    negative,
+    neutral,
+    positive,
+    total,
+    pctNegative: (negative / total) * 100,
+    pctNeutral: (neutral / total) * 100,
+    pctPositive: (positive / total) * 100,
+  };
+}
