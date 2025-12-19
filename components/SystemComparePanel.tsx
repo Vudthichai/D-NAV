@@ -7,14 +7,14 @@ import { formatUnitCount, getUnitLabels, type UnitLabels } from "@/utils/judgmen
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { buildRecoverySeries, buildScatterPoints, buildVarianceSeries } from "@/lib/compare/visuals";
 import { computeQuadrantShares, computeSteadiness, determineRegimeCall } from "@/lib/compare/evidence";
+import { DISTRIBUTION_EPSILON, distributionBuckets } from "@/lib/compare/stats";
 import { EvidenceSummary } from "@/components/compare/EvidenceSummary";
 import { EvidenceRPSScatter } from "@/components/compare/EvidenceRPSScatter";
 import { EvidenceTemporalPanel } from "@/components/compare/EvidenceTemporalPanel";
 import { EvidenceRecoveryPanel } from "@/components/compare/EvidenceRecoveryPanel";
 import { JudgmentRegimeBadge } from "./compare/JudgmentRegimeBadge";
 import { EarlyWarningFlags } from "./compare/EarlyWarningFlags";
-import { DistributionStrip } from "./compare/charts/DistributionStrip";
-import { VarianceSummary } from "./compare/cards/VarianceSummary";
+import { DistributionStackedBars } from "./compare/charts/DistributionStackedBars";
 
 interface SystemComparePanelProps {
   result: CompareResult;
@@ -79,24 +79,26 @@ const SystemComparePanel: React.FC<SystemComparePanelProps> = ({ result, warning
       ]
     : [];
 
-  const varianceCards = [
+  const distributionMetrics = [
     {
-      label: cohortA.label,
-      mean: { R: cohortA.avgReturn, P: cohortA.avgPressure, S: cohortA.avgStability },
-      std: { R: cohortA.stdReturn, P: cohortA.stdPressure, S: cohortA.stdStability },
+      id: "R",
+      label: "Return (R)",
+      valuesA: postureSeriesA.map((point) => point.R),
+      valuesB: postureSeriesB.map((point) => point.R),
     },
     {
-      label: cohortB.label,
-      mean: { R: cohortB.avgReturn, P: cohortB.avgPressure, S: cohortB.avgStability },
-      std: { R: cohortB.stdReturn, P: cohortB.stdPressure, S: cohortB.stdStability },
+      id: "P",
+      label: "Pressure (P)",
+      valuesA: postureSeriesA.map((point) => point.P),
+      valuesB: postureSeriesB.map((point) => point.P),
+    },
+    {
+      id: "S",
+      label: "Stability (S)",
+      valuesA: postureSeriesA.map((point) => point.S),
+      valuesB: postureSeriesB.map((point) => point.S),
     },
   ];
-
-  const distributionValues = {
-    R: { a: postureSeriesA.map((point) => point.R), b: postureSeriesB.map((point) => point.R) },
-    P: { a: postureSeriesA.map((point) => point.P), b: postureSeriesB.map((point) => point.P) },
-    S: { a: postureSeriesA.map((point) => point.S), b: postureSeriesB.map((point) => point.S) },
-  };
 
   const quadrantSharesA = computeQuadrantShares(scatterPointsA);
   const quadrantSharesB = computeQuadrantShares(scatterPointsB);
@@ -125,50 +127,76 @@ const SystemComparePanel: React.FC<SystemComparePanelProps> = ({ result, warning
         </div>
       )}
 
-      <EvidenceSummary
-        labelA={cohortA.label}
-        labelB={cohortB.label}
-        summaryA={{
-          centroid: { R: cohortA.avgReturn, P: cohortA.avgPressure, S: cohortA.avgStability },
-          steadiness: computeSteadiness(cohortA.stdReturn, cohortA.stdPressure, cohortA.stdStability),
-          quadrantShares: quadrantSharesA,
-        }}
-        summaryB={{
-          centroid: { R: cohortB.avgReturn, P: cohortB.avgPressure, S: cohortB.avgStability },
-          steadiness: computeSteadiness(cohortB.stdReturn, cohortB.stdPressure, cohortB.stdStability),
-          quadrantShares: quadrantSharesB,
-        }}
-        drift={deltas}
-        regimeCall={regimeCall}
-        sequenceMode={isSequenceMode}
-      />
+      {result.mode !== "entity" && (
+        <EvidenceSummary
+          labelA={cohortA.label}
+          labelB={cohortB.label}
+          summaryA={{
+            centroid: { R: cohortA.avgReturn, P: cohortA.avgPressure, S: cohortA.avgStability },
+            steadiness: computeSteadiness(cohortA.stdReturn, cohortA.stdPressure, cohortA.stdStability),
+            quadrantShares: quadrantSharesA,
+          }}
+          summaryB={{
+            centroid: { R: cohortB.avgReturn, P: cohortB.avgPressure, S: cohortB.avgStability },
+            steadiness: computeSteadiness(cohortB.stdReturn, cohortB.stdPressure, cohortB.stdStability),
+            quadrantShares: quadrantSharesB,
+          }}
+          drift={deltas}
+          regimeCall={regimeCall}
+          sequenceMode={isSequenceMode}
+        />
+      )}
 
       {result.mode === "entity" && (
-        <div className="rounded-xl border bg-muted/40 p-4">
-          <EvidenceRPSScatter
-            series={[
-              {
-                id: "A",
-                label: cohortA.label,
-                color: "hsl(var(--foreground))",
-                points: scatterPointsA,
-                centroid: { xPressure: cohortA.avgPressure, yReturn: cohortA.avgReturn },
-                std: { pressure: cohortA.stdPressure, return: cohortA.stdReturn },
-              },
-              {
-                id: "B",
-                label: cohortB.label,
-                color: "hsl(var(--primary))",
-                points: scatterPointsB,
-                centroid: { xPressure: cohortB.avgPressure, yReturn: cohortB.avgReturn },
-                std: { pressure: cohortB.stdPressure, return: cohortB.stdReturn },
-              },
-            ]}
-            domain={scatterDomain}
-            title="Return vs Pressure"
-            subtitle="Overlayed posture scatter (shared axes)"
-            contextLabel={isSequenceMode ? "Sequence Mode: index-based ordering" : undefined}
-          />
+        <div className="grid gap-4 lg:grid-cols-2">
+          <div className="rounded-xl border bg-muted/40 p-4">
+            <EvidenceRPSScatter
+              series={[
+                {
+                  id: "A",
+                  label: cohortA.label,
+                  color: "hsl(var(--foreground))",
+                  points: scatterPointsA,
+                  centroid: { xPressure: cohortA.avgPressure, yReturn: cohortA.avgReturn },
+                  std: { pressure: cohortA.stdPressure, return: cohortA.stdReturn },
+                },
+                {
+                  id: "B",
+                  label: cohortB.label,
+                  color: "hsl(var(--primary))",
+                  points: scatterPointsB,
+                  centroid: { xPressure: cohortB.avgPressure, yReturn: cohortB.avgReturn },
+                  std: { pressure: cohortB.stdPressure, return: cohortB.stdReturn },
+                },
+              ]}
+              domain={scatterDomain}
+              title="Return vs Pressure"
+              subtitle="Overlayed posture scatter (shared axes)"
+              contextLabel={isSequenceMode ? "Sequence Mode: index-based ordering" : undefined}
+            />
+          </div>
+          <div className="rounded-xl border bg-muted/40 p-4">
+            <DistributionStackedBars
+              title="Distributions (Return / Pressure / Stability)"
+              subtitle={`Buckets use ε = ${DISTRIBUTION_EPSILON}`}
+              metrics={distributionMetrics.map((metric) => ({
+                id: metric.id,
+                label: metric.label,
+                rows: [
+                  {
+                    id: `${metric.id}-A`,
+                    label: cohortA.label,
+                    buckets: distributionBuckets(metric.valuesA, DISTRIBUTION_EPSILON),
+                  },
+                  {
+                    id: `${metric.id}-B`,
+                    label: cohortB.label,
+                    buckets: distributionBuckets(metric.valuesB, DISTRIBUTION_EPSILON),
+                  },
+                ],
+              }))}
+            />
+          </div>
         </div>
       )}
 
@@ -208,159 +236,144 @@ const SystemComparePanel: React.FC<SystemComparePanelProps> = ({ result, warning
         />
       )}
 
-      <details className="rounded-xl border bg-muted/40 p-4 text-xs text-muted-foreground">
-        <summary className="cursor-pointer text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
-          Advanced metrics
-        </summary>
-        <div className="mt-3 grid gap-3 sm:grid-cols-2">
-          <div className="rounded-lg border bg-background/60 p-3">
-            <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">{cohortA.label}</p>
-            <p className="text-xs text-muted-foreground">Dataset: {datasetLabelA}</p>
-            <p className="text-xs text-muted-foreground">
-              Decisions: {formatUnitCount(cohortA.totalDecisions, unitLabelRaw)}
-              {cohortA.totalAvailableDecisions && cohortA.totalAvailableDecisions > cohortA.totalDecisions
-                ? ` of ${formatUnitCount(cohortA.totalAvailableDecisions, unitLabelRaw)}`
-                : ""}
-            </p>
-            <p className="text-xs text-muted-foreground">Normalization: {cohortA.normalizationBasis}</p>
-            <p className="text-xs text-muted-foreground">
-              {cohortA.timeframeMode === "sequence" ? "Sequence range" : "Timeframe"}: {cohortA.timeframeLabel}
-            </p>
-            {cohortA.judgmentUnitLabel && (
-              <p className="text-xs text-muted-foreground">Judgment unit: {cohortA.judgmentUnitLabel}</p>
-            )}
-          </div>
-          <div className="rounded-lg border bg-background/60 p-3">
-            <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">{cohortB.label}</p>
-            <p className="text-xs text-muted-foreground">Dataset: {datasetLabelB}</p>
-            <p className="text-xs text-muted-foreground">
-              Decisions: {formatUnitCount(cohortB.totalDecisions, unitLabelRaw)}
-              {cohortB.totalAvailableDecisions && cohortB.totalAvailableDecisions > cohortB.totalDecisions
-                ? ` of ${formatUnitCount(cohortB.totalAvailableDecisions, unitLabelRaw)}`
-                : ""}
-            </p>
-            <p className="text-xs text-muted-foreground">Normalization: {cohortB.normalizationBasis}</p>
-            <p className="text-xs text-muted-foreground">
-              {cohortB.timeframeMode === "sequence" ? "Sequence range" : "Timeframe"}: {cohortB.timeframeLabel}
-            </p>
-            {cohortB.judgmentUnitLabel && (
-              <p className="text-xs text-muted-foreground">Judgment unit: {cohortB.judgmentUnitLabel}</p>
-            )}
-          </div>
-        </div>
-        <p className="mt-2 text-[11px] text-muted-foreground">Mode summary: {result.modeSummary}</p>
-
-        <div className="mt-4 grid gap-4 md:grid-cols-3">
-          {metrics.map((metric) => (
-            <div key={metric.label} className="rounded-xl border bg-background/60 p-4">
-              <h3 className="mb-2 text-sm font-semibold">{metric.label}</h3>
-              <div className="flex items-center justify-between text-xs text-muted-foreground">
-                <span className="font-medium text-foreground">{formatValue(metric.a)} · {cohortA.label}</span>
-                <span>{formatValue(metric.b)} · {cohortB.label}</span>
-              </div>
-              <p className="mt-2 text-xs font-semibold text-muted-foreground">Δ A→B: {formatDelta(metric.delta)}</p>
+      {result.mode !== "entity" && (
+        <details className="rounded-xl border bg-muted/40 p-4 text-xs text-muted-foreground">
+          <summary className="cursor-pointer text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+            Advanced metrics
+          </summary>
+          <div className="mt-3 grid gap-3 sm:grid-cols-2">
+            <div className="rounded-lg border bg-background/60 p-3">
+              <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">{cohortA.label}</p>
+              <p className="text-xs text-muted-foreground">Dataset: {datasetLabelA}</p>
+              <p className="text-xs text-muted-foreground">
+                Decisions: {formatUnitCount(cohortA.totalDecisions, unitLabelRaw)}
+                {cohortA.totalAvailableDecisions && cohortA.totalAvailableDecisions > cohortA.totalDecisions
+                  ? ` of ${formatUnitCount(cohortA.totalAvailableDecisions, unitLabelRaw)}`
+                  : ""}
+              </p>
+              <p className="text-xs text-muted-foreground">Normalization: {cohortA.normalizationBasis}</p>
+              <p className="text-xs text-muted-foreground">
+                {cohortA.timeframeMode === "sequence" ? "Sequence range" : "Timeframe"}: {cohortA.timeframeLabel}
+              </p>
+              {cohortA.judgmentUnitLabel && (
+                <p className="text-xs text-muted-foreground">Judgment unit: {cohortA.judgmentUnitLabel}</p>
+              )}
             </div>
-          ))}
-        </div>
-
-        <div className="mt-4 grid gap-4 md:grid-cols-3">
-          <div className="rounded-xl border bg-background/60 p-4">
-            <h3 className="mb-2 text-sm font-semibold">Consistency (std dev)</h3>
-            <p className="text-xs text-muted-foreground">
-              Lower values mean the system is steadier in the selected window.
-            </p>
-            <div className="mt-3 space-y-2 text-xs text-muted-foreground">
-              <div className="flex items-center justify-between">
-                <span className="font-medium text-foreground">{cohortA.label}</span>
-                <span>
-                  R {formatValue(consistency.cohortAStd.return)} · P {formatValue(consistency.cohortAStd.pressure)} · S{" "}
-                  {formatValue(consistency.cohortAStd.stability)}
-                </span>
-              </div>
-              <div className="flex items-center justify-between">
-                <span className="font-medium text-foreground">{cohortB.label}</span>
-                <span>
-                  R {formatValue(consistency.cohortBStd.return)} · P {formatValue(consistency.cohortBStd.pressure)} · S{" "}
-                  {formatValue(consistency.cohortBStd.stability)}
-                </span>
-              </div>
+            <div className="rounded-lg border bg-background/60 p-3">
+              <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">{cohortB.label}</p>
+              <p className="text-xs text-muted-foreground">Dataset: {datasetLabelB}</p>
+              <p className="text-xs text-muted-foreground">
+                Decisions: {formatUnitCount(cohortB.totalDecisions, unitLabelRaw)}
+                {cohortB.totalAvailableDecisions && cohortB.totalAvailableDecisions > cohortB.totalDecisions
+                  ? ` of ${formatUnitCount(cohortB.totalAvailableDecisions, unitLabelRaw)}`
+                  : ""}
+              </p>
+              <p className="text-xs text-muted-foreground">Normalization: {cohortB.normalizationBasis}</p>
+              <p className="text-xs text-muted-foreground">
+                {cohortB.timeframeMode === "sequence" ? "Sequence range" : "Timeframe"}: {cohortB.timeframeLabel}
+              </p>
+              {cohortB.judgmentUnitLabel && (
+                <p className="text-xs text-muted-foreground">Judgment unit: {cohortB.judgmentUnitLabel}</p>
+              )}
             </div>
           </div>
+          <p className="mt-2 text-[11px] text-muted-foreground">Mode summary: {result.modeSummary}</p>
 
-          <div className="rounded-xl border bg-background/60 p-4 md:col-span-2">
-            <h3 className="mb-1 text-sm font-semibold">Drivers (A → B)</h3>
-            <p className="text-xs text-muted-foreground">Comparing averages for Impact, Cost, Risk, Urgency, Confidence.</p>
-            <div className="mt-3 grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
-              {driverMetrics.map((driver) => (
-                <div key={driver.label} className="rounded-lg border border-dashed bg-background/60 px-3 py-2 text-xs">
-                  <div className="flex items-center justify-between">
-                    <span className="font-medium text-foreground">{driver.label}</span>
-                    <span className="text-muted-foreground">Δ {formatDelta(driver.delta)}</span>
+          <div className="mt-4 grid gap-4 md:grid-cols-3">
+            {metrics.map((metric) => (
+              <div key={metric.label} className="rounded-xl border bg-background/60 p-4">
+                <h3 className="mb-2 text-sm font-semibold">{metric.label}</h3>
+                <div className="flex items-center justify-between text-xs text-muted-foreground">
+                  <span className="font-medium text-foreground">{formatValue(metric.a)} · {cohortA.label}</span>
+                  <span>{formatValue(metric.b)} · {cohortB.label}</span>
+                </div>
+                <p className="mt-2 text-xs font-semibold text-muted-foreground">Δ A→B: {formatDelta(metric.delta)}</p>
+              </div>
+            ))}
+          </div>
+
+          <div className="mt-4 grid gap-4 md:grid-cols-3">
+            <div className="rounded-xl border bg-background/60 p-4">
+              <h3 className="mb-2 text-sm font-semibold">Consistency (std dev)</h3>
+              <p className="text-xs text-muted-foreground">
+                Lower values mean the system is steadier in the selected window.
+              </p>
+              <div className="mt-3 space-y-2 text-xs text-muted-foreground">
+                <div className="flex items-center justify-between">
+                  <span className="font-medium text-foreground">{cohortA.label}</span>
+                  <span>
+                    R {formatValue(consistency.cohortAStd.return)} · P {formatValue(consistency.cohortAStd.pressure)} · S{" "}
+                    {formatValue(consistency.cohortAStd.stability)}
+                  </span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="font-medium text-foreground">{cohortB.label}</span>
+                  <span>
+                    R {formatValue(consistency.cohortBStd.return)} · P {formatValue(consistency.cohortBStd.pressure)} · S{" "}
+                    {formatValue(consistency.cohortBStd.stability)}
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            <div className="rounded-xl border bg-background/60 p-4 md:col-span-2">
+              <h3 className="mb-1 text-sm font-semibold">Drivers (A → B)</h3>
+              <p className="text-xs text-muted-foreground">Comparing averages for Impact, Cost, Risk, Urgency, Confidence.</p>
+              <div className="mt-3 grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+                {driverMetrics.map((driver) => (
+                  <div key={driver.label} className="rounded-lg border border-dashed bg-background/60 px-3 py-2 text-xs">
+                    <div className="flex items-center justify-between">
+                      <span className="font-medium text-foreground">{driver.label}</span>
+                      <span className="text-muted-foreground">Δ {formatDelta(driver.delta)}</span>
+                    </div>
+                    <p className="text-[11px] text-muted-foreground">
+                      {describeDriverShift(driver.label, driver.delta, cohortA.label, cohortB.label)}
+                    </p>
                   </div>
-                  <p className="text-[11px] text-muted-foreground">
-                    {describeDriverShift(driver.label, driver.delta, cohortA.label, cohortB.label)}
-                  </p>
-                </div>
-              ))}
-            </div>
-          </div>
-        </div>
-
-        {posture && (
-          <div className="mt-4 grid gap-4 md:grid-cols-2">
-            <JudgmentRegimeBadge label={cohortA.label} regime={posture.cohortA.regime} />
-            <JudgmentRegimeBadge label={cohortB.label} regime={posture.cohortB.regime} />
-          </div>
-        )}
-
-        {result.mode === "entity" && (
-          <div className="mt-4 grid gap-4 lg:grid-cols-[1.2fr_0.8fr]">
-            <div className="rounded-xl border bg-background/60 p-4 space-y-2">
-              <div className="flex items-start justify-between">
-                <div>
-                  <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Stability distribution</p>
-                  <p className="text-sm font-semibold text-foreground">Spread of S across decisions</p>
-                  <p className="text-xs text-muted-foreground">Steadier = tighter cluster (lower σ).</p>
-                </div>
-                <span className="text-[11px] text-muted-foreground">σ S {formatValue(consistency.cohortAStd.stability)} vs {formatValue(consistency.cohortBStd.stability)}</span>
+                ))}
               </div>
-              <DistributionStrip label="Stability (S)" valuesA={distributionValues.S.a} valuesB={distributionValues.S.b} labelA={cohortA.label} labelB={cohortB.label} />
-            </div>
-            <VarianceSummary systems={varianceCards} />
-          </div>
-        )}
-
-        {posture && result.mode === "temporal" && (
-          <div className="mt-4 grid gap-4 md:grid-cols-2">
-            <EarlyWarningFlags label={cohortA.label} posture={posture.cohortA} />
-            <EarlyWarningFlags label={cohortB.label} posture={posture.cohortB} />
-          </div>
-        )}
-
-        {velocity && (
-          <div className="mt-4 space-y-4">
-            <VelocitySettingsSummary velocity={velocity} unitLabels={unitLabels} />
-            <div className="grid gap-4 lg:grid-cols-2">
-              <VelocityCard
-                label={`Recovery Index — ${cohortA.label}`}
-                result={velocity.a}
-                unitLabels={unitLabels}
-                unitLabelRaw={unitLabelRaw}
-              />
-              <VelocityCard
-                label={`Recovery Index — ${cohortB.label}`}
-                result={velocity.b}
-                unitLabels={unitLabels}
-                unitLabelRaw={unitLabelRaw}
-              />
             </div>
           </div>
-        )}
 
-        {topDrivers.length > 0 && (
-          <p className="text-xs text-muted-foreground">Top drivers: {topDrivers.slice(0, 2).join(" · ")}</p>
-        )}
-      </details>
+          {posture && (
+            <div className="mt-4 grid gap-4 md:grid-cols-2">
+              <JudgmentRegimeBadge label={cohortA.label} regime={posture.cohortA.regime} />
+              <JudgmentRegimeBadge label={cohortB.label} regime={posture.cohortB.regime} />
+            </div>
+          )}
+
+          {posture && result.mode === "temporal" && (
+            <div className="mt-4 grid gap-4 md:grid-cols-2">
+              <EarlyWarningFlags label={cohortA.label} posture={posture.cohortA} />
+              <EarlyWarningFlags label={cohortB.label} posture={posture.cohortB} />
+            </div>
+          )}
+
+          {velocity && (
+            <div className="mt-4 space-y-4">
+              <VelocitySettingsSummary velocity={velocity} unitLabels={unitLabels} />
+              <div className="grid gap-4 lg:grid-cols-2">
+                <VelocityCard
+                  label={`Recovery Index — ${cohortA.label}`}
+                  result={velocity.a}
+                  unitLabels={unitLabels}
+                  unitLabelRaw={unitLabelRaw}
+                />
+                <VelocityCard
+                  label={`Recovery Index — ${cohortB.label}`}
+                  result={velocity.b}
+                  unitLabels={unitLabels}
+                  unitLabelRaw={unitLabelRaw}
+                />
+              </div>
+            </div>
+          )}
+
+          {topDrivers.length > 0 && (
+            <p className="text-xs text-muted-foreground">Top drivers: {topDrivers.slice(0, 2).join(" · ")}</p>
+          )}
+        </details>
+      )}
 
       {showDebug && result.developerDetails && (
         <div className="rounded-xl border bg-muted/40 p-4">
