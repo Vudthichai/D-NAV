@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useMemo } from "react";
+import React, { useEffect, useMemo } from "react";
 import {
   CartesianGrid,
   Customized,
@@ -37,11 +37,37 @@ type EvidenceRPSScatterProps = {
 };
 
 export function EvidenceRPSScatter({ series, height = 360, domain, title, subtitle, contextLabel }: EvidenceRPSScatterProps) {
-  const sampled = useMemo(
-    () => series.map((entry) => ({ ...entry, points: samplePoints(entry.points, domain) })),
-    [series, domain],
+  const cleaned = useMemo(
+    () =>
+      series.map((entry) => {
+        const validPoints = entry.points.filter((point) =>
+          [point.xPressure, point.yReturn, point.stability].every((value) => Number.isFinite(value)),
+        );
+        return {
+          ...entry,
+          points: validPoints,
+          rawCount: entry.points.length,
+          validCount: validPoints.length,
+        };
+      }),
+    [series],
   );
+  const sampled = useMemo(
+    () => cleaned.map((entry) => ({ ...entry, points: samplePoints(entry.points, domain) })),
+    [cleaned, domain],
+  );
+  const totalRaw = cleaned.reduce((sum, entry) => sum + entry.rawCount, 0);
+  const totalValid = cleaned.reduce((sum, entry) => sum + entry.validCount, 0);
   const hasData = sampled.some((entry) => entry.points.length > 0);
+
+  useEffect(() => {
+    if (process.env.NODE_ENV === "production") return;
+    sampled.forEach((entry) => {
+      const preview = entry.points.slice(0, 3);
+      // eslint-disable-next-line no-console
+      console.log(`[Compare Scatter] ${entry.label} points (first 3):`, preview);
+    });
+  }, [sampled]);
 
   return (
     <div className="space-y-2">
@@ -52,7 +78,10 @@ export function EvidenceRPSScatter({ series, height = 360, domain, title, subtit
             {subtitle && <p className="text-sm font-semibold text-foreground">{subtitle}</p>}
             {contextLabel && <p className="text-[11px] text-muted-foreground">{contextLabel}</p>}
           </div>
-          <p className="text-[11px] text-muted-foreground">Pressure →, Return ↑. Centroids + variance rings included.</p>
+          <div className="text-right text-[11px] text-muted-foreground">
+            <p>Pressure →, Return ↑. Centroids + variance rings included.</p>
+            <p>Points: {totalValid}/{totalRaw}</p>
+          </div>
         </div>
       )}
       <div className="h-[--chart-height] rounded-xl border bg-background/60 p-3" style={{ "--chart-height": `${height}px` } as React.CSSProperties}>
@@ -107,7 +136,10 @@ export function EvidenceRPSScatter({ series, height = 360, domain, title, subtit
             </ScatterChart>
           </ResponsiveContainer>
         ) : (
-          <div className="flex h-full items-center justify-center text-sm text-muted-foreground">Add per-decision points to see the scatter.</div>
+          <div className="flex h-full flex-col items-center justify-center gap-1 text-sm text-muted-foreground">
+            <span>No valid points to plot.</span>
+            <span className="text-xs text-muted-foreground">Computed {totalValid} of {totalRaw} points.</span>
+          </div>
         )}
       </div>
     </div>

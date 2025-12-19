@@ -7,13 +7,21 @@ type ScatterBuildOptions = { useSequence?: boolean };
 export function buildScatterPoints(series: PostureSeriesPoint[] | undefined, mode: CompareMode, options?: ScatterBuildOptions): ScatterPoint[] {
   if (!series || series.length === 0) return [];
   const useSequence = options?.useSequence ?? mode === "temporal";
-  return series.map((point, idx) => ({
-    xPressure: point.P,
-    yReturn: point.R,
-    stability: point.S,
-    t: point.t,
-    label: useSequence ? `Decision ${idx + 1}` : formatTimestamp(point.t) ?? `Decision ${idx + 1}`,
-  }));
+  return series
+    .map((point, idx) => {
+      const xPressure = toFiniteNumber(point.P);
+      const yReturn = toFiniteNumber(point.R);
+      const stability = toFiniteNumber(point.S);
+      if (xPressure === null || yReturn === null || stability === null) return null;
+      return {
+        xPressure,
+        yReturn,
+        stability,
+        t: point.t,
+        label: useSequence ? `Decision ${idx + 1}` : formatTimestamp(point.t) ?? `Decision ${idx + 1}`,
+      };
+    })
+    .filter((point): point is ScatterPoint => point !== null);
 }
 
 export function buildVarianceSeries(series: PostureSeriesPoint[] | undefined, window = 5, options?: ScatterBuildOptions): RPSPoint[] {
@@ -26,12 +34,20 @@ export function buildVarianceSeries(series: PostureSeriesPoint[] | undefined, wi
   const stdP = rollingStd(pressures, window);
   const stdS = rollingStd(stabilities, window);
 
-  return series.map((point, idx) => ({
-    x: useSequence ? idx + 1 : formatTimestamp(point.t) ?? idx + 1,
-    R: stdR[idx],
-    P: stdP[idx],
-    S: stdS[idx],
-  }));
+  return series
+    .map((point, idx) => {
+      const R = toFiniteNumber(stdR[idx]);
+      const P = toFiniteNumber(stdP[idx]);
+      const S = toFiniteNumber(stdS[idx]);
+      if (R === null || P === null || S === null) return null;
+      return {
+        x: useSequence ? idx + 1 : formatTimestamp(point.t) ?? idx + 1,
+        R,
+        P,
+        S,
+      };
+    })
+    .filter((point): point is RPSPoint => point !== null);
 }
 
 export type RecoveryPoint = {
@@ -120,6 +136,11 @@ function computeRollingValue(target: VelocityGoalTarget, window: PostureSeriesPo
 function average(values: number[]) {
   if (!values.length) return 0;
   return values.reduce((sum, value) => sum + value, 0) / values.length;
+}
+
+function toFiniteNumber(value: number | undefined) {
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? parsed : null;
 }
 
 function formatTimestamp(value: number | undefined) {

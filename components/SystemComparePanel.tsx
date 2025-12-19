@@ -2,7 +2,7 @@
 
 import React from "react";
 import { Info } from "lucide-react";
-import type { CompareResult, ScatterPoint, VelocityResult } from "@/lib/compare/types";
+import type { CompareResult, VelocityResult } from "@/lib/compare/types";
 import { formatUnitCount, getUnitLabels, type UnitLabels } from "@/utils/judgmentUnits";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { buildRecoverySeries, buildScatterPoints, buildVarianceSeries } from "@/lib/compare/visuals";
@@ -65,7 +65,7 @@ const SystemComparePanel: React.FC<SystemComparePanelProps> = ({ result, warning
 
   const scatterPointsA = buildScatterPoints(postureSeriesA, result.mode, { useSequence: isSequenceMode });
   const scatterPointsB = buildScatterPoints(postureSeriesB, result.mode, { useSequence: isSequenceMode });
-  const scatterDomain: [number, number] = deriveScatterDomain([...scatterPointsA, ...scatterPointsB]);
+  const scatterDomain: [number, number] = [-9, 9];
 
   const varianceSeries = [
     { id: "A", label: cohortA.label, data: buildVarianceSeries(postureSeriesA, 5, { useSequence: isSequenceMode }) },
@@ -125,50 +125,55 @@ const SystemComparePanel: React.FC<SystemComparePanelProps> = ({ result, warning
         </div>
       )}
 
-      <EvidenceSummary
-        labelA={cohortA.label}
-        labelB={cohortB.label}
-        summaryA={{
-          centroid: { R: cohortA.avgReturn, P: cohortA.avgPressure, S: cohortA.avgStability },
-          steadiness: computeSteadiness(cohortA.stdReturn, cohortA.stdPressure, cohortA.stdStability),
-          quadrantShares: quadrantSharesA,
-        }}
-        summaryB={{
-          centroid: { R: cohortB.avgReturn, P: cohortB.avgPressure, S: cohortB.avgStability },
-          steadiness: computeSteadiness(cohortB.stdReturn, cohortB.stdPressure, cohortB.stdStability),
-          quadrantShares: quadrantSharesB,
-        }}
-        drift={deltas}
-        regimeCall={regimeCall}
-        sequenceMode={isSequenceMode}
-      />
+      <div className="flex flex-wrap items-center justify-between gap-2 rounded-xl border bg-muted/40 px-4 py-2 text-[11px] text-muted-foreground">
+        <div className="flex flex-wrap items-center gap-3">
+          <LegendSwatch label={`A: ${cohortA.label}`} color="hsl(var(--foreground))" shape="circle" />
+          <LegendSwatch label={`B: ${cohortB.label}`} color="hsl(var(--primary))" shape="triangle" />
+        </div>
+        <div className="flex flex-wrap items-center gap-3">
+          <span>+Return ↑ / −Return ↓</span>
+          <span>+Pressure → / −Pressure ←</span>
+        </div>
+      </div>
 
       {result.mode === "entity" && (
-        <div className="rounded-xl border bg-muted/40 p-4">
-          <EvidenceRPSScatter
-            series={[
-              {
-                id: "A",
-                label: cohortA.label,
-                color: "hsl(var(--foreground))",
-                points: scatterPointsA,
-                centroid: { xPressure: cohortA.avgPressure, yReturn: cohortA.avgReturn },
-                std: { pressure: cohortA.stdPressure, return: cohortA.stdReturn },
-              },
-              {
-                id: "B",
-                label: cohortB.label,
-                color: "hsl(var(--primary))",
-                points: scatterPointsB,
-                centroid: { xPressure: cohortB.avgPressure, yReturn: cohortB.avgReturn },
-                std: { pressure: cohortB.stdPressure, return: cohortB.stdReturn },
-              },
-            ]}
-            domain={scatterDomain}
-            title="Return vs Pressure"
-            subtitle="Overlayed posture scatter (shared axes)"
-            contextLabel={isSequenceMode ? "Sequence Mode: index-based ordering" : undefined}
-          />
+        <div className="grid gap-4 lg:grid-cols-2">
+          <div className="rounded-xl border bg-muted/40 p-4">
+            <EvidenceRPSScatter
+              series={[
+                {
+                  id: "A",
+                  label: cohortA.label,
+                  color: "hsl(var(--foreground))",
+                  points: scatterPointsA,
+                  centroid: { xPressure: cohortA.avgPressure, yReturn: cohortA.avgReturn },
+                  std: { pressure: cohortA.stdPressure, return: cohortA.stdReturn },
+                },
+              ]}
+              domain={scatterDomain}
+              title="Entity A · Return vs Pressure"
+              subtitle={cohortA.label}
+              contextLabel={isSequenceMode ? "Sequence Mode: index-based ordering" : undefined}
+            />
+          </div>
+          <div className="rounded-xl border bg-muted/40 p-4">
+            <EvidenceRPSScatter
+              series={[
+                {
+                  id: "B",
+                  label: cohortB.label,
+                  color: "hsl(var(--primary))",
+                  points: scatterPointsB,
+                  centroid: { xPressure: cohortB.avgPressure, yReturn: cohortB.avgReturn },
+                  std: { pressure: cohortB.stdPressure, return: cohortB.stdReturn },
+                },
+              ]}
+              domain={scatterDomain}
+              title="Entity B · Return vs Pressure"
+              subtitle={cohortB.label}
+              contextLabel={isSequenceMode ? "Sequence Mode: index-based ordering" : undefined}
+            />
+          </div>
         </div>
       )}
 
@@ -210,8 +215,27 @@ const SystemComparePanel: React.FC<SystemComparePanelProps> = ({ result, warning
 
       <details className="rounded-xl border bg-muted/40 p-4 text-xs text-muted-foreground">
         <summary className="cursor-pointer text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
-          Advanced metrics
+          Details
         </summary>
+        <div className="mt-3">
+          <EvidenceSummary
+            labelA={cohortA.label}
+            labelB={cohortB.label}
+            summaryA={{
+              centroid: { R: cohortA.avgReturn, P: cohortA.avgPressure, S: cohortA.avgStability },
+              steadiness: computeSteadiness(cohortA.stdReturn, cohortA.stdPressure, cohortA.stdStability),
+              quadrantShares: quadrantSharesA,
+            }}
+            summaryB={{
+              centroid: { R: cohortB.avgReturn, P: cohortB.avgPressure, S: cohortB.avgStability },
+              steadiness: computeSteadiness(cohortB.stdReturn, cohortB.stdPressure, cohortB.stdStability),
+              quadrantShares: quadrantSharesB,
+            }}
+            drift={deltas}
+            regimeCall={regimeCall}
+            sequenceMode={isSequenceMode}
+          />
+        </div>
         <div className="mt-3 grid gap-3 sm:grid-cols-2">
           <div className="rounded-lg border bg-background/60 p-3">
             <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">{cohortA.label}</p>
@@ -494,14 +518,6 @@ function SettingStat({ label, value, muted = false }: { label: string; value: st
   );
 }
 
-function deriveScatterDomain(points: ScatterPoint[]): [number, number] {
-  if (!points.length) return [-9, 9];
-  const values = points.flatMap((point) => [point.xPressure, point.yReturn]);
-  const min = Math.max(-9, Math.min(...values) - 0.5);
-  const max = Math.min(9, Math.max(...values) + 0.5);
-  return [min, max];
-}
-
 function DefinitionPill({ term, definition, size = "md" }: { term: string; definition: string; size?: "md" | "sm" }) {
   const dimension = size === "sm" ? "h-7 px-2 text-[11px]" : "h-8 px-3 text-xs";
   return (
@@ -523,6 +539,18 @@ function DefinitionPill({ term, definition, size = "md" }: { term: string; defin
         </TooltipContent>
       </Tooltip>
     </TooltipProvider>
+  );
+}
+
+function LegendSwatch({ label, color, shape }: { label: string; color: string; shape: "circle" | "triangle" }) {
+  return (
+    <div className="flex items-center gap-2 text-[11px] text-muted-foreground">
+      <span
+        className={`inline-block h-2.5 w-2.5 ${shape === "triangle" ? "rotate-45" : "rounded-full"}`}
+        style={{ backgroundColor: color }}
+      />
+      <span>{label}</span>
+    </div>
   );
 }
 
