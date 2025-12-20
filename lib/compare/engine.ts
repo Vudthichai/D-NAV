@@ -55,6 +55,7 @@ export function buildCohortSummary({ decisions, request }: BuildCohortSummaryInp
       acc.riskTotal += decision.risk;
       acc.urgencyTotal += decision.urgency;
       acc.confidenceTotal += decision.confidence;
+      acc.dnavTotal += decision.dnav;
       acc.returnValues.push(decision.return);
       acc.pressureValues.push(decision.pressure);
       acc.stabilityValues.push(decision.stability);
@@ -69,6 +70,7 @@ export function buildCohortSummary({ decisions, request }: BuildCohortSummaryInp
       riskTotal: 0,
       urgencyTotal: 0,
       confidenceTotal: 0,
+      dnavTotal: 0,
       returnValues: [] as number[],
       pressureValues: [] as number[],
       stabilityValues: [] as number[],
@@ -87,6 +89,7 @@ export function buildCohortSummary({ decisions, request }: BuildCohortSummaryInp
     judgmentUnitLabel: request.judgmentUnitLabel,
     normalizationBasis: request.normalizationBasis,
     totalDecisions: decisions.length,
+    avgDnav: totals.dnavTotal / count,
     avgReturn: totals.returnTotal / count,
     avgPressure: totals.pressureTotal / count,
     avgStability: totals.stabilityTotal / count,
