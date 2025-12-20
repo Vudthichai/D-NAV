@@ -66,7 +66,7 @@ export function EvidenceRPSScatter({ series, height = 360, domain, title, subtit
                 domain={domain}
                 tick={{ fontSize: 12 }}
                 stroke="hsl(var(--muted-foreground))"
-                label={{ value: "Pressure (P)", position: "insideBottomRight", offset: -4, fontSize: 11 }}
+                label={{ value: "Pressure →", position: "insideBottomRight", offset: -4, fontSize: 11 }}
               />
               <YAxis
                 type="number"
@@ -74,7 +74,7 @@ export function EvidenceRPSScatter({ series, height = 360, domain, title, subtit
                 domain={domain}
                 tick={{ fontSize: 12 }}
                 stroke="hsl(var(--muted-foreground))"
-                label={{ value: "Return (R)", angle: -90, position: "insideLeft", offset: 10, fontSize: 11 }}
+                label={{ value: "Return ↑", angle: -90, position: "insideLeft", offset: 10, fontSize: 11 }}
               />
               <ReferenceLine x={0} stroke="hsl(var(--muted-foreground)/0.4)" strokeDasharray="4 4" />
               <ReferenceLine y={0} stroke="hsl(var(--muted-foreground)/0.4)" strokeDasharray="4 4" />

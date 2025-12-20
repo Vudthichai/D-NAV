@@ -44,10 +44,9 @@ import {
   type CompareMode,
   type CompareResult,
   type NormalizationBasis,
-  type VelocityGoalTarget,
 } from "@/lib/compare/types";
 import { filterDecisionsByTimeframe } from "@/utils/judgmentDashboard";
-import { buildRangeLabel, formatUnitCount, getUnitLabels } from "@/utils/judgmentUnits";
+import { buildRangeLabel, formatUnitCount } from "@/utils/judgmentUnits";
 import { FileDown } from "lucide-react";
 import * as XLSX from "xlsx";
 
@@ -232,13 +231,6 @@ const buildDefaultSequenceRanges = (total: number) => {
   };
 };
 
-const DEFAULT_VELOCITY_THRESHOLDS = {
-  returnLift: 1,
-  pressureBand: 0.5,
-  stabilityFloor: 0,
-  stabilityBand: 0.5,
-};
-
 function ReportsPageContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -277,13 +269,8 @@ function ReportsPageContent() {
     end: 1,
   });
   const [normalizeTemporalRanges, setNormalizeTemporalRanges] = useState(false);
-  const [velocityTimeframe, setVelocityTimeframe] = useState<TimeframeValue>(resolvedTimeframe);
-  const [velocityWindowSize, setVelocityWindowSize] = useState(5);
-  const [velocityConsecutiveWindows, setVelocityConsecutiveWindows] = useState(3);
-  const [velocityThresholds, setVelocityThresholds] = useState(DEFAULT_VELOCITY_THRESHOLDS);
   const [isCompareLoading, setIsCompareLoading] = useState(false);
   const [compareMode, setCompareMode] = useState<CompareMode>("entity");
-  const [velocityTarget, setVelocityTarget] = useState<VelocityGoalTarget>("PRESSURE_STABILIZE");
   const [compareResult, setCompareResult] = useState<CompareResult | null>(null);
   const [compareWarning, setCompareWarning] = useState<string | null>(null);
   const { isLoggedIn, openLogin } = useNetlifyIdentity();
@@ -319,10 +306,6 @@ function ReportsPageContent() {
   }, [resolvedTimeframe]);
 
   useEffect(() => {
-    setVelocityThresholds(DEFAULT_VELOCITY_THRESHOLDS);
-  }, [velocityTarget]);
-
-  useEffect(() => {
     setDatasetAId(datasetId ?? defaultDatasetAId);
     setTemporalDatasetId((current) => current ?? datasetId ?? defaultDatasetAId);
   }, [datasetId, defaultDatasetAId]);
@@ -346,8 +329,6 @@ function ReportsPageContent() {
     [getDatasetById, temporalDatasetId],
   );
   const temporalUnitLabel = temporalDataset?.meta.judgmentUnitLabel;
-  const velocityUnitLabel = datasetA?.meta.judgmentUnitLabel || datasetB?.meta.judgmentUnitLabel;
-  const velocityUnitLabels = getUnitLabels(velocityUnitLabel);
   const temporalDecisionCount = temporalDataset?.decisions.length ?? 0;
   const clampedRangeA = useMemo(
     () => clampSequenceRange(temporalSequenceRangeA, temporalDecisionCount),
@@ -565,55 +546,6 @@ function ReportsPageContent() {
         return;
       }
 
-      if (compareMode === "velocity") {
-        if (!datasetA || !datasetB) {
-          setIsCompareLoading(false);
-          return;
-        }
-
-        const timeframeDays = mapTimeframeToDays(velocityTimeframe);
-        const timeframeLabel = resolveTimeframeLabel(velocityTimeframe);
-        const [summaryA, summaryB] = await Promise.all([
-          buildCohortSummaryFromDataset({
-            dataset: datasetA,
-            label: datasetALabel || "System A",
-            timeframeDays,
-            timeframeLabel,
-            normalizationBasis: basisForMode,
-            judgmentUnitLabel: datasetA.meta.judgmentUnitLabel,
-          }),
-          buildCohortSummaryFromDataset({
-            dataset: datasetB,
-            label: datasetBLabel || "System B",
-            timeframeDays,
-            timeframeLabel,
-            normalizationBasis: basisForMode,
-            judgmentUnitLabel: datasetB.meta.judgmentUnitLabel,
-          }),
-        ]);
-
-        if (cancelled) return;
-        if (!summaryA || !summaryB) {
-          setIsCompareLoading(false);
-          return;
-        }
-
-        const result = runCompare({
-          mode: "velocity",
-          normalizationBasis: basisForMode,
-          velocityTarget,
-          cohortA: summaryA.summary,
-          cohortB: summaryB.summary,
-          decisionsA: summaryA.decisions,
-          decisionsB: summaryB.decisions,
-          windowSize: velocityWindowSize,
-          consecutiveWindows: velocityConsecutiveWindows,
-          thresholds: velocityThresholds,
-        });
-
-        setCompareResult(result);
-        setIsCompareLoading(false);
-      }
     };
 
     build();
@@ -641,11 +573,6 @@ function ReportsPageContent() {
     normalizeTemporalRanges,
     temporalUnitLabel,
     resolveDatasetLabel,
-    velocityTarget,
-    velocityTimeframe,
-    velocityWindowSize,
-    velocityConsecutiveWindows,
-    velocityThresholds,
   ]);
 
   const {
@@ -932,15 +859,12 @@ function ReportsPageContent() {
                     <SelectContent>
                       <SelectItem value="entity">Entity</SelectItem>
                       <SelectItem value="temporal">Temporal</SelectItem>
-                      <SelectItem value="velocity">Recovery Index</SelectItem>
                     </SelectContent>
                   </Select>
                   <p className="text-[11px] text-muted-foreground">
                     {compareMode === "entity"
                       ? "Compare two systems over the same timeframe."
-                      : compareMode === "temporal"
-                        ? "Compare the same system across equal windows."
-                        : "Compare how quickly the system re-enters stability after deviation."}
+                      : "Compare the same system across equal windows."}
                   </p>
                 </div>
 
@@ -985,23 +909,6 @@ function ReportsPageContent() {
                         ))}
                       </SelectContent>
                     </Select>
-                  </div>
-                )}
-
-                {compareMode === "velocity" && (
-                  <div className="rounded-2xl border bg-card/70 p-4 shadow-sm space-y-2">
-                    <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Metric target</p>
-                    <Select value={velocityTarget} onValueChange={(value) => setVelocityTarget(value as VelocityGoalTarget)}>
-                      <SelectTrigger className="w-full">
-                        <SelectValue placeholder="Select target" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="RETURN_RISE">Return rises</SelectItem>
-                        <SelectItem value="PRESSURE_STABILIZE">Pressure stabilizes</SelectItem>
-                        <SelectItem value="STABILITY_STABILIZE">Stability stabilizes</SelectItem>
-                      </SelectContent>
-                    </Select>
-                    <p className="text-[11px] text-muted-foreground">See when each system reaches the goal.</p>
                   </div>
                 )}
 
@@ -1059,140 +966,6 @@ function ReportsPageContent() {
                       {label}
                     </Button>
                   ))}
-                </div>
-              )}
-
-              {compareMode === "velocity" && (
-                <div className="flex flex-wrap items-center gap-2">
-                  {TIMEFRAMES.map(({ value, label }) => (
-                    <Button
-                      key={value}
-                      variant={velocityTimeframe === value ? "default" : "outline"}
-                      size="sm"
-                      onClick={() => setVelocityTimeframe(value)}
-                      className={cn(
-                        "rounded-full px-3 text-xs",
-                        velocityTimeframe === value ? "shadow-sm" : "bg-muted/60 text-foreground",
-                      )}
-                    >
-                      {label}
-                    </Button>
-                  ))}
-                </div>
-              )}
-
-              {compareMode === "velocity" && (
-                <div className="grid gap-3 rounded-2xl border bg-card/60 p-4 shadow-sm md:grid-cols-2">
-                  <div className="space-y-2">
-                    <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Compare settings</p>
-                    <p className="text-xs text-muted-foreground">Tune the rolling window and how strict the target rule is.</p>
-                    <div className="grid gap-2 sm:grid-cols-2">
-                      <div className="space-y-1">
-                        <p className="text-[11px] uppercase text-muted-foreground">Window size ({velocityUnitLabels.plural})</p>
-                        <Select
-                          value={velocityWindowSize.toString()}
-                          onValueChange={(value) => setVelocityWindowSize(Number.parseInt(value, 10))}
-                        >
-                          <SelectTrigger className="w-full">
-                            <SelectValue placeholder="Select window" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {[3, 5, 10].map((size) => (
-                              <SelectItem key={size} value={size.toString()}>{size}</SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                      </div>
-                      <div className="space-y-1">
-                        <p className="text-[11px] uppercase text-muted-foreground">Consecutive windows (k)</p>
-                        <Select
-                          value={velocityConsecutiveWindows.toString()}
-                          onValueChange={(value) => setVelocityConsecutiveWindows(Number.parseInt(value, 10))}
-                        >
-                          <SelectTrigger className="w-full">
-                            <SelectValue placeholder="Select k" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {[2, 3, 5].map((count) => (
-                              <SelectItem key={count} value={count.toString()}>
-                                {count}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className="space-y-3">
-                    <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Target thresholds</p>
-                    {velocityTarget === "RETURN_RISE" && (
-                      <div className="space-y-1">
-                        <p className="text-[11px] uppercase text-muted-foreground">Return lift (ΔR)</p>
-                        <Input
-                          type="number"
-                          step="0.1"
-                          value={velocityThresholds.returnLift}
-                          onChange={(event) =>
-                            setVelocityThresholds((prev) => ({
-                              ...prev,
-                              returnLift: Number.parseFloat(event.target.value) || 0,
-                            }))
-                          }
-                        />
-                      </div>
-                    )}
-
-                    {velocityTarget === "PRESSURE_STABILIZE" && (
-                      <div className="space-y-1">
-                        <p className="text-[11px] uppercase text-muted-foreground">Pressure band (±)</p>
-                        <Input
-                          type="number"
-                          step="0.1"
-                          value={velocityThresholds.pressureBand}
-                          onChange={(event) =>
-                            setVelocityThresholds((prev) => ({
-                              ...prev,
-                              pressureBand: Number.parseFloat(event.target.value) || 0,
-                            }))
-                          }
-                        />
-                      </div>
-                    )}
-
-                    {velocityTarget === "STABILITY_STABILIZE" && (
-                      <div className="grid gap-2 sm:grid-cols-2">
-                        <div className="space-y-1">
-                          <p className="text-[11px] uppercase text-muted-foreground">Stability floor</p>
-                          <Input
-                            type="number"
-                            step="0.1"
-                            value={velocityThresholds.stabilityFloor}
-                            onChange={(event) =>
-                              setVelocityThresholds((prev) => ({
-                                ...prev,
-                                stabilityFloor: Number.parseFloat(event.target.value) || 0,
-                              }))
-                            }
-                          />
-                        </div>
-                        <div className="space-y-1">
-                          <p className="text-[11px] uppercase text-muted-foreground">Stability band (±)</p>
-                          <Input
-                            type="number"
-                            step="0.1"
-                            value={velocityThresholds.stabilityBand}
-                            onChange={(event) =>
-                              setVelocityThresholds((prev) => ({
-                                ...prev,
-                                stabilityBand: Number.parseFloat(event.target.value) || 0,
-                              }))
-                            }
-                          />
-                        </div>
-                      </div>
-                    )}
-                  </div>
                 </div>
               )}
 

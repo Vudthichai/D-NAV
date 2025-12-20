@@ -42,6 +42,7 @@ export type CohortSummary = {
   judgmentUnitLabel?: string;
   normalizationBasis: NormalizationBasis;
   totalDecisions: number;
+  avgDnav: number;
   avgReturn: number;
   avgPressure: number;
   avgStability: number;
