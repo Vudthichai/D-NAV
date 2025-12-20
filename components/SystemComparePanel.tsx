@@ -1,13 +1,12 @@
 "use client";
 
 import React from "react";
-import type { CompareResult, ScatterPoint } from "@/lib/compare/types";
+import type { CohortSummary, CompareResult, ScatterPoint } from "@/lib/compare/types";
 import { buildScatterPoints } from "@/lib/compare/visuals";
 import { computeQuadrantShares, computeSteadiness, determineRegimeCall } from "@/lib/compare/evidence";
 import { DISTRIBUTION_EPSILON, distributionBuckets } from "@/lib/compare/stats";
 import { CompareSummaryTable } from "@/components/compare/CompareSummaryTable";
 import { EvidenceSummary } from "@/components/compare/EvidenceSummary";
-import { EvidenceRPSScatter } from "@/components/compare/EvidenceRPSScatter";
 import { EvidenceTemporalPanel } from "@/components/compare/EvidenceTemporalPanel";
 import { DistributionStackedBars } from "./compare/charts/DistributionStackedBars";
 
@@ -80,6 +79,7 @@ const SystemComparePanel: React.FC<SystemComparePanelProps> = ({ result, warning
     { label: "Avg Pressure (P)", valueA: cohortA.avgPressure, valueB: cohortB.avgPressure },
     { label: "Avg Stability (S)", valueA: cohortA.avgStability, valueB: cohortB.avgStability },
   ];
+  const systemSummary = buildSystemSummaryBullets(cohortA, cohortB);
 
   return (
     <section className="space-y-4">
@@ -126,44 +126,35 @@ const SystemComparePanel: React.FC<SystemComparePanelProps> = ({ result, warning
 
       {result.mode === "entity" && (
         <div className="space-y-4">
+          <div className="rounded-xl border bg-muted/40 p-4">
+            <DistributionStackedBars
+              title="Distributions (Return / Pressure / Stability)"
+              labelA={cohortA.label}
+              labelB={cohortB.label}
+              metrics={distributionMetrics}
+            />
+          </div>
           <div className="grid gap-4 lg:grid-cols-2">
+            <CompareSummaryTable
+              title="Summary Stats"
+              subtitle="Average D-NAV and R / P / S"
+              labelA={cohortA.label}
+              labelB={cohortB.label}
+              rows={summaryRows}
+            />
             <div className="rounded-xl border bg-muted/40 p-4">
-              <EvidenceRPSScatter
-                series={[
-                  {
-                    id: "A",
-                    label: cohortA.label,
-                    color: "hsl(var(--foreground))",
-                    points: scatterPointsA,
-                    centroid: { xPressure: cohortA.avgPressure, yReturn: cohortA.avgReturn },
-                    std: { pressure: cohortA.stdPressure, return: cohortA.stdReturn },
-                  },
-                  {
-                    id: "B",
-                    label: cohortB.label,
-                    color: "hsl(var(--primary))",
-                    points: scatterPointsB,
-                    centroid: { xPressure: cohortB.avgPressure, yReturn: cohortB.avgReturn },
-                    std: { pressure: cohortB.stdPressure, return: cohortB.stdReturn },
-                  },
-                ]}
-                domain={scatterDomain}
-                title="Return vs Pressure"
-                subtitle="Overlayed posture scatter (shared axes)"
-                contextLabel={isSequenceMode ? "Sequence Mode: index-based ordering" : undefined}
-              />
-            </div>
-            <div className="rounded-xl border bg-muted/40 p-4">
-              <DistributionStackedBars
-                title="Distributions (Return / Pressure / Stability)"
-                subtitle={`Buckets use ε = ${DISTRIBUTION_EPSILON}`}
-                labelA={cohortA.label}
-                labelB={cohortB.label}
-                metrics={distributionMetrics}
-              />
+              <div className="space-y-2">
+                <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">System Summary</p>
+                <ul className="list-disc space-y-2 pl-4 text-xs text-muted-foreground">
+                  {systemSummary.map((item) => (
+                    <li key={item}>
+                      {item}
+                    </li>
+                  ))}
+                </ul>
+              </div>
             </div>
           </div>
-          <CompareSummaryTable labelA={cohortA.label} labelB={cohortB.label} rows={summaryRows} />
         </div>
       )}
 
@@ -214,4 +205,65 @@ function deriveScatterDomain(points: ScatterPoint[]): [number, number] {
   const min = Math.max(-9, Math.min(...values) - 0.5);
   const max = Math.min(9, Math.max(...values) + 0.5);
   return [min, max];
+}
+
+function buildSystemSummaryBullets(cohortA: CohortSummary, cohortB: CohortSummary) {
+  const labelA = cohortA.label;
+  const labelB = cohortB.label;
+
+  const returnBullet = buildComparisonBullet(
+    "return",
+    cohortA.avgReturn,
+    cohortB.avgReturn,
+    labelA,
+    labelB,
+  );
+  const pressureBullet = buildComparisonBullet(
+    "pressure",
+    cohortA.avgPressure,
+    cohortB.avgPressure,
+    labelA,
+    labelB,
+  );
+  const stabilityBullet = buildComparisonBullet(
+    "stability",
+    cohortA.avgStability,
+    cohortB.avgStability,
+    labelA,
+    labelB,
+  );
+  const dnavBullet =
+    cohortA.avgDnav === cohortB.avgDnav
+      ? `Net judgment profile is evenly matched between ${labelA} and ${labelB}.`
+      : `Net judgment profile favors ${cohortA.avgDnav > cohortB.avgDnav ? labelA : labelB} for sustained execution.`;
+
+  return [returnBullet, pressureBullet, stabilityBullet, dnavBullet];
+}
+
+function buildComparisonBullet(
+  metric: string,
+  valueA: number,
+  valueB: number,
+  labelA: string,
+  labelB: string,
+) {
+  if (valueA === valueB) {
+    return `${metricLabel(metric)} averages are balanced across ${labelA} and ${labelB}.`;
+  }
+
+  const leader = valueA > valueB ? labelA : labelB;
+  return `${leader} shows higher average ${metricLabel(metric)}.`;
+}
+
+function metricLabel(metric: string) {
+  switch (metric) {
+    case "return":
+      return "return";
+    case "pressure":
+      return "pressure";
+    case "stability":
+      return "stability";
+    default:
+      return metric;
+  }
 }

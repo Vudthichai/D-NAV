@@ -13,7 +13,6 @@ type DistributionMetric = {
 
 type DistributionStackedBarsProps = {
   title: string;
-  subtitle?: string;
   labelA: string;
   labelB: string;
   metrics: DistributionMetric[];
@@ -25,13 +24,12 @@ const SEGMENTS = [
   { key: "positive", label: "Positive", color: "bg-emerald-500/80 text-white" },
 ] as const;
 
-export function DistributionStackedBars({ title, subtitle, labelA, labelB, metrics }: DistributionStackedBarsProps) {
+export function DistributionStackedBars({ title, labelA, labelB, metrics }: DistributionStackedBarsProps) {
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap items-start justify-between gap-2">
         <div>
           <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">{title}</p>
-          {subtitle && <p className="text-sm font-semibold text-foreground">{subtitle}</p>}
         </div>
         <div className="flex flex-wrap items-center gap-3 text-[11px] text-muted-foreground">
           {SEGMENTS.map((segment) => (
@@ -64,10 +62,10 @@ function DistributionColumn({
   return (
     <div className={`space-y-4 ${className ?? ""}`.trim()}>
       <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">{label}</p>
-      <div className="space-y-4">
+      <div className="space-y-5">
         {metrics.map((metric) => (
-          <div key={`${metric.id}-${variant}`} className="flex items-center gap-3">
-            <span className="w-28 text-xs font-medium text-foreground">{metric.label}</span>
+          <div key={`${metric.id}-${variant}`} className="space-y-2">
+            <span className="text-xs font-medium text-foreground">{metric.label}</span>
             <DistributionBar buckets={variant === "A" ? metric.bucketsA : metric.bucketsB} />
           </div>
         ))}
@@ -79,7 +77,7 @@ function DistributionColumn({
 function DistributionBar({ buckets }: { buckets: DistributionBuckets }) {
   if (buckets.total === 0) {
     return (
-      <div className="flex h-5 w-full items-center rounded-md border bg-muted/10 px-2 text-[11px] text-muted-foreground">
+      <div className="flex h-6 w-full items-center rounded-md border bg-muted/10 px-2 text-[11px] text-muted-foreground">
         No data
       </div>
     );
@@ -92,7 +90,7 @@ function DistributionBar({ buckets }: { buckets: DistributionBuckets }) {
   ] as const;
 
   return (
-    <div className="flex h-5 w-full overflow-hidden rounded-md border bg-muted/20 text-[11px] font-semibold">
+    <div className="flex h-6 w-full overflow-hidden rounded-md border bg-muted/20 text-[11px] font-semibold">
       {segments.map((segment) => {
         const meta = SEGMENTS.find((entry) => entry.key === segment.key);
         const value = Number.isFinite(segment.value) ? segment.value : 0;
