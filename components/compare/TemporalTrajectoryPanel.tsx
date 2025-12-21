@@ -116,6 +116,7 @@ export function TemporalTrajectoryPanel({
                   fontSize={12}
                   domain={[-9, 9]}
                   ticks={rpsTicks}
+                  interval={0}
                   label={{ value: "R · P · S", angle: -90, position: "insideLeft", offset: 10, fontSize: 11 }}
                 />
                 <YAxis
@@ -125,6 +126,7 @@ export function TemporalTrajectoryPanel({
                   fontSize={12}
                   domain={[-18, 108]}
                   ticks={dnavTicks}
+                  interval={0}
                   label={{ value: "D-NAV", angle: 90, position: "insideRight", offset: 10, fontSize: 11 }}
                 />
                 <Tooltip content={<TrajectoryTooltip />} />
@@ -156,6 +158,7 @@ export function TemporalTrajectoryPanel({
                       fontSize={12}
                       domain={[-9, 9]}
                       ticks={rpsTicks}
+                      interval={0}
                     />
                     <Tooltip content={<TrajectoryTooltip />} />
                     <Legend wrapperStyle={{ fontSize: 12 }} />
@@ -168,7 +171,7 @@ export function TemporalTrajectoryPanel({
             </div>
             <div className="space-y-2">
               <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">D-NAV trajectory</p>
-              <div className="h-[180px] rounded-xl border bg-background/60 p-3">
+              <div className="h-[280px] rounded-xl border bg-background/60 p-3">
                 <ResponsiveContainer width="100%" height="100%">
                   <LineChart data={data} margin={{ top: 10, right: 16, left: 0, bottom: 0 }}>
                     <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--muted-foreground)/0.2)" />
@@ -184,6 +187,7 @@ export function TemporalTrajectoryPanel({
                       fontSize={12}
                       domain={[-18, 108]}
                       ticks={dnavTicks}
+                      interval={0}
                     />
                     <Tooltip content={<TrajectoryTooltip />} />
                     <Line type="monotone" dataKey="dnav" stroke={dnavColor} dot={false} name="D-NAV" strokeWidth={2} isAnimationActive={false} />
