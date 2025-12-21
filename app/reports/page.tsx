@@ -230,14 +230,14 @@ function ReportsPageContent() {
     const sorted = [...temporalDataset.decisions].sort((a, b) => a.ts - b.ts);
     const resolvedWindowSize =
       temporalWindowSize > 0 ? Math.min(temporalWindowSize, sorted.length) : sorted.length;
-    const windowed = resolvedWindowSize > 0 ? sorted.slice(-resolvedWindowSize) : sorted;
-    return windowed.map((decision, index) => ({
+    const mapped = sorted.map((decision, index) => ({
       xIndex: index + 1,
       return: Number(decision.return),
       pressure: Number(decision.pressure),
       stability: Number(decision.stability),
       dnav: Number(decision.dnav),
     }));
+    return resolvedWindowSize > 0 ? mapped.slice(-resolvedWindowSize) : mapped;
   }, [temporalDataset, temporalWindowSize]);
 
   useEffect(() => {
