@@ -18,10 +18,10 @@ import { cn } from "@/lib/utils";
 
 type TemporalTrajectoryPoint = {
   xIndex: number;
-  return: number;
-  pressure: number;
-  stability: number;
-  dnav: number;
+  return: number | null;
+  pressure: number | null;
+  stability: number | null;
+  dnav: number | null;
 };
 
 type TemporalTrajectoryPanelProps = {
@@ -39,7 +39,7 @@ const rpsPalette = {
   stability: "hsl(var(--accent))",
 };
 
-const dnavColor = "hsl(var(--chart-4))";
+const dnavColor = "orange";
 
 const rpsTicks = [-9, -6, -3, 0, 3, 6, 9];
 const dnavTicks = [-18, 0, 18, 36, 54, 72, 90, 108];
@@ -53,6 +53,35 @@ export function TemporalTrajectoryPanel({
   windowOptions = [25, 50, 100],
 }: TemporalTrajectoryPanelProps) {
   const hasData = data.length > 0;
+  const countValid = React.useCallback(
+    (values: Array<number | null>) => values.filter((value) => value !== null && Number.isFinite(value)).length,
+    [],
+  );
+  const debugCounts = React.useMemo(() => {
+    const returnPts = countValid(data.map((point) => point.return));
+    const pressurePts = countValid(data.map((point) => point.pressure));
+    const stabilityPts = countValid(data.map((point) => point.stability));
+    const dnavPts = countValid(data.map((point) => point.dnav));
+    return {
+      total: data.length,
+      returnPts,
+      pressurePts,
+      stabilityPts,
+      dnavPts,
+    };
+  }, [countValid, data]);
+  const hasEnoughRps =
+    debugCounts.total >= 2 &&
+    debugCounts.returnPts >= 2 &&
+    debugCounts.pressurePts >= 2 &&
+    debugCounts.stabilityPts >= 2;
+  const hasEnoughDnav = debugCounts.total >= 2 && debugCounts.dnavPts >= 2;
+
+  React.useEffect(() => {
+    if (!hasData) return;
+    // eslint-disable-next-line no-console
+    console.log("[Temporal] chart debug:", debugCounts);
+  }, [debugCounts, hasData]);
 
   return (
     <div className="rounded-2xl border bg-muted/30 p-4">
@@ -105,43 +134,100 @@ export function TemporalTrajectoryPanel({
             No decision history yet. Log decisions to reveal trajectory trends.
           </div>
         ) : overlay ? (
-          <div className="h-[320px] rounded-xl border bg-background/60 p-3">
-            <ResponsiveContainer width="100%" height="100%">
-              <LineChart data={data} margin={{ top: 10, right: 24, left: 0, bottom: 0 }}>
-                <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--muted-foreground)/0.2)" />
-                <XAxis dataKey="xIndex" type="number" stroke="hsl(var(--muted-foreground))" fontSize={12} />
-                <YAxis
-                  yAxisId="rps"
-                  stroke="hsl(var(--muted-foreground))"
-                  fontSize={12}
-                  domain={[-9, 9]}
-                  ticks={rpsTicks}
-                  interval={0}
-                  label={{ value: "R · P · S", angle: -90, position: "insideLeft", offset: 10, fontSize: 11 }}
-                />
-                <YAxis
-                  yAxisId="dnav"
-                  orientation="right"
-                  stroke="hsl(var(--muted-foreground))"
-                  fontSize={12}
-                  domain={[-18, 108]}
-                  ticks={dnavTicks}
-                  interval={0}
-                  label={{ value: "D-NAV", angle: 90, position: "insideRight", offset: 10, fontSize: 11 }}
-                />
-                <Tooltip content={<TrajectoryTooltip />} />
-                <Legend wrapperStyle={{ fontSize: 12 }} />
-                <Line type="monotone" dataKey="return" stroke={rpsPalette.return} dot={false} name="Return" strokeWidth={2} yAxisId="rps" isAnimationActive={false} />
-                <Line type="monotone" dataKey="pressure" stroke={rpsPalette.pressure} dot={false} name="Pressure" strokeWidth={2} yAxisId="rps" isAnimationActive={false} />
-                <Line type="monotone" dataKey="stability" stroke={rpsPalette.stability} dot={false} name="Stability" strokeWidth={2} yAxisId="rps" isAnimationActive={false} />
-                <Line type="monotone" dataKey="dnav" stroke={dnavColor} dot={false} name="D-NAV" strokeWidth={2} yAxisId="dnav" isAnimationActive={false} />
-              </LineChart>
-            </ResponsiveContainer>
+          <div className="space-y-2">
+            {!hasEnoughRps && (
+              <p className="text-xs text-muted-foreground">
+                Not enough valid R/P/S points to draw a line (need 2+).
+              </p>
+            )}
+            {!hasEnoughDnav && (
+              <p className="text-xs text-muted-foreground">
+                Not enough valid D-NAV points to draw a line (need 2+).
+              </p>
+            )}
+            <div className="h-[320px] rounded-xl border bg-background/60 p-3">
+              <ResponsiveContainer width="100%" height="100%">
+                <LineChart data={data} margin={{ top: 10, right: 24, left: 0, bottom: 0 }}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--muted-foreground)/0.2)" />
+                  <XAxis dataKey="xIndex" type="number" stroke="hsl(var(--muted-foreground))" fontSize={12} />
+                  <YAxis
+                    yAxisId="rps"
+                    stroke="hsl(var(--muted-foreground))"
+                    fontSize={12}
+                    domain={[-9, 9]}
+                    ticks={rpsTicks}
+                    interval={0}
+                    label={{ value: "R · P · S", angle: -90, position: "insideLeft", offset: 10, fontSize: 11 }}
+                  />
+                  <YAxis
+                    yAxisId="dnav"
+                    orientation="right"
+                    stroke="hsl(var(--muted-foreground))"
+                    fontSize={12}
+                    domain={[-18, 108]}
+                    ticks={dnavTicks}
+                    interval={0}
+                    label={{ value: "D-NAV", angle: 90, position: "insideRight", offset: 10, fontSize: 11 }}
+                  />
+                  <Tooltip content={<TrajectoryTooltip />} />
+                  <Legend wrapperStyle={{ fontSize: 12 }} />
+                  <Line
+                    type="monotone"
+                    dataKey="return"
+                    stroke={rpsPalette.return}
+                    dot={false}
+                    name="Return"
+                    strokeWidth={2}
+                    yAxisId="rps"
+                    isAnimationActive={false}
+                    connectNulls={false}
+                  />
+                  <Line
+                    type="monotone"
+                    dataKey="pressure"
+                    stroke={rpsPalette.pressure}
+                    dot={false}
+                    name="Pressure"
+                    strokeWidth={2}
+                    yAxisId="rps"
+                    isAnimationActive={false}
+                    connectNulls={false}
+                  />
+                  <Line
+                    type="monotone"
+                    dataKey="stability"
+                    stroke={rpsPalette.stability}
+                    dot={false}
+                    name="Stability"
+                    strokeWidth={2}
+                    yAxisId="rps"
+                    isAnimationActive={false}
+                    connectNulls={false}
+                  />
+                  <Line
+                    type="monotone"
+                    dataKey="dnav"
+                    stroke={dnavColor}
+                    dot={false}
+                    name="D-NAV"
+                    strokeWidth={2}
+                    yAxisId="dnav"
+                    isAnimationActive={false}
+                    connectNulls={false}
+                  />
+                </LineChart>
+              </ResponsiveContainer>
+            </div>
           </div>
         ) : (
           <>
             <div className="space-y-2">
               <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">R · P · S trajectory</p>
+              {!hasEnoughRps && (
+                <p className="text-xs text-muted-foreground">
+                  Not enough valid R/P/S points to draw a line (need 2+).
+                </p>
+              )}
               <div className="h-[220px] rounded-xl border bg-background/60 p-3">
                 <ResponsiveContainer width="100%" height="100%">
                   <LineChart data={data} margin={{ top: 10, right: 16, left: 0, bottom: 0 }}>
@@ -162,15 +248,47 @@ export function TemporalTrajectoryPanel({
                     />
                     <Tooltip content={<TrajectoryTooltip />} />
                     <Legend wrapperStyle={{ fontSize: 12 }} />
-                    <Line type="monotone" dataKey="return" stroke={rpsPalette.return} dot={false} name="Return" strokeWidth={2} isAnimationActive={false} />
-                    <Line type="monotone" dataKey="pressure" stroke={rpsPalette.pressure} dot={false} name="Pressure" strokeWidth={2} isAnimationActive={false} />
-                    <Line type="monotone" dataKey="stability" stroke={rpsPalette.stability} dot={false} name="Stability" strokeWidth={2} isAnimationActive={false} />
+                    <Line
+                      type="monotone"
+                      dataKey="return"
+                      stroke={rpsPalette.return}
+                      dot={false}
+                      name="Return"
+                      strokeWidth={2}
+                      isAnimationActive={false}
+                      connectNulls={false}
+                    />
+                    <Line
+                      type="monotone"
+                      dataKey="pressure"
+                      stroke={rpsPalette.pressure}
+                      dot={false}
+                      name="Pressure"
+                      strokeWidth={2}
+                      isAnimationActive={false}
+                      connectNulls={false}
+                    />
+                    <Line
+                      type="monotone"
+                      dataKey="stability"
+                      stroke={rpsPalette.stability}
+                      dot={false}
+                      name="Stability"
+                      strokeWidth={2}
+                      isAnimationActive={false}
+                      connectNulls={false}
+                    />
                   </LineChart>
                 </ResponsiveContainer>
               </div>
             </div>
             <div className="space-y-2">
               <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">D-NAV trajectory</p>
+              {!hasEnoughDnav && (
+                <p className="text-xs text-muted-foreground">
+                  Not enough valid D-NAV points to draw a line (need 2+).
+                </p>
+              )}
               <div className="h-[280px] rounded-xl border bg-background/60 p-3">
                 <ResponsiveContainer width="100%" height="100%">
                   <LineChart data={data} margin={{ top: 10, right: 16, left: 0, bottom: 0 }}>
@@ -190,7 +308,16 @@ export function TemporalTrajectoryPanel({
                       interval={0}
                     />
                     <Tooltip content={<TrajectoryTooltip />} />
-                    <Line type="monotone" dataKey="dnav" stroke={dnavColor} dot={false} name="D-NAV" strokeWidth={2} isAnimationActive={false} />
+                    <Line
+                      type="monotone"
+                      dataKey="dnav"
+                      stroke={dnavColor}
+                      dot={false}
+                      name="D-NAV"
+                      strokeWidth={2}
+                      isAnimationActive={false}
+                      connectNulls={false}
+                    />
                   </LineChart>
                 </ResponsiveContainer>
               </div>
@@ -198,6 +325,12 @@ export function TemporalTrajectoryPanel({
           </>
         )}
       </div>
+      {hasData && (
+        <p className="mt-3 text-[11px] text-muted-foreground">
+          points: R {debugCounts.returnPts} · P {debugCounts.pressurePts} · S {debugCounts.stabilityPts} · D{" "}
+          {debugCounts.dnavPts} (total {debugCounts.total})
+        </p>
+      )}
     </div>
   );
 }

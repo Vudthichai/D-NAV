@@ -140,6 +140,25 @@ const clampSequenceRange = (range: { start: number; end: number }, total: number
   return { start, end };
 };
 
+const toNumberOrNull = (value: unknown) => {
+  const parsed = typeof value === "string" && value.trim() === "" ? NaN : Number(value);
+  return Number.isFinite(parsed) ? parsed : null;
+};
+
+const normalizeDecision = (raw: any) => {
+  const r = raw?.return ?? raw?.Return ?? raw?.R;
+  const p = raw?.pressure ?? raw?.Pressure ?? raw?.P;
+  const s = raw?.stability ?? raw?.Stability ?? raw?.S;
+  const d = raw?.dnav ?? raw?.dNav ?? raw?.["D-NAV"] ?? raw?.DNAV ?? raw?.D_NAV;
+
+  return {
+    return: toNumberOrNull(r),
+    pressure: toNumberOrNull(p),
+    stability: toNumberOrNull(s),
+    dnav: toNumberOrNull(d),
+  };
+};
+
 function ReportsPageContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -230,14 +249,11 @@ function ReportsPageContent() {
     const sorted = [...temporalDataset.decisions].sort((a, b) => a.ts - b.ts);
     const resolvedWindowSize =
       temporalWindowSize > 0 ? Math.min(temporalWindowSize, sorted.length) : sorted.length;
-    const mapped = sorted.map((decision, index) => ({
+    const windowedDecisions = resolvedWindowSize > 0 ? sorted.slice(-resolvedWindowSize) : sorted;
+    return windowedDecisions.map((decision, index) => ({
       xIndex: index + 1,
-      return: Number(decision.return),
-      pressure: Number(decision.pressure),
-      stability: Number(decision.stability),
-      dnav: Number(decision.dnav),
+      ...normalizeDecision(decision),
     }));
-    return resolvedWindowSize > 0 ? mapped.slice(-resolvedWindowSize) : mapped;
   }, [temporalDataset, temporalWindowSize]);
 
   useEffect(() => {
