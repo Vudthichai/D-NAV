@@ -164,7 +164,7 @@ function ReportsPageContent() {
   const [datasetBId, setDatasetBId] = useState<DatasetId | null>(defaultDatasetBId);
   const [temporalDatasetId, setTemporalDatasetId] = useState<DatasetId | null>(defaultDatasetAId);
   const [compareTimeframe, setCompareTimeframe] = useState<TimeframeValue>(resolvedTimeframe);
-  const [temporalWindowSize, setTemporalWindowSize] = useState(25);
+  const [temporalWindowSize, setTemporalWindowSize] = useState(0);
   const [temporalOverlayView, setTemporalOverlayView] = useState(false);
   const [isCompareLoading, setIsCompareLoading] = useState(false);
   const [compareMode, setCompareMode] = useState<CompareMode>("entity");
@@ -228,14 +228,15 @@ function ReportsPageContent() {
   const temporalTrajectoryData = useMemo(() => {
     if (!temporalDataset) return [];
     const sorted = [...temporalDataset.decisions].sort((a, b) => a.ts - b.ts);
-    const windowSize = Math.min(temporalWindowSize, sorted.length);
-    const windowed = sorted.slice(-windowSize);
+    const resolvedWindowSize =
+      temporalWindowSize > 0 ? Math.min(temporalWindowSize, sorted.length) : sorted.length;
+    const windowed = resolvedWindowSize > 0 ? sorted.slice(-resolvedWindowSize) : sorted;
     return windowed.map((decision, index) => ({
-      x: index + 1,
-      R: decision.return,
-      P: decision.pressure,
-      S: decision.stability,
-      dnav: decision.dnav,
+      xIndex: index + 1,
+      return: Number(decision.return),
+      pressure: Number(decision.pressure),
+      stability: Number(decision.stability),
+      dnav: Number(decision.dnav),
     }));
   }, [temporalDataset, temporalWindowSize]);
 
