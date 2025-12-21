@@ -17,10 +17,10 @@ import { Switch } from "@/components/ui/switch";
 import { cn } from "@/lib/utils";
 
 type TemporalTrajectoryPoint = {
-  x: number;
-  R: number;
-  P: number;
-  S: number;
+  xIndex: number;
+  return: number;
+  pressure: number;
+  stability: number;
   dnav: number;
 };
 
@@ -34,9 +34,9 @@ type TemporalTrajectoryPanelProps = {
 };
 
 const rpsPalette = {
-  R: "hsl(var(--foreground))",
-  P: "hsl(var(--primary))",
-  S: "hsl(var(--accent))",
+  return: "hsl(var(--foreground))",
+  pressure: "hsl(var(--primary))",
+  stability: "hsl(var(--accent))",
 };
 
 const dnavColor = "hsl(var(--chart-4))";
@@ -63,6 +63,17 @@ export function TemporalTrajectoryPanel({
         </div>
         <div className="flex flex-wrap items-center gap-2">
           <span className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Window</span>
+          <Button
+            variant={windowSize === 0 ? "default" : "outline"}
+            size="sm"
+            onClick={() => onWindowSizeChange(0)}
+            className={cn(
+              "rounded-full px-3 text-xs",
+              windowSize === 0 ? "shadow-sm" : "bg-muted/60 text-foreground",
+            )}
+          >
+            All
+          </Button>
           {windowOptions.map((option) => (
             <Button
               key={option}
@@ -98,7 +109,7 @@ export function TemporalTrajectoryPanel({
             <ResponsiveContainer width="100%" height="100%">
               <LineChart data={data} margin={{ top: 10, right: 24, left: 0, bottom: 0 }}>
                 <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--muted-foreground)/0.2)" />
-                <XAxis dataKey="x" stroke="hsl(var(--muted-foreground))" fontSize={12} />
+                <XAxis dataKey="xIndex" stroke="hsl(var(--muted-foreground))" fontSize={12} />
                 <YAxis
                   yAxisId="rps"
                   stroke="hsl(var(--muted-foreground))"
@@ -118,9 +129,9 @@ export function TemporalTrajectoryPanel({
                 />
                 <Tooltip content={<TrajectoryTooltip />} />
                 <Legend wrapperStyle={{ fontSize: 12 }} />
-                <Line type="monotone" dataKey="R" stroke={rpsPalette.R} dot={false} name="Return" strokeWidth={1.8} yAxisId="rps" isAnimationActive={false} />
-                <Line type="monotone" dataKey="P" stroke={rpsPalette.P} dot={false} name="Pressure" strokeWidth={1.8} yAxisId="rps" isAnimationActive={false} />
-                <Line type="monotone" dataKey="S" stroke={rpsPalette.S} dot={false} name="Stability" strokeWidth={1.8} yAxisId="rps" isAnimationActive={false} />
+                <Line type="monotone" dataKey="return" stroke={rpsPalette.return} dot={false} name="Return" strokeWidth={1.8} yAxisId="rps" isAnimationActive={false} />
+                <Line type="monotone" dataKey="pressure" stroke={rpsPalette.pressure} dot={false} name="Pressure" strokeWidth={1.8} yAxisId="rps" isAnimationActive={false} />
+                <Line type="monotone" dataKey="stability" stroke={rpsPalette.stability} dot={false} name="Stability" strokeWidth={1.8} yAxisId="rps" isAnimationActive={false} />
                 <Line type="monotone" dataKey="dnav" stroke={dnavColor} dot={false} name="D-NAV" strokeWidth={2} yAxisId="dnav" isAnimationActive={false} />
               </LineChart>
             </ResponsiveContainer>
@@ -133,7 +144,12 @@ export function TemporalTrajectoryPanel({
                 <ResponsiveContainer width="100%" height="100%">
                   <LineChart data={data} margin={{ top: 10, right: 16, left: 0, bottom: 0 }}>
                     <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--muted-foreground)/0.2)" />
-                    <XAxis dataKey="x" stroke="hsl(var(--muted-foreground))" fontSize={12} hide />
+                    <XAxis
+                      dataKey="xIndex"
+                      stroke="hsl(var(--muted-foreground))"
+                      fontSize={12}
+                      label={{ value: "Decision index", position: "insideBottomRight", offset: -6, fontSize: 11 }}
+                    />
                     <YAxis
                       stroke="hsl(var(--muted-foreground))"
                       fontSize={12}
@@ -142,9 +158,9 @@ export function TemporalTrajectoryPanel({
                     />
                     <Tooltip content={<TrajectoryTooltip />} />
                     <Legend wrapperStyle={{ fontSize: 12 }} />
-                    <Line type="monotone" dataKey="R" stroke={rpsPalette.R} dot={false} name="Return" strokeWidth={1.8} isAnimationActive={false} />
-                    <Line type="monotone" dataKey="P" stroke={rpsPalette.P} dot={false} name="Pressure" strokeWidth={1.8} isAnimationActive={false} />
-                    <Line type="monotone" dataKey="S" stroke={rpsPalette.S} dot={false} name="Stability" strokeWidth={1.8} isAnimationActive={false} />
+                    <Line type="monotone" dataKey="return" stroke={rpsPalette.return} dot={false} name="Return" strokeWidth={1.8} isAnimationActive={false} />
+                    <Line type="monotone" dataKey="pressure" stroke={rpsPalette.pressure} dot={false} name="Pressure" strokeWidth={1.8} isAnimationActive={false} />
+                    <Line type="monotone" dataKey="stability" stroke={rpsPalette.stability} dot={false} name="Stability" strokeWidth={1.8} isAnimationActive={false} />
                   </LineChart>
                 </ResponsiveContainer>
               </div>
@@ -156,7 +172,7 @@ export function TemporalTrajectoryPanel({
                   <LineChart data={data} margin={{ top: 10, right: 16, left: 0, bottom: 0 }}>
                     <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--muted-foreground)/0.2)" />
                     <XAxis
-                      dataKey="x"
+                      dataKey="xIndex"
                       stroke="hsl(var(--muted-foreground))"
                       fontSize={12}
                       label={{ value: "Decision index", position: "insideBottomRight", offset: -6, fontSize: 11 }}
