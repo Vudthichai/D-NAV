@@ -23,6 +23,14 @@ export interface DecisionEntry extends DecisionVariables, DecisionMetrics {
   id?: string;
   title?: string;
   createdAt?: number;
+  dNav?: number | string | null;
+  R?: number | string | null;
+  P?: number | string | null;
+  S?: number | string | null;
+  "D-NAV"?: number | string | null;
+  "Return"?: number | string | null;
+  "Pressure"?: number | string | null;
+  "Stability"?: number | string | null;
   impact0?: number;
   cost0?: number;
   risk0?: number;
