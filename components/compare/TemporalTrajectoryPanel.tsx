@@ -34,12 +34,12 @@ type TemporalTrajectoryPanelProps = {
 };
 
 const rpsPalette = {
-  return: "hsl(var(--foreground))",
-  pressure: "hsl(var(--primary))",
-  stability: "hsl(var(--accent))",
+  return: "hsl(var(--chart-1))",
+  pressure: "hsl(var(--chart-2))",
+  stability: "hsl(var(--chart-3))",
 };
 
-const dnavColor = "hsl(var(--chart-4))";
+const dnavColor = "hsl(var(--primary))";
 
 const rpsTicks = [-9, -6, -3, 0, 3, 6, 9];
 const dnavTicks = [-18, 0, 18, 36, 54, 72, 90, 108];
@@ -102,7 +102,7 @@ export function TemporalTrajectoryPanel({
       <div className="mt-4 space-y-4">
         {!hasData ? (
           <div className="rounded-xl border bg-background/60 p-6 text-sm text-muted-foreground">
-            No decision history yet. Log decisions to reveal trajectory trends.
+            No decisions in this window.
           </div>
         ) : overlay ? (
           <div className="h-[320px] rounded-xl border bg-background/60 p-3">

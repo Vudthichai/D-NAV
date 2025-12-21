@@ -230,14 +230,20 @@ function ReportsPageContent() {
     const sorted = [...temporalDataset.decisions].sort((a, b) => a.ts - b.ts);
     const resolvedWindowSize =
       temporalWindowSize > 0 ? Math.min(temporalWindowSize, sorted.length) : sorted.length;
-    const mapped = sorted.map((decision, index) => ({
+    const windowedDecisions = resolvedWindowSize > 0 ? sorted.slice(-resolvedWindowSize) : sorted;
+
+    const toNumberOrNull = (value: unknown) => {
+      const numeric = Number(value);
+      return Number.isNaN(numeric) ? null : numeric;
+    };
+
+    return windowedDecisions.map((decision, index) => ({
       xIndex: index + 1,
-      return: Number(decision.return),
-      pressure: Number(decision.pressure),
-      stability: Number(decision.stability),
-      dnav: Number(decision.dnav),
+      return: toNumberOrNull(decision.return ?? decision.R ?? decision.r),
+      pressure: toNumberOrNull(decision.pressure ?? decision.P ?? decision.p),
+      stability: toNumberOrNull(decision.stability ?? decision.S ?? decision.s),
+      dnav: toNumberOrNull(decision.dnav ?? decision.dNav ?? decision["D-NAV"] ?? decision.d_nav),
     }));
-    return resolvedWindowSize > 0 ? mapped.slice(-resolvedWindowSize) : mapped;
   }, [temporalDataset, temporalWindowSize]);
 
   useEffect(() => {
