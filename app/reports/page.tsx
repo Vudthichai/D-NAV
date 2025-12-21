@@ -45,48 +45,11 @@ import {
   type NormalizationBasis,
 } from "@/lib/compare/types";
 import { filterDecisionsByTimeframe } from "@/utils/judgmentDashboard";
+import { normalizeDecisionMetrics } from "@/lib/inspector";
 import { buildRangeLabel } from "@/utils/judgmentUnits";
 import { FileDown } from "lucide-react";
 import * as XLSX from "xlsx";
 
-type UnknownRecord = Record<string, unknown>;
-
-function asRecord(value: unknown): UnknownRecord {
-  return value !== null && typeof value === "object" ? (value as UnknownRecord) : {};
-}
-
-function toNumberOrNull(value: unknown): number | null {
-  if (typeof value === "number") return Number.isFinite(value) ? value : null;
-  if (typeof value === "string") {
-    const trimmed = value.trim();
-    if (!trimmed) return null;
-    const parsed = Number(trimmed);
-    return Number.isFinite(parsed) ? parsed : null;
-  }
-  return null;
-}
-
-function normalizeDecision(raw: unknown) {
-  const record = asRecord(raw);
-
-  const ret = record["return"] ?? record["Return"] ?? record["R"];
-  const pres = record["pressure"] ?? record["Pressure"] ?? record["P"];
-  const stab = record["stability"] ?? record["Stability"] ?? record["S"];
-  const dn =
-    record["dnav"] ??
-    record["dNav"] ??
-    record["D-NAV"] ??
-    record["DNAV"] ??
-    record["D_NAV"] ??
-    record["D"];
-
-  return {
-    return: toNumberOrNull(ret),
-    pressure: toNumberOrNull(pres),
-    stability: toNumberOrNull(stab),
-    dnav: toNumberOrNull(dn),
-  };
-}
 
 const slugify = (value: string) =>
   value
@@ -264,17 +227,23 @@ function ReportsPageContent() {
     () => getDatasetById(temporalDatasetId) ?? null,
     [getDatasetById, temporalDatasetId],
   );
-  const temporalTrajectoryData = useMemo(() => {
+  const temporalWindowedDecisions = useMemo(() => {
     if (!temporalDataset) return [];
     const sorted = [...temporalDataset.decisions].sort((a, b) => a.ts - b.ts);
     const resolvedWindowSize =
       temporalWindowSize > 0 ? Math.min(temporalWindowSize, sorted.length) : sorted.length;
     const windowed = resolvedWindowSize > 0 ? sorted.slice(-resolvedWindowSize) : sorted;
-    return windowed.map((decision, index) => ({
-      xIndex: index + 1,
-      ...normalizeDecision(decision),
-    }));
+    return windowed;
   }, [temporalDataset, temporalWindowSize]);
+
+  const temporalTrajectoryData = useMemo(
+    () =>
+      temporalWindowedDecisions.map((decision, index) => ({
+        xIndex: index + 1,
+        ...normalizeDecisionMetrics(decision),
+      })),
+    [temporalWindowedDecisions],
+  );
 
   useEffect(() => {
     let cancelled = false;
@@ -744,6 +713,7 @@ function ReportsPageContent() {
               {compareMode === "temporal" && (
                 <TemporalTrajectoryPanel
                   data={temporalTrajectoryData}
+                  decisions={temporalWindowedDecisions}
                   windowSize={temporalWindowSize}
                   onWindowSizeChange={setTemporalWindowSize}
                   overlay={temporalOverlayView}

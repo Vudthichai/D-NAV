@@ -1,6 +1,6 @@
 "use client";
 
-import React from "react";
+import { useMemo, useState } from "react";
 import {
   CartesianGrid,
   Legend,
@@ -14,6 +14,9 @@ import {
 
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
+import { DecisionInspectorDrawer } from "@/components/inspector/DecisionInspectorDrawer";
+import type { DecisionEntry } from "@/lib/calculations";
+import { getRegimeLabel, normalizeDecisionEntry } from "@/lib/inspector";
 import { cn } from "@/lib/utils";
 
 type TemporalTrajectoryPoint = {
@@ -26,6 +29,7 @@ type TemporalTrajectoryPoint = {
 
 type TemporalTrajectoryPanelProps = {
   data: TemporalTrajectoryPoint[];
+  decisions: DecisionEntry[];
   windowSize: number;
   onWindowSizeChange: (value: number) => void;
   overlay: boolean;
@@ -46,6 +50,7 @@ const dnavTicks = [-18, 0, 18, 36, 54, 72, 90, 108];
 
 export function TemporalTrajectoryPanel({
   data,
+  decisions,
   windowSize,
   onWindowSizeChange,
   overlay,
@@ -53,6 +58,26 @@ export function TemporalTrajectoryPanel({
   windowOptions = [25, 50, 100],
 }: TemporalTrajectoryPanelProps) {
   const hasData = data.length > 0;
+  const [selectedIndex, setSelectedIndex] = useState<number | null>(null);
+  const [selectedDecision, setSelectedDecision] = useState<DecisionEntry | null>(null);
+  const [inspectorOpen, setInspectorOpen] = useState(false);
+
+  const handleDecisionClick = (index: number) => {
+    const decision = decisions[index] ?? null;
+    setSelectedIndex(index + 1);
+    setSelectedDecision(decision);
+    setInspectorOpen(true);
+  };
+
+  const { returnValue, pressureValue, stabilityValue, dnavValue } = useMemo(
+    () => normalizeDecisionEntry(selectedDecision),
+    [selectedDecision],
+  );
+
+  const regimeLabel = useMemo(
+    () => getRegimeLabel(returnValue, pressureValue, stabilityValue),
+    [pressureValue, returnValue, stabilityValue],
+  );
 
   return (
     <div className="rounded-2xl border bg-muted/30 p-4">
@@ -287,7 +312,46 @@ export function TemporalTrajectoryPanel({
             </div>
           </>
         )}
+        {hasData && (
+          <div className="space-y-2 rounded-xl border bg-background/60 p-3">
+            <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+              Decision strip
+            </p>
+            <div className="flex flex-wrap gap-1.5">
+              {data.map((point, index) => {
+                const isSelected = selectedIndex === index + 1;
+                return (
+                  <button
+                    key={point.xIndex}
+                    type="button"
+                    onClick={() => handleDecisionClick(index)}
+                    className={cn(
+                      "h-8 min-w-[32px] rounded-md border px-2 text-[11px] font-semibold transition",
+                      isSelected
+                        ? "border-primary bg-primary text-primary-foreground shadow-sm"
+                        : "border-border bg-muted/60 text-muted-foreground hover:border-primary/60 hover:text-foreground",
+                    )}
+                    aria-label={`Open decision ${index + 1} inspector`}
+                  >
+                    {index + 1}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        )}
       </div>
+      <DecisionInspectorDrawer
+        open={inspectorOpen}
+        onClose={() => setInspectorOpen(false)}
+        decisionIndex={selectedIndex}
+        decision={selectedDecision}
+        regimeLabel={regimeLabel}
+        returnValue={returnValue}
+        pressureValue={pressureValue}
+        stabilityValue={stabilityValue}
+        dnavValue={dnavValue}
+      />
     </div>
   );
 }
