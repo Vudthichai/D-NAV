@@ -6,6 +6,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 
 import DatasetSelect from "@/components/DatasetSelect";
 import SystemComparePanel from "@/components/SystemComparePanel";
+import { MetricDistribution } from "@/components/reports/MetricDistribution";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -1388,47 +1389,30 @@ function OnePageReport({
               Distributions (Return / Pressure / Stability)
             </p>
             <div className="mt-3 space-y-3 text-sm">
-              <div>
-                <div className="mb-1 flex items-center justify-between text-xs text-muted-foreground">
-                  <span>Return</span>
-                  <span>
-                    Positive {formatPct(returnDistribution.positive)} · Neutral {formatPct(returnDistribution.neutral)} · Negative {formatPct(returnDistribution.negative)}
-                  </span>
-                </div>
-                <div className="flex h-2 overflow-hidden rounded-full bg-muted/60">
-                  <div className="bg-emerald-500" style={{ width: `${returnDistribution.positive}%` }} />
-                  <div className="bg-muted" style={{ width: `${returnDistribution.neutral}%` }} />
-                  <div className="bg-rose-500" style={{ width: `${returnDistribution.negative}%` }} />
-                </div>
-              </div>
-
-              <div>
-                <div className="mb-1 flex items-center justify-between text-xs text-muted-foreground">
-                  <span>Pressure</span>
-                  <span>
-                    Pressured {formatPct(pressureDistribution.positive)} · Neutral {formatPct(pressureDistribution.neutral)} · Calm {formatPct(pressureDistribution.negative)}
-                  </span>
-                </div>
-                <div className="flex h-2 overflow-hidden rounded-full bg-muted/60">
-                  <div className="bg-amber-500" style={{ width: `${pressureDistribution.positive}%` }} />
-                  <div className="bg-muted" style={{ width: `${pressureDistribution.neutral}%` }} />
-                  <div className="bg-sky-500" style={{ width: `${pressureDistribution.negative}%` }} />
-                </div>
-              </div>
-
-              <div>
-                <div className="mb-1 flex items-center justify-between text-xs text-muted-foreground">
-                  <span>Stability</span>
-                  <span>
-                    Stable {formatPct(stabilityDistribution.positive)} · Neutral {formatPct(stabilityDistribution.neutral)} · Fragile {formatPct(stabilityDistribution.negative)}
-                  </span>
-                </div>
-                <div className="flex h-2 overflow-hidden rounded-full bg-muted/60">
-                  <div className="bg-emerald-600" style={{ width: `${stabilityDistribution.positive}%` }} />
-                  <div className="bg-muted" style={{ width: `${stabilityDistribution.neutral}%` }} />
-                  <div className="bg-rose-500" style={{ width: `${stabilityDistribution.negative}%` }} />
-                </div>
-              </div>
+              <MetricDistribution
+                metricLabel="Return"
+                segments={[
+                  { label: "Positive", value: returnDistribution.positive, colorClass: "bg-emerald-500" },
+                  { label: "Neutral", value: returnDistribution.neutral, colorClass: "bg-muted" },
+                  { label: "Negative", value: returnDistribution.negative, colorClass: "bg-rose-500" },
+                ]}
+              />
+              <MetricDistribution
+                metricLabel="Pressure"
+                segments={[
+                  { label: "Pressured", value: pressureDistribution.positive, colorClass: "bg-amber-500" },
+                  { label: "Neutral", value: pressureDistribution.neutral, colorClass: "bg-muted" },
+                  { label: "Calm", value: pressureDistribution.negative, colorClass: "bg-sky-500" },
+                ]}
+              />
+              <MetricDistribution
+                metricLabel="Stability"
+                segments={[
+                  { label: "Stable", value: stabilityDistribution.positive, colorClass: "bg-emerald-600" },
+                  { label: "Neutral", value: stabilityDistribution.neutral, colorClass: "bg-muted" },
+                  { label: "Fragile", value: stabilityDistribution.negative, colorClass: "bg-rose-500" },
+                ]}
+              />
             </div>
           </div>
         </div>

@@ -7,6 +7,8 @@ export type CompareSummaryRow = {
   label: string;
   valueA: number;
   valueB: number;
+  varianceA?: { value: number; label: string };
+  varianceB?: { value: number; label: string };
 };
 
 type CompareSummaryTableProps = {
@@ -42,19 +44,27 @@ export function CompareSummaryTable({
         <table className="w-full text-xs">
           <thead className="bg-muted/40 text-[11px] uppercase tracking-wide text-muted-foreground">
             <tr>
-              <th className="px-3 py-2 text-left font-semibold">Metric</th>
-              <th className="px-3 py-2 text-right font-semibold">
+              <th className="px-3 py-2 text-left font-semibold" rowSpan={2}>
+                Metric
+              </th>
+              <th className="px-3 py-2 text-right font-semibold" colSpan={2}>
                 <div className="flex flex-col items-end">
                   <span>{labelA}</span>
                   {subLabelA && <span className="text-[10px] font-normal text-muted-foreground">{subLabelA}</span>}
                 </div>
               </th>
-              <th className="px-3 py-2 text-right font-semibold">
+              <th className="px-3 py-2 text-right font-semibold" colSpan={2}>
                 <div className="flex flex-col items-end">
                   <span>{labelB}</span>
                   {subLabelB && <span className="text-[10px] font-normal text-muted-foreground">{subLabelB}</span>}
                 </div>
               </th>
+            </tr>
+            <tr className="border-t border-muted/30 text-[10px] uppercase">
+              <th className="px-3 py-1.5 text-right font-semibold">Avg</th>
+              <th className="px-3 py-1.5 text-right font-semibold">Variance</th>
+              <th className="px-3 py-1.5 text-right font-semibold">Avg</th>
+              <th className="px-3 py-1.5 text-right font-semibold">Variance</th>
             </tr>
           </thead>
           <tbody>
@@ -62,7 +72,13 @@ export function CompareSummaryTable({
               <tr key={row.label} className="border-t border-muted/30">
                 <td className="px-3 py-1.5 text-muted-foreground">{row.label}</td>
                 <td className="px-3 py-1.5 text-right font-medium text-foreground">{formatValue(row.valueA)}</td>
+                <td className="px-3 py-1.5 text-right font-medium text-foreground">
+                  {formatVariance(row.varianceA)}
+                </td>
                 <td className="px-3 py-1.5 text-right font-medium text-foreground">{formatValue(row.valueB)}</td>
+                <td className="px-3 py-1.5 text-right font-medium text-foreground">
+                  {formatVariance(row.varianceB)}
+                </td>
               </tr>
             ))}
           </tbody>
@@ -75,4 +91,9 @@ export function CompareSummaryTable({
 function formatValue(value: number) {
   if (Number.isNaN(value)) return "—";
   return formatNumber(value, 1);
+}
+
+function formatVariance(variance?: { value: number; label: string }) {
+  if (!variance || Number.isNaN(variance.value)) return "—";
+  return `${formatNumber(variance.value, 2)} (${variance.label})`;
 }
