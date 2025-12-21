@@ -49,45 +49,6 @@ import { buildRangeLabel } from "@/utils/judgmentUnits";
 import { FileDown } from "lucide-react";
 import * as XLSX from "xlsx";
 
-type UnknownRecord = Record<string, unknown>;
-
-function asRecord(value: unknown): UnknownRecord {
-  return value !== null && typeof value === "object" ? (value as UnknownRecord) : {};
-}
-
-function toNumberOrNull(value: unknown): number | null {
-  if (typeof value === "number") return Number.isFinite(value) ? value : null;
-  if (typeof value === "string") {
-    const trimmed = value.trim();
-    if (!trimmed) return null;
-    const parsed = Number(trimmed);
-    return Number.isFinite(parsed) ? parsed : null;
-  }
-  return null;
-}
-
-function normalizeDecision(raw: unknown) {
-  const record = asRecord(raw);
-
-  const ret = record["return"] ?? record["Return"] ?? record["R"];
-  const pres = record["pressure"] ?? record["Pressure"] ?? record["P"];
-  const stab = record["stability"] ?? record["Stability"] ?? record["S"];
-  const dn =
-    record["dnav"] ??
-    record["dNav"] ??
-    record["D-NAV"] ??
-    record["DNAV"] ??
-    record["D_NAV"] ??
-    record["D"];
-
-  return {
-    return: toNumberOrNull(ret),
-    pressure: toNumberOrNull(pres),
-    stability: toNumberOrNull(stab),
-    dnav: toNumberOrNull(dn),
-  };
-}
-
 const slugify = (value: string) =>
   value
     .toLowerCase()
@@ -203,8 +164,6 @@ function ReportsPageContent() {
   const [datasetBId, setDatasetBId] = useState<DatasetId | null>(defaultDatasetBId);
   const [temporalDatasetId, setTemporalDatasetId] = useState<DatasetId | null>(defaultDatasetAId);
   const [compareTimeframe, setCompareTimeframe] = useState<TimeframeValue>(resolvedTimeframe);
-  const [temporalWindowSize, setTemporalWindowSize] = useState(0);
-  const [temporalOverlayView, setTemporalOverlayView] = useState(false);
   const [isCompareLoading, setIsCompareLoading] = useState(false);
   const [compareMode, setCompareMode] = useState<CompareMode>("entity");
   const [compareResult, setCompareResult] = useState<CompareResult | null>(null);
@@ -264,17 +223,7 @@ function ReportsPageContent() {
     () => getDatasetById(temporalDatasetId) ?? null,
     [getDatasetById, temporalDatasetId],
   );
-  const temporalTrajectoryData = useMemo(() => {
-    if (!temporalDataset) return [];
-    const sorted = [...temporalDataset.decisions].sort((a, b) => a.ts - b.ts);
-    const resolvedWindowSize =
-      temporalWindowSize > 0 ? Math.min(temporalWindowSize, sorted.length) : sorted.length;
-    const windowed = resolvedWindowSize > 0 ? sorted.slice(-resolvedWindowSize) : sorted;
-    return windowed.map((decision, index) => ({
-      xIndex: index + 1,
-      ...normalizeDecision(decision),
-    }));
-  }, [temporalDataset, temporalWindowSize]);
+  const temporalDecisions = useMemo(() => temporalDataset?.decisions ?? [], [temporalDataset]);
 
   useEffect(() => {
     let cancelled = false;
@@ -742,13 +691,7 @@ function ReportsPageContent() {
                 </div>
               )}
               {compareMode === "temporal" && (
-                <TemporalTrajectoryPanel
-                  data={temporalTrajectoryData}
-                  windowSize={temporalWindowSize}
-                  onWindowSizeChange={setTemporalWindowSize}
-                  overlay={temporalOverlayView}
-                  onOverlayChange={setTemporalOverlayView}
-                />
+                <TemporalTrajectoryPanel decisions={temporalDecisions} />
               )}
 
               {compareMode === "entity" && (
