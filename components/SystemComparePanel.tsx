@@ -4,17 +4,24 @@ import React from "react";
 import type { CohortSummary, CompareResult, ScatterPoint } from "@/lib/compare/types";
 import { buildScatterPoints } from "@/lib/compare/visuals";
 import { computeQuadrantShares, computeSteadiness, determineRegimeCall } from "@/lib/compare/evidence";
-import { DISTRIBUTION_EPSILON, distributionBuckets } from "@/lib/compare/stats";
+import { DISTRIBUTION_EPSILON, distributionBuckets, percentile } from "@/lib/compare/stats";
 import { CompareSummaryTable } from "@/components/compare/CompareSummaryTable";
 import { EvidenceSummary } from "@/components/compare/EvidenceSummary";
 import { EvidenceTemporalPanel } from "@/components/compare/EvidenceTemporalPanel";
-import { DistributionStackedBars } from "./compare/charts/DistributionStackedBars";
+import { MetricDistribution, type MetricDistributionSegment } from "@/components/reports/MetricDistribution";
 
 interface SystemComparePanelProps {
   result: CompareResult;
   warning?: string;
   showDebug?: boolean;
 }
+
+type DistributionMetric = {
+  id: string;
+  label: string;
+  segmentsA: MetricDistributionSegment[];
+  segmentsB: MetricDistributionSegment[];
+};
 
 const SystemComparePanel: React.FC<SystemComparePanelProps> = ({ result, warning, showDebug }) => {
   const { cohortA, cohortB, deltas } = result;
@@ -33,38 +40,32 @@ const SystemComparePanel: React.FC<SystemComparePanelProps> = ({ result, warning
   const distributionMetrics = [
     {
       id: "R",
-      label: "Return (R)",
-      bucketsA: distributionBuckets(
-        postureSeriesA.map((point) => point.R),
-        DISTRIBUTION_EPSILON,
+      label: "Return",
+      segmentsA: buildReturnSegments(
+        distributionBuckets(postureSeriesA.map((point) => point.R), DISTRIBUTION_EPSILON),
       ),
-      bucketsB: distributionBuckets(
-        postureSeriesB.map((point) => point.R),
-        DISTRIBUTION_EPSILON,
+      segmentsB: buildReturnSegments(
+        distributionBuckets(postureSeriesB.map((point) => point.R), DISTRIBUTION_EPSILON),
       ),
     },
     {
       id: "P",
-      label: "Pressure (P)",
-      bucketsA: distributionBuckets(
-        postureSeriesA.map((point) => point.P),
-        DISTRIBUTION_EPSILON,
+      label: "Pressure",
+      segmentsA: buildPressureSegments(
+        distributionBuckets(postureSeriesA.map((point) => point.P), DISTRIBUTION_EPSILON),
       ),
-      bucketsB: distributionBuckets(
-        postureSeriesB.map((point) => point.P),
-        DISTRIBUTION_EPSILON,
+      segmentsB: buildPressureSegments(
+        distributionBuckets(postureSeriesB.map((point) => point.P), DISTRIBUTION_EPSILON),
       ),
     },
     {
       id: "S",
-      label: "Stability (S)",
-      bucketsA: distributionBuckets(
-        postureSeriesA.map((point) => point.S),
-        DISTRIBUTION_EPSILON,
+      label: "Stability",
+      segmentsA: buildStabilitySegments(
+        distributionBuckets(postureSeriesA.map((point) => point.S), DISTRIBUTION_EPSILON),
       ),
-      bucketsB: distributionBuckets(
-        postureSeriesB.map((point) => point.S),
-        DISTRIBUTION_EPSILON,
+      segmentsB: buildStabilitySegments(
+        distributionBuckets(postureSeriesB.map((point) => point.S), DISTRIBUTION_EPSILON),
       ),
     },
   ];
@@ -73,13 +74,41 @@ const SystemComparePanel: React.FC<SystemComparePanelProps> = ({ result, warning
   const quadrantSharesB = computeQuadrantShares(scatterPointsB);
   const regimeCall = determineRegimeCall(postureSeriesA, postureSeriesB, deltas);
 
+  const varianceBands = buildVarianceBands([
+    cohortA.stdReturn,
+    cohortA.stdPressure,
+    cohortA.stdStability,
+    cohortB.stdReturn,
+    cohortB.stdPressure,
+    cohortB.stdStability,
+  ]);
+
   const summaryRows = [
     { label: "Average D-NAV", valueA: cohortA.avgDnav, valueB: cohortB.avgDnav },
-    { label: "Avg Return (R)", valueA: cohortA.avgReturn, valueB: cohortB.avgReturn },
-    { label: "Avg Pressure (P)", valueA: cohortA.avgPressure, valueB: cohortB.avgPressure },
-    { label: "Avg Stability (S)", valueA: cohortA.avgStability, valueB: cohortB.avgStability },
+    {
+      label: "Avg Return (R)",
+      valueA: cohortA.avgReturn,
+      valueB: cohortB.avgReturn,
+      varianceA: buildVarianceCell(cohortA.stdReturn, varianceBands),
+      varianceB: buildVarianceCell(cohortB.stdReturn, varianceBands),
+    },
+    {
+      label: "Avg Pressure (P)",
+      valueA: cohortA.avgPressure,
+      valueB: cohortB.avgPressure,
+      varianceA: buildVarianceCell(cohortA.stdPressure, varianceBands),
+      varianceB: buildVarianceCell(cohortB.stdPressure, varianceBands),
+    },
+    {
+      label: "Avg Stability (S)",
+      valueA: cohortA.avgStability,
+      valueB: cohortB.avgStability,
+      varianceA: buildVarianceCell(cohortA.stdStability, varianceBands),
+      varianceB: buildVarianceCell(cohortB.stdStability, varianceBands),
+    },
   ];
   const systemSummary = buildSystemSummaryBullets(cohortA, cohortB);
+  const distributionSummaryLine = buildDistributionSummaryLine(cohortA, cohortB);
 
   return (
     <section className="space-y-4">
@@ -127,12 +156,18 @@ const SystemComparePanel: React.FC<SystemComparePanelProps> = ({ result, warning
       {result.mode === "entity" && (
         <div className="space-y-4">
           <div className="rounded-xl border bg-muted/40 p-4">
-            <DistributionStackedBars
-              title="Distributions (Return / Pressure / Stability)"
-              labelA={cohortA.label}
-              labelB={cohortB.label}
-              metrics={distributionMetrics}
-            />
+            <div className="space-y-4">
+              <div>
+                <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+                  Distributions (Return / Pressure / Stability)
+                </p>
+                <p className="mt-2 text-xs text-muted-foreground">{distributionSummaryLine}</p>
+              </div>
+              <div className="grid gap-6 lg:grid-cols-2 lg:gap-8 lg:divide-x lg:divide-muted/40">
+                <DistributionColumn label={cohortA.label} metrics={distributionMetrics} variant="A" className="lg:pr-6" />
+                <DistributionColumn label={cohortB.label} metrics={distributionMetrics} variant="B" className="lg:pl-6" />
+              </div>
+            </div>
           </div>
           <div className="grid gap-4 lg:grid-cols-2">
             <CompareSummaryTable
@@ -198,6 +233,33 @@ const SystemComparePanel: React.FC<SystemComparePanelProps> = ({ result, warning
 };
 
 export default SystemComparePanel;
+
+function DistributionColumn({
+  label,
+  metrics,
+  variant,
+  className,
+}: {
+  label: string;
+  metrics: DistributionMetric[];
+  variant: "A" | "B";
+  className?: string;
+}) {
+  return (
+    <div className={`space-y-4 ${className ?? ""}`.trim()}>
+      <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">{label}</p>
+      <div className="space-y-5">
+        {metrics.map((metric) => (
+          <MetricDistribution
+            key={`${metric.id}-${variant}`}
+            metricLabel={metric.label}
+            segments={variant === "A" ? metric.segmentsA : metric.segmentsB}
+          />
+        ))}
+      </div>
+    </div>
+  );
+}
 
 function deriveScatterDomain(points: ScatterPoint[]): [number, number] {
   if (!points.length) return [-9, 9];
@@ -266,4 +328,103 @@ function metricLabel(metric: string) {
     default:
       return metric;
   }
+}
+
+function buildReturnSegments(buckets: { pctPositive: number; pctNeutral: number; pctNegative: number }): MetricDistributionSegment[] {
+  return [
+    { label: "Positive", value: buckets.pctPositive, colorClass: "bg-emerald-500" },
+    { label: "Neutral", value: buckets.pctNeutral, colorClass: "bg-muted" },
+    { label: "Negative", value: buckets.pctNegative, colorClass: "bg-rose-500" },
+  ];
+}
+
+function buildPressureSegments(buckets: { pctPositive: number; pctNeutral: number; pctNegative: number }): MetricDistributionSegment[] {
+  return [
+    { label: "Pressured", value: buckets.pctPositive, colorClass: "bg-amber-500" },
+    { label: "Neutral", value: buckets.pctNeutral, colorClass: "bg-muted" },
+    { label: "Calm", value: buckets.pctNegative, colorClass: "bg-sky-500" },
+  ];
+}
+
+function buildStabilitySegments(buckets: { pctPositive: number; pctNeutral: number; pctNegative: number }): MetricDistributionSegment[] {
+  return [
+    { label: "Stable", value: buckets.pctPositive, colorClass: "bg-emerald-600" },
+    { label: "Neutral", value: buckets.pctNeutral, colorClass: "bg-muted" },
+    { label: "Fragile", value: buckets.pctNegative, colorClass: "bg-rose-500" },
+  ];
+}
+
+function buildVarianceBands(values: number[]) {
+  const safeValues = values.filter((value) => Number.isFinite(value));
+  if (!safeValues.length) {
+    return { lower: 0, upper: 0 };
+  }
+  return {
+    lower: percentile(safeValues, 33),
+    upper: percentile(safeValues, 67),
+  };
+}
+
+function buildVarianceCell(value: number, bands: { lower: number; upper: number }) {
+  if (!Number.isFinite(value)) return undefined;
+  if (value <= bands.lower) return { value, label: "Tight" };
+  if (value <= bands.upper) return { value, label: "Moderate" };
+  return { value, label: "Volatile" };
+}
+
+function buildDistributionSummaryLine(cohortA: CohortSummary, cohortB: CohortSummary) {
+  const returnLeader = compareMetric(cohortA.avgReturn, cohortB.avgReturn);
+  const stabilityLeader = compareMetric(cohortA.avgStability, cohortB.avgStability);
+  const pressureLeader = compareMetric(cohortA.avgPressure, cohortB.avgPressure);
+
+  const basePhrase = buildReturnStabilityPhrase(
+    returnLeader,
+    stabilityLeader,
+    cohortA.label,
+    cohortB.label,
+  );
+
+  const pressureClause =
+    pressureLeader === "tie"
+      ? "with Pressure levels balanced."
+      : `with higher Pressure exposure in ${pressureLeader === "A" ? cohortA.label : cohortB.label}.`;
+
+  return `${basePhrase} ${pressureClause}`;
+}
+
+type MetricLeader = "A" | "B" | "tie";
+
+function compareMetric(valueA: number, valueB: number): MetricLeader {
+  if (valueA === valueB) return "tie";
+  return valueA > valueB ? "A" : "B";
+}
+
+function buildReturnStabilityPhrase(
+  returnLeader: MetricLeader,
+  stabilityLeader: MetricLeader,
+  labelA: string,
+  labelB: string,
+) {
+  if (returnLeader === "tie" && stabilityLeader === "tie") {
+    return `Return and Stability are balanced between ${labelA} and ${labelB}`;
+  }
+
+  if (returnLeader !== "tie" && returnLeader === stabilityLeader) {
+    const leaderLabel = returnLeader === "A" ? labelA : labelB;
+    return `${leaderLabel} shows higher Return and Stability`;
+  }
+
+  if (returnLeader === "tie") {
+    const leaderLabel = stabilityLeader === "A" ? labelA : labelB;
+    return `Return is balanced while ${leaderLabel} shows higher Stability`;
+  }
+
+  if (stabilityLeader === "tie") {
+    const leaderLabel = returnLeader === "A" ? labelA : labelB;
+    return `Stability is balanced while ${leaderLabel} shows higher Return`;
+  }
+
+  const returnLabel = returnLeader === "A" ? labelA : labelB;
+  const stabilityLabel = stabilityLeader === "A" ? labelA : labelB;
+  return `Return is higher for ${returnLabel} while Stability is higher for ${stabilityLabel}`;
 }
