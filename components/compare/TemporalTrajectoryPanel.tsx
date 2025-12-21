@@ -11,6 +11,8 @@ import {
   XAxis,
   YAxis,
 } from "recharts";
+import type { TooltipProps } from "recharts";
+import type { NameType, ValueType } from "recharts/types/component/DefaultTooltipContent";
 
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
@@ -135,7 +137,7 @@ export function TemporalTrajectoryPanel({
                   interval={0}
                   label={{ value: "D-NAV", angle: 90, position: "insideRight", offset: 10, fontSize: 11 }}
                 />
-                <Tooltip content={<TrajectoryTooltip />} />
+                <Tooltip content={renderTrajectoryTooltip} />
                 <Legend wrapperStyle={{ fontSize: 12 }} />
                 <Line
                   type="monotone"
@@ -210,7 +212,7 @@ export function TemporalTrajectoryPanel({
                       ticks={rpsTicks}
                       interval={0}
                     />
-                    <Tooltip content={<TrajectoryTooltip />} />
+                    <Tooltip content={renderTrajectoryTooltip} />
                     <Legend wrapperStyle={{ fontSize: 12 }} />
                     <Line
                       type="monotone"
@@ -269,7 +271,7 @@ export function TemporalTrajectoryPanel({
                       ticks={dnavTicks}
                       interval={0}
                     />
-                    <Tooltip content={<TrajectoryTooltip />} />
+                    <Tooltip content={renderTrajectoryTooltip} />
                     <Line
                       type="monotone"
                       dataKey="dnav"
@@ -292,13 +294,15 @@ export function TemporalTrajectoryPanel({
   );
 }
 
-function TrajectoryTooltip({
-  label,
-  payload,
-}: {
-  label?: number | string;
-  payload?: { name?: string; value?: number }[];
-}) {
+type DnavTooltipProps = TooltipProps<ValueType, NameType> & {
+  metricLabel?: string;
+};
+
+const renderTrajectoryTooltip = (props: TooltipProps<ValueType, NameType>) => (
+  <TrajectoryTooltip {...props} />
+);
+
+function TrajectoryTooltip({ label, payload }: DnavTooltipProps) {
   if (!payload || payload.length === 0) return null;
   return (
     <div className="rounded-md border bg-background/95 px-3 py-2 text-xs shadow-sm">
