@@ -49,6 +49,39 @@ import { buildRangeLabel } from "@/utils/judgmentUnits";
 import { FileDown } from "lucide-react";
 import * as XLSX from "xlsx";
 
+type UnknownRecord = Record<string, unknown>;
+
+function asRecord(value: unknown): UnknownRecord {
+  return value !== null && typeof value === "object" ? (value as UnknownRecord) : {};
+}
+
+function toNumberOrNull(value: unknown): number | null {
+  if (typeof value === "number") return Number.isFinite(value) ? value : null;
+  if (typeof value === "string") {
+    const trimmed = value.trim();
+    if (!trimmed) return null;
+    const parsed = Number(trimmed);
+    return Number.isFinite(parsed) ? parsed : null;
+  }
+  return null;
+}
+
+function normalizeDecision(raw: unknown) {
+  const record = asRecord(raw);
+
+  const ret = record["return"] ?? record["Return"] ?? record["R"];
+  const pres = record["pressure"] ?? record["Pressure"] ?? record["P"];
+  const stab = record["stability"] ?? record["Stability"] ?? record["S"];
+  const dn = record["dnav"] ?? record["dNav"] ?? record["D-NAV"] ?? record["DNAV"] ?? record["D_NAV"];
+
+  return {
+    return: toNumberOrNull(ret),
+    pressure: toNumberOrNull(pres),
+    stability: toNumberOrNull(stab),
+    dnav: toNumberOrNull(dn),
+  };
+}
+
 const slugify = (value: string) =>
   value
     .toLowerCase()
@@ -232,10 +265,7 @@ function ReportsPageContent() {
       temporalWindowSize > 0 ? Math.min(temporalWindowSize, sorted.length) : sorted.length;
     const mapped = sorted.map((decision, index) => ({
       xIndex: index + 1,
-      return: Number(decision.return),
-      pressure: Number(decision.pressure),
-      stability: Number(decision.stability),
-      dnav: Number(decision.dnav),
+      ...normalizeDecision(decision),
     }));
     return resolvedWindowSize > 0 ? mapped.slice(-resolvedWindowSize) : mapped;
   }, [temporalDataset, temporalWindowSize]);

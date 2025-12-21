@@ -18,10 +18,10 @@ import { cn } from "@/lib/utils";
 
 type TemporalTrajectoryPoint = {
   xIndex: number;
-  return: number;
-  pressure: number;
-  stability: number;
-  dnav: number;
+  return: number | null;
+  pressure: number | null;
+  stability: number | null;
+  dnav: number | null;
 };
 
 type TemporalTrajectoryPanelProps = {
