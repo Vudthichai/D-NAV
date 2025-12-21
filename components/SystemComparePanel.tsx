@@ -1,7 +1,7 @@
 "use client";
 
 import React from "react";
-import type { CohortSummary, CompareResult, ScatterPoint } from "@/lib/compare/types";
+import type { CompareResult, ScatterPoint } from "@/lib/compare/types";
 import { buildScatterPoints } from "@/lib/compare/visuals";
 import { computeQuadrantShares, computeSteadiness, determineRegimeCall } from "@/lib/compare/evidence";
 import { DISTRIBUTION_EPSILON, distributionBuckets, percentile } from "@/lib/compare/stats";
@@ -37,36 +37,31 @@ const SystemComparePanel: React.FC<SystemComparePanelProps> = ({ result, warning
   const scatterPointsB = buildScatterPoints(postureSeriesB, result.mode, { useSequence: isSequenceMode });
   const scatterDomain: [number, number] = deriveScatterDomain([...scatterPointsA, ...scatterPointsB]);
 
+  const returnBucketsA = distributionBuckets(postureSeriesA.map((point) => point.R), DISTRIBUTION_EPSILON);
+  const returnBucketsB = distributionBuckets(postureSeriesB.map((point) => point.R), DISTRIBUTION_EPSILON);
+  const pressureBucketsA = distributionBuckets(postureSeriesA.map((point) => point.P), DISTRIBUTION_EPSILON);
+  const pressureBucketsB = distributionBuckets(postureSeriesB.map((point) => point.P), DISTRIBUTION_EPSILON);
+  const stabilityBucketsA = distributionBuckets(postureSeriesA.map((point) => point.S), DISTRIBUTION_EPSILON);
+  const stabilityBucketsB = distributionBuckets(postureSeriesB.map((point) => point.S), DISTRIBUTION_EPSILON);
+
   const distributionMetrics = [
     {
       id: "R",
       label: "Return",
-      segmentsA: buildReturnSegments(
-        distributionBuckets(postureSeriesA.map((point) => point.R), DISTRIBUTION_EPSILON),
-      ),
-      segmentsB: buildReturnSegments(
-        distributionBuckets(postureSeriesB.map((point) => point.R), DISTRIBUTION_EPSILON),
-      ),
+      segmentsA: buildReturnSegments(returnBucketsA),
+      segmentsB: buildReturnSegments(returnBucketsB),
     },
     {
       id: "P",
       label: "Pressure",
-      segmentsA: buildPressureSegments(
-        distributionBuckets(postureSeriesA.map((point) => point.P), DISTRIBUTION_EPSILON),
-      ),
-      segmentsB: buildPressureSegments(
-        distributionBuckets(postureSeriesB.map((point) => point.P), DISTRIBUTION_EPSILON),
-      ),
+      segmentsA: buildPressureSegments(pressureBucketsA),
+      segmentsB: buildPressureSegments(pressureBucketsB),
     },
     {
       id: "S",
       label: "Stability",
-      segmentsA: buildStabilitySegments(
-        distributionBuckets(postureSeriesA.map((point) => point.S), DISTRIBUTION_EPSILON),
-      ),
-      segmentsB: buildStabilitySegments(
-        distributionBuckets(postureSeriesB.map((point) => point.S), DISTRIBUTION_EPSILON),
-      ),
+      segmentsA: buildStabilitySegments(stabilityBucketsA),
+      segmentsB: buildStabilitySegments(stabilityBucketsB),
     },
   ];
 
@@ -83,32 +78,68 @@ const SystemComparePanel: React.FC<SystemComparePanelProps> = ({ result, warning
     cohortB.stdStability,
   ]);
 
+  const varianceReturnA = buildVarianceCell(cohortA.stdReturn, varianceBands);
+  const varianceReturnB = buildVarianceCell(cohortB.stdReturn, varianceBands);
+  const variancePressureA = buildVarianceCell(cohortA.stdPressure, varianceBands);
+  const variancePressureB = buildVarianceCell(cohortB.stdPressure, varianceBands);
+  const varianceStabilityA = buildVarianceCell(cohortA.stdStability, varianceBands);
+  const varianceStabilityB = buildVarianceCell(cohortB.stdStability, varianceBands);
+
   const summaryRows = [
     { label: "Average D-NAV", valueA: cohortA.avgDnav, valueB: cohortB.avgDnav },
     {
       label: "Avg Return (R)",
       valueA: cohortA.avgReturn,
       valueB: cohortB.avgReturn,
-      varianceA: buildVarianceCell(cohortA.stdReturn, varianceBands),
-      varianceB: buildVarianceCell(cohortB.stdReturn, varianceBands),
+      varianceA: varianceReturnA,
+      varianceB: varianceReturnB,
     },
     {
       label: "Avg Pressure (P)",
       valueA: cohortA.avgPressure,
       valueB: cohortB.avgPressure,
-      varianceA: buildVarianceCell(cohortA.stdPressure, varianceBands),
-      varianceB: buildVarianceCell(cohortB.stdPressure, varianceBands),
+      varianceA: variancePressureA,
+      varianceB: variancePressureB,
     },
     {
       label: "Avg Stability (S)",
       valueA: cohortA.avgStability,
       valueB: cohortB.avgStability,
-      varianceA: buildVarianceCell(cohortA.stdStability, varianceBands),
-      varianceB: buildVarianceCell(cohortB.stdStability, varianceBands),
+      varianceA: varianceStabilityA,
+      varianceB: varianceStabilityB,
     },
   ];
-  const systemSummary = buildSystemSummaryBullets(cohortA, cohortB);
-  const distributionSummaryLine = buildDistributionSummaryLine(cohortA, cohortB);
+
+  const systemSummary = buildEntityCompareSummary({
+    labelA: cohortA.label,
+    labelB: cohortB.label,
+    averages: {
+      return: cohortA.avgReturn,
+      pressure: cohortA.avgPressure,
+      stability: cohortA.avgStability,
+      dnavA: cohortA.avgDnav,
+      dnavB: cohortB.avgDnav,
+      returnB: cohortB.avgReturn,
+      pressureB: cohortB.avgPressure,
+      stabilityB: cohortB.avgStability,
+    },
+    varianceLabels: {
+      returnA: varianceReturnA?.label ?? "Moderate",
+      returnB: varianceReturnB?.label ?? "Moderate",
+      pressureA: variancePressureA?.label ?? "Moderate",
+      pressureB: variancePressureB?.label ?? "Moderate",
+      stabilityA: varianceStabilityA?.label ?? "Moderate",
+      stabilityB: varianceStabilityB?.label ?? "Moderate",
+    },
+    distributions: {
+      returnPositiveA: returnBucketsA.pctPositive,
+      returnPositiveB: returnBucketsB.pctPositive,
+      pressureCalmA: pressureBucketsA.pctNegative,
+      pressureCalmB: pressureBucketsB.pctNegative,
+      stabilityPositiveA: stabilityBucketsA.pctPositive,
+      stabilityPositiveB: stabilityBucketsB.pctPositive,
+    },
+  });
 
   return (
     <section className="space-y-4">
@@ -161,7 +192,6 @@ const SystemComparePanel: React.FC<SystemComparePanelProps> = ({ result, warning
                 <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
                   Distributions (Return / Pressure / Stability)
                 </p>
-                <p className="mt-2 text-xs text-muted-foreground">{distributionSummaryLine}</p>
               </div>
               <div className="grid gap-6 lg:grid-cols-2 lg:gap-8 lg:divide-x lg:divide-muted/40">
                 <DistributionColumn label={cohortA.label} metrics={distributionMetrics} variant="A" className="lg:pr-6" />
@@ -180,8 +210,9 @@ const SystemComparePanel: React.FC<SystemComparePanelProps> = ({ result, warning
             <div className="rounded-xl border bg-muted/40 p-4">
               <div className="space-y-2">
                 <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">System Summary</p>
+                <p className="text-xs text-muted-foreground">{systemSummary.header}</p>
                 <ul className="list-disc space-y-2 pl-4 text-xs text-muted-foreground">
-                  {systemSummary.map((item) => (
+                  {systemSummary.bullets.map((item) => (
                     <li key={item}>
                       {item}
                     </li>
@@ -269,65 +300,247 @@ function deriveScatterDomain(points: ScatterPoint[]): [number, number] {
   return [min, max];
 }
 
-function buildSystemSummaryBullets(cohortA: CohortSummary, cohortB: CohortSummary) {
-  const labelA = cohortA.label;
-  const labelB = cohortB.label;
+type SummaryInput = {
+  labelA: string;
+  labelB: string;
+  averages: {
+    return: number;
+    returnB: number;
+    pressure: number;
+    pressureB: number;
+    stability: number;
+    stabilityB: number;
+    dnavA: number;
+    dnavB: number;
+  };
+  varianceLabels: {
+    returnA: string;
+    returnB: string;
+    pressureA: string;
+    pressureB: string;
+    stabilityA: string;
+    stabilityB: string;
+  };
+  distributions: {
+    returnPositiveA: number;
+    returnPositiveB: number;
+    pressureCalmA: number;
+    pressureCalmB: number;
+    stabilityPositiveA: number;
+    stabilityPositiveB: number;
+  };
+};
 
-  const returnBullet = buildComparisonBullet(
-    "return",
-    cohortA.avgReturn,
-    cohortB.avgReturn,
-    labelA,
-    labelB,
-  );
-  const pressureBullet = buildComparisonBullet(
-    "pressure",
-    cohortA.avgPressure,
-    cohortB.avgPressure,
-    labelA,
-    labelB,
-  );
-  const stabilityBullet = buildComparisonBullet(
-    "stability",
-    cohortA.avgStability,
-    cohortB.avgStability,
-    labelA,
-    labelB,
-  );
-  const dnavBullet =
-    cohortA.avgDnav === cohortB.avgDnav
-      ? `Net judgment profile is evenly matched between ${labelA} and ${labelB}.`
-      : `Net judgment profile favors ${cohortA.avgDnav > cohortB.avgDnav ? labelA : labelB} for sustained execution.`;
+function buildEntityCompareSummary(input: SummaryInput) {
+  const { labelA, labelB, averages, varianceLabels, distributions } = input;
+  const returnAvgPhrase = describeAvgComparison("Return", averages.return, averages.returnB, labelA, labelB);
+  const pressureAvgPhrase = describeAvgComparison("Pressure", averages.pressure, averages.pressureB, labelA, labelB);
+  const stabilityAvgPhrase = describeAvgComparison("Stability", averages.stability, averages.stabilityB, labelA, labelB);
 
-  return [returnBullet, pressureBullet, stabilityBullet, dnavBullet];
+  const returnSharePhrase = describeShareComparison(
+    "positive",
+    distributions.returnPositiveA,
+    distributions.returnPositiveB,
+    labelA,
+    labelB,
+  );
+  const pressureSharePhrase = describeShareComparison(
+    "calm",
+    distributions.pressureCalmA,
+    distributions.pressureCalmB,
+    labelA,
+    labelB,
+  );
+  const stabilitySharePhrase = describeShareComparison(
+    "stable",
+    distributions.stabilityPositiveA,
+    distributions.stabilityPositiveB,
+    labelA,
+    labelB,
+  );
+
+  const returnVariancePhrase = describeVarianceComparison(
+    varianceLabels.returnA,
+    varianceLabels.returnB,
+    labelA,
+    labelB,
+  );
+  const pressureVariancePhrase = describeVarianceComparison(
+    varianceLabels.pressureA,
+    varianceLabels.pressureB,
+    labelA,
+    labelB,
+  );
+  const stabilityVariancePhrase = describeVarianceComparison(
+    varianceLabels.stabilityA,
+    varianceLabels.stabilityB,
+    labelA,
+    labelB,
+  );
+
+  const header = buildSummaryHeader({
+    labelA,
+    labelB,
+    returnAvg: averages.return,
+    returnAvgB: averages.returnB,
+    stabilityAvg: averages.stability,
+    stabilityAvgB: averages.stabilityB,
+    returnVariance: varianceLabels.returnA,
+    returnVarianceB: varianceLabels.returnB,
+  });
+
+  const netClassification = describeNetClassification(averages.dnavA, averages.dnavB, labelA, labelB);
+
+  const bullets = [
+    `Return: ${returnAvgPhrase}, ${returnSharePhrase}; variance indicates ${returnVariancePhrase}.`,
+    `Pressure: ${pressureAvgPhrase}, ${pressureSharePhrase}; variance indicates ${pressureVariancePhrase}.`,
+    `Stability: ${stabilityAvgPhrase}, ${stabilitySharePhrase}; variance indicates ${stabilityVariancePhrase}.`,
+    `Net: ${netClassification}.`,
+  ];
+
+  return { header, bullets };
 }
 
-function buildComparisonBullet(
-  metric: string,
+function describeAvgComparison(metric: string, valueA: number, valueB: number, labelA: string, labelB: string) {
+  if (valueA === valueB) {
+    return `average ${metric.toLowerCase()} is comparable between ${labelA} and ${labelB}`;
+  }
+  const leader = valueA > valueB ? labelA : labelB;
+  return `${leader} shows higher average ${metric.toLowerCase()}`;
+}
+
+function describeShareComparison(
+  shareLabel: string,
   valueA: number,
   valueB: number,
   labelA: string,
   labelB: string,
 ) {
-  if (valueA === valueB) {
-    return `${metricLabel(metric)} averages are balanced across ${labelA} and ${labelB}.`;
+  const diff = Math.abs(valueA - valueB);
+  const formattedA = formatPct(valueA);
+  const formattedB = formatPct(valueB);
+
+  if (diff <= 3) {
+    return `${shareLabel} share is comparable (${formattedA} vs ${formattedB})`;
   }
 
   const leader = valueA > valueB ? labelA : labelB;
-  return `${leader} shows higher average ${metricLabel(metric)}.`;
+  return `${leader} has higher ${shareLabel} share (${formattedA} vs ${formattedB})`;
 }
 
-function metricLabel(metric: string) {
-  switch (metric) {
-    case "return":
-      return "return";
-    case "pressure":
-      return "pressure";
-    case "stability":
-      return "stability";
-    default:
-      return metric;
+function describeVarianceComparison(labelA: string, labelB: string, labelAName: string, labelBName: string) {
+  if (labelA === labelB) {
+    return `both are ${varianceLabelToPhrase(labelA)} (${labelA})`;
   }
+
+  const scoreA = varianceLabelScore(labelA);
+  const scoreB = varianceLabelScore(labelB);
+
+  if (scoreA < scoreB) {
+    return `${labelAName} is ${varianceLabelToPhrase(labelA)} while ${labelBName} is ${varianceLabelToPhrase(labelB)} (${labelA} vs ${labelB})`;
+  }
+
+  return `${labelBName} is ${varianceLabelToPhrase(labelB)} while ${labelAName} is ${varianceLabelToPhrase(labelA)} (${labelB} vs ${labelA})`;
+}
+
+function varianceLabelScore(label: string) {
+  switch (label) {
+    case "Tight":
+      return 0;
+    case "Moderate":
+      return 1;
+    case "Volatile":
+      return 2;
+    default:
+      return 1;
+  }
+}
+
+function varianceLabelToPhrase(label: string) {
+  switch (label) {
+    case "Tight":
+      return "more consistent / tighter signal";
+    case "Moderate":
+      return "moderately consistent";
+    case "Volatile":
+      return "more variable / less predictable";
+    default:
+      return "moderately consistent";
+  }
+}
+
+function buildSummaryHeader({
+  labelA,
+  labelB,
+  returnAvg,
+  returnAvgB,
+  stabilityAvg,
+  stabilityAvgB,
+  returnVariance,
+  returnVarianceB,
+}: {
+  labelA: string;
+  labelB: string;
+  returnAvg: number;
+  returnAvgB: number;
+  stabilityAvg: number;
+  stabilityAvgB: number;
+  returnVariance: string;
+  returnVarianceB: string;
+}) {
+  const returnLeader = describeLeader(returnAvg, returnAvgB, labelA, labelB);
+  const stabilityLeader = describeLeader(stabilityAvg, stabilityAvgB, labelA, labelB);
+  const returnConsistency = describeConsistencyComparison(returnVariance, returnVarianceB, labelA, labelB);
+
+  if (returnLeader === "comparable" && stabilityLeader === "comparable") {
+    return `Return and Stability are comparable across ${labelA} and ${labelB}, with ${returnConsistency}.`;
+  }
+
+  if (returnLeader === stabilityLeader) {
+    return `${returnLeader} shows higher Return and Stability, with ${returnConsistency}.`;
+  }
+
+  if (returnLeader === "comparable") {
+    return `Stability favors ${stabilityLeader} while Return is comparable, with ${returnConsistency}.`;
+  }
+
+  if (stabilityLeader === "comparable") {
+    return `Return favors ${returnLeader} while Stability is comparable, with ${returnConsistency}.`;
+  }
+
+  return `Return favors ${returnLeader} while Stability favors ${stabilityLeader}, with ${returnConsistency}.`;
+}
+
+function describeLeader(valueA: number, valueB: number, labelA: string, labelB: string) {
+  if (valueA === valueB) return "comparable";
+  return valueA > valueB ? labelA : labelB;
+}
+
+function describeConsistencyComparison(labelA: string, labelB: string, labelAName: string, labelBName: string) {
+  if (labelA === labelB) {
+    return `comparable Return consistency (${labelA})`;
+  }
+
+  const scoreA = varianceLabelScore(labelA);
+  const scoreB = varianceLabelScore(labelB);
+
+  if (scoreA < scoreB) {
+    return `${labelAName} showing ${varianceLabelToPhrase(labelA)} Return`;
+  }
+  return `${labelBName} showing ${varianceLabelToPhrase(labelB)} Return`;
+}
+
+function describeNetClassification(dnavA: number, dnavB: number, labelA: string, labelB: string) {
+  if (dnavA === dnavB) {
+    return `overall D-NAV levels are comparable between ${labelA} and ${labelB}`;
+  }
+  const leader = dnavA > dnavB ? labelA : labelB;
+  return `${leader} operates with higher overall D-NAV`;
+}
+
+function formatPct(value: number) {
+  if (!Number.isFinite(value)) return "0.0%";
+  return `${value.toFixed(1)}%`;
 }
 
 function buildReturnSegments(buckets: { pctPositive: number; pctNeutral: number; pctNegative: number }): MetricDistributionSegment[] {
@@ -370,61 +583,4 @@ function buildVarianceCell(value: number, bands: { lower: number; upper: number 
   if (value <= bands.lower) return { value, label: "Tight" };
   if (value <= bands.upper) return { value, label: "Moderate" };
   return { value, label: "Volatile" };
-}
-
-function buildDistributionSummaryLine(cohortA: CohortSummary, cohortB: CohortSummary) {
-  const returnLeader = compareMetric(cohortA.avgReturn, cohortB.avgReturn);
-  const stabilityLeader = compareMetric(cohortA.avgStability, cohortB.avgStability);
-  const pressureLeader = compareMetric(cohortA.avgPressure, cohortB.avgPressure);
-
-  const basePhrase = buildReturnStabilityPhrase(
-    returnLeader,
-    stabilityLeader,
-    cohortA.label,
-    cohortB.label,
-  );
-
-  const pressureClause =
-    pressureLeader === "tie"
-      ? "with Pressure levels balanced."
-      : `with higher Pressure exposure in ${pressureLeader === "A" ? cohortA.label : cohortB.label}.`;
-
-  return `${basePhrase} ${pressureClause}`;
-}
-
-type MetricLeader = "A" | "B" | "tie";
-
-function compareMetric(valueA: number, valueB: number): MetricLeader {
-  if (valueA === valueB) return "tie";
-  return valueA > valueB ? "A" : "B";
-}
-
-function buildReturnStabilityPhrase(
-  returnLeader: MetricLeader,
-  stabilityLeader: MetricLeader,
-  labelA: string,
-  labelB: string,
-) {
-  if (returnLeader === "tie" && stabilityLeader === "tie") {
-    return `Return and Stability are balanced between ${labelA} and ${labelB}`;
-  }
-
-  if (returnLeader !== "tie" && returnLeader === stabilityLeader) {
-    const leaderLabel = returnLeader === "A" ? labelA : labelB;
-    return `${leaderLabel} shows higher Return and Stability`;
-  }
-
-  if (returnLeader === "tie") {
-    const leaderLabel = stabilityLeader === "A" ? labelA : labelB;
-    return `Return is balanced while ${leaderLabel} shows higher Stability`;
-  }
-
-  if (stabilityLeader === "tie") {
-    const leaderLabel = returnLeader === "A" ? labelA : labelB;
-    return `Stability is balanced while ${leaderLabel} shows higher Return`;
-  }
-
-  const returnLabel = returnLeader === "A" ? labelA : labelB;
-  const stabilityLabel = stabilityLeader === "A" ? labelA : labelB;
-  return `Return is higher for ${returnLabel} while Stability is higher for ${stabilityLabel}`;
 }
