@@ -11,6 +11,8 @@ import {
   XAxis,
   YAxis,
 } from "recharts";
+import type { TooltipProps } from "recharts";
+import type { NameType, ValueType } from "recharts/types/component/DefaultTooltipContent";
 
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
@@ -44,6 +46,10 @@ const dnavColor = "hsl(var(--chart-4))";
 const rpsTicks = [-9, -6, -3, 0, 3, 6, 9];
 const dnavTicks = [-18, 0, 18, 36, 54, 72, 90, 108];
 
+type RechartsTooltip = TooltipProps<ValueType, NameType> & {
+  metricLabel?: string;
+};
+
 export function TemporalTrajectoryPanel({
   data,
   windowSize,
@@ -53,6 +59,10 @@ export function TemporalTrajectoryPanel({
   windowOptions = [25, 50, 100],
 }: TemporalTrajectoryPanelProps) {
   const hasData = data.length > 0;
+  const renderTooltip =
+    (metricLabel?: string) =>
+    (props: TooltipProps<ValueType, NameType>) =>
+      <TrajectoryTooltip metricLabel={metricLabel} {...props} />;
 
   return (
     <div className="rounded-2xl border bg-muted/30 p-4">
@@ -135,7 +145,7 @@ export function TemporalTrajectoryPanel({
                   interval={0}
                   label={{ value: "D-NAV", angle: 90, position: "insideRight", offset: 10, fontSize: 11 }}
                 />
-                <Tooltip content={<TrajectoryTooltip />} />
+                <Tooltip content={renderTooltip()} />
                 <Legend wrapperStyle={{ fontSize: 12 }} />
                 <Line
                   type="monotone"
@@ -210,7 +220,7 @@ export function TemporalTrajectoryPanel({
                       ticks={rpsTicks}
                       interval={0}
                     />
-                    <Tooltip content={<TrajectoryTooltip />} />
+                    <Tooltip content={renderTooltip("R · P · S")} />
                     <Legend wrapperStyle={{ fontSize: 12 }} />
                     <Line
                       type="monotone"
@@ -269,7 +279,7 @@ export function TemporalTrajectoryPanel({
                       ticks={dnavTicks}
                       interval={0}
                     />
-                    <Tooltip content={<TrajectoryTooltip />} />
+                    <Tooltip content={renderTooltip("D-NAV")} />
                     <Line
                       type="monotone"
                       dataKey="dnav"
@@ -292,17 +302,26 @@ export function TemporalTrajectoryPanel({
   );
 }
 
-function TrajectoryTooltip({
-  label,
-  payload,
-}: {
-  label?: number | string;
-  payload?: { name?: string; value?: number }[];
-}) {
-  if (!payload || payload.length === 0) return null;
+function TrajectoryTooltip({ active, label, payload, metricLabel }: RechartsTooltip) {
+  if (!active || !payload || payload.length === 0) return null;
+
+  if (metricLabel) {
+    const first = payload[0];
+    const rawVal = first?.value;
+    const val = typeof rawVal === "number" ? rawVal : Number(typeof rawVal === "string" ? rawVal : NaN);
+
+    return (
+      <div className="rounded-md border bg-background/95 px-3 py-2 text-xs shadow-sm">
+        <div className="font-medium">{metricLabel}</div>
+        <div className="text-muted-foreground">Decision {label ?? "—"}</div>
+        <div className="mt-1 font-semibold">{Number.isFinite(val) ? val.toFixed(2) : "—"}</div>
+      </div>
+    );
+  }
+
   return (
     <div className="rounded-md border bg-background/95 px-3 py-2 text-xs shadow-sm">
-      <p className="mb-1 font-semibold text-foreground">Decision {label}</p>
+      <p className="mb-1 font-semibold text-foreground">Decision {label ?? "—"}</p>
       <div className="space-y-1 text-muted-foreground">
         {payload.map((item) => (
           <div key={item.name} className="flex items-center justify-between gap-6">
