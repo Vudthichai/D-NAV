@@ -72,7 +72,13 @@ function normalizeDecision(raw: unknown) {
   const ret = record["return"] ?? record["Return"] ?? record["R"];
   const pres = record["pressure"] ?? record["Pressure"] ?? record["P"];
   const stab = record["stability"] ?? record["Stability"] ?? record["S"];
-  const dn = record["dnav"] ?? record["dNav"] ?? record["D-NAV"] ?? record["DNAV"] ?? record["D_NAV"];
+  const dn =
+    record["dnav"] ??
+    record["dNav"] ??
+    record["D-NAV"] ??
+    record["DNAV"] ??
+    record["D_NAV"] ??
+    record["D"];
 
   return {
     return: toNumberOrNull(ret),
@@ -263,11 +269,11 @@ function ReportsPageContent() {
     const sorted = [...temporalDataset.decisions].sort((a, b) => a.ts - b.ts);
     const resolvedWindowSize =
       temporalWindowSize > 0 ? Math.min(temporalWindowSize, sorted.length) : sorted.length;
-    const mapped = sorted.map((decision, index) => ({
+    const windowed = resolvedWindowSize > 0 ? sorted.slice(-resolvedWindowSize) : sorted;
+    return windowed.map((decision, index) => ({
       xIndex: index + 1,
       ...normalizeDecision(decision),
     }));
-    return resolvedWindowSize > 0 ? mapped.slice(-resolvedWindowSize) : mapped;
   }, [temporalDataset, temporalWindowSize]);
 
   useEffect(() => {
