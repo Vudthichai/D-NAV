@@ -161,18 +161,16 @@ export function AdaptationPanel({
             recentCount={recent.length}
           />
 
-          {hasPrevious ? (
-            <AdaptationVerdict
-              hasPrevious={hasPrevious}
-              returnDelta={metrics[0].delta}
-              pressureDelta={metrics[1].delta}
-              stabilityDelta={metrics[2].delta}
-            />
-          ) : (
-            <div className="rounded-2xl border bg-card/70 p-4 text-sm text-muted-foreground shadow-sm">
-              Add another window to generate a comparison verdict.
-            </div>
-          )}
+          <AdaptationVerdict
+            hasPrevious={hasPrevious}
+            returnDelta={metrics[0].delta}
+            pressureDelta={metrics[1].delta}
+            stabilityDelta={metrics[2].delta}
+            returnShare={recentShares.return.positive}
+            pressureShare={recentShares.pressure.positive}
+            stabilityShare={recentShares.stability.positive}
+            consistencyLabel={consistencyLabel}
+          />
         </div>
       )}
     </div>
