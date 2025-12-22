@@ -39,28 +39,28 @@ export function buildAdaptationVerdict({
         : "stability held steady";
 
   if (returnDirection === "up" && pressureDirection === "down") {
-    return "Signal strengthened while pressure eased. This window reads more legibly.";
+    return "Signal up; pressure eased.";
   }
 
   if (pressureDirection === "up" && stabilityDirection === "down") {
-    return "Pressure intensified without added stability. Reliability may feel strained.";
+    return "Pressure up; stability down.";
   }
 
   if (returnDirection === "up" && stabilityDirection === "down") {
-    return "Mixed shift: signal improved but stability fell; expect more swing.";
+    return "Signal up; stability down.";
   }
 
   if (returnDirection === "down" && pressureDirection === "up") {
-    return "Signal softened as pressure intensified; legibility is harder to read.";
+    return "Signal down; pressure up.";
   }
 
   if (returnDirection === "down" && stabilityDirection === "down") {
-    return "Signal softened and stability fell; reliability may feel noisier.";
+    return "Signal down; stability down.";
   }
 
   if (returnDirection === "up" && stabilityDirection !== "down") {
-    return `Signal strengthened with ${stabilityPhrase}; legibility looks clearer.`;
+    return `Signal up; ${stabilityPhrase}.`;
   }
 
-  return `Signal held steady with ${pressurePhrase} and ${stabilityPhrase}.`;
+  return `Signal steady; ${pressurePhrase}; ${stabilityPhrase}.`;
 }
