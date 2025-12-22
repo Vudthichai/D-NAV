@@ -24,27 +24,10 @@ export type WindowSlice = {
   previous: DecisionEntry[];
 };
 
-const DEFAULT_ALL_RECENT = 50;
-
 export function sliceRecentAndPrevious(decisions: DecisionEntry[], windowSize: number): WindowSlice {
   if (decisions.length === 0) return { recent: [], previous: [] };
   const sorted = [...decisions].sort((a, b) => a.ts - b.ts);
-
-  if (windowSize <= 0) {
-    if (sorted.length >= DEFAULT_ALL_RECENT * 2) {
-      return {
-        recent: sorted.slice(-DEFAULT_ALL_RECENT),
-        previous: sorted.slice(-DEFAULT_ALL_RECENT * 2, -DEFAULT_ALL_RECENT),
-      };
-    }
-    const midpoint = Math.floor(sorted.length / 2);
-    return {
-      previous: sorted.slice(0, midpoint),
-      recent: sorted.slice(midpoint),
-    };
-  }
-
-  const resolvedWindow = Math.min(windowSize, sorted.length);
+  const resolvedWindow = windowSize <= 0 ? sorted.length : Math.min(windowSize, sorted.length);
   const recent = sorted.slice(-resolvedWindow);
   const previousStart = Math.max(0, sorted.length - resolvedWindow * 2);
   const previous = sorted.slice(previousStart, sorted.length - resolvedWindow);
@@ -81,6 +64,26 @@ export function computeBasicStats(decisions: DecisionEntry[]): BasicStats {
   };
 }
 
+export function computeConsistencyStd(decisions: DecisionEntry[]): number | null {
+  const dnavValues = decisions
+    .map((decision) => decision.dnav)
+    .filter((value): value is number => Number.isFinite(value));
+
+  if (dnavValues.length > 0) {
+    return std(dnavValues);
+  }
+
+  const returnValues = decisions
+    .map((decision) => decision.return)
+    .filter((value): value is number => Number.isFinite(value));
+
+  if (returnValues.length > 0) {
+    return std(returnValues);
+  }
+
+  return null;
+}
+
 export type DeltaDirection = "up" | "down" | "flat";
 
 export function getDeltaDirection(delta: number, epsilon = 0.1): DeltaDirection {
@@ -88,37 +91,17 @@ export function getDeltaDirection(delta: number, epsilon = 0.1): DeltaDirection 
   return delta > 0 ? "up" : "down";
 }
 
-export function formatDelta(value: number, digits = 1): string {
+export function formatDeltaPp(value: number, digits = 1): string {
   const absValue = Math.abs(value);
   const formatted = absValue.toFixed(digits);
-  if (value > 0) return `+${formatted}%`;
-  if (value < 0) return `−${formatted}%`;
-  return `${formatted}%`;
+  if (value > 0) return `+${formatted}pp`;
+  if (value < 0) return `−${formatted}pp`;
+  return `${formatted}pp`;
 }
 
 export function formatPercent(value: number, digits = 1): string {
   if (!Number.isFinite(value)) return "0.0%";
   return `${value.toFixed(digits)}%`;
-}
-
-export function getConsistencyLabel(stdValue: number | null): "Tight" | "Moderate" | "Volatile" | "—" {
-  if (stdValue === null || !Number.isFinite(stdValue)) return "—";
-  if (stdValue <= 3) return "Tight";
-  if (stdValue <= 6) return "Moderate";
-  return "Volatile";
-}
-
-export function scoreConsistency(label: "Tight" | "Moderate" | "Volatile" | "—"): number {
-  switch (label) {
-    case "Tight":
-      return 3;
-    case "Moderate":
-      return 2;
-    case "Volatile":
-      return 1;
-    default:
-      return 0;
-  }
 }
 
 function toBucketShares(buckets: { pctNegative: number; pctNeutral: number; pctPositive: number }): BucketShares {
