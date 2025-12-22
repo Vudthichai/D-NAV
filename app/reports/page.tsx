@@ -45,7 +45,6 @@ import {
   type NormalizationBasis,
 } from "@/lib/compare/types";
 import { filterDecisionsByTimeframe } from "@/utils/judgmentDashboard";
-import { normalizeDecisionMetrics } from "@/lib/inspector";
 import { buildRangeLabel } from "@/utils/judgmentUnits";
 import { FileDown } from "lucide-react";
 import * as XLSX from "xlsx";
@@ -167,7 +166,6 @@ function ReportsPageContent() {
   const [temporalDatasetId, setTemporalDatasetId] = useState<DatasetId | null>(defaultDatasetAId);
   const [compareTimeframe, setCompareTimeframe] = useState<TimeframeValue>(resolvedTimeframe);
   const [temporalWindowSize, setTemporalWindowSize] = useState(0);
-  const [temporalOverlayView, setTemporalOverlayView] = useState(false);
   const [isCompareLoading, setIsCompareLoading] = useState(false);
   const [compareMode, setCompareMode] = useState<CompareMode>("entity");
   const [compareResult, setCompareResult] = useState<CompareResult | null>(null);
@@ -226,23 +224,6 @@ function ReportsPageContent() {
   const temporalDataset = useMemo(
     () => getDatasetById(temporalDatasetId) ?? null,
     [getDatasetById, temporalDatasetId],
-  );
-  const temporalWindowedDecisions = useMemo(() => {
-    if (!temporalDataset) return [];
-    const sorted = [...temporalDataset.decisions].sort((a, b) => a.ts - b.ts);
-    const resolvedWindowSize =
-      temporalWindowSize > 0 ? Math.min(temporalWindowSize, sorted.length) : sorted.length;
-    const windowed = resolvedWindowSize > 0 ? sorted.slice(-resolvedWindowSize) : sorted;
-    return windowed;
-  }, [temporalDataset, temporalWindowSize]);
-
-  const temporalTrajectoryData = useMemo(
-    () =>
-      temporalWindowedDecisions.map((decision, index) => ({
-        xIndex: index + 1,
-        ...normalizeDecisionMetrics(decision),
-      })),
-    [temporalWindowedDecisions],
   );
 
   useEffect(() => {
@@ -712,12 +693,9 @@ function ReportsPageContent() {
               )}
               {compareMode === "temporal" && (
                 <TemporalTrajectoryPanel
-                  data={temporalTrajectoryData}
-                  decisions={temporalWindowedDecisions}
+                  decisions={temporalDataset?.decisions ?? []}
                   windowSize={temporalWindowSize}
                   onWindowSizeChange={setTemporalWindowSize}
-                  overlay={temporalOverlayView}
-                  onOverlayChange={setTemporalOverlayView}
                 />
               )}
 
