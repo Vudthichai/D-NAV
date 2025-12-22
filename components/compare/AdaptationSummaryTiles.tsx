@@ -12,6 +12,7 @@ import {
 } from "@/lib/adaptation";
 import type { DispersionStats } from "@/lib/compare/adaptation";
 import { getDeltaDirection } from "@/lib/compare/adaptation";
+import { buildAdaptationCopy } from "@/lib/adaptationCopy";
 
 export type AdaptationSummaryTilesProps = {
   hasPrevious: boolean;
@@ -49,17 +50,34 @@ export function AdaptationSummaryTiles({
   const consistencyDelta = computeDelta(dispersion.stddev, previousDispersion.stddev);
   const consistencyDeltaLabel = hasPrevious ? formatDelta(consistencyDelta) : "—";
   const windowLabel = resolveWindowLabel(windowSize, recentCount);
+  const copy = buildAdaptationCopy({
+    hasPreviousWindow: hasPrevious,
+    deltas: {
+      returnPosPP: hasPrevious ? returnDelta : null,
+      pressurePressuredPP: hasPrevious ? pressureDelta : null,
+      stabilityStablePP: hasPrevious ? stabilityDelta : null,
+    },
+    levels: {
+      returnPosPct: returnShare,
+      pressurePressuredPct: pressureShare,
+      stabilityStablePct: stabilityShare,
+    },
+    consistency: {
+      label: consistencyLabel,
+      spread: dispersion.stddev ?? undefined,
+      rangeMin: dispersion.min ?? undefined,
+      rangeMax: dispersion.max ?? undefined,
+    },
+  });
 
   return (
     <div className="rounded-2xl border bg-card/70 p-4 shadow-sm">
       <div className="space-y-3">
         <div>
           <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
-            What changed in the last {windowLabel} decisions
+            Summary · last {windowLabel} decisions
           </p>
-          <p className="text-xs text-muted-foreground">
-            Signal (Return), Load (Pressure), Coherence (Stability), Repeatability (Consistency).
-          </p>
+          <p className="text-xs text-muted-foreground">{copy.headlineSummary}</p>
         </div>
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
           <SignalTile
@@ -73,6 +91,7 @@ export function AdaptationSummaryTiles({
             value={consistencyLabel}
             dispersion={dispersion}
             deltaLabel={consistencyDeltaLabel}
+            helperText="Repeatability reflects how consistent your judgment is — not whether it was correct."
           />
           <SummaryTile
             label="Pressure load"
@@ -162,9 +181,10 @@ type ConsistencyTileProps = {
   value: ConsistencyLabel;
   dispersion: DispersionStats;
   deltaLabel: string;
+  helperText: string;
 };
 
-function ConsistencyTile({ label, value, dispersion, deltaLabel }: ConsistencyTileProps) {
+function ConsistencyTile({ label, value, dispersion, deltaLabel, helperText }: ConsistencyTileProps) {
   const [open, setOpen] = useState(false);
   const spreadLabel = formatNumber(dispersion.stddev);
   const rangeLabel = formatRange(dispersion.min, dispersion.max);
@@ -182,6 +202,7 @@ function ConsistencyTile({ label, value, dispersion, deltaLabel }: ConsistencyTi
       </div>
       <p className="text-sm font-semibold text-foreground">{value}</p>
       <p className="text-[11px] text-muted-foreground">{meaning}</p>
+      <p className="text-[11px] text-muted-foreground">{helperText}</p>
       <div className="mt-1 space-y-0.5 text-[11px] text-muted-foreground">
         <p>Spread σ: {spreadLabel}</p>
         <p>Range: {rangeLabel}</p>

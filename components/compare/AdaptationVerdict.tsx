@@ -1,12 +1,16 @@
 "use client";
 
-import { buildAdaptationVerdict } from "@/lib/adaptationVerdict";
+import { buildAdaptationCopy } from "@/lib/adaptationCopy";
 
 type AdaptationVerdictProps = {
   hasPrevious: boolean;
   returnDelta: number;
   pressureDelta: number;
   stabilityDelta: number;
+  returnShare: number;
+  pressureShare: number;
+  stabilityShare: number;
+  consistencyLabel: string;
 };
 
 export function AdaptationVerdict({
@@ -14,19 +18,33 @@ export function AdaptationVerdict({
   returnDelta,
   pressureDelta,
   stabilityDelta,
+  returnShare,
+  pressureShare,
+  stabilityShare,
+  consistencyLabel,
 }: AdaptationVerdictProps) {
-  const verdict = buildAdaptationVerdict({
-    hasPrevious,
-    returnDelta,
-    pressureDelta,
-    stabilityDelta,
+  const copy = buildAdaptationCopy({
+    hasPreviousWindow: hasPrevious,
+    deltas: {
+      returnPosPP: hasPrevious ? returnDelta : null,
+      pressurePressuredPP: hasPrevious ? pressureDelta : null,
+      stabilityStablePP: hasPrevious ? stabilityDelta : null,
+    },
+    levels: {
+      returnPosPct: returnShare,
+      pressurePressuredPct: pressureShare,
+      stabilityStablePct: stabilityShare,
+    },
+    consistency: {
+      label: consistencyLabel,
+    },
   });
 
   return (
     <div className="rounded-2xl border bg-card/70 p-4 shadow-sm">
       <div className="space-y-2">
         <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Adaptation Verdict</p>
-        <p className="text-sm text-muted-foreground">{verdict}</p>
+        <p className="text-sm text-muted-foreground">{copy.verdict}</p>
       </div>
     </div>
   );
