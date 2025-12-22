@@ -3,6 +3,7 @@
 import React from "react";
 
 import type { DecisionEntry } from "@/lib/calculations";
+import { resolveDecisionLabel } from "@/lib/decisionLabel";
 
 export type TemporalProgressPanelProps = {
   decisions: DecisionEntry[];
@@ -24,7 +25,7 @@ export function TemporalProgressPanel({ decisions }: TemporalProgressPanelProps)
         ) : (
           <ul className="space-y-2">
             {decisions.map((decision) => {
-              const label = getRegimeLabel(decision);
+              const label = resolveDecisionLabel(decision);
 
               return (
                 <li key={`${decision.ts}-${decision.name}`} className="flex items-center justify-between rounded-lg border bg-background/60 px-3 py-2">
@@ -38,29 +39,4 @@ export function TemporalProgressPanel({ decisions }: TemporalProgressPanelProps)
       </div>
     </div>
   );
-}
-
-function getOptionalString(value: unknown): string | null {
-  if (typeof value !== "string") return null;
-  const trimmed = value.trim();
-  return trimmed.length > 0 ? trimmed : null;
-}
-
-function getRegimeLabel(decision: DecisionEntry): string {
-  const candidates = [
-    decision.regime,
-    decision.regimeLabel,
-    decision.policy,
-    decision.policyLabel,
-    decision.vehicleSegment,
-    decision.archetype,
-    decision.label,
-  ];
-
-  for (const candidate of candidates) {
-    const resolved = getOptionalString(candidate);
-    if (resolved) return resolved;
-  }
-
-  return "Unlabeled";
 }
