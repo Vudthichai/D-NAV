@@ -65,7 +65,7 @@ export function useReportsData({
 }): ReportsDataResult {
   const { getDatasetById } = useDataset();
   const dataset = useMemo(() => getDatasetById(datasetId) ?? null, [datasetId, getDatasetById]);
-  const decisions = dataset?.decisions ?? [];
+  const decisions = useMemo(() => dataset?.decisions ?? [], [dataset]);
   const company = useMemo<CompanyContext>(
     () => datasetMetaToCompanyContext(dataset?.meta ?? getEmptyDatasetMeta()),
     [dataset],
