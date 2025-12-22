@@ -12,7 +12,7 @@ import {
 } from "@/lib/adaptation";
 import type { DispersionStats } from "@/lib/compare/adaptation";
 import { getDeltaDirection } from "@/lib/compare/adaptation";
-import { buildAdaptationCopy } from "@/lib/adaptationCopy";
+import { buildAdaptationCopy } from "@/lib/adaptation/copy";
 
 export type AdaptationSummaryTilesProps = {
   hasPrevious: boolean;
@@ -64,9 +64,8 @@ export function AdaptationSummaryTiles({
     },
     consistency: {
       label: consistencyLabel,
-      spread: dispersion.stddev ?? undefined,
-      rangeMin: dispersion.min ?? undefined,
-      rangeMax: dispersion.max ?? undefined,
+      stddev: dispersion.stddev ?? null,
+      previousStddev: previousDispersion.stddev ?? null,
     },
   });
 
@@ -82,7 +81,9 @@ export function AdaptationSummaryTiles({
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
           <SignalTile
             label="Signal"
-            value={signalLabel}
+            value={copy.tendencyLabel}
+            definition={copy.tendencyDefinition}
+            signalLabel={signalLabel}
             shareLabel={formatPct(returnShare)}
             deltaLabel={signalDeltaLabel}
           />
@@ -91,19 +92,18 @@ export function AdaptationSummaryTiles({
             value={consistencyLabel}
             dispersion={dispersion}
             deltaLabel={consistencyDeltaLabel}
-            helperText="Repeatability reflects how consistent your judgment is — not whether it was correct."
           />
           <SummaryTile
             label="Pressure load"
             value={formatPct(pressureShare)}
             subLabel={pressureDeltaLabel}
-            infoContent="Pressure-positive share in this window; delta vs previous."
+            infoContent="Share of decisions in Pressured bucket."
           />
           <SummaryTile
             label="Stability share"
             value={formatPct(stabilityShare)}
             subLabel={stabilityDeltaLabel}
-            infoContent="Stability-positive share in this window; delta vs previous."
+            infoContent="Share of decisions in Stable bucket."
           />
         </div>
       </div>
@@ -150,11 +150,13 @@ function SummaryTile({ label, value, subLabel, infoContent }: SummaryTileProps) 
 type SignalTileProps = {
   label: string;
   value: string;
+  definition: string;
+  signalLabel: string;
   shareLabel: string;
   deltaLabel: string;
 };
 
-function SignalTile({ label, value, shareLabel, deltaLabel }: SignalTileProps) {
+function SignalTile({ label, value, definition, signalLabel, shareLabel, deltaLabel }: SignalTileProps) {
   const [open, setOpen] = useState(false);
   return (
     <div className="rounded-xl border bg-background/70 px-3 py-2">
@@ -163,13 +165,13 @@ function SignalTile({ label, value, shareLabel, deltaLabel }: SignalTileProps) {
         <InfoButton label="Signal details" isOpen={open} onToggle={() => setOpen((prev) => !prev)} />
       </div>
       <p className="text-sm font-semibold text-foreground">{value}</p>
+      <p className="text-[11px] text-muted-foreground">{definition}</p>
+      <p className="text-[11px] text-muted-foreground">Signal: {signalLabel}</p>
       <p className="text-[11px] text-muted-foreground">Positive Return: {shareLabel}</p>
       <p className="text-[11px] text-muted-foreground">Δ {deltaLabel}</p>
       {open ? (
         <div className="mt-2 rounded-md border bg-muted/40 p-2 text-[11px] text-muted-foreground">
           Positive Return share in this window; delta vs previous.
-          <br />
-          Threshold: {formatPP(SIGNAL_DELTA_THRESHOLD)}.
         </div>
       ) : null}
     </div>
@@ -181,10 +183,9 @@ type ConsistencyTileProps = {
   value: ConsistencyLabel;
   dispersion: DispersionStats;
   deltaLabel: string;
-  helperText: string;
 };
 
-function ConsistencyTile({ label, value, dispersion, deltaLabel, helperText }: ConsistencyTileProps) {
+function ConsistencyTile({ label, value, dispersion, deltaLabel }: ConsistencyTileProps) {
   const [open, setOpen] = useState(false);
   const spreadLabel = formatNumber(dispersion.stddev);
   const rangeLabel = formatRange(dispersion.min, dispersion.max);
@@ -202,7 +203,6 @@ function ConsistencyTile({ label, value, dispersion, deltaLabel, helperText }: C
       </div>
       <p className="text-sm font-semibold text-foreground">{value}</p>
       <p className="text-[11px] text-muted-foreground">{meaning}</p>
-      <p className="text-[11px] text-muted-foreground">{helperText}</p>
       <div className="mt-1 space-y-0.5 text-[11px] text-muted-foreground">
         <p>Spread σ: {spreadLabel}</p>
         <p>Range: {rangeLabel}</p>
@@ -239,9 +239,9 @@ function InfoButton({ label, isOpen, onToggle }: InfoButtonProps) {
 }
 
 function getConsistencyMeaning(label: ConsistencyLabel): string {
-  if (label === "Tight") return "Scores cluster tightly.";
-  if (label === "Moderate") return "Some swing, mostly steady.";
-  if (label === "Volatile") return "Large swings between decisions.";
+  if (label === "Tight") return "Highly repeatable decision quality.";
+  if (label === "Moderate") return "Some variation; generally consistent.";
+  if (label === "Volatile") return "Decision quality swings more between decisions.";
   return "—";
 }
 

@@ -1,6 +1,7 @@
 "use client";
 
-import { buildAdaptationCopy } from "@/lib/adaptationCopy";
+import type { ConsistencyLabel } from "@/lib/adaptation";
+import { buildAdaptationCopy } from "@/lib/adaptation/copy";
 
 type AdaptationVerdictProps = {
   hasPrevious: boolean;
@@ -10,7 +11,7 @@ type AdaptationVerdictProps = {
   returnShare: number;
   pressureShare: number;
   stabilityShare: number;
-  consistencyLabel: string;
+  consistencyLabel: ConsistencyLabel;
 };
 
 export function AdaptationVerdict({
