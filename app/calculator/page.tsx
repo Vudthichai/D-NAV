@@ -1846,7 +1846,7 @@ export default function TheDNavPage() {
           {showAnalytics && (
             <div className="mt-8 flex justify-center gap-4 pdf-ignore">
               <Button size="lg" onClick={handleOpenCompare}>
-                Compare Decisions
+                Leverage (Sensitivity)
               </Button>
               <Button
                 variant="outline"
@@ -1872,7 +1872,6 @@ export default function TheDNavPage() {
           open={showCompare}
           onOpenChange={setShowCompare}
           baseVariables={variables}
-          baseMetrics={metrics}
         />
       </main>
     </TooltipProvider>
