@@ -482,7 +482,7 @@ function formatDriver(key: string, delta: number) {
 }
 
 function getModeSummary(mode: CompareMode): string {
-  if (mode === "temporal") return "Change: What’s different?";
+  if (mode === "adaptation") return "Adaptation: What’s changing inside the system?";
   if (mode === "velocity") return "Speed: How fast do meaningful patterns form?";
   return "Posture: What kind of judgment system is this?";
 }

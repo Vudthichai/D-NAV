@@ -1,13 +1,12 @@
 "use client";
 
 import React from "react";
-import type { CompareResult, ScatterPoint } from "@/lib/compare/types";
+import type { CompareResult } from "@/lib/compare/types";
 import { buildScatterPoints } from "@/lib/compare/visuals";
 import { computeQuadrantShares, computeSteadiness, determineRegimeCall } from "@/lib/compare/evidence";
 import { DISTRIBUTION_EPSILON, distributionBuckets, percentile } from "@/lib/compare/stats";
 import { CompareSummaryTable } from "@/components/compare/CompareSummaryTable";
 import { EvidenceSummary } from "@/components/compare/EvidenceSummary";
-import { EvidenceTemporalPanel } from "@/components/compare/EvidenceTemporalPanel";
 import { MetricDistribution, type MetricDistributionSegment } from "@/components/reports/MetricDistribution";
 
 interface SystemComparePanelProps {
@@ -30,13 +29,11 @@ const SystemComparePanel: React.FC<SystemComparePanelProps> = ({ result, warning
   const postureSeriesB = posture?.cohortB.series ?? [];
 
   const isSequenceMode = cohortA.timeframeMode === "sequence" || cohortB.timeframeMode === "sequence";
-  const labelA = result.mode === "temporal" ? "Period A" : cohortA.label;
-  const labelB = result.mode === "temporal" ? "Period B" : cohortB.label;
+  const labelA = cohortA.label;
+  const labelB = cohortB.label;
 
   const scatterPointsA = buildScatterPoints(postureSeriesA, result.mode, { useSequence: isSequenceMode });
   const scatterPointsB = buildScatterPoints(postureSeriesB, result.mode, { useSequence: isSequenceMode });
-  const scatterDomain: [number, number] = deriveScatterDomain([...scatterPointsA, ...scatterPointsB]);
-
   const returnBucketsA = distributionBuckets(postureSeriesA.map((point) => point.R), DISTRIBUTION_EPSILON);
   const returnBucketsB = distributionBuckets(postureSeriesB.map((point) => point.R), DISTRIBUTION_EPSILON);
   const pressureBucketsA = distributionBuckets(postureSeriesA.map((point) => point.P), DISTRIBUTION_EPSILON);
@@ -224,32 +221,7 @@ const SystemComparePanel: React.FC<SystemComparePanelProps> = ({ result, warning
         </div>
       )}
 
-      {result.mode === "temporal" && (
-        <EvidenceTemporalPanel
-          scatterA={{
-            id: "A",
-            label: labelA,
-            color: "hsl(var(--foreground))",
-            points: scatterPointsA,
-            centroid: { xPressure: cohortA.avgPressure, yReturn: cohortA.avgReturn },
-            std: { pressure: cohortA.stdPressure, return: cohortA.stdReturn },
-          }}
-          scatterB={{
-            id: "B",
-            label: labelB,
-            color: "hsl(var(--primary))",
-            points: scatterPointsB,
-            centroid: { xPressure: cohortB.avgPressure, yReturn: cohortB.avgReturn },
-            std: { pressure: cohortB.stdPressure, return: cohortB.stdReturn },
-          }}
-          scatterDomain={scatterDomain}
-          sequenceMode={isSequenceMode}
-        />
-      )}
-
-      {result.mode === "temporal" && (
-        <CompareSummaryTable labelA={labelA} labelB={labelB} rows={summaryRows} />
-      )}
+      {result.mode !== "entity" && <CompareSummaryTable labelA={labelA} labelB={labelB} rows={summaryRows} />}
 
       {showDebug && result.developerDetails && (
         <div className="rounded-xl border bg-muted/40 p-4">
@@ -290,14 +262,6 @@ function DistributionColumn({
       </div>
     </div>
   );
-}
-
-function deriveScatterDomain(points: ScatterPoint[]): [number, number] {
-  if (!points.length) return [-9, 9];
-  const values = points.flatMap((point) => [point.xPressure, point.yReturn]);
-  const min = Math.max(-9, Math.min(...values) - 0.5);
-  const max = Math.min(9, Math.max(...values) + 0.5);
-  return [min, max];
 }
 
 type SummaryInput = {

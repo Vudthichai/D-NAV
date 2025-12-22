@@ -4,9 +4,9 @@ import type { CompareMode, RPSPoint, ScatterPoint, VelocityGoalTarget, VelocityR
 
 type ScatterBuildOptions = { useSequence?: boolean };
 
-export function buildScatterPoints(series: PostureSeriesPoint[] | undefined, mode: CompareMode, options?: ScatterBuildOptions): ScatterPoint[] {
+export function buildScatterPoints(series: PostureSeriesPoint[] | undefined, _mode: CompareMode, options?: ScatterBuildOptions): ScatterPoint[] {
   if (!series || series.length === 0) return [];
-  const useSequence = options?.useSequence ?? mode === "temporal";
+  const useSequence = options?.useSequence ?? false;
   return series
     .map((point, idx): ScatterPoint | null => {
       const xPressure = point.P;

@@ -1,6 +1,6 @@
 import type { PostureContrast, PostureSummary } from "../judgment/posture";
 
-export type CompareMode = "entity" | "temporal" | "velocity";
+export type CompareMode = "entity" | "adaptation" | "velocity";
 
 export type RPSPoint = { x: string | number; R: number; P: number; S: number };
 
