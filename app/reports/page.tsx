@@ -6,7 +6,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 
 import DatasetSelect from "@/components/DatasetSelect";
 import SystemComparePanel from "@/components/SystemComparePanel";
-import { TemporalTrajectoryPanel } from "@/components/compare/TemporalTrajectoryPanel";
+import { AdaptationPanel } from "@/components/compare/AdaptationPanel";
 import { MetricDistribution } from "@/components/reports/MetricDistribution";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -163,9 +163,9 @@ function ReportsPageContent() {
   const [selectedTimeframe, setSelectedTimeframe] = useState<TimeframeValue>(resolvedTimeframe);
   const [datasetAId, setDatasetAId] = useState<DatasetId | null>(defaultDatasetAId);
   const [datasetBId, setDatasetBId] = useState<DatasetId | null>(defaultDatasetBId);
-  const [temporalDatasetId, setTemporalDatasetId] = useState<DatasetId | null>(defaultDatasetAId);
+  const [adaptationDatasetId, setAdaptationDatasetId] = useState<DatasetId | null>(defaultDatasetAId);
   const [compareTimeframe, setCompareTimeframe] = useState<TimeframeValue>(resolvedTimeframe);
-  const [temporalWindowSize, setTemporalWindowSize] = useState(0);
+  const [adaptationWindowSize, setAdaptationWindowSize] = useState(25);
   const [isCompareLoading, setIsCompareLoading] = useState(false);
   const [compareMode, setCompareMode] = useState<CompareMode>("entity");
   const [compareResult, setCompareResult] = useState<CompareResult | null>(null);
@@ -204,7 +204,7 @@ function ReportsPageContent() {
 
   useEffect(() => {
     setDatasetAId(datasetId ?? defaultDatasetAId);
-    setTemporalDatasetId((current) => current ?? datasetId ?? defaultDatasetAId);
+    setAdaptationDatasetId((current) => current ?? datasetId ?? defaultDatasetAId);
   }, [datasetId, defaultDatasetAId]);
 
   useEffect(() => {
@@ -214,16 +214,16 @@ function ReportsPageContent() {
     if (datasetBId && !datasets.some((dataset) => dataset.id === datasetBId)) {
       setDatasetBId(datasets.at(1)?.id ?? null);
     }
-    if (temporalDatasetId && !datasets.some((dataset) => dataset.id === temporalDatasetId)) {
-      setTemporalDatasetId(datasets[0]?.id ?? null);
+    if (adaptationDatasetId && !datasets.some((dataset) => dataset.id === adaptationDatasetId)) {
+      setAdaptationDatasetId(datasets[0]?.id ?? null);
     }
-  }, [datasetAId, datasetBId, datasets, temporalDatasetId]);
+  }, [datasetAId, datasetBId, datasets, adaptationDatasetId]);
 
   const datasetA = useMemo(() => getDatasetById(datasetAId) ?? null, [datasetAId, getDatasetById]);
   const datasetB = useMemo(() => getDatasetById(datasetBId) ?? null, [datasetBId, getDatasetById]);
-  const temporalDataset = useMemo(
-    () => getDatasetById(temporalDatasetId) ?? null,
-    [getDatasetById, temporalDatasetId],
+  const adaptationDataset = useMemo(
+    () => getDatasetById(adaptationDatasetId) ?? null,
+    [getDatasetById, adaptationDatasetId],
   );
 
   useEffect(() => {
@@ -559,8 +559,8 @@ function ReportsPageContent() {
                 <div className="space-y-1">
                   <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Compare</p>
                   <p className="text-xs text-muted-foreground">
-                    {compareMode === "temporal"
-                      ? "Track how a single system evolves across sequential decisions."
+                    {compareMode === "adaptation"
+                      ? "Track how a single system adapts between recent and prior decision windows."
                       : compareResult?.modeSummary ?? "Choose a mode to compare systems."}
                   </p>
                 </div>
@@ -590,17 +590,17 @@ function ReportsPageContent() {
                     </SelectTrigger>
                     <SelectContent>
                       <SelectItem value="entity">Entity</SelectItem>
-                      <SelectItem value="temporal">Temporal</SelectItem>
+                      <SelectItem value="adaptation">Adaptation</SelectItem>
                     </SelectContent>
                   </Select>
                   <p className="text-[11px] text-muted-foreground">
                     {compareMode === "entity"
                       ? "Compare two systems over the same timeframe."
-                      : "View a single system as a decision-by-decision trajectory."}
+                      : "Compare recent vs prior windows within a single system."}
                   </p>
                 </div>
 
-                {compareMode !== "temporal" && (
+                {compareMode === "entity" && (
                   <div className="rounded-2xl border bg-card/70 p-4 shadow-sm space-y-2">
                     <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">System A</p>
                     <p className="text-xs text-muted-foreground">{datasetALabel || "Select a dataset"}</p>
@@ -619,7 +619,7 @@ function ReportsPageContent() {
                   </div>
                 )}
 
-                {compareMode !== "temporal" && (
+                {compareMode === "entity" && (
                   <div className="rounded-2xl border bg-card/70 p-4 shadow-sm space-y-2">
                     <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">System B</p>
                     <p className="text-xs text-muted-foreground">
@@ -644,19 +644,19 @@ function ReportsPageContent() {
                   </div>
                 )}
 
-                {compareMode === "temporal" && (
+                {compareMode === "adaptation" && (
                   <div className="rounded-2xl border bg-card/70 p-4 shadow-sm space-y-2 md:col-span-2 lg:col-span-2">
                     <div className="flex flex-wrap items-start justify-between gap-3">
                       <div>
                         <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Dataset</p>
                         <p className="text-xs text-muted-foreground">
-                          {resolveDatasetLabel(temporalDatasetId) || "Select a dataset"}
+                          {resolveDatasetLabel(adaptationDatasetId) || "Select a dataset"}
                         </p>
                       </div>
                     </div>
                     <Select
-                      value={temporalDatasetId ?? undefined}
-                      onValueChange={(value) => setTemporalDatasetId(value as DatasetId)}
+                      value={adaptationDatasetId ?? undefined}
+                      onValueChange={(value) => setAdaptationDatasetId(value as DatasetId)}
                     >
                       <SelectTrigger className="w-full">
                         <SelectValue placeholder="Select dataset" />
@@ -691,11 +691,11 @@ function ReportsPageContent() {
                   ))}
                 </div>
               )}
-              {compareMode === "temporal" && (
-                <TemporalTrajectoryPanel
-                  decisions={temporalDataset?.decisions ?? []}
-                  windowSize={temporalWindowSize}
-                  onWindowSizeChange={setTemporalWindowSize}
+              {compareMode === "adaptation" && (
+                <AdaptationPanel
+                  decisions={adaptationDataset?.decisions ?? []}
+                  windowSize={adaptationWindowSize}
+                  onWindowSizeChange={setAdaptationWindowSize}
                 />
               )}
 
