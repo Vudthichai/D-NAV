@@ -9,6 +9,7 @@ import { classifyConsistency } from "@/lib/adaptation";
 import { cn } from "@/lib/utils";
 import {
   computeBucketShares,
+  computeDispersionStats,
   computeConsistencyStd,
   sliceRecentAndPrevious,
   type BucketShares,
@@ -53,6 +54,8 @@ export function AdaptationPanel({
   const hasPrevious = previous.length > 0;
 
   const consistencyStd = useMemo(() => computeConsistencyStd(recent), [recent]);
+  const recentDispersion = useMemo(() => computeDispersionStats(recent), [recent]);
+  const previousDispersion = useMemo(() => computeDispersionStats(previous), [previous]);
   const consistencyLabel = classifyConsistency(consistencyStd);
 
   const metrics: AdaptationMetric[] = useMemo(
@@ -148,9 +151,14 @@ export function AdaptationPanel({
             returnDelta={metrics[0].delta}
             pressureDelta={metrics[1].delta}
             stabilityDelta={metrics[2].delta}
+            returnShare={recentShares.return.positive}
             pressureShare={recentShares.pressure.positive}
             stabilityShare={recentShares.stability.positive}
             consistencyLabel={consistencyLabel}
+            dispersion={recentDispersion}
+            previousDispersion={previousDispersion}
+            windowSize={windowSize}
+            recentCount={recent.length}
           />
 
           {hasPrevious ? (

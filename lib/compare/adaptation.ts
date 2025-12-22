@@ -1,4 +1,5 @@
 import type { DecisionEntry } from "@/lib/storage";
+import { formatPP, safeMinMax, stddev } from "@/lib/adaptation";
 import { distributionBuckets, mean, std } from "@/lib/compare/stats";
 
 export type BucketShares = {
@@ -17,6 +18,13 @@ export type BasicStats = {
   meanDnav: number | null;
   varianceDnav: number | null;
   stdDnav: number | null;
+};
+
+export type DispersionStats = {
+  stddev: number | null;
+  min: number | null;
+  max: number | null;
+  source: "dnav" | "return" | "none";
 };
 
 export type WindowSlice = {
@@ -65,23 +73,7 @@ export function computeBasicStats(decisions: DecisionEntry[]): BasicStats {
 }
 
 export function computeConsistencyStd(decisions: DecisionEntry[]): number | null {
-  const dnavValues = decisions
-    .map((decision) => decision.dnav)
-    .filter((value): value is number => Number.isFinite(value));
-
-  if (dnavValues.length > 0) {
-    return std(dnavValues);
-  }
-
-  const returnValues = decisions
-    .map((decision) => decision.return)
-    .filter((value): value is number => Number.isFinite(value));
-
-  if (returnValues.length > 0) {
-    return std(returnValues);
-  }
-
-  return null;
+  return computeDispersionStats(decisions).stddev;
 }
 
 export type DeltaDirection = "up" | "down" | "flat";
@@ -92,11 +84,7 @@ export function getDeltaDirection(delta: number, epsilon = 0.1): DeltaDirection 
 }
 
 export function formatDeltaPp(value: number, digits = 1): string {
-  const absValue = Math.abs(value);
-  const formatted = absValue.toFixed(digits);
-  if (value > 0) return `+${formatted}pp`;
-  if (value < 0) return `−${formatted}pp`;
-  return `${formatted}pp`;
+  return formatPP(value, digits);
 }
 
 export function formatPercent(value: number, digits = 1): string {
@@ -110,4 +98,36 @@ function toBucketShares(buckets: { pctNegative: number; pctNeutral: number; pctP
     neutral: buckets.pctNeutral,
     positive: buckets.pctPositive,
   };
+}
+
+export function computeDispersionStats(decisions: DecisionEntry[]): DispersionStats {
+  const dnavValues = decisions
+    .map((decision) => decision.dnav)
+    .filter((value): value is number => Number.isFinite(value));
+
+  if (dnavValues.length > 0) {
+    const { min, max } = safeMinMax(dnavValues);
+    return {
+      stddev: stddev(dnavValues),
+      min,
+      max,
+      source: "dnav",
+    };
+  }
+
+  const returnValues = decisions
+    .map((decision) => decision.return)
+    .filter((value): value is number => Number.isFinite(value));
+
+  if (returnValues.length > 0) {
+    const { min, max } = safeMinMax(returnValues);
+    return {
+      stddev: stddev(returnValues),
+      min,
+      max,
+      source: "return",
+    };
+  }
+
+  return { stddev: null, min: null, max: null, source: "none" };
 }
