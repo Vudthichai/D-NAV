@@ -51,7 +51,13 @@ export interface DecisionEntry extends DecisionVariables, DecisionMetrics {
   pressure1?: number;
   stability1?: number;
   dnavScore?: number;
-  archetype?: string;
+  regime?: string | null;
+  regimeLabel?: string | null;
+  policy?: string | null;
+  policyLabel?: string | null;
+  vehicleSegment?: string | null;
+  archetype?: string | null;
+  label?: string | null;
   resolutionWindow?: number | string;
   resolvedAt?: number | null;
 }
