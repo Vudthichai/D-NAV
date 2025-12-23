@@ -36,10 +36,21 @@ interface CompareSheetProps {
 interface ScenarioConfig {
   id: string;
   name: string;
+  source: "baseline" | "custom" | "history";
+  isEdited: boolean;
   variables: DecisionVariables;
 }
 
 const clampVariable = (value: number) => Math.min(10, Math.max(1, Number.isFinite(value) ? value : 1));
+const makeInitialScenarios = (baseVariables: DecisionVariables): ScenarioConfig[] => [
+  {
+    id: "baseline",
+    name: "Baseline",
+    source: "baseline",
+    isEdited: false,
+    variables: { ...baseVariables },
+  },
+];
 
 export default function CompareSheet({
   open,
@@ -47,10 +58,25 @@ export default function CompareSheet({
   baseVariables,
   baseMetrics,
 }: CompareSheetProps) {
-  const [scenarios, setScenarios] = useState<ScenarioConfig[]>([]);
+  const [rawScenarios, setRawScenarios] = useState<ScenarioConfig[]>(() =>
+    makeInitialScenarios(baseVariables)
+  );
   const [historyResetKey, setHistoryResetKey] = useState(0);
   const counter = useRef(1);
   const history = useMemo(() => (open ? loadLog() : []), [open]);
+
+  const scenarios = useMemo(() => {
+    return rawScenarios.map((scenario) => {
+      if (scenario.source !== "baseline") return scenario;
+      if (scenario.isEdited) return scenario;
+      return { ...scenario, variables: { ...baseVariables } };
+    });
+  }, [rawScenarios, baseVariables]);
+
+  const displayScenarios = useMemo(
+    () => scenarios.filter((scenario) => scenario.source !== "baseline"),
+    [scenarios]
+  );
 
   const baseSummary = useMemo(() => {
     return {
@@ -65,11 +91,13 @@ export default function CompareSheet({
 
   const addScenario = () => {
     const nextId = counter.current++;
-    setScenarios((prev) => [
+    setRawScenarios((prev) => [
       ...prev,
       {
         id: `scenario-${nextId}`,
         name: `Scenario ${nextId}`,
+        source: "custom",
+        isEdited: false,
         variables: { ...baseVariables },
       },
     ]);
@@ -77,11 +105,13 @@ export default function CompareSheet({
 
   const addScenarioFromDecision = (decision: DecisionEntry) => {
     const nextId = counter.current++;
-    setScenarios((prev) => [
+    setRawScenarios((prev) => [
       ...prev,
       {
         id: `scenario-${nextId}`,
         name: decision.name || `Logged decision ${nextId}`,
+        source: "history",
+        isEdited: false,
         variables: {
           impact: clampVariable(decision.impact),
           cost: clampVariable(decision.cost),
@@ -94,11 +124,13 @@ export default function CompareSheet({
   };
 
   const removeScenario = (id: string) => {
-    setScenarios((prev) => prev.filter((scenario) => scenario.id !== id));
+    setRawScenarios((prev) =>
+      prev.filter((scenario) => scenario.id !== id || scenario.source === "baseline")
+    );
   };
 
   const updateScenarioName = (id: string, name: string) => {
-    setScenarios((prev) =>
+    setRawScenarios((prev) =>
       prev.map((scenario) =>
         scenario.id === id
           ? {
@@ -111,7 +143,7 @@ export default function CompareSheet({
   };
 
   const updateScenarioVariable = (id: string, key: LeverageKey, value: number) => {
-    setScenarios((prev) =>
+    setRawScenarios((prev) =>
       prev.map((scenario) => {
         if (scenario.id !== id) return scenario;
         if (key === "interaction") return scenario;
@@ -123,6 +155,7 @@ export default function CompareSheet({
 
         return {
           ...scenario,
+          isEdited: true,
           variables: updatedVariables,
         };
       })
@@ -272,7 +305,7 @@ export default function CompareSheet({
                 </CardContent>
               </Card>
 
-              {scenarios.length === 0 ? (
+              {displayScenarios.length === 0 ? (
                 <Card className="w-[480px] shrink-0 border-dashed">
                   <CardContent className="py-12 text-center text-sm text-muted-foreground">
                     No scenarios yet. Click <strong>Add scenario</strong> to start exploring
@@ -280,7 +313,7 @@ export default function CompareSheet({
                   </CardContent>
                 </Card>
               ) : (
-                scenarios.map((scenario) => {
+                displayScenarios.map((scenario) => {
                   const { id, name, variables } = scenario;
                   const scenarioTitle = name.trim() || "This scenario";
 
