@@ -4,6 +4,22 @@ export interface MetricExplainer {
 }
 
 const metricExplainers: Record<string, MetricExplainer> = {
+  Return: {
+    description: "Net upside after costs; positive means impact outweighs the burn.",
+    example: "Impact 8 and cost 5 yields return +3.",
+  },
+  Pressure: {
+    description: "Urgency relative to confidence; positive means time pressure is winning.",
+    example: "Urgency 9 and confidence 5 yields pressure +4.",
+  },
+  Stability: {
+    description: "Confidence relative to risk; positive means evidence beats downside.",
+    example: "Confidence 7 and risk 4 yields stability +3.",
+  },
+  Interaction: {
+    description: "Variables amplify each other (e.g., urgency makes confidence changes matter more).",
+    example: "High urgency doubles the payoff of improving confidence.",
+  },
   "Total Decisions": {
     description: "Count of decisions recorded in the selected window.",
     example: "Logging 12 choices this month results in 12 total decisions.",
