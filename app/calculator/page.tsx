@@ -1872,7 +1872,6 @@ export default function TheDNavPage() {
           open={showCompare}
           onOpenChange={setShowCompare}
           baseVariables={variables}
-          baseMetrics={metrics}
         />
       </main>
     </TooltipProvider>
