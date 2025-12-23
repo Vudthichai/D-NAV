@@ -7,7 +7,7 @@ export interface DecisionVariables {
   confidence: number;
 }
 
-export type LeverageKey = keyof DecisionVariables | "interaction";
+export type LeverageRowKey = "impact" | "cost" | "risk" | "urgency" | "confidence" | "interaction";
 
 export interface DecisionMetrics {
   return: number;

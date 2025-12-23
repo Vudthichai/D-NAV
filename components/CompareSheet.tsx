@@ -1,9 +1,10 @@
 "use client";
 
-import { Plus, Trash2 } from "lucide-react";
-import { useMemo, useRef, useState } from "react";
+import { Info, Plus, Trash2 } from "lucide-react";
+import { useEffect, useMemo, useRef, useState } from "react";
 
-import ComparePanel from "@/components/ComparePanel";
+import { InfoTooltip } from "@/components/InfoTooltip";
+import LeveragePanel from "@/components/LeveragePanel";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -22,7 +23,12 @@ import {
   SheetHeader,
   SheetTitle,
 } from "@/components/ui/sheet";
-import { DecisionEntry, DecisionMetrics, DecisionVariables, LeverageKey } from "@/lib/calculations";
+import {
+  DecisionEntry,
+  DecisionMetrics,
+  DecisionVariables,
+  computeMetrics,
+} from "@/lib/calculations";
 import { loadLog } from "@/lib/storage";
 import SliderRow from "./SliderRow";
 
@@ -37,9 +43,95 @@ interface ScenarioConfig {
   id: string;
   name: string;
   variables: DecisionVariables;
+  isEdited: boolean;
+  source: "baseline" | "log";
 }
 
 const clampVariable = (value: number) => Math.min(10, Math.max(1, Number.isFinite(value) ? value : 1));
+
+const formatValue = (value: number) => (Number.isInteger(value) ? value.toString() : value.toFixed(1));
+
+const formatSigned = (value: number) => {
+  if (value === 0) return "0";
+  const prefix = value > 0 ? "+" : "-";
+  return `${prefix}${formatValue(Math.abs(value))}`;
+};
+
+const MetricLabel = ({ term, label }: { term: string; label: string }) => (
+  <InfoTooltip term={term}>
+    <span className="inline-flex items-center gap-1 text-[11px] uppercase text-muted-foreground cursor-help">
+      {label}
+      <Info className="h-3 w-3" />
+    </span>
+  </InfoTooltip>
+);
+
+const DeltaPill = ({
+  label,
+  value,
+  tooltipTerm,
+}: {
+  label: string;
+  value: number;
+  tooltipTerm?: string;
+}) => {
+  const color = value > 0 ? "text-emerald-600" : value < 0 ? "text-rose-600" : "text-muted-foreground";
+
+  return (
+    <div className="flex flex-col rounded-md border bg-muted/30 px-3 py-2">
+      {tooltipTerm ? (
+        <InfoTooltip term={tooltipTerm}>
+          <span className="inline-flex items-center gap-1 text-[11px] uppercase text-muted-foreground cursor-help">
+            {label}
+            <Info className="h-3 w-3" />
+          </span>
+        </InfoTooltip>
+      ) : (
+        <span className="text-[11px] uppercase text-muted-foreground">{label}</span>
+      )}
+      <span className={`text-sm font-semibold ${color}`}>{formatSigned(value)}</span>
+    </div>
+  );
+};
+
+const getBestNudge = (base: DecisionVariables, scenario: DecisionVariables) => {
+  const baseDnav = computeMetrics(base).dnav;
+  const keys = Object.keys(base) as Array<keyof DecisionVariables>;
+  let best = {
+    key: keys[0],
+    direction: 1 as 1 | -1,
+    delta: -Infinity,
+    newDnav: baseDnav,
+  };
+
+  keys.forEach((key) => {
+    ([-1, 1] as const).forEach((direction) => {
+      const nextValue = clampVariable(scenario[key] + direction);
+      if (nextValue === scenario[key]) return;
+      const trial = { ...scenario, [key]: nextValue } as DecisionVariables;
+      const trialDnav = computeMetrics(trial).dnav;
+      const delta = trialDnav - baseDnav;
+      if (delta > best.delta) {
+        best = { key, direction, delta, newDnav: trialDnav };
+      }
+    });
+  });
+
+  if (best.delta === -Infinity) {
+    return { ...best, delta: 0, newDnav: baseDnav };
+  }
+
+  return best;
+};
+
+const labelForKey = (key: keyof DecisionVariables) =>
+  ({
+    impact: "Impact",
+    cost: "Cost",
+    risk: "Risk",
+    urgency: "Urgency",
+    confidence: "Confidence",
+  })[key];
 
 export default function CompareSheet({
   open,
@@ -52,16 +144,29 @@ export default function CompareSheet({
   const counter = useRef(1);
   const history = useMemo(() => (open ? loadLog() : []), [open]);
 
-  const baseSummary = useMemo(() => {
-    return {
-      return: baseMetrics.return,
-      stability: baseMetrics.stability,
-      pressure: baseMetrics.pressure,
-      merit: baseMetrics.merit,
-      energy: baseMetrics.energy,
-      dnav: baseMetrics.dnav,
-    };
-  }, [baseMetrics]);
+  useEffect(() => {
+    if (!open || scenarios.length > 0) return;
+    const nextId = counter.current++;
+    setScenarios([
+      {
+        id: `scenario-${nextId}`,
+        name: `Scenario ${nextId}`,
+        variables: { ...baseVariables },
+        isEdited: false,
+        source: "baseline",
+      },
+    ]);
+  }, [open, scenarios.length, baseVariables]);
+
+  useEffect(() => {
+    setScenarios((prev) =>
+      prev.map((scenario) => {
+        if (scenario.source !== "baseline" || scenario.isEdited) return scenario;
+        return { ...scenario, variables: { ...baseVariables } };
+      })
+    );
+    // Rebase only untouched baseline-derived scenarios when the main calculator changes.
+  }, [baseVariables]);
 
   const addScenario = () => {
     const nextId = counter.current++;
@@ -71,6 +176,8 @@ export default function CompareSheet({
         id: `scenario-${nextId}`,
         name: `Scenario ${nextId}`,
         variables: { ...baseVariables },
+        isEdited: false,
+        source: "baseline",
       },
     ]);
   };
@@ -89,6 +196,8 @@ export default function CompareSheet({
           urgency: clampVariable(decision.urgency),
           confidence: clampVariable(decision.confidence),
         },
+        isEdited: true,
+        source: "log",
       },
     ]);
   };
@@ -110,11 +219,10 @@ export default function CompareSheet({
     );
   };
 
-  const updateScenarioVariable = (id: string, key: LeverageKey, value: number) => {
+  const updateScenarioVariable = (id: string, key: keyof DecisionVariables, value: number) => {
     setScenarios((prev) =>
       prev.map((scenario) => {
         if (scenario.id !== id) return scenario;
-        if (key === "interaction") return scenario;
 
         const updatedVariables = {
           ...scenario.variables,
@@ -123,6 +231,7 @@ export default function CompareSheet({
 
         return {
           ...scenario,
+          isEdited: true,
           variables: updatedVariables,
         };
       })
@@ -142,224 +251,247 @@ export default function CompareSheet({
         className="w-full overflow-y-auto px-6 sm:max-w-[92vw] sm:px-8 lg:max-w-[88vw] lg:px-10 xl:max-w-[80vw]"
       >
         <SheetHeader>
-          <SheetTitle>Compare Scenarios</SheetTitle>
+          <SheetTitle>Judgment Lab</SheetTitle>
           <SheetDescription>
-            Use your current decision as the base line, then explore alternative scenarios to see
-            how return, stability, and pressure shift.
+            Use your base decision as a baseline, then run controlled nudges to see what actually
+            moves Return, Pressure, and Stability.
           </SheetDescription>
         </SheetHeader>
 
         <div className="space-y-6 py-6">
-          <div className="flex flex-wrap items-center justify-between gap-3">
-            <div>
-              <h3 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">
-                Scenarios
-              </h3>
-              <p className="text-sm text-muted-foreground">
-                Add a scenario to adjust variables and compare the resulting metrics side-by-side.
-              </p>
-            </div>
-            <div className="flex items-center gap-2">
-              {history.length > 0 && (
-                <Select
-                  key={historyResetKey}
-                  onValueChange={(value) => {
-                    handleAddScenarioFromHistory(value);
-                    setHistoryResetKey((prev) => prev + 1);
-                  }}
-                >
-                  <SelectTrigger size="sm" className="min-w-[180px]">
-                    <SelectValue placeholder="Add from log" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {history.map((entry) => {
-                      const date = new Date(entry.ts);
-                      return (
-                        <SelectItem key={entry.ts} value={entry.ts.toString()}>
-                          <span className="flex flex-col text-left">
-                            <span className="font-medium">{entry.name || "Untitled decision"}</span>
-                            <span className="text-[11px] text-muted-foreground">
-                              {date.toLocaleDateString()} • D-NAV {entry.dnav}
-                            </span>
-                          </span>
-                        </SelectItem>
-                      );
-                    })}
-                  </SelectContent>
-                </Select>
-              )}
-              <Button onClick={addScenario} variant="outline" size="sm">
-                <Plus className="mr-2 h-4 w-4" /> Add scenario
-              </Button>
-            </div>
-          </div>
+          <div className="grid gap-6 lg:grid-cols-[minmax(240px,1fr)_minmax(280px,1fr)_minmax(360px,1.2fr)]">
+            <Card className="h-full">
+              <CardHeader className="pb-3">
+                <CardTitle className="text-base font-semibold">Base decision</CardTitle>
+                <p className="text-xs text-muted-foreground">
+                  Snapshot of the current calculator sliders (read-only).
+                </p>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="space-y-2">
+                  <h4 className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+                    Decision variables
+                  </h4>
+                  <div className="grid grid-cols-2 gap-3 text-sm">
+                    {(
+                      [
+                        ["Impact", baseVariables.impact],
+                        ["Cost", baseVariables.cost],
+                        ["Risk", baseVariables.risk],
+                        ["Urgency", baseVariables.urgency],
+                        ["Confidence", baseVariables.confidence],
+                      ] as const
+                    ).map(([label, value]) => (
+                      <div key={label} className="rounded-lg border bg-muted/30 px-3 py-2">
+                        <div className="text-[11px] uppercase text-muted-foreground">{label}</div>
+                        <div className="text-sm font-semibold text-foreground">{value}</div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
 
-          <div className="overflow-x-auto">
-            <div className="flex items-start gap-4 pb-4">
-              <Card className="w-[1000px] shrink-0">
-                <CardHeader className="pb-3">
-                  <CardTitle className="text-base font-semibold">Base decision</CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-5">
-                  <div className="space-y-2">
-                    <h4 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                      Decision variables
-                    </h4>
-                    <div className="flex flex-nowrap gap-4 overflow-x-auto text-sm">
-                      <div className="w-[96px]">
-                        <div className="text-[11px] uppercase text-muted-foreground">Impact</div>
-                        <div className="font-semibold text-foreground">{baseVariables.impact}</div>
-                      </div>
-                      <div className="w-[96px]">
-                        <div className="text-[11px] uppercase text-muted-foreground">Cost</div>
-                        <div className="font-semibold text-foreground">{baseVariables.cost}</div>
-                      </div>
-                      <div className="w-[96px]">
-                        <div className="text-[11px] uppercase text-muted-foreground">Risk</div>
-                        <div className="font-semibold text-foreground">{baseVariables.risk}</div>
-                      </div>
-                      <div className="w-[96px]">
-                        <div className="text-[11px] uppercase text-muted-foreground">Urgency</div>
-                        <div className="font-semibold text-foreground">{baseVariables.urgency}</div>
-                      </div>
-                      <div className="w-[110px]">
-                        <div className="text-[11px] uppercase text-muted-foreground">
-                          Confidence
-                        </div>
-                        <div className="font-semibold text-foreground">
-                          {baseVariables.confidence}
-                        </div>
-                      </div>
+                <div className="space-y-2">
+                  <h4 className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+                    Metrics
+                  </h4>
+                  <div className="grid grid-cols-2 gap-3 text-sm">
+                    <div>
+                      <MetricLabel term="Return" label="Return" />
+                      <div className="font-semibold text-foreground">{baseMetrics.return}</div>
+                    </div>
+                    <div>
+                      <MetricLabel term="Pressure" label="Pressure" />
+                      <div className="font-semibold text-foreground">{baseMetrics.pressure}</div>
+                    </div>
+                    <div>
+                      <MetricLabel term="Stability" label="Stability" />
+                      <div className="font-semibold text-foreground">{baseMetrics.stability}</div>
+                    </div>
+                    <div>
+                      <div className="text-[11px] uppercase text-muted-foreground">Energy</div>
+                      <div className="font-semibold text-foreground">{baseMetrics.energy}</div>
+                    </div>
+                    <div>
+                      <div className="text-[11px] uppercase text-muted-foreground">D-NAV</div>
+                      <div className="font-semibold text-foreground">{baseMetrics.dnav}</div>
+                    </div>
+                    <div>
+                      <div className="text-[11px] uppercase text-muted-foreground">Merit</div>
+                      <div className="font-semibold text-foreground">{baseMetrics.merit}</div>
                     </div>
                   </div>
+                </div>
+              </CardContent>
+            </Card>
 
-                  <div className="space-y-2">
-                    <h4 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                      Metrics
-                    </h4>
-                    <div className="grid grid-cols-2 gap-3 text-sm sm:grid-cols-3">
-                      <div>
-                        <div className="text-[11px] uppercase text-muted-foreground">Return</div>
-                        <div className="font-semibold text-foreground">{baseSummary.return}</div>
-                      </div>
-                      <div>
-                        <div className="text-[11px] uppercase text-muted-foreground">Stability</div>
-                        <div className="font-semibold text-foreground">{baseSummary.stability}</div>
-                      </div>
-                      <div>
-                        <div className="text-[11px] uppercase text-muted-foreground">Pressure</div>
-                        <div className="font-semibold text-foreground">{baseSummary.pressure}</div>
-                      </div>
-                      <div>
-                        <div className="text-[11px] uppercase text-muted-foreground">Merit</div>
-                        <div className="font-semibold text-foreground">{baseSummary.merit}</div>
-                      </div>
-                      <div>
-                        <div className="text-[11px] uppercase text-muted-foreground">Energy</div>
-                        <div className="font-semibold text-foreground">{baseSummary.energy}</div>
-                      </div>
-                      <div>
-                        <div className="text-[11px] uppercase text-muted-foreground">D-NAV</div>
-                        <div className="font-semibold text-foreground">{baseSummary.dnav}</div>
-                      </div>
-                    </div>
-                  </div>
+            <LeveragePanel baseInputs={baseVariables} />
 
-                  <p className="text-xs text-muted-foreground">
-                    These values reflect the sliders from the calculator. Use them as the baseline
-                    when crafting scenarios.
+            <div className="space-y-4">
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <div>
+                  <h3 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">
+                    Scenarios
+                  </h3>
+                  <p className="text-sm text-muted-foreground">
+                    Explore how controlled nudges change D-NAV, return, pressure, and stability.
                   </p>
-                </CardContent>
-              </Card>
+                </div>
+                <div className="flex items-center gap-2">
+                  {history.length > 0 && (
+                    <Select
+                      key={historyResetKey}
+                      onValueChange={(value) => {
+                        handleAddScenarioFromHistory(value);
+                        setHistoryResetKey((prev) => prev + 1);
+                      }}
+                    >
+                      <SelectTrigger size="sm" className="min-w-[180px]">
+                        <SelectValue placeholder="Add from log" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {history.map((entry) => {
+                          const date = new Date(entry.ts);
+                          return (
+                            <SelectItem key={entry.ts} value={entry.ts.toString()}>
+                              <span className="flex flex-col text-left">
+                                <span className="font-medium">{entry.name || "Untitled decision"}</span>
+                                <span className="text-[11px] text-muted-foreground">
+                                  {date.toLocaleDateString()} • D-NAV {entry.dnav}
+                                </span>
+                              </span>
+                            </SelectItem>
+                          );
+                        })}
+                      </SelectContent>
+                    </Select>
+                  )}
+                  <Button onClick={addScenario} variant="outline" size="sm">
+                    <Plus className="mr-2 h-4 w-4" /> Add scenario
+                  </Button>
+                </div>
+              </div>
 
-              {scenarios.length === 0 ? (
-                <Card className="w-[480px] shrink-0 border-dashed">
-                  <CardContent className="py-12 text-center text-sm text-muted-foreground">
-                    No scenarios yet. Click <strong>Add scenario</strong> to start exploring
-                    alternatives.
-                  </CardContent>
-                </Card>
-              ) : (
-                scenarios.map((scenario) => {
-                  const { id, name, variables } = scenario;
-                  const scenarioTitle = name.trim() || "This scenario";
+              <div className="space-y-4">
+                {scenarios.length === 0 ? (
+                  <Card className="border-dashed">
+                    <CardContent className="py-10 text-center text-sm text-muted-foreground">
+                      No scenarios yet. Click <strong>Add scenario</strong> to start exploring alternatives.
+                    </CardContent>
+                  </Card>
+                ) : (
+                  scenarios.map((scenario) => {
+                    const { id, name, variables } = scenario;
+                    const scenarioMetrics = computeMetrics(variables);
+                    const scenarioTitle = name.trim() || "This scenario";
+                    const nudge = getBestNudge(baseVariables, variables);
 
-                  return (
-                    <Card key={id} className="w-[480px] shrink-0">
-                      <CardHeader className="pb-4">
-                        <div className="flex flex-wrap items-center gap-3">
-                          <CardTitle className="flex-1 text-base font-semibold">
-                            <Input
-                              value={name}
-                              onChange={(event) => updateScenarioName(id, event.target.value)}
-                              placeholder="Scenario name"
-                              className="h-10"
+                    return (
+                      <Card key={id} className="border">
+                        <CardHeader className="pb-4">
+                          <div className="flex flex-wrap items-center gap-3">
+                            <CardTitle className="flex-1 text-base font-semibold">
+                              <Input
+                                value={name}
+                                onChange={(event) => updateScenarioName(id, event.target.value)}
+                                placeholder="Scenario name"
+                                className="h-10"
+                              />
+                            </CardTitle>
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="icon"
+                              onClick={() => removeScenario(id)}
+                              className="text-muted-foreground hover:text-destructive"
+                              aria-label={`Remove ${name}`}
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
+                          </div>
+                        </CardHeader>
+                        <CardContent className="space-y-5">
+                          <div className="flex flex-wrap gap-2">
+                            <DeltaPill label="ΔD-NAV" value={scenarioMetrics.dnav - baseMetrics.dnav} />
+                            <DeltaPill
+                              label="ΔReturn"
+                              value={scenarioMetrics.return - baseMetrics.return}
+                              tooltipTerm="Return"
                             />
-                          </CardTitle>
-                          <Button
-                            type="button"
-                            variant="ghost"
-                            size="icon"
-                            onClick={() => removeScenario(id)}
-                            className="text-muted-foreground hover:text-destructive"
-                            aria-label={`Remove ${name}`}
-                          >
-                            <Trash2 className="h-4 w-4" />
-                          </Button>
-                        </div>
-                      </CardHeader>
-                      <CardContent className="space-y-6">
-                        <ComparePanel base={baseVariables} scenario={variables} title={scenarioTitle} />
-
-                        <Separator />
-
-                        <div className="space-y-2">
-                          <h4 className="text-sm font-semibold text-muted-foreground uppercase">
-                            Adjust variables
-                          </h4>
-                          <div className="space-y-4">
-                            <SliderRow
-                              id={`${id}-impact`}
-                              label="Impact"
-                              hint="Expected benefit / upside"
-                              value={variables.impact}
-                              onChange={(value) => updateScenarioVariable(id, "impact", value)}
+                            <DeltaPill
+                              label="ΔPressure"
+                              value={scenarioMetrics.pressure - baseMetrics.pressure}
+                              tooltipTerm="Pressure"
                             />
-                            <SliderRow
-                              id={`${id}-cost`}
-                              label="Cost"
-                              hint="Money, time, or effort required"
-                              value={variables.cost}
-                              onChange={(value) => updateScenarioVariable(id, "cost", value)}
+                            <DeltaPill
+                              label="ΔStability"
+                              value={scenarioMetrics.stability - baseMetrics.stability}
+                              tooltipTerm="Stability"
                             />
-                            <SliderRow
-                              id={`${id}-risk`}
-                              label="Risk"
-                              hint="Downside, what could go wrong"
-                              value={variables.risk}
-                              onChange={(value) => updateScenarioVariable(id, "risk", value)}
-                            />
-                            <SliderRow
-                              id={`${id}-urgency`}
-                              label="Urgency"
-                              hint="How soon action is needed"
-                              value={variables.urgency}
-                              onChange={(value) => updateScenarioVariable(id, "urgency", value)}
-                            />
-                            <SliderRow
-                              id={`${id}-confidence`}
-                              label="Confidence"
-                              hint="Evidence, readiness, and conviction"
-                              value={variables.confidence}
-                              onChange={(value) => updateScenarioVariable(id, "confidence", value)}
+                            <DeltaPill
+                              label="ΔEnergy"
+                              value={scenarioMetrics.energy - baseMetrics.energy}
                             />
                           </div>
-                        </div>
-                      </CardContent>
-                    </Card>
-                  );
-                })
-              )}
+
+                          <div className="text-sm text-muted-foreground">
+                            <strong className="text-foreground">Smallest nudge:</strong>{" "}
+                            {nudge.delta <= 0
+                              ? "No single +/-1 change improves D-NAV vs the base decision."
+                              : `${labelForKey(nudge.key)} ${nudge.direction > 0 ? "+1" : "-1"} → ${formatSigned(
+                                  nudge.delta
+                                )} D-NAV (to ${formatValue(nudge.newDnav)}) vs base`}
+                          </div>
+
+                          <Separator />
+
+                          <div className="space-y-2">
+                            <h4 className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+                              Adjust variables
+                            </h4>
+                            <div className="space-y-4">
+                              <SliderRow
+                                id={`${id}-impact`}
+                                label="Impact"
+                                hint="Expected benefit / upside"
+                                value={variables.impact}
+                                onChange={(value) => updateScenarioVariable(id, "impact", value)}
+                              />
+                              <SliderRow
+                                id={`${id}-cost`}
+                                label="Cost"
+                                hint="Money, time, or effort required"
+                                value={variables.cost}
+                                onChange={(value) => updateScenarioVariable(id, "cost", value)}
+                              />
+                              <SliderRow
+                                id={`${id}-risk`}
+                                label="Risk"
+                                hint="Downside, what could go wrong"
+                                value={variables.risk}
+                                onChange={(value) => updateScenarioVariable(id, "risk", value)}
+                              />
+                              <SliderRow
+                                id={`${id}-urgency`}
+                                label="Urgency"
+                                hint="How soon action is needed"
+                                value={variables.urgency}
+                                onChange={(value) => updateScenarioVariable(id, "urgency", value)}
+                              />
+                              <SliderRow
+                                id={`${id}-confidence`}
+                                label="Confidence"
+                                hint="Evidence, readiness, and conviction"
+                                value={variables.confidence}
+                                onChange={(value) => updateScenarioVariable(id, "confidence", value)}
+                              />
+                            </div>
+                          </div>
+                        </CardContent>
+                      </Card>
+                    );
+                  })
+                )}
+              </div>
             </div>
           </div>
         </div>
