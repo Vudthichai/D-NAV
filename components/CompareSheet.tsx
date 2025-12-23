@@ -22,7 +22,7 @@ import {
   SheetHeader,
   SheetTitle,
 } from "@/components/ui/sheet";
-import { DecisionEntry, DecisionMetrics, DecisionVariables } from "@/lib/calculations";
+import { DecisionEntry, DecisionMetrics, DecisionVariables, LeverageKey } from "@/lib/calculations";
 import { loadLog } from "@/lib/storage";
 import SliderRow from "./SliderRow";
 
@@ -110,10 +110,11 @@ export default function CompareSheet({
     );
   };
 
-  const updateScenarioVariable = (id: string, key: keyof DecisionVariables, value: number) => {
+  const updateScenarioVariable = (id: string, key: LeverageKey, value: number) => {
     setScenarios((prev) =>
       prev.map((scenario) => {
         if (scenario.id !== id) return scenario;
+        if (key === "interaction") return scenario;
 
         const updatedVariables = {
           ...scenario.variables,
