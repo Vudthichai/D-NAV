@@ -1,6 +1,6 @@
 "use client";
 
-import CompareSheet from "@/components/CompareSheet";
+import DecisionCompareSection from "@/src/components/compare/DecisionCompareSection";
 import SliderRow from "@/components/SliderRow";
 import StatCard from "@/components/StatCard";
 import SummaryCard from "@/components/SummaryCard";
@@ -1868,12 +1868,17 @@ export default function TheDNavPage() {
           </Button>
         )}
 
-        <CompareSheet
-          open={showCompare}
-          onOpenChange={setShowCompare}
-          baseVariables={variables}
-          baseMetrics={metrics}
-        />
+        {showCompare && (
+          <div className="mt-10">
+            <DecisionCompareSection
+              currentLabel={decisionName || "Current decision"}
+              currentCategory={decisionCategory}
+              currentVariables={variables}
+              decisions={decisions}
+              onClose={() => setShowCompare(false)}
+            />
+          </div>
+        )}
       </main>
     </TooltipProvider>
   );
