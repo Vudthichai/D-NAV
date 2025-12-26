@@ -1,6 +1,5 @@
 "use client";
 
-import CompareSheet from "@/components/CompareSheet";
 import SliderRow from "@/components/SliderRow";
 import StatCard from "@/components/StatCard";
 import SummaryCard from "@/components/SummaryCard";
@@ -51,6 +50,7 @@ import {
 import jsPDF from "jspdf";
 import html2canvas from "html2canvas";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   DashboardStats,
@@ -72,6 +72,7 @@ import {
 import { cn } from "@/lib/utils";
 import { type CompanyContext } from "@/types/company";
 import { datasetMetaToCompanyContext } from "@/types/dataset";
+import { serializeVars } from "@/src/lib/dnav/serialize";
 
 const DEFAULT_VARIABLES: DecisionVariables = {
   impact: 1,
@@ -442,7 +443,6 @@ const getStatsReportSections = (current: DashboardStats, cadenceLabel: string) =
 });
 
 export default function TheDNavPage() {
-  const [showCompare, setShowCompare] = useState(false);
   const [decisionName, setDecisionName] = useState("");
   const [decisionCategory, setDecisionCategory] = useState("");
   const [variables, setVariables] = useState<DecisionVariables>(() => ({ ...DEFAULT_VARIABLES }));
@@ -462,6 +462,7 @@ export default function TheDNavPage() {
     isDatasetLoading,
     loadError,
   } = useDataset();
+  const router = useRouter();
   const [categorySort, setCategorySort] = useState<{ key: CategorySortKey; direction: "asc" | "desc" }>(
     { key: "decisionCount", direction: "desc" },
   );
@@ -485,7 +486,14 @@ export default function TheDNavPage() {
   }, []);
 
   const handleOpenCompare = () => {
-    setShowCompare(true);
+    const params = new URLSearchParams();
+    params.set("a", `manual:${serializeVars(variables)}`);
+    params.set("b", `manual:${serializeVars(variables)}`);
+    if (decisionName.trim()) {
+      params.set("aLabel", decisionName.trim());
+    }
+    const query = params.toString();
+    router.push(query ? `/compare?${query}` : "/compare");
   };
 
   const handleSaveDecision = () => {
@@ -1867,13 +1875,6 @@ export default function TheDNavPage() {
             <BarChart3 className="w-5 h-5" />
           </Button>
         )}
-
-        <CompareSheet
-          open={showCompare}
-          onOpenChange={setShowCompare}
-          baseVariables={variables}
-          baseMetrics={metrics}
-        />
       </main>
     </TooltipProvider>
   );
