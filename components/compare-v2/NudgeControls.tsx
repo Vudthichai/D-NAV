@@ -141,7 +141,7 @@ export function NudgeControls({ settings, onChange }: Props) {
                 />
                 Enable urgency-up nudges (opt-in)
               </label>
-              <p className="text-xs text-muted-foreground">Urgency increases are usually stress-inducing and should be opt-in.</p>
+              <p className="text-xs text-muted-foreground">Urgency-up is usually stress-inducing; keep opt-in.</p>
             </div>
           </div>
         </div>
