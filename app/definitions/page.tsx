@@ -718,42 +718,80 @@ export default function DefinitionsPage() {
                   <CardHeader>
                     <CardTitle className="flex items-center gap-2">
                       <Lightbulb className="h-5 w-5" />
-                      Smallest Nudge (Optimizer)
+                      Best Feasible Nudge (Optimizer)
                     </CardTitle>
                   </CardHeader>
                   <CardContent className="space-y-4">
                     <p className="text-muted-foreground">
-                      Recommends the single 1-point slider change that maximizes{" "}
-                      <strong>ΔD-NAV</strong> while respecting a pressure posture. By default we
-                      avoid sustained <strong>Pressured</strong> states (target{" "}
-                      <code className="bg-muted px-1 rounded">Pressure ≤ 0</code>) and keep{" "}
-                      <strong>Stability ≥ 0</strong> when possible.
+                      Finds the best feasible improvement under your guardrails. Searches small
+                      slider adjustments (typically 1-point steps) to maximize <strong>ΔD-NAV</strong>
+                      while respecting posture and stability constraints.
                     </p>
-                    <div className="bg-muted/50 p-4 rounded-lg">
-                      <p className="text-sm">
-                        <strong>Narrative insight</strong> explains <em>why</em> ΔD-NAV moved: e.g.,
-                        &ldquo;Return ↑ via Impact (cost unchanged). Stability flat. Pressure +1 —
-                        acceptable short-term given clear upside.&rdquo;
-                      </p>
+                    <div className="space-y-2">
+                      <p className="text-sm font-semibold">Consulting-grade nudge prompts:</p>
+                      <ul className="list-disc pl-5 text-sm text-muted-foreground space-y-1">
+                        <li>Raise D-NAV without increasing Pressure</li>
+                        <li>Improve Stability without sacrificing Return</li>
+                        <li>Reduce Pressure while keeping D-NAV above X</li>
+                      </ul>
                     </div>
-                    </CardContent>
+                    <div className="space-y-2">
+                      <p className="text-sm font-semibold">Controls in the optimizer:</p>
+                      <ul className="list-disc pl-5 text-sm text-muted-foreground space-y-1">
+                        <li>
+                          Goal: choose which metric to optimize (D-NAV, Return, Pressure, or
+                          Stability deltas)
+                        </li>
+                        <li>
+                          Constraints: guardrails that must not be violated (e.g., don&apos;t increase
+                          Pressure; don&apos;t decrease Return or Stability)
+                        </li>
+                        <li>
+                          Threshold: minimum acceptable floor (e.g., keep D-NAV at least a target
+                          value)
+                        </li>
+                        <li>
+                          Urgency-up opt-in: higher urgency often raises Pressure, so the opt-in
+                          keeps it explicitly guarded
+                        </li>
+                      </ul>
+                    </div>
+                    <div className="bg-muted/50 p-4 rounded-lg space-y-2">
+                      <p className="text-sm font-semibold">What you&apos;ll see:</p>
+                      <ul className="list-disc pl-5 text-sm text-muted-foreground space-y-1">
+                        <li>
+                          Recommendation label: e.g., <em>Best feasible nudge: Confidence 6 → 7</em>
+                        </li>
+                        <li>
+                          Expected deltas across <strong>D-NAV</strong>, <strong>Return</strong>,
+                          <strong>Pressure</strong>, and <strong>Stability</strong>
+                        </li>
+                        <li>Driver list (Top 3) that explains which sliders move the outcome</li>
+                        <li>
+                          Narrative insight: e.g., &ldquo;Recommendation: Confidence 6 → 7. Expected
+                          deltas: ΔD-NAV +4.0, ΔReturn +0.0, ΔPressure −1.0, ΔStability +1.0. Why:
+                          improves survivability by raising confidence; reduces execution stress
+                          without lowering return.&rdquo;
+                        </li>
+                      </ul>
+                    </div>
+                  </CardContent>
                   </Card>
 
                 <div className="mt-8 rounded-xl border bg-muted/40 p-4 space-y-2">
-                  <h3 className="text-sm font-semibold">System Compare (Timeframes &amp; Companies)</h3>
+                  <h3 className="text-sm font-semibold">System Compare (Adaptation &amp; Entities)</h3>
                   <p className="text-sm text-muted-foreground">
                     Scenario Compare is local: it shows how a single decision or slider configuration differs from your
-                    base case. System Compare looks at <strong>judgment physics</strong> over time or across companies.
+                    base case. System Compare looks at <strong>judgment physics</strong> over time or across entities.
                   </p>
                   <ul className="text-sm text-muted-foreground list-disc pl-5 space-y-1">
                     <li>
-                      <strong>Timeframe Compare</strong> &mdash; same company, different period. Shows how average Return,
-                      Pressure, Stability, category weights, and archetype mix shifted between snapshots.
+                      <strong>Adaptation Compare</strong> &mdash; same entity, different period. Shows how average Return,
+                      Pressure, Stability, category weights, and archetype mix shift between snapshots.
                     </li>
                     <li>
-                      <strong>Cross-Company Compare</strong> &mdash; two companies in the same period. Shows how their RPS
-                      posture, decision terrain (category load), and archetype patterns diverge even if headline
-                      outcomes look similar.
+                      <strong>Cross-Company Compare</strong> &mdash; two entities in the same period. Shows how posture
+                      and archetype patterns diverge even if headline outcomes look similar.
                     </li>
                   </ul>
                   <p className="text-sm text-muted-foreground">
