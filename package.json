@@ -8,7 +8,7 @@
     "start": "next start",
     "lint": "eslint",
     "typecheck": "tsc --noEmit",
-    "test": "tsx --test \"tests/**/*.ts\""
+    "test": "tsx --test \"tests/**/*.ts\" \"src/**/*.test.ts\""
   },
   "dependencies": {
     "@radix-ui/react-checkbox": "^1.3.3",

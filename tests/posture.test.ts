@@ -12,6 +12,7 @@ const baseCohort: CohortSummary = {
   avgReturn: 0.6,
   avgPressure: -0.2,
   avgStability: 1.5,
+  avgDnav: 0,
   stdReturn: 0.2,
   stdPressure: 0.1,
   stdStability: 0.1,
