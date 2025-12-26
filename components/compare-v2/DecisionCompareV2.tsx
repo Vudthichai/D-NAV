@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 
 import SliderRow from "@/components/SliderRow";
@@ -469,12 +470,22 @@ export default function DecisionCompareV2() {
 
   return (
     <div className="space-y-6">
-      <div className="space-y-2">
-        <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Compare</p>
-        <h1 className="text-2xl font-semibold text-foreground">Decision A vs Decision B</h1>
-        <p className="text-sm text-muted-foreground">
-          Use URL parameters (a, b) to pick log entries or manual inputs. Updates are shareable and deterministic.
-        </p>
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+        <div className="space-y-2">
+          <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Compare</p>
+          <h1 className="text-2xl font-semibold text-foreground">Decision A vs Decision B</h1>
+          <p className="text-sm text-muted-foreground">
+            Use URL parameters (a, b) to pick log entries or manual inputs. Updates are shareable and deterministic.
+          </p>
+        </div>
+        <Button
+          asChild
+          variant="outline"
+          aria-label="Return to the D-NAV calculator"
+          className="self-start"
+        >
+          <Link href="/calculator">Back to D-NAV</Link>
+        </Button>
       </div>
 
       {(loading || isDatasetLoading) && (
