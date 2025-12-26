@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 
 import SliderRow from "@/components/SliderRow";
@@ -25,12 +25,15 @@ import {
   type Decision,
   type DecisionVars,
   type DriverDelta,
-  type NudgeSuggestion,
 } from "@/src/lib/dnav/types";
 import { useCompareDecisions } from "@/src/hooks/useCompareDecisions";
 import { type Selection, useCompareParams } from "@/src/hooks/useCompareParams";
 import { cn } from "@/lib/utils";
 import type { DecisionEntry } from "@/lib/calculations";
+import NudgeControls, { type NudgeUISettings } from "./NudgeControls";
+import { computeBestNudge } from "@/src/lib/dnav/nudges/engine";
+import { buildNudgeCopy } from "@/src/lib/dnav/nudges/copy";
+import type { NudgeSettings } from "@/src/lib/dnav/nudges/types";
 
 type Side = "a" | "b";
 
@@ -184,14 +187,41 @@ function DriversList({ drivers }: { drivers: DriverDelta[] }) {
   );
 }
 
-function NudgeCard({ nudge }: { nudge: NudgeSuggestion }) {
+const DEFAULT_NUDGE_SETTINGS: NudgeUISettings = {
+  goal: "increase-dnav",
+  minGoalImprovement: 1,
+  minDnav: undefined,
+  preventPressureIncrease: false,
+  preventReturnDecrease: false,
+  preventStabilityDecrease: false,
+  allowUrgencyIncrease: false,
+};
+
+function NudgeCard({
+  lines,
+  effects,
+  rationale,
+  caution,
+  usedTwoSteps,
+}: {
+  lines: string[];
+  effects: string;
+  rationale: string;
+  caution?: string;
+  usedTwoSteps?: boolean;
+}) {
   return (
     <div className="rounded-lg border border-border/60 bg-emerald-50/70 p-4 text-sm text-emerald-900 shadow-sm">
-      <p className="text-xs font-semibold uppercase tracking-wide text-emerald-800">Smallest nudge</p>
-      <p className="mt-1">
-        Adjust <strong>{SLIDER_META[nudge.key].label}</strong> {nudge.direction > 0 ? "up" : "down"} to {nudge.proposed} for a{" "}
-        <strong>ΔD-NAV of {formatNumber(nudge.dnavGain)}</strong> (to {formatNumber(nudge.nextDnav)}).
-      </p>
+      <p className="text-xs font-semibold uppercase tracking-wide text-emerald-800">Best feasible nudge</p>
+      <div className="mt-2 space-y-1">
+        {lines.map((line) => (
+          <p key={line}>{line}</p>
+        ))}
+      </div>
+      <p className="mt-3 font-semibold text-emerald-900">{effects}</p>
+      <p className="mt-2 text-emerald-900">{rationale}</p>
+      {usedTwoSteps && <p className="mt-2 text-xs font-semibold uppercase tracking-wide text-emerald-700">Two-step fallback</p>}
+      {caution && <p className="mt-2 text-xs text-amber-700">{caution}</p>}
     </div>
   );
 }
@@ -324,6 +354,7 @@ export default function DecisionCompareV2() {
 
   const params = useCompareParams();
   const { decisionA, decisionB, result, loading, errors } = useCompareDecisions(params);
+  const [nudgeSettings, setNudgeSettings] = useState<NudgeUISettings>(DEFAULT_NUDGE_SETTINGS);
 
   const updateSelection = (side: Side, selection: Selection) => {
     const nextParams = new URLSearchParams(searchParams.toString());
@@ -343,7 +374,43 @@ export default function DecisionCompareV2() {
 
   const deltas = result?.deltas ?? [];
   const drivers = result?.drivers ?? [];
-  const nudge = result?.smallestNudge;
+  const bestNudge = useMemo(() => {
+    if (!decisionA || !decisionB) return null;
+
+    const engineSettings: NudgeSettings = {
+      goal: nudgeSettings.goal,
+      minGoalImprovement: nudgeSettings.minGoalImprovement ?? 1,
+      constraints: {
+        preventPressureIncrease: nudgeSettings.preventPressureIncrease,
+        preventReturnDecrease: nudgeSettings.preventReturnDecrease,
+        preventStabilityDecrease: nudgeSettings.preventStabilityDecrease,
+        minDnav: nudgeSettings.minDnav,
+      },
+      policy: {
+        allowUrgencyIncrease: nudgeSettings.allowUrgencyIncrease,
+      },
+    };
+
+    return computeBestNudge(decisionA.vars, decisionB.vars, engineSettings);
+  }, [decisionA, decisionB, nudgeSettings]);
+
+  const nudgeCopy = useMemo(() => {
+    if (!bestNudge || !decisionA || !decisionB) return null;
+    const engineSettings: NudgeSettings = {
+      goal: nudgeSettings.goal,
+      minGoalImprovement: nudgeSettings.minGoalImprovement ?? 1,
+      constraints: {
+        preventPressureIncrease: nudgeSettings.preventPressureIncrease,
+        preventReturnDecrease: nudgeSettings.preventReturnDecrease,
+        preventStabilityDecrease: nudgeSettings.preventStabilityDecrease,
+        minDnav: nudgeSettings.minDnav,
+      },
+      policy: {
+        allowUrgencyIncrease: nudgeSettings.allowUrgencyIncrease,
+      },
+    };
+    return buildNudgeCopy(bestNudge, engineSettings);
+  }, [bestNudge, decisionA, decisionB, nudgeSettings]);
 
   return (
     <div className="space-y-6">
@@ -404,11 +471,28 @@ export default function DecisionCompareV2() {
       <Card>
         <CardHeader className="flex flex-row items-center justify-between">
           <CardTitle className="text-lg font-semibold text-foreground">Drivers &amp; nudges</CardTitle>
-          {nudge && <Badge variant="outline">Suggestion</Badge>}
+          {bestNudge && <Badge variant="outline">Suggestion</Badge>}
         </CardHeader>
         <CardContent className="space-y-4">
+          <NudgeControls settings={nudgeSettings} onChange={setNudgeSettings} />
+
           {drivers.length ? <DriversList drivers={drivers} /> : <p className="text-sm text-muted-foreground">No drivers yet.</p>}
-          {nudge && <NudgeCard nudge={nudge} />}
+
+          {bestNudge && nudgeCopy ? (
+            <NudgeCard
+              lines={nudgeCopy.steps}
+              effects={nudgeCopy.effects}
+              rationale={nudgeCopy.rationale}
+              caution={nudgeCopy.caution}
+              usedTwoSteps={bestNudge.usedTwoSteps}
+            />
+          ) : (
+            <div className="rounded-lg border border-dashed border-border/80 p-4 text-sm text-muted-foreground">
+              {decisionA && decisionB
+                ? "No single-step nudge satisfies your constraints. Relax one constraint or allow a two-step adjustment."
+                : "Select two decisions to see the best feasible nudge."}
+            </div>
+          )}
         </CardContent>
       </Card>
     </div>

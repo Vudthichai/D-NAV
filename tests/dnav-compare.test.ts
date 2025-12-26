@@ -60,8 +60,4 @@ test("compareDecisions reports deltas, drivers, and nudge suggestions", () => {
 
   assert.ok(result.drivers.length > 0);
   assert.equal(result.drivers[0].key, "impact");
-
-  if (result.smallestNudge) {
-    assert.ok(result.smallestNudge.dnavGain > 0);
-  }
 });

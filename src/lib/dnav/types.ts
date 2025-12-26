@@ -67,21 +67,11 @@ export type DriverDelta = {
   delta: number;
 };
 
-export type NudgeSuggestion = {
-  key: DecisionVarKey;
-  direction: 1 | -1;
-  current: number;
-  proposed: number;
-  dnavGain: number;
-  nextDnav: number;
-};
-
 export type CompareResult = {
   baseline: Decision;
   candidate: Decision;
   deltas: CompareDelta[];
   drivers: DriverDelta[];
-  smallestNudge?: NudgeSuggestion;
 };
 
 export const DEFAULT_DECISION_VARS: DecisionVars = {
