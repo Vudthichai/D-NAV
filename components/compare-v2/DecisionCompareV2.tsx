@@ -203,25 +203,61 @@ function NudgeCard({
   rationale,
   caution,
   usedTwoSteps,
+  protectedConstraints,
+  disclosureReasons,
 }: {
   lines: string[];
   effects: string;
   rationale: string;
   caution?: string;
   usedTwoSteps?: boolean;
+  protectedConstraints?: string[];
+  disclosureReasons?: string[];
 }) {
+  const [showWhyNot, setShowWhyNot] = useState(false);
+  const hasProtectedConstraints = protectedConstraints && protectedConstraints.length > 0;
+  const hasDisclosureReasons = disclosureReasons && disclosureReasons.length > 0;
+
   return (
     <div className="rounded-lg border border-border/60 bg-emerald-50/70 p-4 text-sm text-emerald-900 shadow-sm">
-      <p className="text-xs font-semibold uppercase tracking-wide text-emerald-800">Best feasible nudge</p>
+      <div className="flex items-center justify-between gap-2">
+        <p className="text-xs font-semibold uppercase tracking-wide text-emerald-800">Best feasible nudge</p>
+        <Badge variant="outline" className="text-[11px] text-emerald-800">
+          Applies to: Decision B
+        </Badge>
+      </div>
       <div className="mt-2 space-y-1">
         {lines.map((line) => (
           <p key={line}>{line}</p>
         ))}
       </div>
       <p className="mt-3 font-semibold text-emerald-900">{effects}</p>
+      {hasProtectedConstraints && (
+        <p className="mt-2 text-xs font-medium text-emerald-800">
+          Protected constraints: {protectedConstraints?.join(", ")}
+        </p>
+      )}
       <p className="mt-2 text-emerald-900">{rationale}</p>
       {usedTwoSteps && <p className="mt-2 text-xs font-semibold uppercase tracking-wide text-emerald-700">Two-step fallback</p>}
       {caution && <p className="mt-2 text-xs text-amber-700">{caution}</p>}
+      {hasDisclosureReasons && (
+        <div className="mt-3 space-y-2">
+          <button
+            type="button"
+            className="text-xs font-semibold text-emerald-800 underline underline-offset-4 hover:text-emerald-900"
+            onClick={() => setShowWhyNot((prev) => !prev)}
+          >
+            {showWhyNot ? "Hide why not other options" : "Why not other options?"}
+          </button>
+          {showWhyNot && (
+            <ul className="ml-4 list-disc space-y-1 text-xs text-emerald-900">
+              {disclosureReasons?.slice(0, 2).map((reason) => (
+                <li key={reason}>{reason}</li>
+              ))}
+            </ul>
+          )}
+        </div>
+      )}
     </div>
   );
 }
@@ -412,6 +448,25 @@ export default function DecisionCompareV2() {
     return buildNudgeCopy(bestNudge, engineSettings);
   }, [bestNudge, decisionA, decisionB, nudgeSettings]);
 
+  const protectedConstraints = useMemo(() => {
+    const items: string[] = [];
+    if (nudgeSettings.preventPressureIncrease) items.push("Pressure");
+    if (nudgeSettings.preventReturnDecrease) items.push("Return");
+    if (nudgeSettings.preventStabilityDecrease) items.push("Stability");
+    if (typeof nudgeSettings.minDnav === "number") items.push(`D-NAV ≥ ${formatNumber(nudgeSettings.minDnav)}`);
+    return items;
+  }, [nudgeSettings]);
+
+  const disclosureReasons = useMemo(() => {
+    const reasons: string[] = [];
+    if (!nudgeSettings.allowUrgencyIncrease) reasons.push("Urgency-up excluded (opt-in only).");
+    if (nudgeSettings.preventPressureIncrease) reasons.push("Moves that increased Pressure were rejected.");
+    if (nudgeSettings.preventReturnDecrease) reasons.push("Moves that reduced Return were rejected.");
+    if (nudgeSettings.preventStabilityDecrease) reasons.push("Moves that reduced Stability were rejected.");
+    if (typeof nudgeSettings.minDnav === "number") reasons.push(`Moves that dropped D-NAV below ${formatNumber(nudgeSettings.minDnav)} were rejected.`);
+    return reasons.slice(0, 2);
+  }, [nudgeSettings]);
+
   return (
     <div className="space-y-6">
       <div className="space-y-2">
@@ -485,6 +540,8 @@ export default function DecisionCompareV2() {
               rationale={nudgeCopy.rationale}
               caution={nudgeCopy.caution}
               usedTwoSteps={bestNudge.usedTwoSteps}
+              protectedConstraints={protectedConstraints}
+              disclosureReasons={disclosureReasons}
             />
           ) : (
             <div className="rounded-lg border border-dashed border-border/80 p-4 text-sm text-muted-foreground">
