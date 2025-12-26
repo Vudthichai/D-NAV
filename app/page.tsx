@@ -27,7 +27,7 @@ export default function Home() {
                 Track your judgment like a performance metric.
               </h1>
               <p className="text-xl text-muted-foreground leading-relaxed">
-                D-NAV turns messy, high-stakes calls into a live readout of Return, Pressure, and Stability, so founders, traders, and operators can see if a bet is actually built to survive.
+                In 60 seconds, see whether your decision survives pressure.
               </p>
             </div>
             <div className="flex flex-col sm:flex-row gap-4 justify-center items-center">
@@ -37,10 +37,11 @@ export default function Home() {
                   <ArrowRight className="ml-2 w-5 h-5" />
                 </Link>
               </Button>
-              <Button variant="outline" size="lg" className="text-lg px-8 py-6" asChild>
-                <Link href="#how-it-works">See How It Works</Link>
+              <Button variant="ghost" size="lg" className="text-lg px-8 py-6" asChild>
+                <Link href="#how-it-works">See how it works</Link>
               </Button>
             </div>
+            <p className="text-sm text-muted-foreground">Start with a decision you’re avoiding.</p>
           </div>
         </div>
       </section>
@@ -50,19 +51,17 @@ export default function Home() {
         <div className="max-w-5xl mx-auto px-6 text-center space-y-12">
           <div className="space-y-4">
             <h2 className="text-3xl md:text-4xl font-bold text-foreground">What you can do in the next 60 seconds</h2>
-            <p className="text-lg text-muted-foreground">
-              The fastest way to see if your current call is honest.
-            </p>
+            <p className="text-lg text-muted-foreground">Pick one decision and see if it survives.</p>
           </div>
           <ol className="text-left space-y-8 text-lg text-muted-foreground">
             <li>
               <strong className="text-foreground">Pick one live decision.</strong> Expansion, hire, product bet, trade — anything that actually matters.
             </li>
             <li>
-              <strong className="text-foreground">Rate how it really feels.</strong> Move 5 sliders for Impact, Cost, Risk, Urgency, and Confidence. No spreadsheets. No posturing. Just the real tension in your head.
+              <strong className="text-foreground">Rate it honestly.</strong> Move sliders for Impact, Cost, Risk, Urgency, and Confidence. No posture. Just the tension you feel.
             </li>
             <li>
-              <strong className="text-foreground">See if the bet is honest.</strong> D-NAV translates those sliders into Return, Pressure, and Stability — a live read on whether the upside, survivability, and execution stress actually line up.
+              <strong className="text-foreground">See if the bet is built to survive.</strong> D-NAV turns it into Return, Pressure, and Stability you can act on immediately.
             </li>
           </ol>
           <div className="flex justify-center">
@@ -73,8 +72,100 @@ export default function Home() {
         </div>
       </section>
 
+      {/* How It Works Section */}
+      <section id="how-it-works" className="py-24">
+        <div className="max-w-6xl mx-auto px-6 space-y-12">
+          <div className="text-center space-y-4">
+            <h2 className="text-3xl md:text-4xl font-bold text-foreground">Under the hood: RPS + D-NAV</h2>
+            <p className="text-lg text-muted-foreground max-w-3xl mx-auto">
+              Five forces become three signals and one readout. It stays simple even when the stakes aren’t.
+            </p>
+          </div>
+          <div className="grid gap-12 md:grid-cols-2">
+            <div className="space-y-6">
+              <h3 className="text-2xl font-semibold text-foreground">The three core signals (RPS)</h3>
+              <ul className="space-y-6 text-muted-foreground">
+                <li>
+                  <strong className="text-foreground">Return</strong> = Impact − Cost
+                  <br />Is the upside worth the burn?
+                </li>
+                <li>
+                  <strong className="text-foreground">Stability</strong> = Confidence − Risk
+                  <br />Can your evidence outlast the downside?
+                </li>
+                <li>
+                  <strong className="text-foreground">Pressure</strong> = Urgency − Confidence
+                  <br />Is execution being driven by panic or proof?
+                </li>
+              </ul>
+            </div>
+            <div className="space-y-4">
+              <h3 className="text-2xl font-semibold text-foreground">The D-NAV score</h3>
+              <p className="text-muted-foreground">
+                RPS is the physics of the bet. D-NAV is the readout.
+              </p>
+              <p className="text-muted-foreground">
+                It synthesizes Return, Pressure, and Stability into a fast signal of how your decision behaves under stress — so you know if you’re forcing fragility or underplaying real edge.
+              </p>
+            </div>
+          </div>
+          <div className="flex justify-center">
+            <Button variant="outline" size="lg" className="text-lg px-8 py-6" asChild>
+              <Link href="/calculator">Run a Decision Check</Link>
+            </Button>
+          </div>
+        </div>
+      </section>
+
+      {/* Compounding Section */}
+      <section className="py-24 bg-muted/30">
+        <div className="max-w-5xl mx-auto px-6 space-y-6 text-center">
+          <h2 className="text-3xl md:text-4xl font-bold text-foreground">Judgment compounds — if you track it.</h2>
+          <p className="text-lg text-muted-foreground max-w-3xl mx-auto">
+            One decision shows tension. Ten decisions show patterns. A hundred decisions reveal constraints.
+          </p>
+          <p className="text-base text-muted-foreground max-w-3xl mx-auto">
+            Over time, D-NAV shows when your confidence is earned — and when it’s cosplay.
+          </p>
+          <div className="flex justify-center">
+            <Button size="lg" className="text-lg px-8 py-6" asChild>
+              <Link href="/calculator">Run a Decision Check</Link>
+            </Button>
+          </div>
+        </div>
+      </section>
+
+      {/* Where Data Ends Section */}
+      <section id="where-data-ends" className="py-24">
+        <div className="max-w-5xl mx-auto px-6 space-y-8 text-center">
+          <div className="space-y-4">
+            <h2 className="text-3xl font-bold text-foreground">Where dashboards end, judgment begins</h2>
+            <p className="text-lg text-muted-foreground">
+              Dashboards show what has already happened. D-NAV measures the internal math of the bets you’re about to make.
+            </p>
+          </div>
+          <ul className="space-y-6 text-left text-muted-foreground">
+            <li>
+              <strong className="text-foreground">Tesla Gigafactory:</strong> On paper, a capital-intensive nightmare. In reality, a judgment call about how much risk, urgency, and conviction could be carried at once.
+            </li>
+            <li>
+              <strong className="text-foreground">Amazon → AWS:</strong> Looked like a distraction. It was actually a high-impact, high-stability bet hiding inside an “experiment.”
+            </li>
+            <li>
+              <strong className="text-foreground">WeWork:</strong> Great surface-level metrics. Fragile judgment underneath. Pressure and risk completely outpaced real stability.
+            </li>
+            <li>
+              <strong className="text-foreground">Enron:</strong> The numbers looked fine. The internal decision math was fake. No amount of reporting could save that.
+            </li>
+          </ul>
+          <p className="text-base text-muted-foreground">
+            D-NAV doesn’t predict outcomes. It flags fragile internal math before the outcome arrives.
+          </p>
+        </div>
+      </section>
+
       {/* Who It's For Section */}
-      <section id="who-its-for" className="py-24">
+      <section id="who-its-for" className="py-24 bg-muted/20">
         <div className="max-w-7xl mx-auto px-6 space-y-12">
           <div className="text-center space-y-4">
             <h2 className="text-3xl md:text-4xl font-bold text-foreground">Built for people who live in the unknown</h2>
@@ -108,83 +199,11 @@ export default function Home() {
               </p>
             </div>
           </div>
-          <p className="text-center text-base text-muted-foreground">
-            If your job is to make the call before the data is clean, D-NAV is your mirror.
-          </p>
-        </div>
-      </section>
-
-      {/* Where Data Ends Section */}
-      <section id="where-data-ends" className="py-24 bg-muted/30">
-        <div className="max-w-5xl mx-auto px-6 space-y-8 text-center">
-          <div className="space-y-4">
-            <h2 className="text-3xl font-bold text-foreground">Where dashboards end, judgment begins</h2>
-            <p className="text-lg text-muted-foreground">
-              Dashboards show what has already happened. D-NAV measures the internal math of the bets you’re about to make.
+          <div className="space-y-4 text-center">
+            <p className="text-base text-muted-foreground">
+              If your job is to make calls before the data is clean, D-NAV is your mirror.
             </p>
-          </div>
-          <ul className="space-y-6 text-left text-muted-foreground">
-            <li>
-              <strong className="text-foreground">Tesla Gigafactory:</strong> On paper, a capital-intensive nightmare. In reality, a judgment call about how much risk, urgency, and conviction could be carried at once.
-            </li>
-            <li>
-              <strong className="text-foreground">Amazon → AWS:</strong> Looked like a distraction. It was actually a high-impact, high-stability bet hiding inside an “experiment.”
-            </li>
-            <li>
-              <strong className="text-foreground">WeWork:</strong> Great surface-level metrics. Fragile judgment underneath. Pressure and risk completely outpaced real stability.
-            </li>
-            <li>
-              <strong className="text-foreground">Enron:</strong> The numbers looked fine. The internal decision math was fake. No amount of reporting could save that.
-            </li>
-          </ul>
-          <p className="text-base text-muted-foreground">
-            Same surface metrics. Different internal math of judgment. D-NAV doesn’t predict the future — it shows whether your internal math is honest.
-          </p>
-        </div>
-      </section>
-
-      {/* How It Works Section */}
-      <section id="how-it-works" className="py-24">
-        <div className="max-w-6xl mx-auto px-6 space-y-12">
-          <div className="text-center space-y-4">
-            <h2 className="text-3xl md:text-4xl font-bold text-foreground">Under the hood: RPS + D-NAV</h2>
-            <p className="text-lg text-muted-foreground max-w-3xl mx-auto">
-              Every decision carries five forces: Impact, Cost, Risk, Urgency, and Confidence. D-NAV turns them into three core signals, plus one synthesized score.
-            </p>
-          </div>
-          <div className="grid gap-12 md:grid-cols-2">
-            <div className="space-y-6">
-              <h3 className="text-2xl font-semibold text-foreground">The three core signals (RPS)</h3>
-              <ul className="space-y-6 text-muted-foreground">
-                <li>
-                  <strong className="text-foreground">Return</strong> = Impact − Cost
-                  <br />
-                  Is the upside actually worth the burn?
-                </li>
-                <li>
-                  <strong className="text-foreground">Stability</strong> = Confidence − Risk
-                  <br />
-                  Can your evidence outlast the downside?
-                </li>
-                <li>
-                  <strong className="text-foreground">Pressure</strong> = Urgency − Confidence
-                  <br />
-                  Is execution being driven by panic or proof?
-                </li>
-              </ul>
-            </div>
-            <div className="space-y-6">
-              <h3 className="text-2xl font-semibold text-foreground">The D-NAV score</h3>
-              <p className="text-muted-foreground">
-                The D-NAV score is the synthesized read on all of these forces — a quick read on how your decision behaves under stress. It’s the heartbeat, built on top of RPS, not a replacement for it.
-              </p>
-              <p className="text-muted-foreground">
-                Together, RPS and D-NAV show whether you’re forcing a fragile bet, under-leaning a strong one, or sitting in fake comfort.
-              </p>
-            </div>
-          </div>
-          <div className="flex justify-center">
-            <Button variant="outline" size="lg" className="text-lg px-8 py-6" asChild>
+            <Button size="lg" className="text-lg px-8 py-6" asChild>
               <Link href="/calculator">Run a Decision Check</Link>
             </Button>
           </div>
@@ -192,13 +211,11 @@ export default function Home() {
       </section>
 
       {/* Philosophy Section */}
-      <section id="principles" className="py-24 bg-muted/20">
+      <section id="principles" className="py-24">
         <div className="max-w-7xl mx-auto px-6">
           <div className="text-center mb-16">
             <h2 className="text-3xl font-bold text-foreground mb-4">How D-NAV changes the way you decide</h2>
-            <p className="text-lg text-muted-foreground max-w-2xl mx-auto">
-              Keep scrolling if you want the philosophy behind the tool.
-            </p>
+            <p className="text-lg text-muted-foreground max-w-2xl mx-auto">Keep scrolling if you want the philosophy behind the tool.</p>
           </div>
 
           <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-8">
@@ -250,7 +267,7 @@ export default function Home() {
       {/* Final CTA Section */}
       <section id="final-cta" className="py-24 bg-primary/5">
         <div className="max-w-4xl mx-auto text-center px-6 space-y-6">
-          <h2 className="text-3xl font-bold text-foreground">Ready to see your judgment in numbers?</h2>
+          <h2 className="text-3xl font-bold text-foreground">Run one decision. See if it holds.</h2>
           <p className="text-lg text-muted-foreground">
             Run one live decision, then ten, then a hundred. Watch your judgment evolve from gut feel to a measurable edge.
           </p>
