@@ -9,6 +9,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { getDatasetDisplayName } from "@/lib/datasetDisplay";
 import { type DatasetId } from "@/types/dataset";
 import { useDataset } from "./DatasetProvider";
 
@@ -25,7 +26,7 @@ export function DatasetSelect({ label, side, allowRemove = true }: DatasetSelect
     () =>
       datasets.map((dataset) => ({
         value: dataset.id,
-        label: dataset.label,
+        label: getDatasetDisplayName(dataset),
       })),
     [datasets],
   );

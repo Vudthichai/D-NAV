@@ -24,6 +24,7 @@ import {
   FullInterpretation,
   generateFullInterpretation,
 } from "@/lib/dnavSummaryEngine";
+import { getDatasetDisplayName } from "@/lib/datasetDisplay";
 import { loadDecisionsForDataset } from "@/lib/reportSnapshot";
 import { useDataset } from "@/components/DatasetProvider";
 import { type DatasetId, type DatasetState } from "@/types/dataset";
@@ -176,7 +177,7 @@ function ReportsPageContent() {
     () =>
       datasets.map((dataset) => ({
         value: dataset.id,
-        label: dataset.label,
+        label: getDatasetDisplayName(dataset),
       })),
     [datasets],
   );
@@ -807,7 +808,7 @@ async function buildCohortSummaryFromDataset({
       timeframeLabel: resolvedTimeframeLabel,
       normalizationBasis,
       judgmentUnitLabel: judgmentUnitLabel ?? undefined,
-      datasetLabel: dataset.label,
+      datasetLabel: getDatasetDisplayName(dataset),
       timeframeMode: sequenceMode ? "sequence" : "time",
       sequenceRange: effectiveRange,
       totalAvailableDecisions: decisions.length,
