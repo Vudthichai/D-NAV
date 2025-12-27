@@ -197,6 +197,20 @@ body {
   letter-spacing: var(--tracking-normal);
 }
 
+.clamp-3 {
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.clamp-4 {
+  display: -webkit-box;
+  -webkit-line-clamp: 4;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
 @keyframes compass-needle-sway {
   0%,
   100% {

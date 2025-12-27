@@ -9,6 +9,7 @@ import { usePathname } from "next/navigation";
 
 export default function Header() {
   const pathname = usePathname();
+  const showThemeToggle = pathname !== "/";
 
   const getPageTitle = () => {
     switch (pathname) {
@@ -54,7 +55,7 @@ export default function Header() {
         </Link>
       </div>
       <div className="flex items-center gap-2">
-        <ThemeToggle />
+        {showThemeToggle ? <ThemeToggle /> : null}
         <Button variant="outline" size="sm">
           Help
         </Button>
