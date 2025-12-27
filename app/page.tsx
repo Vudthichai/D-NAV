@@ -1,6 +1,6 @@
 "use client";
 
-import type { ReactNode } from "react";
+import type { MouseEvent, ReactNode } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { ArrowRight } from "lucide-react";
@@ -15,17 +15,17 @@ function HeroBackground() {
   return (
     <div className="absolute inset-0 -z-10 overflow-hidden">
       <div className="absolute inset-0 bg-[#0b0d10]" />
-      <div className="absolute inset-0 opacity-40" style={{ backgroundImage: `url(${noiseTexture})` }} />
-      <div className="absolute left-1/4 top-10 h-[520px] w-[520px] -translate-x-1/2 rounded-full bg-[#f97316]/10 blur-3xl" />
-      <div className="absolute right-0 top-[-120px] h-[520px] w-[520px] rounded-full bg-indigo-500/10 blur-[120px]" />
-      <div className="absolute bottom-[-200px] left-1/3 h-[560px] w-[560px] -translate-x-1/2 rounded-full bg-emerald-500/10 blur-[140px]" />
+      <div className="absolute inset-0 opacity-25" style={{ backgroundImage: `url(${noiseTexture})` }} />
+      <div className="absolute left-1/4 top-10 h-[420px] w-[420px] -translate-x-1/2 rounded-full bg-[#f97316]/10 blur-[90px]" />
+      <div className="absolute right-[-120px] top-[-140px] h-[440px] w-[440px] rounded-full bg-indigo-500/10 blur-[110px]" />
+      <div className="absolute bottom-[-220px] left-1/3 h-[500px] w-[500px] -translate-x-1/2 rounded-full bg-emerald-500/10 blur-[110px]" />
     </div>
   );
 }
 
 function GlassPanel({ children, className = "" }: { children: ReactNode; className?: string }) {
   return (
-    <div className={`relative overflow-hidden rounded-[24px] border border-white/10 bg-white/5 shadow-[0_30px_80px_-60px_rgba(0,0,0,0.8)] backdrop-blur-xl ${className}`}>
+    <div className={`relative overflow-hidden rounded-[24px] border border-white/10 bg-white/5 shadow-[0_30px_80px_-60px_rgba(0,0,0,0.8)] backdrop-blur-md ${className}`}>
       <div className="absolute inset-0 bg-gradient-to-br from-white/5 via-transparent to-white/5 opacity-40" />
       <div className="relative z-10">{children}</div>
     </div>
@@ -44,82 +44,211 @@ function SectionHeading({ title, subtitle, align = "center" }: { title: string; 
   );
 }
 
+function HeroVisual() {
+  const cards = [
+    {
+      title: "Reports",
+      image: "/mockups/Computer-Report.png",
+      accent: "from-amber-400/60 to-amber-400/5",
+      rotation: "-6deg",
+      offset: "translateY(12px) translateX(-8px)",
+      delay: "0ms",
+    },
+    {
+      title: "Compare",
+      image: "/mockups/Computer-Entity.png",
+      accent: "from-indigo-400/70 to-indigo-400/5",
+      rotation: "2deg",
+      offset: "translateY(-6px)",
+      delay: "120ms",
+    },
+    {
+      title: "Adaptation",
+      image: "/mockups/Computer-Adaptation.png",
+      accent: "from-emerald-400/60 to-emerald-400/5",
+      rotation: "8deg",
+      offset: "translateY(16px) translateX(10px)",
+      delay: "220ms",
+    },
+  ];
+
+  return (
+    <div className="relative fade-in-up" style={{ animationDelay: "80ms" }}>
+      <div className="pointer-events-none absolute -left-6 -right-4 top-8 h-48 rounded-full bg-gradient-to-r from-white/5 via-white/0 to-white/5 blur-3xl" />
+      <GlassPanel className="bg-[#0e1117]/70 border-white/10 shadow-[0_40px_120px_-50px_rgba(0,0,0,0.8)]">
+        <div className="relative overflow-hidden rounded-[22px] border border-white/5 bg-gradient-to-br from-white/5 via-transparent to-white/5 px-6 py-7">
+          <div className="absolute inset-0 bg-[radial-gradient(circle_at_top,_rgba(255,255,255,0.08),transparent_45%)] opacity-60" />
+          <div className="absolute inset-x-4 bottom-6 top-6 rounded-[18px] border border-white/5" />
+          <div className="relative flex h-[360px] items-center justify-center">
+            {cards.map((card) => (
+              <div
+                key={card.title}
+                className="group absolute w-[72%] max-w-[320px] rounded-2xl border border-white/15 bg-black/70 shadow-[0_30px_80px_-50px_rgba(0,0,0,0.9)] transition duration-700"
+                style={{
+                  transform: `${card.offset} rotate(${card.rotation})`,
+                  animationDelay: card.delay,
+                }}
+              >
+                <div className={`absolute inset-0 rounded-2xl bg-gradient-to-br ${card.accent} opacity-50`} />
+                <div className="relative overflow-hidden rounded-2xl border border-white/10">
+                  <div className="flex items-center justify-between px-4 py-3 backdrop-blur-sm">
+                    <p className="text-sm font-semibold text-white">{card.title}</p>
+                    <span className="h-2 w-2 rounded-full bg-emerald-400 shadow-[0_0_0_8px_rgba(74,222,128,0.15)]" />
+                  </div>
+                  <div className="relative aspect-[4/3] w-full bg-white/5">
+                    {/* TODO: Swap placeholder frames with the latest product screenshots if available. */}
+                    <Image
+                      src={card.image}
+                      alt={`${card.title} preview`}
+                      fill
+                      sizes="(min-width: 1024px) 32vw, 90vw"
+                      className="object-cover"
+                      priority={card.title === "Reports"}
+                    />
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </GlassPanel>
+    </div>
+  );
+}
+
 function HeroSection() {
+  const scrollToHowItWorks = (event: MouseEvent<HTMLAnchorElement>) => {
+    event.preventDefault();
+    const target = document.getElementById("quick-start");
+    if (target) {
+      target.scrollIntoView({ behavior: "smooth" });
+    }
+  };
+
+  const chips = ["Navigator", "Contrarian", "Integrator"];
+
+  const signalBars = [
+    { label: "Return", width: "78%" },
+    { label: "Pressure", width: "64%" },
+    { label: "Stability", width: "86%" },
+  ];
+
   return (
     <section className="relative isolate overflow-hidden">
       <HeroBackground />
       <div className="max-w-6xl mx-auto px-6 pt-16 pb-20 md:pt-20 md:pb-28 space-y-12">
-        <div className="flex justify-center">
-          <div className="inline-flex items-center gap-3 rounded-full border border-white/10 bg-white/5 px-4 py-2 text-[11px] uppercase tracking-[0.3em] text-slate-100 backdrop-blur">
-            <AnimatedCompass className="h-6 w-6" />
-            <span>Decision NAVigator</span>
+        <div className="grid items-center gap-12 lg:grid-cols-[1.05fr_0.95fr]">
+          <div className="space-y-8">
+            <div className="inline-flex items-center gap-3 rounded-full border border-white/10 bg-white/5 px-4 py-2 text-[11px] uppercase tracking-[0.3em] text-slate-100">
+              <AnimatedCompass className="h-6 w-6" />
+              <span>Decision NAVigator</span>
+            </div>
+            <div className="space-y-6">
+              <h1 className="text-4xl md:text-6xl font-black leading-tight tracking-tight text-white">
+                Track your judgment like a performance metric.
+              </h1>
+              <p className="text-xl text-slate-200 max-w-2xl">
+                In 60 seconds, see whether your decision survives pressure.
+              </p>
+            </div>
+            <div className="flex flex-col items-center justify-start gap-4 sm:flex-row sm:gap-5">
+              <Button
+                size="lg"
+                className="text-lg px-8 py-6 bg-amber-500 text-black hover:bg-amber-400 focus-visible:ring-amber-300 shadow-[0_12px_40px_-20px_rgba(249,115,22,0.8)]"
+                asChild
+              >
+                <Link href="/calculator">
+                  Run a Decision Check
+                  <ArrowRight className="ml-2 h-5 w-5" />
+                </Link>
+              </Button>
+              <Button
+                variant="outline"
+                size="lg"
+                className="text-lg px-8 py-6 border border-white/20 bg-black/80 text-white transition hover:-translate-y-[1px] hover:bg-black focus-visible:ring-amber-300 focus-visible:ring-offset-2 focus-visible:ring-offset-black/30"
+                asChild
+              >
+                <Link href="#quick-start" onClick={scrollToHowItWorks}>
+                  See how it works
+                </Link>
+              </Button>
+            </div>
+            <p className="text-sm text-slate-400">Start with a decision you’re avoiding.</p>
           </div>
+          <HeroVisual />
         </div>
 
-        <div className="space-y-8 text-center">
-          <h1 className="text-4xl md:text-6xl font-black leading-tight tracking-tight text-white">
-            Track your judgment like a performance metric.
-          </h1>
-          <p className="text-xl text-slate-200 max-w-3xl mx-auto">
-            In 60 seconds, see whether your decision survives pressure.
-          </p>
-          <div className="flex flex-col items-center justify-center gap-4 sm:flex-row sm:gap-5">
-            <Button
-              size="lg"
-              className="text-lg px-8 py-6 bg-amber-500 text-black hover:bg-amber-400 focus-visible:ring-amber-300 shadow-[0_12px_40px_-20px_rgba(249,115,22,0.8)]"
-              asChild
-            >
-              <Link href="/calculator">
-                Run a Decision Check
-                <ArrowRight className="ml-2 h-5 w-5" />
-              </Link>
-            </Button>
-            <Button
-              variant="outline"
-              size="lg"
-              className="text-lg px-8 py-6 border-white/30 text-white hover:bg-white/10 focus-visible:ring-amber-300"
-              asChild
-            >
-              <Link href="#quick-start">See how it works</Link>
-            </Button>
-          </div>
-          <p className="text-sm text-slate-400">Start with a decision you’re avoiding.</p>
-        </div>
-
-        <GlassPanel className="bg-white/5">
-          <div className="grid gap-6 md:grid-cols-3 p-6 md:p-8">
-            {["Return", "Pressure", "Stability"].map((title, index) => {
-              const definitions = [
-                {
-                  heading: "Return",
-                  formula: "Impact − Cost",
-                  copy: "Is the upside worth the burn?",
-                },
-                {
-                  heading: "Pressure",
-                  formula: "Urgency − Confidence",
-                  copy: "Is execution being driven by panic or proof?",
-                },
-                {
-                  heading: "Stability",
-                  formula: "Confidence − Risk",
-                  copy: "Can your evidence outlast the downside?",
-                },
-              ];
-
-              return (
-                <div key={title} className="flex flex-col gap-3 rounded-2xl border border-white/5 bg-white/5 p-5 shadow-[0_10px_30px_-24px_rgba(0,0,0,0.7)]">
-                  <p className="text-xs uppercase tracking-[0.18em] text-amber-200">RPS</p>
-                  <div className="space-y-1.5">
-                    <h3 className="text-xl font-semibold text-white">{definitions[index].heading}</h3>
-                    <p className="text-sm text-slate-200">{definitions[index].formula}</p>
-                    <p className="text-slate-300">{definitions[index].copy}</p>
+        <div className="grid gap-6 md:grid-cols-3">
+          <GlassPanel className="group h-full bg-[#0f1218] fade-in-up" style={{ animationDelay: "40ms" }}>
+            <div className="flex flex-col gap-4 p-6">
+              <div className="flex items-center justify-between">
+                <p className="text-xs uppercase tracking-[0.18em] text-amber-200">RPS signals</p>
+                <span className="rounded-full bg-white/5 px-3 py-1 text-[11px] text-slate-200">Live</span>
+              </div>
+              <div className="space-y-3.5">
+                {signalBars.map((signal) => (
+                  <div
+                    key={signal.label}
+                    className="group/row space-y-2 signal-row"
+                    style={{ ["--bar-width" as string]: signal.width }}
+                  >
+                    <div className="flex items-center justify-between text-sm text-white">
+                      <span>{signal.label}</span>
+                      <span className="text-slate-300">{signal.width}</span>
+                    </div>
+                    <div className="h-2 rounded-full bg-white/5">
+                      <div
+                        className="signal-bar micro-bar h-2 rounded-full bg-gradient-to-r from-amber-400 via-amber-300 to-white"
+                      />
+                    </div>
                   </div>
-                </div>
-              );
-            })}
-          </div>
-        </GlassPanel>
+                ))}
+              </div>
+            </div>
+          </GlassPanel>
+
+          <GlassPanel className="group h-full bg-[#0f1218] fade-in-up" style={{ animationDelay: "140ms" }}>
+            <div className="flex flex-col gap-4 p-6">
+              <div className="space-y-2">
+                <p className="text-xs uppercase tracking-[0.18em] text-amber-200">Archetypes</p>
+                <h3 className="text-xl font-semibold text-white">Your decision style, revealed over time.</h3>
+                <p className="text-slate-300">See the pattern behind your judgment calls.</p>
+              </div>
+              <div className="flex flex-wrap gap-2">
+                {chips.map((chip) => (
+                  <span
+                    key={chip}
+                    className="rounded-full border border-white/10 bg-white/5 px-3 py-1 text-sm text-slate-200 shadow-[0_10px_30px_-24px_rgba(0,0,0,0.7)]"
+                  >
+                    {chip}
+                  </span>
+                ))}
+              </div>
+            </div>
+          </GlassPanel>
+
+          <GlassPanel className="group h-full bg-[#0f1218] fade-in-up" style={{ animationDelay: "240ms" }}>
+            <div className="flex flex-col gap-4 p-6">
+              <div className="space-y-2">
+                <p className="text-xs uppercase tracking-[0.18em] text-amber-200">Compare + Adaptation</p>
+                <h3 className="text-xl font-semibold text-white">Compare decisions. Track drift. See fragility early.</h3>
+                <p className="text-slate-300">
+                  Pinpoint when confidence, risk, or urgency are moving faster than your proof.
+                </p>
+              </div>
+              <div className="flex flex-wrap gap-2">
+                {["Entity Compare", "Adaptation"].map((chip) => (
+                  <span
+                    key={chip}
+                    className="rounded-full border border-white/10 bg-white/5 px-3 py-1 text-sm text-slate-200 shadow-[0_10px_30px_-24px_rgba(0,0,0,0.7)]"
+                  >
+                    {chip}
+                  </span>
+                ))}
+              </div>
+            </div>
+          </GlassPanel>
+        </div>
       </div>
     </section>
   );
@@ -375,7 +504,7 @@ function FinalCTASection() {
 
 export default function Home() {
   return (
-    <main className="bg-[#0b0d10] text-white">
+    <main className="bg-[#0b0d10] text-white scroll-smooth">
       <HeroSection />
       <StepsSection />
       <ProductProofSection />
