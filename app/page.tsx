@@ -81,8 +81,8 @@ function HeroSection() {
     },
     {
       badge: "Compare",
-      title: "Compare + Adaptation",
-      copy: "Compare entities on the same RPS grammar. Track drift over time and spot the adjustment window before pressure breaks the plan.",
+      title: "Compare",
+      copy: "Compare surfaces who’s under pressure. Use Entity Compare for side-by-side analysis, and Adaptation to track drift over time.",
     },
   ];
 
@@ -303,10 +303,12 @@ function UnderTheHoodSection() {
                 </div>
                 <div className="rounded-full border border-white/10 bg-white/5 px-3 py-1 text-xs text-slate-200">Live</div>
               </div>
-              <p className="text-slate-300">D-NAV is your decision’s readout. Merit measures the tradeoff. Energy measures whether it survives execution pressure.</p>
+              <p className="text-slate-300">
+                D-NAV is your decision’s readout. Value = Impact − Cost − Risk. Execution = Urgency × Confidence. Together, they show whether the upside is real — and whether you can actually carry it.
+              </p>
               <div className="rounded-2xl border border-white/5 bg-black/40 p-4 space-y-2">
-                <p className="text-sm font-semibold text-white">D-NAV = Merit + Energy</p>
-                <p className="text-sm text-slate-300">Merit captures Impact vs. Cost. Energy blends Urgency, Risk, and Confidence so you know if the move can hold.</p>
+                <p className="text-sm font-semibold text-white">D-NAV = Value + Execution</p>
+                <p className="text-sm text-slate-300">Value = Impact − Cost − Risk. Execution = Urgency × Confidence.</p>
               </div>
               <RpsDistributions />
               <Button
@@ -349,20 +351,20 @@ function UnderTheHoodSection() {
             <div className="space-y-3">
               <div className="flex items-center gap-2 text-xs uppercase tracking-[0.2em] text-amber-200">
                 <span className="h-1.5 w-1.5 rounded-full bg-amber-400" aria-hidden />
-                Compare + Adaptation
+                Compare
               </div>
               <h3 className="text-xl font-semibold text-white">Side-by-side, then shift before it snaps.</h3>
               <p className="text-slate-300">
-                Entity Compare shows who’s under pressure. Adaptation shows when your inputs drift. Both run on the same RPS grammar so you can intervene before stability cracks.
+                Compare surfaces who’s under pressure. Use Entity Compare for side-by-side analysis, and Adaptation to track drift over time.
               </p>
               <div className="grid grid-cols-2 gap-3 text-sm text-slate-200">
                 <div className="rounded-xl border border-white/5 bg-black/30 px-3 py-2">
-                  <p className="text-xs uppercase tracking-[0.16em] text-amber-200">Compare</p>
-                  <p className="text-slate-200">Find the pressure that’s choking Return across entities.</p>
+                  <p className="text-xs uppercase tracking-[0.16em] text-amber-200">Entity</p>
+                  <p className="text-slate-200">Line up options and see what’s compressing Return or inflating Pressure.</p>
                 </div>
                 <div className="rounded-xl border border-white/5 bg-black/30 px-3 py-2">
-                  <p className="text-xs uppercase tracking-[0.16em] text-amber-200">Adapt</p>
-                  <p className="text-slate-200">Spot drift early and plan the adaptation window.</p>
+                  <p className="text-xs uppercase tracking-[0.16em] text-amber-200">Adaptation</p>
+                  <p className="text-slate-200">Watch inputs drift and spot the adjustment window before the move degrades.</p>
                 </div>
               </div>
             </div>
