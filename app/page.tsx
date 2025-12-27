@@ -1,6 +1,6 @@
 "use client";
 
-import type { ReactNode } from "react";
+import type { HTMLAttributes } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { ArrowRight } from "lucide-react";
@@ -23,11 +23,16 @@ function HeroBackground() {
   );
 }
 
-function GlassPanel({ children, className = "" }: { children: ReactNode; className?: string }) {
+type GlassPanelProps = HTMLAttributes<HTMLDivElement>;
+
+export function GlassPanel({ className, ...rest }: GlassPanelProps) {
   return (
-    <div className={`relative overflow-hidden rounded-[24px] border border-white/10 bg-white/5 shadow-[0_30px_80px_-60px_rgba(0,0,0,0.8)] backdrop-blur-xl ${className}`}>
+    <div
+      className={`relative overflow-hidden rounded-[24px] border border-white/10 bg-white/5 shadow-[0_30px_80px_-60px_rgba(0,0,0,0.8)] backdrop-blur-xl ${className ?? ""}`}
+      {...rest}
+    >
       <div className="absolute inset-0 bg-gradient-to-br from-white/5 via-transparent to-white/5 opacity-40" />
-      <div className="relative z-10">{children}</div>
+      <div className="relative z-10">{rest.children}</div>
     </div>
   );
 }
