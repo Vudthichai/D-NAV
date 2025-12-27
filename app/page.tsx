@@ -3,15 +3,20 @@
 import type { CSSProperties, HTMLAttributes, ReactNode } from "react";
 import Image from "next/image";
 import Link from "next/link";
-import { ArrowRight } from "lucide-react";
+import { Activity, ArrowRight, Shield, TrendingUp } from "lucide-react";
 
 import { AnimatedCompass } from "@/components/animated-compass";
 import { Button } from "@/components/ui/button";
+import { cn } from "@/lib/utils";
+import { RpsDistributions } from "@/components/RpsDistributions";
 
 const noiseTexture =
   "data:image/svg+xml;base64,PHN2ZyB4bWxucz0naHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmcnIHdpZHRoPScxMDAnIGhlaWdodD0nMTAwJz48ZmlsdGVyIGlkPSdudCcgZmlsdGVyVW5pdHM9J3VzZXJTcGFjZU9uVXNlJyB4PScwJyB5PScwJz48ZmVUdXJidWxlbmNlIGJhc2VGcmVxdWVuY3k9Jy4zJyBudW1PY3RhdmVzPSc0Jy8+PGZlQ29sb3JNYXRyaXggdHlwZT0nc2F0dXJhdGUnIHZhbHVlcz0nMCAwIDAgMCAwIDEgMCAwIDAgMCAwIDAgMCAwIDAgMC4xIDAgMCAwIDAgMCcvPjwvZmlsdGVyPjxyZWN0IHdpZHRoPScxMDAnIGhlaWdodD0nMTAwJyBmaWx0ZXI9InVybCgjbnQpIiBvcGFjaXR5PScwLjQnLz48L3N2Zz4=\n";
 
-type GlassPanelProps = HTMLAttributes<HTMLDivElement>;
+type GlassPanelProps = HTMLAttributes<HTMLDivElement> & {
+  className?: string;
+  children?: ReactNode;
+};
 
 function HeroBackground() {
   return (
@@ -29,11 +34,14 @@ function HeroBackground() {
   );
 }
 
-function GlassPanel({ children, className = "", ...props }: GlassPanelProps) {
+function GlassPanel({ children, className, ...rest }: GlassPanelProps) {
   return (
     <div
-      className={`relative overflow-hidden rounded-[24px] border border-white/10 bg-white/5 shadow-[0_30px_80px_-60px_rgba(0,0,0,0.8)] backdrop-blur-xl ${className}`.trim()}
-      {...props}
+      className={cn(
+        "relative overflow-hidden rounded-[24px] border border-white/10 bg-white/5 shadow-[0_30px_80px_-60px_rgba(0,0,0,0.8)] backdrop-blur-xl",
+        className,
+      )}
+      {...rest}
     >
       <div className="absolute inset-0 bg-gradient-to-br from-white/5 via-transparent to-white/5 opacity-40" />
       <div className="relative z-10">{children}</div>
@@ -41,13 +49,18 @@ function GlassPanel({ children, className = "", ...props }: GlassPanelProps) {
   );
 }
 
-function SectionHeading({ title, subtitle, align = "center" }: { title: string; subtitle?: string; align?: "center" | "left" }) {
+function SectionHeading({
+  title,
+  subtitle,
+  align = "center",
+  eyebrow = "Decision NAVigator",
+}: { title: string; subtitle?: string; align?: "center" | "left"; eyebrow?: string }) {
   const alignmentClass = align === "center" ? "text-center" : "text-left";
   const widthClass = align === "center" ? "mx-auto" : "";
 
   return (
     <div className={`space-y-3 ${alignmentClass}`}>
-      <p className="text-xs uppercase tracking-[0.3em] text-amber-200">Feature × Qupe</p>
+      {eyebrow ? <p className="text-xs uppercase tracking-[0.3em] text-amber-200">{eyebrow}</p> : null}
       <h2 className="text-3xl md:text-4xl font-bold tracking-tight text-white">{title}</h2>
       {subtitle ? <p className={`text-lg text-slate-300 max-w-3xl ${widthClass}`}>{subtitle}</p> : null}
     </div>
@@ -57,16 +70,19 @@ function SectionHeading({ title, subtitle, align = "center" }: { title: string; 
 function HeroSection() {
   const signals = [
     {
-      title: "Judgment telemetry",
-      copy: "RPS shows whether your conviction is earned or improv.",
+      badge: "Physics",
+      title: "Decision physics",
+      copy: "Score Impact, Cost, Risk, Urgency, Confidence. We translate it into Return / Pressure / Stability so it’s instantly legible.",
     },
     {
-      title: "Built for real-time calls",
-      copy: "Archetypes translate edge, fragility, and drift into action.",
+      badge: "Patterns",
+      title: "Archetypes",
+      copy: "Once you log enough calls, D-NAV reveals your operating pattern — the way you earn Return, absorb Pressure, and protect Stability.",
     },
     {
-      title: "Compare without theatrics",
-      copy: "Line up entities and see where to push, pause, or adapt.",
+      badge: "Compare",
+      title: "Compare + Adaptation",
+      copy: "Compare entities on the same RPS grammar. Track drift over time and spot the adjustment window before pressure breaks the plan.",
     },
   ];
 
@@ -77,20 +93,19 @@ function HeroSection() {
         <div className="flex flex-wrap items-center gap-3 animate-fade-up" style={{ "--delay": "0s" } as CSSProperties}>
           <div className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-3 py-2 text-[11px] uppercase tracking-[0.28em] text-slate-100">
             <AnimatedCompass className="h-5 w-5" />
-            <span>Feature × Qupe</span>
+            <span>Decision NAVigator</span>
           </div>
           <div className="flex items-center gap-2 text-sm text-amber-200">
             <span className="h-1.5 w-1.5 rounded-full bg-amber-400" aria-hidden />
-            Decision NAVigator
+            Clarity when the data is thin
           </div>
         </div>
 
         <div className="space-y-7 animate-fade-up" style={{ "--delay": "0.08s" } as CSSProperties}>
-          <h1 className="text-4xl md:text-6xl font-black leading-tight tracking-tight text-white">
-            Track your judgment with a glassy, minimal command surface.
-          </h1>
+          <p className="text-xs uppercase tracking-[0.3em] text-amber-200">Decision NAVigator</p>
+          <h1 className="text-4xl md:text-6xl font-black leading-tight tracking-tight text-white">Clarity in uncertainty — measured.</h1>
           <p className="text-xl text-slate-200 max-w-3xl">
-            D-NAV blends executive-grade clarity with live decision telemetry. No laptop glam — just proof you can take into the room.
+            D-NAV turns your gut call into a score, shows what’s driving it, and tells you what to change before you commit.
           </p>
         </div>
 
@@ -109,7 +124,7 @@ function HeroSection() {
             <Button
               size="lg"
               variant="outline"
-              className="text-lg px-8 py-6 border-white/25 bg-slate-900/70 text-white hover:bg-white/10 hover:border-amber-300/60 focus-visible:ring-amber-300"
+              className="text-lg px-8 py-6 border-white/25 bg-slate-900 text-white hover:bg-white/10 hover:border-amber-300/60 focus-visible:ring-amber-300 focus-visible:ring-offset-2 focus-visible:ring-offset-[#050608]"
               asChild
             >
               <Link href="#quick-start">See how it works</Link>
@@ -121,19 +136,19 @@ function HeroSection() {
         <div className="grid gap-4 sm:grid-cols-3 animate-fade-up" style={{ "--delay": "0.22s" } as CSSProperties}>
           {signals.map((item) => (
             <div key={item.title} className="rounded-2xl border border-white/10 bg-white/5 p-5 shadow-[0_18px_50px_-42px_rgba(0,0,0,0.9)]">
-              <p className="text-xs uppercase tracking-[0.2em] text-amber-200">Signal</p>
+              <div className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/10 px-3 py-1 text-[11px] uppercase tracking-[0.2em] text-amber-200">
+                <span className="h-1.5 w-1.5 rounded-full bg-amber-400" aria-hidden />
+                {item.badge}
+              </div>
               <h3 className="mt-2 text-lg font-semibold text-white">{item.title}</h3>
               <p className="mt-2 text-slate-300">{item.copy}</p>
             </div>
           ))}
         </div>
 
-        <div className="flex items-center gap-3 animate-fade-up" style={{ "--delay": "0.32s" } as CSSProperties}>
-          <Image src="/logo.PNG" alt="D-NAV logo" width={48} height={48} className="rounded-xl border border-white/10 bg-white/5 p-2" />
-          <div className="text-sm text-slate-300">
-            Feature x Qupe is a calm surface for the messy parts of judgment. No haze, no glow — just the score of how your calls hold up.
-          </div>
-        </div>
+        <p className="text-sm text-slate-300 animate-fade-up" style={{ "--delay": "0.32s" } as CSSProperties}>
+          Start with one real decision. The system gets sharper as you log.
+        </p>
       </div>
     </section>
   );
@@ -142,16 +157,19 @@ function HeroSection() {
 function ProofStrip() {
   const items = [
     {
-      title: "Executive readout",
-      description: "Minimal panels that translate noise into Return, Pressure, Stability lines leaders can act on.",
+      title: "Executive Readout",
+      description: "Turn noise into a one-page decision brief: RPS baseline, distributions, and what to do next.",
+      image: "/mockups/Laptop-Report.png",
     },
     {
-      title: "Entity compare",
-      description: "Juxtapose bets, teams, or assets without theatrics. See which levers move the score.",
+      title: "Entity Compare",
+      description: "Stack companies, teams, bets, or options side-by-side. See where pressure is choking return.",
+      image: "/mockups/Laptop-Entity.png",
     },
     {
       title: "Adaptation",
-      description: "Watch urgency, risk, and confidence drift over time so you can intervene before a snap.",
+      description: "Watch urgency, risk, and confidence drift. Catch instability early.",
+      image: "/mockups/Laptop-Adaptation.png",
     },
   ];
 
@@ -162,13 +180,13 @@ function ProofStrip() {
           <div className="flex flex-col gap-6">
             <div className="flex flex-col gap-2 md:flex-row md:items-start md:justify-between">
               <div className="space-y-2">
-                <p className="text-sm uppercase tracking-[0.2em] text-amber-200">Proof strip</p>
-                <h3 className="text-2xl font-semibold text-white">Executive-proof clarity. No desktop mockups.</h3>
-                <p className="text-slate-300 max-w-3xl">
-                  Three micro surfaces — readout, compare, adaptation — to show how the system responds under pressure.
-                </p>
+                <p className="text-sm uppercase tracking-[0.2em] text-amber-200">Executive Readouts</p>
+                <h3 className="text-2xl font-semibold text-white">Executive readouts you can walk into a room with.</h3>
+                <p className="text-slate-300 max-w-3xl">One decision language. Three views: readout, compare, adaptation.</p>
               </div>
-              <div className="text-sm text-slate-300">Glassy panels, tight typography, aligned to the decisions you avoid.</div>
+              <div className="text-sm text-slate-300 max-w-sm">
+                Built to replace the deck thrash. Every surface echoes the same grammar: Return, Pressure, Stability.
+              </div>
             </div>
 
             <div className="grid gap-4 md:grid-cols-3">
@@ -185,19 +203,15 @@ function ProofStrip() {
                     </div>
                     <p className="text-slate-200 text-sm leading-relaxed">{item.description}</p>
                   </div>
-                  <div className="mt-4 space-y-2">
-                    {[1, 2, 3].map((bar) => (
-                      <div key={bar} className="h-2 overflow-hidden rounded-full bg-white/5">
-                        <div className="h-full w-3/4 rounded-full bg-gradient-to-r from-white/40 via-white/15 to-transparent animate-shimmer" />
-                      </div>
-                    ))}
-                    <div className="grid grid-cols-3 gap-2 pt-1">
-                      {["Return", "Pressure", "Stability"].map((label) => (
-                        <div key={label} className="rounded-lg border border-white/5 bg-white/5 px-2 py-1 text-[11px] text-slate-200 text-center">
-                          {label}
-                        </div>
-                      ))}
-                    </div>
+                  <div className="mt-4 relative rounded-xl border border-white/10 bg-gradient-to-br from-white/5 via-white/0 to-white/10 p-2 shadow-[0_20px_50px_-45px_rgba(0,0,0,0.9)]">
+                    <div className="absolute inset-0 bg-gradient-to-br from-white/10 via-transparent to-white/0 opacity-40" />
+                    <Image
+                      src={item.image}
+                      alt={item.title}
+                      width={720}
+                      height={460}
+                      className="relative z-10 w-full rounded-lg border border-white/10 object-cover shadow-lg"
+                    />
                   </div>
                 </div>
               ))}
@@ -209,67 +223,73 @@ function ProofStrip() {
   );
 }
 
-function DistributionBars() {
-  const bars = [
-    { label: "Return", width: "78%", tone: "amber" },
-    { label: "Pressure", width: "62%", tone: "slate" },
-    { label: "Stability", width: "71%", tone: "slate" },
-  ];
-
-  const toneClass: Record<string, string> = {
-    amber: "from-amber-400 to-amber-500",
-    slate: "from-slate-100/80 to-slate-300/70",
-  };
-
-  return (
-    <div className="space-y-3">
-      {bars.map((bar, index) => (
-        <div key={bar.label} className="space-y-1">
-          <div className="flex items-center justify-between text-sm text-slate-200">
-            <span>{bar.label}</span>
-            <span className="text-slate-400">{bar.width}</span>
-          </div>
-          <div className="h-2 rounded-full bg-white/5">
-            <div
-              className={`bar-fill h-full rounded-full bg-gradient-to-r ${toneClass[bar.tone]} shadow-[0_8px_30px_-18px_rgba(249,115,22,0.8)]`}
-              style={{ "--bar-width": bar.width, "--delay": `${0.1 + index * 0.08}s` } as CSSProperties}
-            />
-          </div>
-        </div>
-      ))}
-    </div>
-  );
-}
-
 function UnderTheHoodSection() {
   return (
     <section id="quick-start" className="bg-[#040507] py-16 md:py-20">
       <div className="max-w-6xl mx-auto px-6 space-y-10">
         <SectionHeading
           title="Under the hood: RPS + D-NAV"
-          subtitle="A single rhythm: capture the signal, compare entities, and adapt before pressure spikes."
+          subtitle="RPS is the signal. D-NAV is the readout."
           align="left"
+          eyebrow="System grammar"
         />
 
         <div className="grid gap-6 lg:grid-cols-[1.05fr_0.95fr]">
           <GlassPanel className="p-6 md:p-8 animate-fade-up" style={{ "--delay": "0.08s" } as CSSProperties}>
-            <div className="space-y-4">
+            <div className="space-y-5">
               <div className="flex items-center gap-2 text-xs uppercase tracking-[0.2em] text-amber-200">
                 <span className="h-1.5 w-1.5 rounded-full bg-amber-400" aria-hidden />
-                RPS Signals
+                RPS + D-NAV
               </div>
-              <h3 className="text-2xl font-semibold text-white">Return, Pressure, Stability — one tile.</h3>
+              <h3 className="text-2xl font-semibold text-white">RPS is the signal. D-NAV is the readout.</h3>
               <p className="text-slate-300">
-                The physics of your decision: Return = Impact − Cost, Pressure = Urgency − Confidence, Stability = Confidence − Risk. All readouts share the same grammar so your team stops arguing over language.
+                One language for every view: Return, Pressure, Stability. Capture the inputs once, then read the score the same way across readouts, comparisons, and adaptations.
               </p>
               <div className="grid gap-3 sm:grid-cols-3">
-                {["Return", "Pressure", "Stability"].map((item, index) => (
-                  <div key={item} className="rounded-xl border border-white/10 bg-white/5 px-3 py-3">
-                    <p className="text-xs uppercase tracking-[0.18em] text-amber-200">Signal</p>
-                    <p className="text-base font-semibold text-white">{item}</p>
-                    <p className="text-xs text-slate-300">{index === 0 ? "Impact vs. burn" : index === 1 ? "Urgency vs. proof" : "Confidence vs. risk"}</p>
+                <div className="rounded-xl border border-white/10 bg-white/5 px-3 py-3">
+                  <div className="flex items-center gap-2 text-sm font-semibold text-white">
+                    <TrendingUp className="h-4 w-4 text-emerald-300" aria-hidden />
+                    Return
                   </div>
-                ))}
+                  <p className="mt-1 text-xs text-slate-300">Upside after cost.</p>
+                </div>
+                <div className="rounded-xl border border-white/10 bg-white/5 px-3 py-3">
+                  <div className="flex items-center gap-2 text-sm font-semibold text-white">
+                    <Activity className="h-4 w-4 text-amber-300" aria-hidden />
+                    Pressure
+                  </div>
+                  <p className="mt-1 text-xs text-slate-300">Execution stress.</p>
+                </div>
+                <div className="rounded-xl border border-white/10 bg-white/5 px-3 py-3">
+                  <div className="flex items-center gap-2 text-sm font-semibold text-white">
+                    <Shield className="h-4 w-4 text-sky-300" aria-hidden />
+                    Stability
+                  </div>
+                  <p className="mt-1 text-xs text-slate-300">Downside tolerance.</p>
+                </div>
+              </div>
+              <div className="rounded-2xl border border-white/10 bg-black/30 p-4 space-y-2 text-sm text-slate-200">
+                <p className="font-semibold text-white">RPS turns five inputs into three signals:</p>
+                <ul className="space-y-1 text-slate-300">
+                  <li className="flex items-start gap-2">
+                    <span className="mt-1 h-1.5 w-1.5 rounded-full bg-emerald-300" aria-hidden />
+                    <span>
+                      <span className="font-semibold text-white">Return</span> = Impact − Cost
+                    </span>
+                  </li>
+                  <li className="flex items-start gap-2">
+                    <span className="mt-1 h-1.5 w-1.5 rounded-full bg-amber-300" aria-hidden />
+                    <span>
+                      <span className="font-semibold text-white">Pressure</span> = Urgency − Confidence
+                    </span>
+                  </li>
+                  <li className="flex items-start gap-2">
+                    <span className="mt-1 h-1.5 w-1.5 rounded-full bg-sky-300" aria-hidden />
+                    <span>
+                      <span className="font-semibold text-white">Stability</span> = Confidence − Risk
+                    </span>
+                  </li>
+                </ul>
               </div>
             </div>
           </GlassPanel>
@@ -278,21 +298,24 @@ function UnderTheHoodSection() {
             <div className="space-y-5">
               <div className="flex items-center justify-between gap-2">
                 <div className="space-y-2">
-                  <p className="text-xs uppercase tracking-[0.2em] text-amber-200">D-NAV score</p>
+                  <p className="text-xs uppercase tracking-[0.2em] text-amber-200">D-NAV Score</p>
                   <h3 className="text-xl font-semibold text-white">See the score before the market does.</h3>
                 </div>
                 <div className="rounded-full border border-white/10 bg-white/5 px-3 py-1 text-xs text-slate-200">Live</div>
               </div>
-              <p className="text-slate-300">
-                Log one move or an entire portfolio. The score shows how much pressure your conviction can withstand — and where adaptation buys you stability.
-              </p>
-              <DistributionBars />
-              <div className="rounded-2xl border border-white/5 bg-black/40 p-4 text-sm text-slate-200">
-                <p className="font-semibold text-white">How to read it</p>
-                <p className="mt-1 text-slate-300">
-                  Bars rise as confidence earns the right to push harder. If Pressure creeps ahead of Return, the system flags an adaptation window before you torch stability.
-                </p>
+              <p className="text-slate-300">D-NAV is your decision’s readout. Merit measures the tradeoff. Energy measures whether it survives execution pressure.</p>
+              <div className="rounded-2xl border border-white/5 bg-black/40 p-4 space-y-2">
+                <p className="text-sm font-semibold text-white">D-NAV = Merit + Energy</p>
+                <p className="text-sm text-slate-300">Merit captures Impact vs. Cost. Energy blends Urgency, Risk, and Confidence so you know if the move can hold.</p>
               </div>
+              <RpsDistributions />
+              <Button
+                variant="secondary"
+                className="w-full justify-center border border-white/15 bg-white/10 text-white hover:bg-white/15 focus-visible:ring-amber-300"
+                asChild
+              >
+                <Link href="/calculator">Run a Decision Check</Link>
+              </Button>
             </div>
           </GlassPanel>
         </div>
@@ -306,14 +329,17 @@ function UnderTheHoodSection() {
               </div>
               <h3 className="text-xl font-semibold text-white">Name the pattern, then decide.</h3>
               <p className="text-slate-300">
-                Aggressor, Stabilizer, Hedged, or Drifter — each archetype clarifies whether you should double down, cool down, or gather proof.
+                Breakthrough, Drift, Strain, or Coast — all pulled from the definitions you already use. Each archetype clarifies whether to double down, cool down, or gather proof.
               </p>
               <ul className="space-y-2 text-slate-200">
                 <li className="flex items-center gap-2 text-sm">
-                  <span className="h-1.5 w-1.5 rounded-full bg-amber-300" aria-hidden />Spot how pressure warps your calls.
+                  <span className="h-1.5 w-1.5 rounded-full bg-amber-300" aria-hidden />Spot what spikes Pressure.
                 </li>
                 <li className="flex items-center gap-2 text-sm">
-                  <span className="h-1.5 w-1.5 rounded-full bg-slate-300" aria-hidden />Map the next move to the archetype — not to ego.
+                  <span className="h-1.5 w-1.5 rounded-full bg-slate-300" aria-hidden />See what creates Stability.
+                </li>
+                <li className="flex items-center gap-2 text-sm">
+                  <span className="h-1.5 w-1.5 rounded-full bg-emerald-300" aria-hidden />Know when to adapt vs double down.
                 </li>
               </ul>
             </div>
@@ -327,16 +353,16 @@ function UnderTheHoodSection() {
               </div>
               <h3 className="text-xl font-semibold text-white">Side-by-side, then shift before it snaps.</h3>
               <p className="text-slate-300">
-                Compare entities across the same RPS grammar. When drift shows up, adaptation windows keep the move alive without heavy resets.
+                Entity Compare shows who’s under pressure. Adaptation shows when your inputs drift. Both run on the same RPS grammar so you can intervene before stability cracks.
               </p>
               <div className="grid grid-cols-2 gap-3 text-sm text-slate-200">
                 <div className="rounded-xl border border-white/5 bg-black/30 px-3 py-2">
                   <p className="text-xs uppercase tracking-[0.16em] text-amber-200">Compare</p>
-                  <p className="text-slate-200">Find the pressure that’s choking Return.</p>
+                  <p className="text-slate-200">Find the pressure that’s choking Return across entities.</p>
                 </div>
                 <div className="rounded-xl border border-white/5 bg-black/30 px-3 py-2">
                   <p className="text-xs uppercase tracking-[0.16em] text-amber-200">Adapt</p>
-                  <p className="text-slate-200">Move to a calmer archetype without losing speed.</p>
+                  <p className="text-slate-200">Spot drift early and plan the adaptation window.</p>
                 </div>
               </div>
             </div>
