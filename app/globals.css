@@ -288,6 +288,60 @@ body {
   }
 }
 
+@keyframes fade-up {
+  from {
+    opacity: 0;
+    transform: translateY(16px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes shimmer {
+  0% {
+    transform: translateX(-60%);
+  }
+  100% {
+    transform: translateX(140%);
+  }
+}
+
+@keyframes bar-fill {
+  0% {
+    width: 0;
+  }
+  100% {
+    width: var(--bar-width);
+  }
+}
+
+.animate-fade-up {
+  opacity: 0;
+  animation: fade-up 0.9s ease forwards;
+  animation-delay: var(--delay, 0s);
+}
+
+.animate-shimmer {
+  position: relative;
+  overflow: hidden;
+}
+
+.animate-shimmer::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.28), transparent);
+  transform: translateX(-100%);
+  animation: shimmer 1.8s ease-in-out infinite;
+}
+
+.bar-fill {
+  animation: bar-fill 1s ease forwards;
+  animation-delay: var(--delay, 0s);
+}
+
 @layer base {
   * {
     @apply border-border outline-ring/50;
