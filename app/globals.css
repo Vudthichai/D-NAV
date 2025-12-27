@@ -211,6 +211,49 @@ body {
   overflow: hidden;
 }
 
+.fade-in-up {
+  opacity: 0;
+  transform: translateY(18px);
+  animation: fade-in-up 0.85s ease forwards;
+}
+
+.micro-bar {
+  transform-origin: left;
+  animation: micro-bar 2.4s ease-in-out infinite alternate;
+}
+
+.signal-bar {
+  width: var(--bar-width, 70%);
+  transition: width 0.7s ease, transform 0.3s ease;
+}
+
+.signal-row:hover .signal-bar,
+.signal-row:focus-within .signal-bar {
+  width: clamp(0%, calc(var(--bar-width, 70%) + 12%), 100%);
+}
+
+@keyframes fade-in-up {
+  from {
+    opacity: 0;
+    transform: translateY(18px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes micro-bar {
+  from {
+    transform: scaleX(0.92);
+    opacity: 0.92;
+  }
+  to {
+    transform: scaleX(1.05);
+    opacity: 1;
+  }
+}
+
 @keyframes compass-needle-sway {
   0%,
   100% {
@@ -283,8 +326,16 @@ body {
 
 @media (prefers-reduced-motion: reduce) {
   .compass-needle,
-  .compass-ring {
+  .compass-ring,
+  .fade-in-up,
+  .micro-bar {
     animation: none !important;
+  }
+
+  .fade-in-up,
+  .micro-bar {
+    opacity: 1 !important;
+    transform: none !important;
   }
 }
 
