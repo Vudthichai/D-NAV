@@ -11,23 +11,6 @@ export default function Header() {
   const pathname = usePathname();
   const showThemeToggle = pathname !== "/";
 
-  const getPageTitle = () => {
-    switch (pathname) {
-      case "/":
-        return "Decision Navigator";
-      case "/calculator":
-        return "The D-NAV";
-      case "/log":
-        return "Decision Log";
-      case "/definitions":
-        return "Definitions";
-      case "/reports":
-        return "Reports & Exports";
-      default:
-        return "D-NAV";
-    }
-  };
-
   return (
     <header
       className="dn-app-chrome sticky top-0 z-30 flex h-16 shrink-0 items-center gap-3 border-b bg-sidebar/95 px-4 backdrop-blur supports-[backdrop-filter]:bg-sidebar/75"
@@ -39,19 +22,14 @@ export default function Header() {
           className="flex items-center gap-3 rounded-lg px-2 py-1 transition hover:bg-muted/60"
         >
           <Image
-            src="/logo.PNG"
+            src="/mockups/Header%20Logos.png"
             alt="D-NAV logo"
-            width={32}
-            height={32}
-            className="h-8 w-8 rounded-md bg-primary/20 object-cover"
+            width={2000}
+            height={2000}
+            className="h-10 w-auto"
             priority
           />
-          <div className="flex flex-col leading-tight">
-            <span className="text-xs font-semibold uppercase tracking-[0.2em] text-muted-foreground">
-              The Decision NAVigator
-            </span>
-            <span className="text-sm font-semibold text-foreground">{getPageTitle()}</span>
-          </div>
+          <span className="sr-only">D-NAV</span>
         </Link>
       </div>
       <div className="flex items-center gap-2">
