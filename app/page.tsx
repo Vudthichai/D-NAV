@@ -89,27 +89,27 @@ function HeroSection() {
     <section className="relative isolate overflow-hidden">
       <HeroBackground />
       <div className="max-w-6xl mx-auto px-6 pt-16 pb-20 space-y-12">
-        <div className="flex flex-wrap items-center gap-3 animate-fade-up" style={{ "--delay": "0s" } as CSSProperties}>
-          <Image
-            src="/mockups/D_NAVlogoclean.png"
-            alt="D-NAV logo"
-            width={1536}
-            height={1024}
-            className="h-20 w-auto"
-            priority
-          />
-          <div className="flex items-center gap-2 text-xs text-slate-300">
-            <span className="h-1.5 w-1.5 rounded-full bg-slate-300" aria-hidden />
-            Clarity when the data is thin
+        <div
+          className="grid gap-8 lg:grid-cols-[auto,1fr] lg:items-start animate-fade-up"
+          style={{ "--delay": "0s" } as CSSProperties}
+        >
+          <div className="flex justify-start lg:justify-center">
+            <Image
+              src="/mockups/D_NAVlogoclean.png"
+              alt="D-NAV logo"
+              width={1536}
+              height={1024}
+              className="w-[220px] md:w-[240px] h-auto"
+              priority
+            />
           </div>
-        </div>
 
-        <div className="space-y-7 animate-fade-up" style={{ "--delay": "0.08s" } as CSSProperties}>
-          <p className="text-xs uppercase tracking-[0.3em] text-amber-200">Decision NAVigator</p>
-          <h1 className="text-4xl md:text-6xl font-black leading-tight tracking-tight text-white">Clarity in uncertainty — measured.</h1>
-          <p className="text-xl text-slate-200 max-w-3xl">
-            D-NAV turns your gut call into a score, shows what’s driving it, and tells you what to change before you commit.
-          </p>
+          <div className="space-y-7">
+            <h1 className="text-4xl md:text-6xl font-black leading-tight tracking-tight text-white">Clarity in uncertainty — measured.</h1>
+            <p className="text-xl text-slate-200 max-w-3xl">
+              D-NAV turns your gut call into a score, shows what’s driving it, and tells you what to change before you commit.
+            </p>
+          </div>
         </div>
 
         <div className="space-y-4 animate-fade-up" style={{ "--delay": "0.14s" } as CSSProperties}>
