@@ -90,16 +90,16 @@ function HeroSection() {
       <HeroBackground />
       <div className="max-w-6xl mx-auto px-6 pt-16 pb-20 space-y-12">
         <div
-          className="grid gap-8 lg:grid-cols-[auto,1fr] lg:items-start animate-fade-up"
+          className="grid gap-10 lg:gap-12 lg:grid-cols-[auto,1fr] lg:items-start animate-fade-up"
           style={{ "--delay": "0s" } as CSSProperties}
         >
-          <div className="flex justify-start lg:justify-center">
+          <div className="flex justify-start">
             <Image
-              src="/mockups/D_NAVlogoclean.png"
+              src="/mockups/dnavlogowhite.png"
               alt="D-NAV logo"
               width={1536}
               height={1024}
-              className="w-[110px] md:w-[120px] h-auto"
+              className="w-[180px] sm:w-[220px] lg:w-[260px] max-w-[300px] h-auto"
               priority
             />
           </div>
