@@ -13,7 +13,7 @@ export default function Header() {
 
   return (
     <header
-      className="dn-app-chrome sticky top-0 z-30 flex h-16 shrink-0 items-center gap-3 border-b bg-sidebar/95 px-4 backdrop-blur supports-[backdrop-filter]:bg-sidebar/75"
+      className="dn-app-chrome sticky top-0 z-30 flex shrink-0 items-center gap-3 border-b bg-sidebar/95 px-4 backdrop-blur supports-[backdrop-filter]:bg-sidebar/75"
     >
       <SidebarTrigger className="-ml-1" />
       <div className="flex flex-1 items-center">
@@ -22,11 +22,11 @@ export default function Header() {
           className="flex items-center gap-3 rounded-lg px-2 py-1 transition hover:bg-muted/60"
         >
           <Image
-            src="/mockups/Header%20Logos.png"
+            src="/mockups/dnavlogowhite.png"
             alt="D-NAV logo"
             width={2000}
             height={2000}
-            className="h-10 w-auto"
+            className="h-auto w-auto max-w-none h-[40px] sm:h-[48px] lg:h-[60px]"
             priority
           />
           <span className="sr-only">D-NAV</span>
