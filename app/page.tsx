@@ -154,6 +154,43 @@ function HeroSection() {
   );
 }
 
+function ExecutiveReadoutSection() {
+  return (
+    <section className="bg-[#050608] py-16 md:py-20">
+      <div className="max-w-6xl mx-auto px-6">
+        <div className="grid gap-10 md:grid-cols-2 md:items-center">
+          <div className="space-y-4 md:space-y-6">
+            <p className="text-[11px] uppercase tracking-[0.32em] text-amber-200">Executive Readout</p>
+            <h2 className="text-3xl md:text-4xl font-bold leading-tight text-white">Executive clarity you can walk into a room with.</h2>
+            <div className="space-y-3 text-slate-200">
+              <p>D-NAV turns complex decisions into a single, legible readout.</p>
+              <p>
+                You see how judgment is being applied, where pressure is accumulating, and whether decisions are actually improving stability over time.
+              </p>
+              <p>This is not a dashboard. It&apos;s a decision brief—built to replace slides, opinions, and post-hoc explanations.</p>
+            </div>
+            <p className="text-sm text-slate-400">Return. Pressure. Stability. One page. No noise.</p>
+          </div>
+
+          <div className="relative">
+            <div className="absolute inset-0 rounded-[32px] bg-gradient-to-br from-white/10 via-transparent to-white/10 blur-3xl opacity-10" aria-hidden />
+            <div className="relative overflow-hidden rounded-[28px] border border-white/10 bg-white/5 p-3">
+              <Image
+                src="/mockups/Computer-Report.png"
+                alt="D-NAV Executive Readout"
+                width={1360}
+                height={900}
+                className="w-full h-auto rounded-[20px] object-contain"
+                priority
+              />
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+  );
+}
+
 function ProofStrip() {
   const items = [
     {
@@ -455,6 +492,7 @@ export default function Home() {
   return (
     <main className="bg-[#050608] text-white">
       <HeroSection />
+      <ExecutiveReadoutSection />
       <ProofStrip />
       <UnderTheHoodSection />
       <AudienceSection />
