@@ -191,6 +191,42 @@ function ExecutiveReadoutSection() {
   );
 }
 
+function EntityCompareSection() {
+  return (
+    <section className="bg-[#050608] py-16 md:py-20">
+      <div className="max-w-6xl mx-auto px-6">
+        <div className="grid gap-10 lg:gap-16 md:grid-cols-2 md:items-center">
+          <div className="relative flex justify-center md:justify-end lg:justify-start">
+            <div className="absolute -inset-12 rounded-full bg-gradient-to-br from-white/10 via-transparent to-white/5 blur-3xl opacity-30" aria-hidden />
+            <Image
+              src="/mockups/Computer-Entity.png"
+              alt="D-NAV Entity Compare"
+              width={1480}
+              height={960}
+              className="relative z-10 w-full max-w-[900px] h-auto -ml-4 md:-ml-16 lg:-ml-24 md:-translate-x-6 lg:-translate-x-10 drop-shadow-[0_32px_120px_rgba(0,0,0,0.45)]"
+              priority
+            />
+          </div>
+
+          <div className="space-y-4 md:space-y-6">
+            <p className="text-[11px] uppercase tracking-[0.32em] text-amber-200">Entity Compare</p>
+            <h2 className="text-3xl md:text-4xl font-bold leading-tight text-white">Judgment only becomes clear in contrast.</h2>
+            <div className="space-y-3 text-slate-200">
+              <p>Once decisions are measured using the same physics, comparison becomes unavoidable.</p>
+              <p>
+                D-NAV allows you to stack teams, strategies, or domains side-by-side to reveal where judgment creates return — and where it quietly
+                accumulates pressure.
+              </p>
+              <p>What looks reasonable in isolation often tells a very different story in context.</p>
+            </div>
+            <p className="text-sm text-slate-400">Same decision language. Very different outcomes.</p>
+          </div>
+        </div>
+      </div>
+    </section>
+  );
+}
+
 function ProofStrip() {
   const items = [
     {
@@ -493,6 +529,7 @@ export default function Home() {
     <main className="bg-[#050608] text-white">
       <HeroSection />
       <ExecutiveReadoutSection />
+      <EntityCompareSection />
       <ProofStrip />
       <UnderTheHoodSection />
       <AudienceSection />
