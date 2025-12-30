@@ -89,11 +89,8 @@ function HeroSection() {
     <section className="relative isolate overflow-hidden">
       <HeroBackground />
       <div className="max-w-6xl mx-auto px-6 pt-16 pb-20 space-y-12">
-        <div
-          className="grid gap-10 lg:gap-12 lg:grid-cols-[auto,1fr] lg:items-start animate-fade-up"
-          style={{ "--delay": "0s" } as CSSProperties}
-        >
-          <div className="flex justify-start">
+        <div className="flex flex-col items-start gap-10 lg:gap-12 animate-fade-up" style={{ "--delay": "0s" } as CSSProperties}>
+          <div className="self-center">
             <Image
               src="/mockups/dnavlogowhite.png"
               alt="D-NAV logo"
@@ -104,7 +101,7 @@ function HeroSection() {
             />
           </div>
 
-          <div className="space-y-7">
+          <div className="space-y-6 md:space-y-7 w-full max-w-4xl">
             <h1 className="text-4xl md:text-6xl font-black leading-tight tracking-tight text-white">Clarity in uncertainty — measured.</h1>
             <p className="text-xl text-slate-200 max-w-3xl">
               D-NAV turns your gut call into a score, shows what’s driving it, and tells you what to change before you commit.
