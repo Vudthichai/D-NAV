@@ -172,18 +172,15 @@ function ExecutiveReadoutSection() {
             <p className="text-sm text-slate-400">Return. Pressure. Stability. One page. No noise.</p>
           </div>
 
-          <div className="relative">
-            <div className="absolute inset-0 rounded-[32px] bg-gradient-to-br from-white/10 via-transparent to-white/10 blur-3xl opacity-10" aria-hidden />
-            <div className="relative overflow-hidden rounded-[28px] border border-white/10 bg-white/5 p-3">
-              <Image
-                src="/mockups/Computer-Report.png"
-                alt="D-NAV Executive Readout"
-                width={1360}
-                height={900}
-                className="w-full h-auto rounded-[20px] object-contain"
-                priority
-              />
-            </div>
+          <div className="relative flex justify-center md:justify-end">
+            <Image
+              src="/mockups/compreport.png"
+              alt="D-NAV Executive Readout"
+              width={1360}
+              height={900}
+              className="w-full max-w-[1100px] h-auto md:w-[115%] lg:w-[135%] lg:translate-x-10 lg:-mr-16 drop-shadow-[0_32px_120px_rgba(0,0,0,0.45)]"
+              priority
+            />
           </div>
         </div>
       </div>
@@ -196,14 +193,13 @@ function EntityCompareSection() {
     <section className="bg-[#050608] py-16 md:py-20">
       <div className="max-w-6xl mx-auto px-6">
         <div className="grid gap-10 lg:gap-16 md:grid-cols-2 md:items-center">
-          <div className="relative flex justify-center md:justify-end lg:justify-start">
-            <div className="absolute -inset-12 rounded-full bg-gradient-to-br from-white/10 via-transparent to-white/5 blur-3xl opacity-30" aria-hidden />
+          <div className="relative flex justify-center md:justify-start lg:justify-start">
             <Image
-              src="/mockups/Computer-Entity.png"
+              src="/mockups/compentity.png"
               alt="D-NAV Entity Compare"
               width={1480}
               height={960}
-              className="relative z-10 w-full max-w-[900px] h-auto -ml-4 md:-ml-16 lg:-ml-24 md:-translate-x-6 lg:-translate-x-10 drop-shadow-[0_32px_120px_rgba(0,0,0,0.45)]"
+              className="relative z-10 w-full max-w-[1100px] h-auto md:w-[115%] lg:w-[135%] lg:-translate-x-10 lg:-ml-16 drop-shadow-[0_32px_120px_rgba(0,0,0,0.45)]"
               priority
             />
           </div>
