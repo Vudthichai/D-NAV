@@ -5,7 +5,6 @@ import Image from "next/image";
 import Link from "next/link";
 import { Activity, ArrowRight, Shield, TrendingUp } from "lucide-react";
 
-import { AnimatedCompass } from "@/components/animated-compass";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { RpsDistributions } from "@/components/RpsDistributions";
@@ -91,29 +90,22 @@ function HeroSection() {
       <HeroBackground />
       <div className="max-w-6xl mx-auto px-6 pt-16 pb-20 space-y-12">
         <div className="flex flex-wrap items-center gap-3 animate-fade-up" style={{ "--delay": "0s" } as CSSProperties}>
-          <div className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-3 py-2 text-[11px] uppercase tracking-[0.28em] text-slate-100">
-            <AnimatedCompass className="h-5 w-5" />
-            <span>Decision NAVigator</span>
-          </div>
-          <div className="flex items-center gap-2 text-sm text-amber-200">
-            <span className="h-1.5 w-1.5 rounded-full bg-amber-400" aria-hidden />
+          <Image
+            src="/mockups/D_NAVlogoclean.png"
+            alt="D-NAV logo"
+            width={1536}
+            height={1024}
+            className="h-10 w-auto"
+            priority
+          />
+          <div className="flex items-center gap-2 text-xs text-slate-300">
+            <span className="h-1.5 w-1.5 rounded-full bg-slate-300" aria-hidden />
             Clarity when the data is thin
           </div>
         </div>
 
         <div className="space-y-7 animate-fade-up" style={{ "--delay": "0.08s" } as CSSProperties}>
           <p className="text-xs uppercase tracking-[0.3em] text-amber-200">Decision NAVigator</p>
-          <div className="flex justify-center">
-            <Image
-              src="/mockups/D_NAVlogoclean.png"
-              alt="D-NAV logo"
-              width={1536}
-              height={1024}
-              priority
-              className="w-[180px] sm:w-[220px] h-auto"
-              sizes="(min-width: 640px) 220px, 180px"
-            />
-          </div>
           <h1 className="text-4xl md:text-6xl font-black leading-tight tracking-tight text-white">Clarity in uncertainty — measured.</h1>
           <p className="text-xl text-slate-200 max-w-3xl">
             D-NAV turns your gut call into a score, shows what’s driving it, and tells you what to change before you commit.
