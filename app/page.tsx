@@ -95,7 +95,7 @@ function HeroSection() {
             alt="D-NAV logo"
             width={1536}
             height={1024}
-            className="h-10 w-auto"
+            className="h-20 w-auto"
             priority
           />
           <div className="flex items-center gap-2 text-xs text-slate-300">
