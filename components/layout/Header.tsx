@@ -3,9 +3,9 @@
 import { ThemeToggle } from "@/components/theme-toggle";
 import { Button } from "@/components/ui/button";
 import { SidebarTrigger } from "@/components/ui/sidebar";
-import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { BrandMark } from "@/components/BrandMark";
 
 export default function Header() {
   const pathname = usePathname();
@@ -21,15 +21,12 @@ export default function Header() {
           href="/"
           className="flex items-center gap-3 rounded-lg px-2 py-1 transition hover:bg-muted/60"
         >
-          <Image
-            src="/mockups/HeaderOrange2.png"
-            alt="D-NAV header logo"
-            width={3500}
-            height={1500}
-            className="h-[28px] w-auto max-w-none sm:h-[32px] lg:h-[40px]"
+          <BrandMark
+            className="gap-3"
+            imageClassName="h-[28px] w-auto max-w-none sm:h-[32px] lg:h-[40px]"
+            textClassName="text-primary"
             priority
           />
-          <span className="sr-only">D-NAV</span>
         </Link>
       </div>
       <div className="flex items-center gap-2">
