@@ -169,7 +169,7 @@ function ExecutiveReadoutSection() {
               </p>
               <p>This is not a dashboard. It&apos;s a decision brief—built to replace slides, opinions, and post-hoc explanations.</p>
             </div>
-            <p className="text-sm text-slate-400">Return. Pressure. Stability. One page. No noise.</p>
+            <p className="text-sm text-slate-400">The D-NAV — a whole new way to decide.</p>
           </div>
 
           <div className="relative flex justify-center md:justify-end">
@@ -218,75 +218,6 @@ function EntityCompareSection() {
             <p className="text-sm text-slate-400">Same decision language. Very different outcomes.</p>
           </div>
         </div>
-      </div>
-    </section>
-  );
-}
-
-function ProofStrip() {
-  const items = [
-    {
-      title: "Executive Readout",
-      description: "Turn noise into a one-page decision brief: RPS baseline, distributions, and what to do next.",
-      image: "/mockups/Laptop-Report.png",
-    },
-    {
-      title: "Entity Compare",
-      description: "Stack companies, teams, bets, or options side-by-side. See where pressure is choking return.",
-      image: "/mockups/Laptop-Entity.png",
-    },
-    {
-      title: "Adaptation",
-      description: "Watch urgency, risk, and confidence drift. Catch instability early.",
-      image: "/mockups/Laptop-Adaptation.png",
-    },
-  ];
-
-  return (
-    <section className="bg-[#050608] pb-16">
-      <div className="max-w-6xl mx-auto px-6 space-y-6">
-        <GlassPanel className="p-6 md:p-8 animate-fade-up" style={{ "--delay": "0.12s" } as CSSProperties}>
-          <div className="flex flex-col gap-6">
-            <div className="flex flex-col gap-2 md:flex-row md:items-start md:justify-between">
-              <div className="space-y-2">
-                <p className="text-sm uppercase tracking-[0.2em] text-amber-200">Executive Readouts</p>
-                <h3 className="text-2xl font-semibold text-white">Executive readouts you can walk into a room with.</h3>
-                <p className="text-slate-300 max-w-3xl">One decision language. Three views: readout, compare, adaptation.</p>
-              </div>
-              <div className="text-sm text-slate-300 max-w-sm">
-                Built to replace the deck thrash. Every surface echoes the same grammar: Return, Pressure, Stability.
-              </div>
-            </div>
-
-            <div className="grid gap-4 md:grid-cols-3">
-              {items.map((item, index) => (
-                <div
-                  key={item.title}
-                  className="rounded-2xl border border-white/10 bg-black/40 p-5 backdrop-blur-md animate-fade-up"
-                  style={{ "--delay": `${0.16 + index * 0.06}s` } as CSSProperties}
-                >
-                  <div className="space-y-3">
-                    <div className="flex items-center gap-2 text-xs uppercase tracking-[0.16em] text-amber-200">
-                      <span className="h-1.5 w-1.5 rounded-full bg-amber-400" aria-hidden />
-                      {item.title}
-                    </div>
-                    <p className="text-slate-200 text-sm leading-relaxed">{item.description}</p>
-                  </div>
-                  <div className="mt-4 relative rounded-xl border border-white/10 bg-gradient-to-br from-white/5 via-white/0 to-white/10 p-2 shadow-[0_20px_50px_-45px_rgba(0,0,0,0.9)]">
-                    <div className="absolute inset-0 bg-gradient-to-br from-white/10 via-transparent to-white/0 opacity-40" />
-                    <Image
-                      src={item.image}
-                      alt={item.title}
-                      width={720}
-                      height={460}
-                      className="relative z-10 w-full rounded-lg border border-white/10 object-cover shadow-lg"
-                    />
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-        </GlassPanel>
       </div>
     </section>
   );
@@ -526,7 +457,6 @@ export default function Home() {
       <HeroSection />
       <ExecutiveReadoutSection />
       <EntityCompareSection />
-      <ProofStrip />
       <UnderTheHoodSection />
       <AudienceSection />
       <FinalCTASection />
