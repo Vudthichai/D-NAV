@@ -92,11 +92,11 @@ function HeroSection() {
         <div className="flex flex-col items-start gap-10 lg:gap-12 animate-fade-up" style={{ "--delay": "0s" } as CSSProperties}>
           <div className="self-center">
             <Image
-              src="/mockups/dnavlogowhite.png"
-              alt="D-NAV logo"
+              src="/mockups/OrangeHeaderDelta.png"
+              alt="D-NAV header logo"
               width={1536}
               height={1024}
-              className="w-[180px] sm:w-[220px] lg:w-[260px] max-w-[300px] h-auto"
+              className="w-[200px] sm:w-[240px] lg:w-[280px] max-w-[320px] h-auto"
               priority
             />
           </div>

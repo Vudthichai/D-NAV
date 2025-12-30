@@ -22,11 +22,11 @@ export default function Header() {
           className="flex items-center gap-3 rounded-lg px-2 py-1 transition hover:bg-muted/60"
         >
           <Image
-            src="/mockups/dnavlogowhite.png"
-            alt="D-NAV logo"
+            src="/mockups/OrangeHeaderDelta.png"
+            alt="D-NAV header logo"
             width={2000}
             height={2000}
-            className="h-auto w-auto max-w-none h-[40px] sm:h-[48px] lg:h-[60px]"
+            className="w-auto max-w-none h-[36px] sm:h-[46px] lg:h-[54px]"
             priority
           />
           <span className="sr-only">D-NAV</span>
