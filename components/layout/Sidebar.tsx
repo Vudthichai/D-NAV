@@ -44,11 +44,11 @@ export default function AppSidebar() {
       <SidebarHeader>
         <Link href="/" className="flex items-center gap-2 cursor-pointer">
           <Image
-            src="/logo.PNG"
+            src="/mockups/dnavdelta.png"
             alt="D-NAV logo"
-            width={32}
-            height={32}
-            className="h-8 w-8 rounded-md bg-primary/20 object-cover group-data-[collapsible=icon]:h-8 group-data-[collapsible=icon]:w-8"
+            width={2000}
+            height={2000}
+            className="h-[30px] w-auto object-contain group-data-[collapsible=icon]:h-[30px] group-data-[collapsible=icon]:w-auto"
             priority
           />
           <div className="font-bold text-lg group-data-[collapsible=icon]:hidden">D-NAV</div>

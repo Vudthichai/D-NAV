@@ -89,8 +89,8 @@ function HeroSection() {
     <section className="relative isolate overflow-hidden">
       <HeroBackground />
       <div className="max-w-6xl mx-auto px-6 pt-16 pb-20 space-y-12">
-        <div className="flex flex-col items-start gap-10 lg:gap-12 animate-fade-up" style={{ "--delay": "0s" } as CSSProperties}>
-          <div className="self-center">
+        <div className="flex flex-col items-start animate-fade-up" style={{ "--delay": "0s" } as CSSProperties}>
+          <div className="self-center mb-6 md:mb-8 lg:mb-10">
             <Image
               src="/mockups/OrangeHeaderDelta.png"
               alt="D-NAV header logo"

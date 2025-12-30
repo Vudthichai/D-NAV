@@ -8,11 +8,11 @@ export default function Footer() {
       <div className="mx-auto flex w-full max-w-6xl flex-col items-start gap-6 px-6 py-8 md:flex-row md:items-center md:justify-between">
         <div className="flex items-center gap-4">
           <Image
-            src="/mockups/dnavdelta.png"
-            alt="D-NAV delta logo"
+            src="/mockups/Header Logos.png"
+            alt="D-NAV logo"
             width={2000}
             height={2000}
-            className="h-20 w-20 rounded-[28px] bg-muted/50 p-3 object-contain"
+            className="h-10 w-auto sm:h-11 md:h-12 object-contain"
             priority
           />
           <div>
