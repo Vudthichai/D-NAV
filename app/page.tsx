@@ -103,6 +103,17 @@ function HeroSection() {
 
         <div className="space-y-7 animate-fade-up" style={{ "--delay": "0.08s" } as CSSProperties}>
           <p className="text-xs uppercase tracking-[0.3em] text-amber-200">Decision NAVigator</p>
+          <div className="flex justify-center">
+            <Image
+              src="/mockups/D_NAVlogoclean.png"
+              alt="D-NAV logo"
+              width={1536}
+              height={1024}
+              priority
+              className="w-[180px] sm:w-[220px] h-auto"
+              sizes="(min-width: 640px) 220px, 180px"
+            />
+          </div>
           <h1 className="text-4xl md:text-6xl font-black leading-tight tracking-tight text-white">Clarity in uncertainty — measured.</h1>
           <p className="text-xl text-slate-200 max-w-3xl">
             D-NAV turns your gut call into a score, shows what’s driving it, and tells you what to change before you commit.
