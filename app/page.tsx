@@ -90,7 +90,7 @@ function HeroSection() {
       <HeroBackground />
       <div className="max-w-6xl mx-auto px-6 pt-16 pb-20 space-y-12">
         <div className="flex flex-col items-start animate-fade-up" style={{ "--delay": "0s" } as CSSProperties}>
-          <div className="self-center mb-6 md:mb-8 lg:mb-10">
+          <div className="self-center mb-12 md:mb-14 lg:mb-16">
             <Image
               src="/mockups/OrangeHeaderDelta.png"
               alt="D-NAV header logo"
