@@ -70,8 +70,8 @@ function HeroSection() {
   const signals = [
     {
       badge: "Physics",
-      title: "Decision physics",
-      copy: "Score Impact, Cost, Risk, Urgency, Confidence. We translate it into Return / Pressure / Stability so it’s instantly legible.",
+      title: "What actually drives decisions",
+      copy: "Most decisions fail because pressure, confidence, and risk are misread. D-NAV captures five inputs — Impact, Cost, Risk, Urgency, Confidence — and translates them into three signals you can reason with: Return, Pressure, Stability.",
     },
     {
       badge: "Patterns",
@@ -102,10 +102,47 @@ function HeroSection() {
           </div>
 
           <div className="space-y-6 md:space-y-7 w-full max-w-4xl">
-            <h1 className="text-4xl md:text-6xl font-black leading-tight tracking-tight text-white">Clarity in uncertainty — measured.</h1>
-            <p className="text-xl text-slate-200 max-w-3xl">
-              D-NAV turns your gut call into a score, shows what’s driving it, and tells you what to change before you commit.
+            <h1 className="text-4xl md:text-6xl font-black leading-tight tracking-tight text-white">Decisions fail long before execution. D-NAV shows you where.</h1>
+            <p className="text-xl text-slate-200 max-w-3xl">Before you commit, know what you’re actually carrying.</p>
+            <p className="text-lg text-slate-300 max-w-3xl">
+              D-NAV measures judgment before momentum locks in. It surfaces Return, Pressure, and Stability so you can adjust before execution begins.
             </p>
+          </div>
+        </div>
+
+        <div className="mt-10 md:mt-12 lg:mt-14 animate-fade-up" style={{ "--delay": "0.08s" } as CSSProperties}>
+          <div className="rounded-2xl border border-white/10 bg-white/5 p-6 md:p-7 shadow-[0_18px_50px_-42px_rgba(0,0,0,0.9)] space-y-4">
+            <div className="flex items-center gap-2 text-xs uppercase tracking-[0.2em] text-amber-200">
+              <span className="h-1.5 w-1.5 rounded-full bg-amber-400" aria-hidden />
+              When D-NAV is the right tool
+            </div>
+            <div className="grid gap-4 md:grid-cols-2">
+              <div className="space-y-2 text-slate-200">
+                <p className="text-sm uppercase tracking-[0.14em] text-slate-300">Use D-NAV when</p>
+                <ul className="space-y-2 text-base text-slate-200">
+                  <li className="flex items-start gap-2">
+                    <span className="mt-1 h-1.5 w-1.5 rounded-full bg-amber-300" aria-hidden />
+                    <span>You’re deciding whether to commit, not how to execute</span>
+                  </li>
+                  <li className="flex items-start gap-2">
+                    <span className="mt-1 h-1.5 w-1.5 rounded-full bg-amber-300" aria-hidden />
+                    <span>The upside is attractive but the risks are asymmetric</span>
+                  </li>
+                  <li className="flex items-start gap-2">
+                    <span className="mt-1 h-1.5 w-1.5 rounded-full bg-amber-300" aria-hidden />
+                    <span>You’re planning a project, initiative, investment, or hard conversation</span>
+                  </li>
+                  <li className="flex items-start gap-2">
+                    <span className="mt-1 h-1.5 w-1.5 rounded-full bg-amber-300" aria-hidden />
+                    <span>You need a decision you can defend — to others or to your future self</span>
+                  </li>
+                </ul>
+              </div>
+              <div className="rounded-xl border border-white/10 bg-black/30 p-4 space-y-2 text-slate-200">
+                <p className="text-sm font-semibold text-white">Constraint</p>
+                <p className="text-slate-300">D-NAV does not predict outcomes. It pressure-tests judgment.</p>
+              </div>
+            </div>
           </div>
         </div>
 
@@ -163,11 +200,12 @@ function ExecutiveReadoutSection() {
             <p className="text-[11px] uppercase tracking-[0.32em] text-amber-200">Executive Readout</p>
             <h2 className="text-3xl md:text-4xl font-bold leading-tight text-white">Executive clarity you can walk into a room with.</h2>
             <div className="space-y-3 text-slate-200">
+              <p>Built for rooms where decisions need to hold up under scrutiny.</p>
               <p>D-NAV turns complex decisions into a single, legible readout.</p>
               <p>
                 You see how judgment is being applied, where pressure is accumulating, and whether decisions are actually improving stability over time.
               </p>
-              <p>This is not a dashboard. It&apos;s a decision brief—built to replace slides, opinions, and post-hoc explanations.</p>
+              <p>This is a pre-commitment decision brief — built to replace slides, opinions, and post-hoc explanations.</p>
             </div>
             <p className="text-sm text-slate-400">The D-NAV — a whole new way to decide.</p>
           </div>
@@ -333,6 +371,7 @@ function UnderTheHoodSection() {
               <p className="text-slate-300">
                 Breakthrough, Drift, Strain, or Coast — all pulled from the definitions you already use. Each archetype clarifies whether to double down, cool down, or gather proof.
               </p>
+              <p className="text-sm text-slate-400">Archetypes don’t label people. They reveal how judgment behaves under pressure.</p>
               <ul className="space-y-2 text-slate-200">
                 <li className="flex items-center gap-2 text-sm">
                   <span className="h-1.5 w-1.5 rounded-full bg-amber-300" aria-hidden />Spot what spikes Pressure.
@@ -400,8 +439,9 @@ function AudienceSection() {
       <div className="max-w-6xl mx-auto px-6 space-y-10">
         <SectionHeading
           title="Built for people who live in the unknown"
-          subtitle="If you make calls before the data is clean, D-NAV is your mirror."
+          subtitle="If you make calls before the data is clean, D-NAV is your mirror. D-NAV applies the same decision physics across different contexts."
         />
+        <p className="text-sm text-slate-400 text-center max-w-3xl mx-auto">These personas show how the system flexes across applications — not a promise of universal fit.</p>
         <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
           {audiences.map((item, index) => (
             <GlassPanel key={item.title} className="h-full p-5 animate-fade-up" style={{ "--delay": `${0.08 + index * 0.04}s` } as CSSProperties}>
@@ -427,6 +467,7 @@ function FinalCTASection() {
             <p className="text-lg text-slate-300 max-w-3xl mx-auto">
               Log a single decision and watch the score. When the pressure shifts, adapt with intent — not with hope.
             </p>
+            <p className="text-sm text-slate-400">Start with a real decision — not a hypothetical.</p>
             <div className="flex flex-col sm:flex-row gap-4 justify-center">
               <Button
                 size="lg"
