@@ -79,9 +79,9 @@ function HeroSection() {
       copy: "Once you log enough calls, D-NAV reveals your operating pattern — the way you earn Return, absorb Pressure, and protect Stability.",
     },
     {
-      badge: "Compare",
-      title: "Compare",
-      copy: "Compare surfaces who’s under pressure. Use Entity Compare for side-by-side analysis, and Adaptation to track drift over time.",
+      badge: "Contrast",
+      title: "Contrast",
+      copy: "Contrast surfaces who’s under pressure. Use Entity Compare for side-by-side analysis, and Adaptation to track drift over time.",
     },
   ];
 
@@ -107,6 +107,9 @@ function HeroSection() {
             <p className="text-lg text-slate-300 max-w-3xl">
               D-NAV measures judgment before momentum locks in. It surfaces Return, Pressure, and Stability so you can adjust before execution begins.
             </p>
+            <p className="text-lg text-slate-300 max-w-3xl">
+              Without a readout, pressure accumulates silently — and failure shows up late, during execution.
+            </p>
           </div>
         </div>
 
@@ -122,7 +125,7 @@ function HeroSection() {
                 <ul className="space-y-2 text-base text-slate-200">
                   <li className="flex items-start gap-2">
                     <span className="mt-1 h-1.5 w-1.5 rounded-full bg-amber-300" aria-hidden />
-                    <span>You’re deciding whether to commit, not how to execute</span>
+                    <span>You’re deciding whether to commit — not managing execution.</span>
                   </li>
                   <li className="flex items-start gap-2">
                     <span className="mt-1 h-1.5 w-1.5 rounded-full bg-amber-300" aria-hidden />
@@ -141,6 +144,7 @@ function HeroSection() {
               <div className="rounded-xl border border-white/10 bg-black/30 p-4 space-y-2 text-slate-200">
                 <p className="text-sm font-semibold text-white">Constraint</p>
                 <p className="text-slate-300">D-NAV does not predict outcomes. It pressure-tests judgment.</p>
+                <p className="text-slate-300">It does not replace execution, domain expertise, or accountability.</p>
               </div>
             </div>
           </div>
@@ -206,6 +210,7 @@ function ExecutiveReadoutSection() {
                 You see how judgment is being applied, where pressure is accumulating, and whether decisions are actually improving stability over time.
               </p>
               <p>This is a pre-commitment decision brief — built to replace slides, opinions, and post-hoc explanations.</p>
+              <p>The goal isn’t consensus — it’s clarity that survives questioning.</p>
             </div>
             <p className="text-sm text-slate-400">The D-NAV — a whole new way to decide.</p>
           </div>
@@ -271,6 +276,10 @@ function UnderTheHoodSection() {
           align="left"
           eyebrow="System grammar"
         />
+
+        <p className="text-slate-300 text-base max-w-3xl animate-fade-up" style={{ "--delay": "0.04s" } as CSSProperties}>
+          This system doesn’t answer questions for you — it measures how you answer them over time.
+        </p>
 
         <div className="grid gap-6 lg:grid-cols-[1.05fr_0.95fr]">
           <GlassPanel className="p-6 md:p-8 animate-fade-up" style={{ "--delay": "0.08s" } as CSSProperties}>
@@ -372,6 +381,7 @@ function UnderTheHoodSection() {
                 Breakthrough, Drift, Strain, or Coast — all pulled from the definitions you already use. Each archetype clarifies whether to double down, cool down, or gather proof.
               </p>
               <p className="text-sm text-slate-400">Archetypes don’t label people. They reveal how judgment behaves under pressure.</p>
+              <p className="text-sm text-slate-400">Patterns are descriptive, not prescriptive — they inform when to adapt, not who to be.</p>
               <ul className="space-y-2 text-slate-200">
                 <li className="flex items-center gap-2 text-sm">
                   <span className="h-1.5 w-1.5 rounded-full bg-amber-300" aria-hidden />Spot what spikes Pressure.
@@ -390,11 +400,11 @@ function UnderTheHoodSection() {
             <div className="space-y-3">
               <div className="flex items-center gap-2 text-xs uppercase tracking-[0.2em] text-amber-200">
                 <span className="h-1.5 w-1.5 rounded-full bg-amber-400" aria-hidden />
-                Compare
+                Contrast
               </div>
               <h3 className="text-xl font-semibold text-white">Side-by-side, then shift before it snaps.</h3>
               <p className="text-slate-300">
-                Compare surfaces who’s under pressure. Use Entity Compare for side-by-side analysis, and Adaptation to track drift over time.
+                Contrast surfaces who’s under pressure. Use Entity Compare for side-by-side analysis, and Adaptation to track drift over time.
               </p>
               <div className="grid grid-cols-2 gap-3 text-sm text-slate-200">
                 <div className="rounded-xl border border-white/5 bg-black/30 px-3 py-2">
@@ -418,18 +428,22 @@ function AudienceSection() {
   const audiences = [
     {
       title: "Founders & Execs",
+      moment: "When conviction risks outrunning evidence.",
       copy: "Separate conviction from charisma. Turn board debates into Return, Pressure, Stability trade-offs.",
     },
     {
       title: "Traders & Investors",
+      moment: "When edge may be turning into drift.",
       copy: "See if your edge is drift or signal. Track judgment across regimes before the drawdown hits.",
     },
     {
       title: "Operators & Product Leads",
+      moment: "When pressure is rising faster than capacity.",
       copy: "Prioritize with proof. Avoid burning stability on reactive, high-pressure roadmap calls.",
     },
     {
       title: "Consultants & Analysts",
+      moment: "When recommendations must survive scrutiny.",
       copy: "Turn client chaos into a decision audit. Deliver reports with a repeatable decision language.",
     },
   ];
@@ -447,6 +461,7 @@ function AudienceSection() {
             <GlassPanel key={item.title} className="h-full p-5 animate-fade-up" style={{ "--delay": `${0.08 + index * 0.04}s` } as CSSProperties}>
               <div className="flex h-full flex-col gap-3">
                 <h3 className="text-lg font-semibold text-white">{item.title}</h3>
+                <p className="text-sm italic text-slate-200">{item.moment}</p>
                 <p className="text-slate-300 flex-1">{item.copy}</p>
               </div>
             </GlassPanel>
