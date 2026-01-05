@@ -31,7 +31,7 @@ const items: Array<{ href: string; label: string; icon: LucideIcon }> = [
   { href: "/", label: "Home", icon: Gauge },
   { href: "/stress-test", label: "Stress Test", icon: Activity },
   { href: "/reports", label: "Reports", icon: FileText },
-  { href: "/calculator", label: "The D-NAV", icon: Calculator },
+  { href: "/calculator", label: "Patterns", icon: Calculator },
   { href: "/log", label: "Log", icon: ListOrdered },
   { href: "/definitions", label: "Definitions", icon: BookOpen },
   { href: "/use-cases", label: "Use Cases", icon: Users },

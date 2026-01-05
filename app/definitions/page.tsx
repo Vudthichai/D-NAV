@@ -141,7 +141,7 @@ export default function DefinitionsPage() {
               className="inline-flex items-center gap-2 text-sm font-medium text-primary hover:text-primary/80 transition-colors"
             >
               <ArrowRight className="h-4 w-4 rotate-180" />
-              Back to The D-NAV
+              Back to Patterns
             </a>
           </div>
         </div>

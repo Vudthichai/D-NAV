@@ -481,10 +481,10 @@ export default function DecisionCompareV2() {
         <Button
           asChild
           variant="outline"
-          aria-label="Return to the D-NAV calculator"
+          aria-label="Return to the Patterns calculator"
           className="self-start"
         >
-          <Link href="/calculator">Back to D-NAV</Link>
+          <Link href="/calculator">Back to Patterns</Link>
         </Button>
       </div>
 
