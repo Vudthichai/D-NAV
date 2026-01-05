@@ -69,19 +69,19 @@ function SectionHeading({
 function HeroSection() {
   const signals = [
     {
-      badge: "Physics",
+      badge: "Diagnostic lens",
       title: "What actually drives decisions",
-      copy: "Most decisions fail because pressure, confidence, and risk are misread. D-NAV captures five inputs — Impact, Cost, Risk, Urgency, Confidence — and translates them into three signals you can reason with: Return, Pressure, Stability.",
+      copy: "Most failures come from misread pressure, confidence, and risk. D-NAV captures five inputs — Impact, Cost, Risk, Urgency, Confidence — and turns them into Return, Pressure, and Stability to guide pre-commitment planning.",
     },
     {
-      badge: "Patterns",
+      badge: "Pattern recognition",
       title: "Archetypes",
-      copy: "Once you log enough calls, D-NAV reveals your operating pattern — the way you earn Return, absorb Pressure, and protect Stability.",
+      copy: "Across engagements, patterns emerge. D-NAV reveals how a team tends to earn Return, absorb Pressure, and protect Stability — evidence used to coach and steer the work.",
     },
     {
       badge: "Contrast",
-      title: "Contrast",
-      copy: "Contrast surfaces who’s under pressure. Use Entity Compare for side-by-side analysis, and Adaptation to track drift over time.",
+      title: "Compare",
+      copy: "Contrast surfaces hidden pressure. Side-by-side reads expose where stability will fail unless the plan changes.",
     },
   ];
 
@@ -102,49 +102,50 @@ function HeroSection() {
           </div>
 
           <div className="space-y-6 md:space-y-7 w-full max-w-4xl">
-            <h1 className="text-4xl md:text-6xl font-black leading-tight tracking-tight text-white">Decisions fail long before execution. D-NAV shows you where.</h1>
-            <p className="text-xl text-slate-200 max-w-3xl">Before you commit, know what you’re actually carrying.</p>
+            <h1 className="text-4xl md:text-6xl font-black leading-tight tracking-tight text-white">
+              D-NAV is a proprietary decision system used in pre-commitment consulting to surface pressure, risk, and stability before execution begins.
+            </h1>
+            <p className="text-xl text-slate-200 max-w-3xl">Decisions typically fail before work starts. D-NAV is the instrument used to see the stress points in advance.</p>
             <p className="text-lg text-slate-300 max-w-3xl">
-              D-NAV measures judgment before momentum locks in. It surfaces Return, Pressure, and Stability so you can adjust before execution begins.
+              The system pressure-tests judgment, not effort. It shows where Return is real, where Pressure hides, and whether Stability can carry the move.
             </p>
             <p className="text-lg text-slate-300 max-w-3xl">
-              Without a readout, pressure accumulates silently — and failure shows up late, during execution.
+              Engagements start with a pre-commitment assessment, so execution teams inherit a plan that has already survived contrast and scrutiny.
             </p>
           </div>
         </div>
 
         <div className="mt-10 md:mt-12 lg:mt-14 animate-fade-up" style={{ "--delay": "0.08s" } as CSSProperties}>
           <div className="rounded-2xl border border-white/10 bg-white/5 p-6 md:p-7 shadow-[0_18px_50px_-42px_rgba(0,0,0,0.9)] space-y-4">
-            <div className="flex items-center gap-2 text-xs uppercase tracking-[0.2em] text-amber-200">
-              <span className="h-1.5 w-1.5 rounded-full bg-amber-400" aria-hidden />
-              When D-NAV is the right tool
-            </div>
+            <h2 className="text-base md:text-lg font-semibold text-white uppercase tracking-[0.18em]">When D-NAV is the right tool</h2>
             <div className="grid gap-4 md:grid-cols-2">
               <div className="space-y-2 text-slate-200">
-                <p className="text-sm uppercase tracking-[0.14em] text-slate-300">Use D-NAV when</p>
                 <ul className="space-y-2 text-base text-slate-200">
                   <li className="flex items-start gap-2">
                     <span className="mt-1 h-1.5 w-1.5 rounded-full bg-amber-300" aria-hidden />
-                    <span>You’re deciding whether to commit — not managing execution.</span>
+                    <span>There is a pivotal decision before commitment and execution will be expensive.</span>
                   </li>
                   <li className="flex items-start gap-2">
                     <span className="mt-1 h-1.5 w-1.5 rounded-full bg-amber-300" aria-hidden />
-                    <span>The upside is attractive but the risks are asymmetric</span>
+                    <span>The upside is attractive but risk, pressure, and stability are not fully surfaced.</span>
                   </li>
                   <li className="flex items-start gap-2">
                     <span className="mt-1 h-1.5 w-1.5 rounded-full bg-amber-300" aria-hidden />
-                    <span>You’re planning a project, initiative, investment, or hard conversation</span>
+                    <span>A board, client, or partner needs a defensible plan before greenlighting the move.</span>
                   </li>
                   <li className="flex items-start gap-2">
                     <span className="mt-1 h-1.5 w-1.5 rounded-full bg-amber-300" aria-hidden />
-                    <span>You need a decision you can defend — to others or to your future self</span>
+                    <span>An external challenge, review, or diligence process demands proof of judgment quality.</span>
                   </li>
                 </ul>
               </div>
               <div className="rounded-xl border border-white/10 bg-black/30 p-4 space-y-2 text-slate-200">
-                <p className="text-sm font-semibold text-white">Constraint</p>
-                <p className="text-slate-300">D-NAV does not predict outcomes. It pressure-tests judgment.</p>
-                <p className="text-slate-300">It does not replace execution, domain expertise, or accountability.</p>
+                <p className="text-sm font-semibold text-white">Constraints</p>
+                <ul className="space-y-2 text-slate-300 list-disc list-inside">
+                  <li>D-NAV does not predict outcomes.</li>
+                  <li>D-NAV does not replace execution, domain expertise, or accountability.</li>
+                  <li>D-NAV pressure-tests judgment before commitment.</li>
+                </ul>
               </div>
             </div>
           </div>
@@ -168,10 +169,18 @@ function HeroSection() {
               className="text-lg px-8 py-6 border-white/25 bg-slate-900 text-white hover:bg-white/10 hover:border-amber-300/60 focus-visible:ring-amber-300 focus-visible:ring-offset-2 focus-visible:ring-offset-[#050608]"
               asChild
             >
-              <Link href="#quick-start">See how it works</Link>
+              <Link href="/contact">Request a pre-commitment review</Link>
+            </Button>
+            <Button
+              size="lg"
+              variant="ghost"
+              className="text-lg px-8 py-6 text-white hover:bg-white/10 focus-visible:ring-amber-300 focus-visible:ring-offset-2 focus-visible:ring-offset-[#050608]"
+              asChild
+            >
+              <Link href="#quick-start">See the system grammar</Link>
             </Button>
           </div>
-          <p className="text-sm text-slate-400">Start with a decision you’re avoiding.</p>
+          <p className="text-sm text-slate-400">Engagements begin with one decision and expand into audits and consulting work.</p>
         </div>
 
         <div className="grid gap-4 sm:grid-cols-3 animate-fade-up" style={{ "--delay": "0.22s" } as CSSProperties}>
@@ -188,7 +197,7 @@ function HeroSection() {
         </div>
 
         <p className="text-sm text-slate-300 animate-fade-up" style={{ "--delay": "0.32s" } as CSSProperties}>
-          Start with one real decision. The system gets sharper as you log.
+          Engagements include Decision Checks, audits, and pre-commitment reviews delivered with the same system language.
         </p>
       </div>
     </section>
@@ -202,17 +211,15 @@ function ExecutiveReadoutSection() {
         <div className="grid gap-10 md:grid-cols-2 md:items-center">
           <div className="space-y-4 md:space-y-6">
             <p className="text-[11px] uppercase tracking-[0.32em] text-amber-200">Executive Readout</p>
-            <h2 className="text-3xl md:text-4xl font-bold leading-tight text-white">Executive clarity you can walk into a room with.</h2>
+            <h2 className="text-3xl md:text-4xl font-bold leading-tight text-white">A pre-commitment decision brief, built to survive scrutiny.</h2>
             <div className="space-y-3 text-slate-200">
-              <p>Built for rooms where decisions need to hold up under scrutiny.</p>
-              <p>D-NAV turns complex decisions into a single, legible readout.</p>
-              <p>
-                You see how judgment is being applied, where pressure is accumulating, and whether decisions are actually improving stability over time.
-              </p>
-              <p>This is a pre-commitment decision brief — built to replace slides, opinions, and post-hoc explanations.</p>
-              <p>The goal isn’t consensus — it’s clarity that survives questioning.</p>
+              <p>Designed for boardrooms, diligence reviews, and executive sessions where judgment must be defensible.</p>
+              <p>D-NAV turns complex choices into a concise brief that makes pressure, risk, and stability legible.</p>
+              <p>It shows how judgment is applied, where hidden pressure sits, and whether stability can absorb the move.</p>
+              <p>The readout is a consulting deliverable — built to withstand questioning, not to market software.</p>
+              <p>The goal is a plan that stands up to scrutiny before execution begins.</p>
             </div>
-            <p className="text-sm text-slate-400">The D-NAV — a whole new way to decide.</p>
+            <p className="text-sm text-slate-400">The D-NAV brief replaces slide decks with a system-led decision narrative.</p>
           </div>
 
           <div className="relative flex justify-center md:justify-end">
@@ -249,14 +256,11 @@ function EntityCompareSection() {
 
           <div className="space-y-4 md:space-y-6">
             <p className="text-[11px] uppercase tracking-[0.32em] text-amber-200">Entity Compare</p>
-            <h2 className="text-3xl md:text-4xl font-bold leading-tight text-white">Judgment only becomes clear in contrast.</h2>
+            <h2 className="text-3xl md:text-4xl font-bold leading-tight text-white">Judgment becomes clear when contrasted.</h2>
             <div className="space-y-3 text-slate-200">
-              <p>Once decisions are measured using the same physics, comparison becomes unavoidable.</p>
-              <p>
-                D-NAV allows you to stack teams, strategies, or domains side-by-side to reveal where judgment creates return — and where it quietly
-                accumulates pressure.
-              </p>
-              <p>What looks reasonable in isolation often tells a very different story in context.</p>
+              <p>Once decisions share the same system language, comparison moves from opinion to evidence.</p>
+              <p>D-NAV stacks teams, strategies, or domains side-by-side to reveal where judgment earns return and where it quietly accumulates pressure before the work starts.</p>
+              <p>What looks reasonable in isolation often fractures under contrast.</p>
             </div>
             <p className="text-sm text-slate-400">Same decision language. Very different outcomes.</p>
           </div>
@@ -272,13 +276,13 @@ function UnderTheHoodSection() {
       <div className="max-w-6xl mx-auto px-6 space-y-10">
         <SectionHeading
           title="Under the hood: RPS + D-NAV"
-          subtitle="RPS is the signal. D-NAV is the readout."
+          subtitle="System grammar used inside consulting engagements."
           align="left"
           eyebrow="System grammar"
         />
 
         <p className="text-slate-300 text-base max-w-3xl animate-fade-up" style={{ "--delay": "0.04s" } as CSSProperties}>
-          This system doesn’t answer questions for you — it measures how you answer them over time.
+          This is proprietary system grammar. RPS is the internal logic; D-NAV is the readout clients see. It measures how judgment behaves before commitment.
         </p>
 
         <div className="grid gap-6 lg:grid-cols-[1.05fr_0.95fr]">
@@ -288,10 +292,8 @@ function UnderTheHoodSection() {
                 <span className="h-1.5 w-1.5 rounded-full bg-amber-400" aria-hidden />
                 RPS + D-NAV
               </div>
-              <h3 className="text-2xl font-semibold text-white">RPS is the signal. D-NAV is the readout.</h3>
-              <p className="text-slate-300">
-                One language for every view: Return, Pressure, Stability. Capture the inputs once, then read the score the same way across readouts, comparisons, and adaptations.
-              </p>
+              <h3 className="text-2xl font-semibold text-white">RPS is the internal signal. D-NAV is the consulting readout.</h3>
+              <p className="text-slate-300">One language for every view: Return, Pressure, Stability. Inputs are captured once, then translated into decision briefs, audits, and adaptations with the same score.</p>
               <div className="grid gap-3 sm:grid-cols-3">
                 <div className="rounded-xl border border-white/10 bg-white/5 px-3 py-3">
                   <div className="flex items-center gap-2 text-sm font-semibold text-white">
@@ -350,21 +352,28 @@ function UnderTheHoodSection() {
                 </div>
                 <div className="rounded-full border border-white/10 bg-white/5 px-3 py-1 text-xs text-slate-200">Live</div>
               </div>
-              <p className="text-slate-300">
-                D-NAV is your decision’s readout. Value = Impact − Cost − Risk. Execution = Urgency × Confidence. Together, they show whether the upside is real — and whether you can actually carry it.
-              </p>
+              <p className="text-slate-300">D-NAV is the decision readout used in consulting. Value = Impact − Cost − Risk. Execution = Urgency × Confidence. Together, they reveal if the upside is real and if the team can carry it.</p>
               <div className="rounded-2xl border border-white/5 bg-black/40 p-4 space-y-2">
                 <p className="text-sm font-semibold text-white">D-NAV = Value + Execution</p>
                 <p className="text-sm text-slate-300">Value = Impact − Cost − Risk. Execution = Urgency × Confidence.</p>
               </div>
               <RpsDistributions />
-              <Button
-                variant="secondary"
-                className="w-full justify-center border border-white/15 bg-white/10 text-white hover:bg-white/15 focus-visible:ring-amber-300"
-                asChild
-              >
-                <Link href="/calculator">Run a Decision Check</Link>
-              </Button>
+              <div className="grid gap-3 sm:grid-cols-2">
+                <Button
+                  variant="secondary"
+                  className="w-full justify-center border border-white/15 bg-white/10 text-white hover:bg-white/15 focus-visible:ring-amber-300"
+                  asChild
+                >
+                  <Link href="/calculator">Run a Decision Check</Link>
+                </Button>
+                <Button
+                  variant="outline"
+                  className="w-full justify-center border border-white/15 bg-black/30 text-white hover:bg-white/10 focus-visible:ring-amber-300"
+                  asChild
+                >
+                  <Link href="/contact">Request a decision audit</Link>
+                </Button>
+              </div>
             </div>
           </GlassPanel>
         </div>
@@ -374,23 +383,22 @@ function UnderTheHoodSection() {
             <div className="space-y-3">
               <div className="flex items-center gap-2 text-xs uppercase tracking-[0.2em] text-amber-200">
                 <span className="h-1.5 w-1.5 rounded-full bg-amber-400" aria-hidden />
-                Archetypes
+                Pattern recognition
               </div>
-              <h3 className="text-xl font-semibold text-white">Name the pattern, then decide.</h3>
+              <h3 className="text-xl font-semibold text-white">Pattern recognition across engagements.</h3>
               <p className="text-slate-300">
-                Breakthrough, Drift, Strain, or Coast — all pulled from the definitions you already use. Each archetype clarifies whether to double down, cool down, or gather proof.
+                Breakthrough, Drift, Strain, or Coast — drawn from recurring engagements. Patterns clarify whether to double down, cool down, or prove stability before advancing.
               </p>
-              <p className="text-sm text-slate-400">Archetypes don’t label people. They reveal how judgment behaves under pressure.</p>
-              <p className="text-sm text-slate-400">Patterns are descriptive, not prescriptive — they inform when to adapt, not who to be.</p>
+              <p className="text-sm text-slate-400">Patterns are descriptive, not prescriptive — they inform when to adapt and what to defend.</p>
               <ul className="space-y-2 text-slate-200">
                 <li className="flex items-center gap-2 text-sm">
-                  <span className="h-1.5 w-1.5 rounded-full bg-amber-300" aria-hidden />Spot what spikes Pressure.
+                  <span className="h-1.5 w-1.5 rounded-full bg-amber-300" aria-hidden />Spot what spikes pressure across similar calls.
                 </li>
                 <li className="flex items-center gap-2 text-sm">
-                  <span className="h-1.5 w-1.5 rounded-full bg-slate-300" aria-hidden />See what creates Stability.
+                  <span className="h-1.5 w-1.5 rounded-full bg-slate-300" aria-hidden />See what consistently creates stability.
                 </li>
                 <li className="flex items-center gap-2 text-sm">
-                  <span className="h-1.5 w-1.5 rounded-full bg-emerald-300" aria-hidden />Know when to adapt vs double down.
+                  <span className="h-1.5 w-1.5 rounded-full bg-emerald-300" aria-hidden />Know when to adapt versus advance.
                 </li>
               </ul>
             </div>
@@ -402,18 +410,16 @@ function UnderTheHoodSection() {
                 <span className="h-1.5 w-1.5 rounded-full bg-amber-400" aria-hidden />
                 Contrast
               </div>
-              <h3 className="text-xl font-semibold text-white">Side-by-side, then shift before it snaps.</h3>
-              <p className="text-slate-300">
-                Contrast surfaces who’s under pressure. Use Entity Compare for side-by-side analysis, and Adaptation to track drift over time.
-              </p>
+              <h3 className="text-xl font-semibold text-white">Compare</h3>
+              <p className="text-slate-300">Contrast reveals hidden pressure. Decision stress-testing stacks options and teams to expose where stability fails before commitment.</p>
               <div className="grid grid-cols-2 gap-3 text-sm text-slate-200">
                 <div className="rounded-xl border border-white/5 bg-black/30 px-3 py-2">
                   <p className="text-xs uppercase tracking-[0.16em] text-amber-200">Entity</p>
-                  <p className="text-slate-200">Line up options and see what’s compressing Return or inflating Pressure.</p>
+                  <p className="text-slate-200">Line up options to see what compresses Return or inflates Pressure.</p>
                 </div>
                 <div className="rounded-xl border border-white/5 bg-black/30 px-3 py-2">
                   <p className="text-xs uppercase tracking-[0.16em] text-amber-200">Adaptation</p>
-                  <p className="text-slate-200">Watch inputs drift and spot the adjustment window before the move degrades.</p>
+                  <p className="text-slate-200">Watch inputs drift and spot the adjustment window before stability snaps.</p>
                 </div>
               </div>
             </div>
@@ -428,23 +434,23 @@ function AudienceSection() {
   const audiences = [
     {
       title: "Founders & Execs",
-      moment: "When conviction risks outrunning evidence.",
-      copy: "Separate conviction from charisma. Turn board debates into Return, Pressure, Stability trade-offs.",
+      moment: "When conviction needs pre-commitment validation.",
+      copy: "Ground board debates in Return, Pressure, and Stability so the plan can be defended under questioning.",
     },
     {
       title: "Traders & Investors",
       moment: "When edge may be turning into drift.",
-      copy: "See if your edge is drift or signal. Track judgment across regimes before the drawdown hits.",
+      copy: "Stress-test judgment across regimes before capital is committed. Convert intuition into a defensible brief.",
     },
     {
       title: "Operators & Product Leads",
       moment: "When pressure is rising faster than capacity.",
-      copy: "Prioritize with proof. Avoid burning stability on reactive, high-pressure roadmap calls.",
+      copy: "Prioritize with evidence. Preserve stability instead of absorbing hidden pressure in roadmap decisions.",
     },
     {
       title: "Consultants & Analysts",
       moment: "When recommendations must survive scrutiny.",
-      copy: "Turn client chaos into a decision audit. Deliver reports with a repeatable decision language.",
+      copy: "Turn client chaos into a pre-commitment audit. Deliver reports with a repeatable decision grammar.",
     },
   ];
 
@@ -452,10 +458,10 @@ function AudienceSection() {
     <section className="bg-[#050608] py-16 md:py-20">
       <div className="max-w-6xl mx-auto px-6 space-y-10">
         <SectionHeading
-          title="Built for people who live in the unknown"
-          subtitle="If you make calls before the data is clean, D-NAV is your mirror. D-NAV applies the same decision physics across different contexts."
+          title="Built for people who plan in uncertainty"
+          subtitle="For leaders operating before the data is clean, D-NAV provides pre-execution intelligence and advisory structure. It applies the same decision physics across contexts."
         />
-        <p className="text-sm text-slate-400 text-center max-w-3xl mx-auto">These personas show how the system flexes across applications — not a promise of universal fit.</p>
+        <p className="text-sm text-slate-400 text-center max-w-3xl mx-auto">These examples show how the consulting system flexes across advisory and coaching contexts — not general productivity or habit tracking.</p>
         <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
           {audiences.map((item, index) => (
             <GlassPanel key={item.title} className="h-full p-5 animate-fade-up" style={{ "--delay": `${0.08 + index * 0.04}s` } as CSSProperties}>
@@ -478,11 +484,11 @@ function FinalCTASection() {
       <div className="max-w-5xl mx-auto px-6">
         <GlassPanel className="animate-fade-up" style={{ "--delay": "0.12s" } as CSSProperties}>
           <div className="p-10 sm:p-12 space-y-6 text-center">
-            <h2 className="text-3xl md:text-4xl font-bold text-white">Run one decision. See if it holds.</h2>
+            <h2 className="text-3xl md:text-4xl font-bold text-white">Start with a decision check. Expand to an audit.</h2>
             <p className="text-lg text-slate-300 max-w-3xl mx-auto">
-              Log a single decision and watch the score. When the pressure shifts, adapt with intent — not with hope.
+              Begin with one decision. If the pressure shows up, move into a decision audit or a pre-commitment consulting engagement.
             </p>
-            <p className="text-sm text-slate-400">Start with a real decision — not a hypothetical.</p>
+            <p className="text-sm text-slate-400">Built to serve advisory, diligence, and boardroom contexts.</p>
             <div className="flex flex-col sm:flex-row gap-4 justify-center">
               <Button
                 size="lg"
@@ -498,6 +504,14 @@ function FinalCTASection() {
                 asChild
               >
                 <Link href="/contact">Book a Decision Audit</Link>
+              </Button>
+              <Button
+                variant="ghost"
+                size="lg"
+                className="text-lg px-8 py-6 text-white hover:bg-white/10 focus-visible:ring-amber-300"
+                asChild
+              >
+                <Link href="/contact">Schedule a consulting engagement</Link>
               </Button>
             </div>
           </div>
