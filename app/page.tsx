@@ -71,17 +71,17 @@ function HeroSection() {
     {
       badge: "Diagnostic lens",
       title: "What actually drives decisions",
-      copy: "D-NAV exists to surface pressure, risk, and stability before the commitment. It translates five inputs — Impact, Cost, Risk, Urgency, Confidence — into Return, Pressure, and Stability so the plan is judged before work starts.",
+      copy: "D-NAV surfaces pressure, risk, and stability before the commitment. It translates Impact, Cost, Risk, Urgency, and Confidence into Return, Pressure, and Stability so judgment happens before work starts.",
     },
     {
       badge: "Pattern recognition",
       title: "Cross-engagement insight",
-      copy: "Across consulting engagements, D-NAV reveals how teams earn Return, absorb Pressure, and protect Stability. Those patterns drive the advisory plan — not vibes or optimism.",
+      copy: "Across consulting engagements, D-NAV reveals how teams earn Return, absorb Pressure, and protect Stability. Recurring signals — not vibes — shape the advisory plan.",
     },
     {
       badge: "Contrast",
       title: "Stress-test judgment",
-      copy: "Contrast removes debate. Side-by-side reads expose hidden pressure and show where stability will fail unless the plan changes.",
+      copy: "Side-by-side reads expose hidden pressure and where stability will fail unless the plan changes. Contrast removes debate.",
     },
   ];
 
@@ -112,19 +112,19 @@ function HeroSection() {
               <ul className="space-y-2 text-slate-200 text-sm">
                 <li className="flex items-start gap-2">
                   <span className="mt-1 h-1.5 w-1.5 rounded-full bg-amber-300" aria-hidden />
-                  <span>Endless debate and vibes masquerading as confidence.</span>
+                  <span>Endless debate masquerading as alignment.</span>
                 </li>
                 <li className="flex items-start gap-2">
                   <span className="mt-1 h-1.5 w-1.5 rounded-full bg-amber-300" aria-hidden />
-                  <span>Late discovery of pressure that appears only during execution.</span>
+                  <span>Confidence built on vibes, not evidence.</span>
                 </li>
                 <li className="flex items-start gap-2">
                   <span className="mt-1 h-1.5 w-1.5 rounded-full bg-amber-300" aria-hidden />
-                  <span>Post-hoc rationalization that hides weak judgment.</span>
+                  <span>Pressure discovered too late (during execution).</span>
                 </li>
                 <li className="flex items-start gap-2">
                   <span className="mt-1 h-1.5 w-1.5 rounded-full bg-amber-300" aria-hidden />
-                  <span>Execution teams inheriting unresolved risk and instability.</span>
+                  <span>Execution teams inheriting unresolved risk.</span>
                 </li>
               </ul>
             </div>
@@ -139,7 +139,7 @@ function HeroSection() {
                 <ul className="space-y-2 text-base text-slate-200">
                   <li className="flex items-start gap-2">
                     <span className="mt-1 h-1.5 w-1.5 rounded-full bg-amber-300" aria-hidden />
-                    <span>There is a pivotal decision before commitment and execution will be expensive.</span>
+                    <span>There is a pivotal decision where execution will be expensive or irreversible.</span>
                   </li>
                   <li className="flex items-start gap-2">
                     <span className="mt-1 h-1.5 w-1.5 rounded-full bg-amber-300" aria-hidden />
@@ -407,18 +407,18 @@ function UnderTheHoodSection() {
               </div>
               <h3 className="text-xl font-semibold text-white">Pattern recognition across engagements.</h3>
               <p className="text-slate-300">
-                Breakthrough, Drift, Strain, or Coast — drawn from recurring engagements. Patterns clarify whether to double down, cool down, or prove stability before advancing.
+                Breakthrough, Drift, Strain, or Coast — drawn from recurring engagements. Patterns show whether performance is repeating or sliding before you commit.
               </p>
-              <p className="text-sm text-slate-400">Patterns are descriptive, not prescriptive — they inform when to adapt and what to defend.</p>
+              <p className="text-sm text-slate-400">Descriptive, not prescriptive — they flag when to adapt or defend.</p>
               <ul className="space-y-2 text-slate-200">
                 <li className="flex items-center gap-2 text-sm">
-                  <span className="h-1.5 w-1.5 rounded-full bg-amber-300" aria-hidden />Spot what spikes pressure across similar calls.
+                  <span className="h-1.5 w-1.5 rounded-full bg-amber-300" aria-hidden />Spot recurring pressure spikes across similar calls.
                 </li>
                 <li className="flex items-center gap-2 text-sm">
-                  <span className="h-1.5 w-1.5 rounded-full bg-slate-300" aria-hidden />See what consistently creates stability.
+                  <span className="h-1.5 w-1.5 rounded-full bg-slate-300" aria-hidden />See what repeatedly creates stability.
                 </li>
                 <li className="flex items-center gap-2 text-sm">
-                  <span className="h-1.5 w-1.5 rounded-full bg-emerald-300" aria-hidden />Know when to adapt versus advance.
+                  <span className="h-1.5 w-1.5 rounded-full bg-emerald-300" aria-hidden />Catch drift early and know when to adapt versus advance.
                 </li>
               </ul>
             </div>
@@ -431,7 +431,7 @@ function UnderTheHoodSection() {
                 Contrast
               </div>
               <h3 className="text-xl font-semibold text-white">Compare</h3>
-              <p className="text-slate-300">Contrast reveals hidden pressure. Decision stress-testing stacks options and teams to expose where stability fails before commitment.</p>
+              <p className="text-slate-300">Side-by-side stress tests show where plans break under pressure before commitment.</p>
               <div className="grid grid-cols-2 gap-3 text-sm text-slate-200">
                 <div className="rounded-xl border border-white/5 bg-black/30 px-3 py-2">
                   <p className="text-xs uppercase tracking-[0.16em] text-amber-200">Entity</p>
