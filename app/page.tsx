@@ -139,11 +139,11 @@ function HeroSection() {
                 <ul className="space-y-2 text-base text-slate-200">
                   <li className="flex items-start gap-2">
                     <span className="mt-1 h-1.5 w-1.5 rounded-full bg-amber-300" aria-hidden />
-                    <span>There is a pivotal decision where execution will be expensive or irreversible.</span>
+                    <span>A pivotal decision where execution will be expensive or irreversible.</span>
                   </li>
                   <li className="flex items-start gap-2">
                     <span className="mt-1 h-1.5 w-1.5 rounded-full bg-amber-300" aria-hidden />
-                    <span>The upside is attractive but risk, pressure, and stability are not surfaced.</span>
+                    <span>Judgment needs to be stress-tested before commitment, not discovered in execution.</span>
                   </li>
                   <li className="flex items-start gap-2">
                     <span className="mt-1 h-1.5 w-1.5 rounded-full bg-amber-300" aria-hidden />
@@ -298,7 +298,7 @@ function UnderTheHoodSection() {
         />
 
         <p className="text-slate-300 text-base max-w-3xl animate-fade-up" style={{ "--delay": "0.04s" } as CSSProperties}>
-          This is proprietary system grammar. Merit and Energy are the internal signals; Return, Pressure, and Stability are the consulting translation. RPS is the internal logic. D-NAV is the readout clients see. It measures how judgment behaves before commitment.
+          Merit and Energy are the internal signals. Return, Pressure, and Stability translate them for the consulting readout. RPS is the internal logic; D-NAV is what clients see before commitment.
         </p>
 
         <div className="grid gap-6 lg:grid-cols-[1.05fr_0.95fr]">
@@ -310,7 +310,7 @@ function UnderTheHoodSection() {
               </div>
               <h3 className="text-2xl font-semibold text-white">RPS is the internal signal. D-NAV is the consulting readout.</h3>
               <p className="text-slate-300">
-                One language for every view: Return, Pressure, Stability. Inputs are captured once, then translated into decision checks, audits, and pre-commitment briefs with the same score. The internal frame is Merit (Impact − Cost − Risk) and Energy (Urgency × Confidence); the consulting readout is Return, Pressure, and Stability.
+                One language for Return, Pressure, Stability. Inputs are captured once, then translated into decision checks, audits, and pre-commitment briefs with the same score. The internal frame is Merit (Impact − Cost − Risk) and Energy (Urgency × Confidence); the readout is Return, Pressure, and Stability.
               </p>
               <div className="grid gap-3 sm:grid-cols-3">
                 <div className="rounded-xl border border-white/10 bg-white/5 px-3 py-3">
@@ -371,7 +371,7 @@ function UnderTheHoodSection() {
                 <div className="rounded-full border border-white/10 bg-white/5 px-3 py-1 text-xs text-slate-200">Live</div>
               </div>
               <p className="text-slate-300">
-                D-NAV is the decision readout used in consulting. Merit = Impact − Cost − Risk. Energy = Urgency × Confidence. Pressure and Stability express where Energy is stressed. Together, they reveal whether the Merit is real — and whether the team can carry it.
+                D-NAV is the consulting readout. Merit = Impact − Cost − Risk. Energy = Urgency × Confidence. Pressure and Stability show where Energy strains the plan. Together, they reveal whether the Merit holds and whether the team can carry it.
               </p>
               <div className="rounded-2xl border border-white/5 bg-black/40 p-4 space-y-2">
                 <p className="text-sm font-semibold text-white">D-NAV = Merit + Energy</p>
