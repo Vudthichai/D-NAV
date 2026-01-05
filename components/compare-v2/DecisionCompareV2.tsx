@@ -484,7 +484,7 @@ export default function DecisionCompareV2() {
           aria-label="Return to the D-NAV calculator"
           className="self-start"
         >
-          <Link href="/calculator">Back to D-NAV</Link>
+          <Link href="/stress-test">Back to D-NAV</Link>
         </Button>
       </div>
 

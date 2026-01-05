@@ -53,7 +53,7 @@ const useCases: UseCase[] = [
       "Adapt portfolio conviction as similar decisions repeat and signals compound",
     ],
     adaptationLine: "Track Adaptation — how founder judgment shifts as decisions compound.",
-    secondaryCta: { label: "Run a Founder Decision", href: "/calculator" },
+    secondaryCta: { label: "Run a Founder Decision", href: "/stress-test" },
     details: {
       overview:
         "D-NAV translates founder instincts into structured diligence. Capture qualitative signals from teams, customers, and markets, then align stakeholders around how each bet balances return, pressure, and stability.",
@@ -100,7 +100,7 @@ const useCases: UseCase[] = [
       "Adapt playbooks after each cycle so similar decisions get faster and tighter",
     ],
     adaptationLine: "Track Adaptation — how leadership judgment recalibrates as decisions repeat.",
-    secondaryCta: { label: "Compare Strategic Bets", href: "/calculator" },
+    secondaryCta: { label: "Compare Strategic Bets", href: "/stress-test" },
     details: {
       overview:
         "Give executives a living dashboard for cross-functional decisions. D-NAV unifies finance, operations, and people data so leaders can evaluate return, pressure, and stability trade-offs in real time and adapt after each iteration.",
@@ -147,7 +147,7 @@ const useCases: UseCase[] = [
       "Adapt conviction as similar trades repeat and reviews tighten discipline",
     ],
     adaptationLine: "Track Adaptation — how trade judgment shifts as decisions compound and markets move.",
-    secondaryCta: { label: "Audit a Trade Decision", href: "/calculator" },
+    secondaryCta: { label: "Audit a Trade Decision", href: "/stress-test" },
     details: {
       overview:
         "Traders bring macro intuition, research notes, and market structure together in one place. D-NAV compares opportunities, surfaces return-versus-pressure tensions, and solidifies playbooks that adapt after each cycle.",
@@ -291,7 +291,7 @@ export default function UseCasesPage() {
                         </div>
                         <div className="flex flex-wrap gap-3 pt-4">
                           <Button asChild>
-                            <Link href="/calculator">Launch D-NAV</Link>
+                            <Link href="/stress-test">Launch D-NAV</Link>
                           </Button>
                           <Button variant="secondary" asChild>
                             <Link href={useCase.secondaryCta.href}>{useCase.secondaryCta.label}</Link>
