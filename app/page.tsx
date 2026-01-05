@@ -70,18 +70,18 @@ function HeroSection() {
   const signals = [
     {
       badge: "Diagnostic lens",
-      title: "What actually drives decisions",
-      copy: "D-NAV surfaces pressure, risk, and stability before the commitment. It translates Impact, Cost, Risk, Urgency, and Confidence into Return, Pressure, and Stability so judgment happens before work starts.",
+      title: "What actually drives this decision",
+      copy: "D-NAV surfaces pressure, risk, and stability before commitment. It translates five inputs — Impact, Cost, Risk, Urgency, Confidence — into Return, Pressure, and Stability so judgment happens before work starts.",
     },
     {
       badge: "Pattern recognition",
-      title: "Cross-engagement insight",
-      copy: "Across consulting engagements, D-NAV reveals how teams earn Return, absorb Pressure, and protect Stability. Recurring signals — not vibes — shape the advisory plan.",
+      title: "Cross-engagement patterns",
+      copy: "Across engagements, D-NAV reveals how teams consistently earn Return, absorb Pressure, or protect Stability. Recurring signals — not vibes — shape the advisory plan.",
     },
     {
       badge: "Contrast",
       title: "Stress-test judgment",
-      copy: "Side-by-side reads expose hidden pressure and where stability will fail unless the plan changes. Contrast removes debate.",
+      copy: "Side-by-side contrast exposes hidden pressure and shows where Stability fails unless the plan changes. Contrast removes debate.",
     },
   ];
 
@@ -105,26 +105,26 @@ function HeroSection() {
             <h1 className="text-4xl md:text-6xl font-black leading-tight tracking-tight text-white">Decisions fail long before execution. D-NAV shows you where.</h1>
             <p className="text-xl text-slate-200 max-w-3xl">D-NAV is a proprietary decision system used in pre-commitment consulting to surface pressure, risk, and stability before execution begins.</p>
             <p className="text-lg text-slate-300 max-w-3xl">
-              Decisions rarely collapse because of effort. They fail because pressure, risk, and stability were never surfaced before the commitment. D-NAV makes that friction visible early, so execution teams inherit a plan that already survived scrutiny.
+              Decisions rarely collapse because of effort. They fail because pressure, risk, and stability were never surfaced before commitment. D-NAV makes that friction visible early, so execution teams inherit a plan that has already survived scrutiny.
             </p>
             <div className="rounded-2xl border border-white/10 bg-black/30 p-4 space-y-3">
               <p className="text-sm font-semibold text-white">Decision friction D-NAV removes:</p>
               <ul className="space-y-2 text-slate-200 text-sm">
                 <li className="flex items-start gap-2">
                   <span className="mt-1 h-1.5 w-1.5 rounded-full bg-amber-300" aria-hidden />
-                  <span>Endless debate masquerading as alignment.</span>
+                  <span>Endless debate masquerading as alignment</span>
                 </li>
                 <li className="flex items-start gap-2">
                   <span className="mt-1 h-1.5 w-1.5 rounded-full bg-amber-300" aria-hidden />
-                  <span>Confidence built on vibes, not evidence.</span>
+                  <span>Confidence built on vibes, not evidence</span>
                 </li>
                 <li className="flex items-start gap-2">
                   <span className="mt-1 h-1.5 w-1.5 rounded-full bg-amber-300" aria-hidden />
-                  <span>Pressure discovered too late (during execution).</span>
+                  <span>Pressure discovered too late (during execution)</span>
                 </li>
                 <li className="flex items-start gap-2">
                   <span className="mt-1 h-1.5 w-1.5 rounded-full bg-amber-300" aria-hidden />
-                  <span>Execution teams inheriting unresolved risk.</span>
+                  <span>Execution teams inheriting unresolved risk</span>
                 </li>
               </ul>
             </div>
@@ -143,7 +143,7 @@ function HeroSection() {
                   </li>
                   <li className="flex items-start gap-2">
                     <span className="mt-1 h-1.5 w-1.5 rounded-full bg-amber-300" aria-hidden />
-                    <span>The upside is attractive but risk, pressure, and stability are not fully surfaced.</span>
+                    <span>The upside is attractive but risk, pressure, and stability are not surfaced.</span>
                   </li>
                   <li className="flex items-start gap-2">
                     <span className="mt-1 h-1.5 w-1.5 rounded-full bg-amber-300" aria-hidden />
@@ -298,7 +298,7 @@ function UnderTheHoodSection() {
         />
 
         <p className="text-slate-300 text-base max-w-3xl animate-fade-up" style={{ "--delay": "0.04s" } as CSSProperties}>
-          This is proprietary system grammar. Merit and Energy are the internal signals; Value, Execution, Pressure, and Stability are the consulting translation. RPS is the internal logic; D-NAV is the readout clients see. It measures how judgment behaves before commitment.
+          This is proprietary system grammar. Merit and Energy are the internal signals; Return, Pressure, and Stability are the consulting translation. RPS is the internal logic. D-NAV is the readout clients see. It measures how judgment behaves before commitment.
         </p>
 
         <div className="grid gap-6 lg:grid-cols-[1.05fr_0.95fr]">
@@ -310,7 +310,7 @@ function UnderTheHoodSection() {
               </div>
               <h3 className="text-2xl font-semibold text-white">RPS is the internal signal. D-NAV is the consulting readout.</h3>
               <p className="text-slate-300">
-                One language for every view: Return, Pressure, Stability. Inputs are captured once, then translated into decision checks, audits, and pre-commitment briefs with the same score. The internal frame is Merit (value signal) and Energy (execution capacity); the external readout is Value, Execution, Pressure, and Stability.
+                One language for every view: Return, Pressure, Stability. Inputs are captured once, then translated into decision checks, audits, and pre-commitment briefs with the same score. The internal frame is Merit (Impact − Cost − Risk) and Energy (Urgency × Confidence); the consulting readout is Return, Pressure, and Stability.
               </p>
               <div className="grid gap-3 sm:grid-cols-3">
                 <div className="rounded-xl border border-white/10 bg-white/5 px-3 py-3">
@@ -318,14 +318,14 @@ function UnderTheHoodSection() {
                     <TrendingUp className="h-4 w-4 text-emerald-300" aria-hidden />
                     Return
                   </div>
-                  <p className="mt-1 text-xs text-slate-300">Upside after cost.</p>
+                  <p className="mt-1 text-xs text-slate-300">Upside after cost and risk.</p>
                 </div>
                 <div className="rounded-xl border border-white/10 bg-white/5 px-3 py-3">
                   <div className="flex items-center gap-2 text-sm font-semibold text-white">
                     <Activity className="h-4 w-4 text-amber-300" aria-hidden />
                     Pressure
                   </div>
-                  <p className="mt-1 text-xs text-slate-300">Execution stress.</p>
+                  <p className="mt-1 text-xs text-slate-300">Where urgency and confidence strain the plan.</p>
                 </div>
                 <div className="rounded-xl border border-white/10 bg-white/5 px-3 py-3">
                   <div className="flex items-center gap-2 text-sm font-semibold text-white">
@@ -336,24 +336,24 @@ function UnderTheHoodSection() {
                 </div>
               </div>
               <div className="rounded-2xl border border-white/10 bg-black/30 p-4 space-y-2 text-sm text-slate-200">
-                <p className="font-semibold text-white">RPS turns five inputs into three signals:</p>
+                <p className="font-semibold text-white">RPS turns five inputs into internal logic and a consulting readout:</p>
                 <ul className="space-y-1 text-slate-300">
                   <li className="flex items-start gap-2">
                     <span className="mt-1 h-1.5 w-1.5 rounded-full bg-emerald-300" aria-hidden />
                     <span>
-                      <span className="font-semibold text-white">Return</span> = Impact − Cost
+                      <span className="font-semibold text-white">Merit</span> = Impact − Cost − Risk
                     </span>
                   </li>
                   <li className="flex items-start gap-2">
                     <span className="mt-1 h-1.5 w-1.5 rounded-full bg-amber-300" aria-hidden />
                     <span>
-                      <span className="font-semibold text-white">Pressure</span> = Urgency − Confidence
+                      <span className="font-semibold text-white">Energy</span> = Urgency × Confidence
                     </span>
                   </li>
                   <li className="flex items-start gap-2">
                     <span className="mt-1 h-1.5 w-1.5 rounded-full bg-sky-300" aria-hidden />
                     <span>
-                      <span className="font-semibold text-white">Stability</span> = Confidence − Risk
+                      <span className="font-semibold text-white">Return, Pressure, Stability</span> translate Merit and Energy for the consulting brief.
                     </span>
                   </li>
                 </ul>
@@ -371,11 +371,11 @@ function UnderTheHoodSection() {
                 <div className="rounded-full border border-white/10 bg-white/5 px-3 py-1 text-xs text-slate-200">Live</div>
               </div>
               <p className="text-slate-300">
-                D-NAV is the decision readout used in consulting. Value = Impact − Cost − Risk. Execution = Urgency × Confidence. Pressure and Stability express where Energy (execution capacity) is stressed. Together, they reveal if the upside is real and if the team can carry it.
+                D-NAV is the decision readout used in consulting. Merit = Impact − Cost − Risk. Energy = Urgency × Confidence. Pressure and Stability express where Energy is stressed. Together, they reveal whether the Merit is real — and whether the team can carry it.
               </p>
               <div className="rounded-2xl border border-white/5 bg-black/40 p-4 space-y-2">
-                <p className="text-sm font-semibold text-white">D-NAV = Value + Execution</p>
-                <p className="text-sm text-slate-300">Value = Impact − Cost − Risk. Execution = Urgency × Confidence.</p>
+                <p className="text-sm font-semibold text-white">D-NAV = Merit + Energy</p>
+                <p className="text-sm text-slate-300">Merit = Impact − Cost − Risk. Energy = Urgency × Confidence.</p>
               </div>
               <RpsDistributions />
               <div className="grid gap-3 sm:grid-cols-2">
