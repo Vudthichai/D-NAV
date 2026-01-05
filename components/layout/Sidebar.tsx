@@ -13,6 +13,7 @@ import {
   SidebarRail,
 } from "@/components/ui/sidebar";
 import {
+  Activity,
   BookOpen,
   Calculator,
   FileText,
@@ -28,6 +29,7 @@ import { usePathname } from "next/navigation";
 
 const items: Array<{ href: string; label: string; icon: LucideIcon }> = [
   { href: "/", label: "Home", icon: Gauge },
+  { href: "/stress-test", label: "Stress Test", icon: Activity },
   { href: "/reports", label: "Reports", icon: FileText },
   { href: "/calculator", label: "The D-NAV", icon: Calculator },
   { href: "/log", label: "Log", icon: ListOrdered },
