@@ -159,7 +159,7 @@ function HeroSection() {
                 <p className="text-sm font-semibold text-white">Constraints</p>
                 <ul className="space-y-2 text-slate-300 list-disc list-inside">
                   <li>D-NAV does not predict outcomes.</li>
-                  <li>D-NAV does not replace execution, domain expertise, or accountability.</li>
+                  <li>D-NAV does not replace delivery, domain expertise, or accountability.</li>
                   <li>D-NAV pressure-tests judgment before commitment.</li>
                 </ul>
               </div>
@@ -233,7 +233,7 @@ function ExecutiveReadoutSection() {
               <p>D-NAV translates the system grammar into a concise brief that makes pressure, risk, and stability legible before any commitment.</p>
               <p>It shows how judgment is applied, where hidden pressure sits, and whether stability can absorb the move — the evidence executives expect in the room.</p>
               <p>The readout is a consulting deliverable, designed to replace slide decks and post-hoc explanations.</p>
-              <p>The goal: a plan that has already survived questioning before execution begins.</p>
+              <p>The goal is a plan that has already survived questioning.</p>
             </div>
             <p className="text-sm text-slate-400">The D-NAV brief replaces slide decks with a system-led decision narrative.</p>
           </div>
@@ -451,47 +451,27 @@ function UnderTheHoodSection() {
 }
 
 function AudienceSection() {
-  const audiences = [
-    {
-      title: "Founders & Execs",
-      moment: "When conviction needs pre-commitment validation.",
-      copy: "Ground board debates in Return, Pressure, and Stability so the plan can be defended under questioning.",
-    },
-    {
-      title: "Traders & Investors",
-      moment: "When edge may be turning into drift.",
-      copy: "Stress-test judgment across regimes before capital is committed. Convert intuition into a defensible brief.",
-    },
-    {
-      title: "Operators & Product Leads",
-      moment: "When pressure is rising faster than capacity.",
-      copy: "Prioritize with evidence. Preserve stability instead of absorbing hidden pressure in roadmap decisions.",
-    },
-    {
-      title: "Consultants & Analysts",
-      moment: "When recommendations must survive scrutiny.",
-      copy: "Turn client chaos into a pre-commitment audit. Deliver reports with a repeatable decision grammar.",
-    },
-  ];
-
   return (
     <section className="bg-[#050608] py-16 md:py-20">
-      <div className="max-w-6xl mx-auto px-6 space-y-10">
-        <SectionHeading
-          title="Built for people who plan in uncertainty"
-          subtitle="For leaders operating before the data is clean, D-NAV provides pre-commitment intelligence and advisory structure. It applies the same decision physics across contexts."
-        />
-        <p className="text-sm text-slate-400 text-center max-w-3xl mx-auto">These examples show how the consulting system flexes across advisory and coaching contexts — not general productivity or habit tracking.</p>
-        <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
-          {audiences.map((item, index) => (
-            <GlassPanel key={item.title} className="h-full p-5 animate-fade-up" style={{ "--delay": `${0.08 + index * 0.04}s` } as CSSProperties}>
-              <div className="flex h-full flex-col gap-3">
-                <h3 className="text-lg font-semibold text-white">{item.title}</h3>
-                <p className="text-sm italic text-slate-200">{item.moment}</p>
-                <p className="text-slate-300 flex-1">{item.copy}</p>
-              </div>
-            </GlassPanel>
-          ))}
+      <div className="max-w-4xl mx-auto px-6 space-y-6 text-center">
+        <SectionHeading title="Built for people who plan in uncertainty" />
+        <p className="text-lg text-slate-200">
+          D-NAV is used by leaders operating before the data is clean — where judgment must be defensible and pressure accumulates early.
+        </p>
+        <p className="text-base text-slate-300">The same decision physics apply across roles; only the context changes.</p>
+        <div className="flex justify-center">
+          <Button
+            variant="ghost"
+            className="text-white hover:text-amber-200 hover:bg-white/5 focus-visible:ring-amber-300"
+            asChild
+          >
+            <Link href="/use-cases">
+              View use cases
+              <span aria-hidden className="ml-1">
+                →
+              </span>
+            </Link>
+          </Button>
         </div>
       </div>
     </section>
