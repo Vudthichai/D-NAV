@@ -71,17 +71,17 @@ function HeroSection() {
     {
       badge: "Diagnostic lens",
       title: "What actually drives decisions",
-      copy: "Most failures come from misread pressure, confidence, and risk. D-NAV captures five inputs — Impact, Cost, Risk, Urgency, Confidence — and turns them into Return, Pressure, and Stability to guide pre-commitment planning.",
+      copy: "D-NAV exists to surface pressure, risk, and stability before the commitment. It translates five inputs — Impact, Cost, Risk, Urgency, Confidence — into Return, Pressure, and Stability so the plan is judged before work starts.",
     },
     {
       badge: "Pattern recognition",
-      title: "Archetypes",
-      copy: "Across engagements, patterns emerge. D-NAV reveals how a team tends to earn Return, absorb Pressure, and protect Stability — evidence used to coach and steer the work.",
+      title: "Cross-engagement insight",
+      copy: "Across consulting engagements, D-NAV reveals how teams earn Return, absorb Pressure, and protect Stability. Those patterns drive the advisory plan — not vibes or optimism.",
     },
     {
       badge: "Contrast",
-      title: "Compare",
-      copy: "Contrast surfaces hidden pressure. Side-by-side reads expose where stability will fail unless the plan changes.",
+      title: "Stress-test judgment",
+      copy: "Contrast removes debate. Side-by-side reads expose hidden pressure and show where stability will fail unless the plan changes.",
     },
   ];
 
@@ -102,16 +102,32 @@ function HeroSection() {
           </div>
 
           <div className="space-y-6 md:space-y-7 w-full max-w-4xl">
-            <h1 className="text-4xl md:text-6xl font-black leading-tight tracking-tight text-white">
-              D-NAV is a proprietary decision system used in pre-commitment consulting to surface pressure, risk, and stability before execution begins.
-            </h1>
-            <p className="text-xl text-slate-200 max-w-3xl">Decisions typically fail before work starts. D-NAV is the instrument used to see the stress points in advance.</p>
+            <h1 className="text-4xl md:text-6xl font-black leading-tight tracking-tight text-white">Decisions fail long before execution. D-NAV shows you where.</h1>
+            <p className="text-xl text-slate-200 max-w-3xl">D-NAV is a proprietary decision system used in pre-commitment consulting to surface pressure, risk, and stability before execution begins.</p>
             <p className="text-lg text-slate-300 max-w-3xl">
-              The system pressure-tests judgment, not effort. It shows where Return is real, where Pressure hides, and whether Stability can carry the move.
+              Decisions rarely collapse because of effort. They fail because pressure, risk, and stability were never surfaced before the commitment. D-NAV makes that friction visible early, so execution teams inherit a plan that already survived scrutiny.
             </p>
-            <p className="text-lg text-slate-300 max-w-3xl">
-              Engagements start with a pre-commitment assessment, so execution teams inherit a plan that has already survived contrast and scrutiny.
-            </p>
+            <div className="rounded-2xl border border-white/10 bg-black/30 p-4 space-y-3">
+              <p className="text-sm font-semibold text-white">Decision friction D-NAV removes:</p>
+              <ul className="space-y-2 text-slate-200 text-sm">
+                <li className="flex items-start gap-2">
+                  <span className="mt-1 h-1.5 w-1.5 rounded-full bg-amber-300" aria-hidden />
+                  <span>Endless debate and vibes masquerading as confidence.</span>
+                </li>
+                <li className="flex items-start gap-2">
+                  <span className="mt-1 h-1.5 w-1.5 rounded-full bg-amber-300" aria-hidden />
+                  <span>Late discovery of pressure that appears only during execution.</span>
+                </li>
+                <li className="flex items-start gap-2">
+                  <span className="mt-1 h-1.5 w-1.5 rounded-full bg-amber-300" aria-hidden />
+                  <span>Post-hoc rationalization that hides weak judgment.</span>
+                </li>
+                <li className="flex items-start gap-2">
+                  <span className="mt-1 h-1.5 w-1.5 rounded-full bg-amber-300" aria-hidden />
+                  <span>Execution teams inheriting unresolved risk and instability.</span>
+                </li>
+              </ul>
+            </div>
           </div>
         </div>
 
@@ -213,11 +229,11 @@ function ExecutiveReadoutSection() {
             <p className="text-[11px] uppercase tracking-[0.32em] text-amber-200">Executive Readout</p>
             <h2 className="text-3xl md:text-4xl font-bold leading-tight text-white">A pre-commitment decision brief, built to survive scrutiny.</h2>
             <div className="space-y-3 text-slate-200">
-              <p>Designed for boardrooms, diligence reviews, and executive sessions where judgment must be defensible.</p>
-              <p>D-NAV turns complex choices into a concise brief that makes pressure, risk, and stability legible.</p>
-              <p>It shows how judgment is applied, where hidden pressure sits, and whether stability can absorb the move.</p>
-              <p>The readout is a consulting deliverable — built to withstand questioning, not to market software.</p>
-              <p>The goal is a plan that stands up to scrutiny before execution begins.</p>
+              <p>Built for boardrooms, diligence reviews, and executive sessions where judgment must be defensible.</p>
+              <p>D-NAV translates the system grammar into a concise brief that makes pressure, risk, and stability legible before any commitment.</p>
+              <p>It shows how judgment is applied, where hidden pressure sits, and whether stability can absorb the move — the evidence executives expect in the room.</p>
+              <p>The readout is a consulting deliverable, designed to replace slide decks and post-hoc explanations.</p>
+              <p>The goal: a plan that has already survived questioning before execution begins.</p>
             </div>
             <p className="text-sm text-slate-400">The D-NAV brief replaces slide decks with a system-led decision narrative.</p>
           </div>
@@ -260,7 +276,7 @@ function EntityCompareSection() {
             <div className="space-y-3 text-slate-200">
               <p>Once decisions share the same system language, comparison moves from opinion to evidence.</p>
               <p>D-NAV stacks teams, strategies, or domains side-by-side to reveal where judgment earns return and where it quietly accumulates pressure before the work starts.</p>
-              <p>What looks reasonable in isolation often fractures under contrast.</p>
+              <p>What appears solid in isolation often fractures under contrast — the moment to adapt before commitment, not after.</p>
             </div>
             <p className="text-sm text-slate-400">Same decision language. Very different outcomes.</p>
           </div>
@@ -282,7 +298,7 @@ function UnderTheHoodSection() {
         />
 
         <p className="text-slate-300 text-base max-w-3xl animate-fade-up" style={{ "--delay": "0.04s" } as CSSProperties}>
-          This is proprietary system grammar. RPS is the internal logic; D-NAV is the readout clients see. It measures how judgment behaves before commitment.
+          This is proprietary system grammar. Merit and Energy are the internal signals; Value, Execution, Pressure, and Stability are the consulting translation. RPS is the internal logic; D-NAV is the readout clients see. It measures how judgment behaves before commitment.
         </p>
 
         <div className="grid gap-6 lg:grid-cols-[1.05fr_0.95fr]">
@@ -293,7 +309,9 @@ function UnderTheHoodSection() {
                 RPS + D-NAV
               </div>
               <h3 className="text-2xl font-semibold text-white">RPS is the internal signal. D-NAV is the consulting readout.</h3>
-              <p className="text-slate-300">One language for every view: Return, Pressure, Stability. Inputs are captured once, then translated into decision briefs, audits, and adaptations with the same score.</p>
+              <p className="text-slate-300">
+                One language for every view: Return, Pressure, Stability. Inputs are captured once, then translated into decision checks, audits, and pre-commitment briefs with the same score. The internal frame is Merit (value signal) and Energy (execution capacity); the external readout is Value, Execution, Pressure, and Stability.
+              </p>
               <div className="grid gap-3 sm:grid-cols-3">
                 <div className="rounded-xl border border-white/10 bg-white/5 px-3 py-3">
                   <div className="flex items-center gap-2 text-sm font-semibold text-white">
@@ -352,7 +370,9 @@ function UnderTheHoodSection() {
                 </div>
                 <div className="rounded-full border border-white/10 bg-white/5 px-3 py-1 text-xs text-slate-200">Live</div>
               </div>
-              <p className="text-slate-300">D-NAV is the decision readout used in consulting. Value = Impact − Cost − Risk. Execution = Urgency × Confidence. Together, they reveal if the upside is real and if the team can carry it.</p>
+              <p className="text-slate-300">
+                D-NAV is the decision readout used in consulting. Value = Impact − Cost − Risk. Execution = Urgency × Confidence. Pressure and Stability express where Energy (execution capacity) is stressed. Together, they reveal if the upside is real and if the team can carry it.
+              </p>
               <div className="rounded-2xl border border-white/5 bg-black/40 p-4 space-y-2">
                 <p className="text-sm font-semibold text-white">D-NAV = Value + Execution</p>
                 <p className="text-sm text-slate-300">Value = Impact − Cost − Risk. Execution = Urgency × Confidence.</p>
@@ -459,7 +479,7 @@ function AudienceSection() {
       <div className="max-w-6xl mx-auto px-6 space-y-10">
         <SectionHeading
           title="Built for people who plan in uncertainty"
-          subtitle="For leaders operating before the data is clean, D-NAV provides pre-execution intelligence and advisory structure. It applies the same decision physics across contexts."
+          subtitle="For leaders operating before the data is clean, D-NAV provides pre-commitment intelligence and advisory structure. It applies the same decision physics across contexts."
         />
         <p className="text-sm text-slate-400 text-center max-w-3xl mx-auto">These examples show how the consulting system flexes across advisory and coaching contexts — not general productivity or habit tracking.</p>
         <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
