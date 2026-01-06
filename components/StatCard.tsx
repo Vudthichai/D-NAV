@@ -15,6 +15,7 @@ interface StatCardProps {
   };
   subtitle?: string;
   description?: string;
+  dense?: boolean;
 }
 
 export default function StatCard({
@@ -25,6 +26,7 @@ export default function StatCard({
   pill,
   subtitle,
   description,
+  dense = false,
 }: StatCardProps) {
   const formatValue = (val: number | string) => {
     if (typeof val === 'number') return val > 0 ? `+${val}` : val < 0 ? val.toString() : '0';
@@ -39,9 +41,15 @@ export default function StatCard({
   };
 
   return (
-    <Card className="bg-white/4 rounded-xl p-3.5 min-h-[110px] flex flex-col justify-between border-0">
-      <CardContent className="p-0 flex flex-col justify-between h-full">
-        <h3 className="m-0 text-xs text-muted-foreground tracking-wider uppercase font-normal">
+    <Card
+      className={cn(
+        "bg-white/4 rounded-xl border-0",
+        dense ? "p-3" : "p-3.5 min-h-[110px]",
+        "flex flex-col justify-between",
+      )}
+    >
+      <CardContent className={cn("p-0 flex flex-col h-full", dense ? "gap-1.5" : "justify-between")}>
+        <h3 className={cn("m-0 text-xs text-muted-foreground tracking-wider uppercase font-normal", dense && "mb-0.5")}>
           {title ?? label}
         </h3>
         {subtitle ? (
@@ -49,9 +57,16 @@ export default function StatCard({
             {subtitle}
           </p>
         ) : null}
-        <div className="text-4xl font-black leading-tight">{formatValue(value)}</div>
+        <div className={cn("font-black leading-tight", dense ? "text-3xl" : "text-4xl")}>
+          {formatValue(value)}
+        </div>
         {description || helper ? (
-          <p className="mt-3 text-sm text-muted-foreground leading-relaxed">
+          <p
+            className={cn(
+              "text-muted-foreground",
+              dense ? "text-xs leading-snug" : "mt-3 text-sm leading-relaxed",
+            )}
+          >
             {description ?? helper}
           </p>
         ) : null}

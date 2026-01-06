@@ -7,33 +7,31 @@ interface SummaryCardProps {
   metrics: DecisionMetrics;
   coachText: string;
   className?: string;
+  compact?: boolean;
 }
 
-export default function SummaryCard({ metrics, coachText, className }: SummaryCardProps) {
+export default function SummaryCard({ metrics, coachText, className, compact = false }: SummaryCardProps) {
   const archetype = getArchetype(metrics);
 
   return (
-    <div className={cn("flex flex-1 flex-col gap-6", className)}>
+    <div className={cn("flex flex-1 flex-col", compact ? "gap-4" : "gap-6", className)}>
       <div className="space-y-1.5">
-        <h3 className="m-0 text-xs text-muted-foreground uppercase tracking-wider">ARCHETYPE</h3>
-        <div className="text-2xl font-black mt-1.5">{archetype.name}</div>
-      </div>
-
-      <div>
-        <p className="text-sm text-muted-foreground leading-relaxed">
-          <span className="font-semibold text-foreground">Coach insight:</span> {coachText}
+        <h3 className="m-0 text-[11px] text-muted-foreground uppercase tracking-wider">Archetype</h3>
+        <div className={cn("font-black", compact ? "text-xl leading-tight" : "text-2xl mt-1.5")}>
+          {archetype.name}
+        </div>
+        <p className={cn("text-muted-foreground", compact ? "text-sm leading-snug" : "text-sm leading-relaxed")}>
+          {archetype.description}
         </p>
       </div>
 
-      <div className="rounded-lg border border-border/50 bg-muted/20 p-4 mt-auto">
+      <div className={cn("rounded-lg border border-border/50 bg-muted/20", compact ? "p-3" : "p-4", "mt-auto")}>
         <div className="flex items-baseline justify-between gap-4">
-          <div>
-            <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">D-NAV SCORE</p>
-          </div>
-          <p className="text-3xl font-black text-foreground">{metrics.dnav}</p>
+          <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">D-NAV score</p>
+          <p className={cn("font-black text-foreground", compact ? "text-2xl" : "text-3xl")}>{metrics.dnav}</p>
         </div>
-        <p className="mt-3 text-sm text-muted-foreground">
-          This reflects how much energy you are putting into this decision.
+        <p className={cn("text-foreground", compact ? "mt-2 text-sm leading-snug" : "mt-3 text-sm leading-relaxed")}>
+          Next move: {coachText}
         </p>
       </div>
     </div>

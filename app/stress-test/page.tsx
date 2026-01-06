@@ -6,13 +6,13 @@ import SummaryCard from "@/components/SummaryCard";
 import DatasetSelect from "@/components/DatasetSelect";
 import { useDataset } from "@/components/DatasetProvider";
 import { Badge } from "@/components/ui/badge";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { useNetlifyIdentity } from "@/hooks/use-netlify-identity";
 import { DecisionEntry, DecisionMetrics, DecisionVariables, coachHint, computeMetrics } from "@/lib/calculations";
-import { Check, RotateCcw, Save, Upload } from "lucide-react";
-import Link from "next/link";
+import { Check, RotateCcw, Save } from "lucide-react";
 import { useCallback, useMemo, useState } from "react";
 
 const DEFAULT_VARIABLES: DecisionVariables = {
@@ -91,55 +91,35 @@ export default function StressTestPage() {
     [],
   );
 
-  const stepSummaries = [
-    {
-      step: "STEP 1",
-      title: "Rate Your Decision",
-      description: "Capture one real decision and rate the five forces shaping it.",
-    },
-    {
-      step: "STEP 2",
-      title: "See the Physics of Your Decision",
-      description: "Your inputs generate the real-time signals shaping the direction of your call.",
-    },
-    {
-      step: "STEP 3",
-      title: "See Your Read Out",
-      description: "The D-NAV score reads those signals and shows where your energy is going.",
-    },
-  ];
-
   return (
     <TooltipProvider>
       <main className="min-h-screen">
-        <div className="max-w-7xl mx-auto p-6 space-y-12">
-          <div className="flex flex-col gap-6 md:flex-row md:items-start md:justify-between">
-            <div className="space-y-3 max-w-3xl">
-              <h1 className="text-3xl font-bold text-foreground">Stress Test</h1>
-              <p className="text-base text-muted-foreground leading-relaxed">
-                Stress-test a single decision in one screen.
+        <div className="mx-auto max-w-7xl space-y-6 px-4 pb-8 pt-4 md:px-6">
+          <div className="flex flex-col gap-2 border-b border-border/60 pb-3 sm:flex-row sm:items-center sm:justify-between">
+            <div className="flex items-center gap-3">
+              <h1 className="text-xl font-semibold text-foreground">Stress Test</h1>
+              <p className="hidden whitespace-nowrap text-xs text-muted-foreground sm:inline">
+                Rate one decision. See Return, Pressure, and Stability instantly.
               </p>
             </div>
-            <div className="flex gap-2 self-start items-center">
-              <div className="flex items-center gap-2">
-                <DatasetSelect label="Dataset" />
-                <Button variant="outline" size="sm" onClick={addDataset}>
-                  Add dataset
-                </Button>
-              </div>
+            <div className="flex flex-wrap items-center gap-2">
+              <DatasetSelect label="Dataset" />
+              <Button variant="outline" size="sm" onClick={addDataset}>
+                Add dataset
+              </Button>
+              <Button variant="outline" size="sm" onClick={handleReset}>
+                <RotateCcw className="mr-2 h-4 w-4" />
+                Reset
+              </Button>
               {isLoggedIn ? (
                 <button
                   type="button"
                   onClick={logout}
-                  className="logout-btn text-xs text-muted-foreground underline-offset-2 hover:underline"
+                  className="text-xs text-muted-foreground underline-offset-2 hover:underline"
                 >
                   Log out
                 </button>
               ) : null}
-              <Button variant="outline" onClick={handleReset}>
-                <RotateCcw className="w-4 h-4 mr-2" />
-                Reset
-              </Button>
             </div>
           </div>
 
@@ -153,175 +133,147 @@ export default function StressTestPage() {
             </div>
           ) : null}
 
-          <section className="mt-8 space-y-10">
-            <div className="grid grid-cols-1 gap-6 md:grid-cols-3">
-              {stepSummaries.map((summary) => (
-                <div key={summary.step} className="space-y-2">
-                  <p className="text-xs font-semibold tracking-wide text-orange-500">
-                    <span className="uppercase">{summary.step}</span>
-                    <span className="text-foreground font-semibold normal-case"> — {summary.title}</span>
-                  </p>
-                  <p className="text-sm text-muted-foreground leading-relaxed">{summary.description}</p>
-                </div>
-              ))}
-            </div>
-
-            <div className="grid grid-cols-1 gap-6 items-start md:grid-cols-2 lg:grid-cols-3">
-              <div className="flex h-full flex-col">
-                <div className="flex flex-1 flex-col rounded-xl border border-slate-100 bg-white p-4 shadow-sm md:p-5 dnav-card-surface">
-                  <div className="space-y-3 flex-1">
-                    <div className="space-y-2">
-                      <h3 className="text-lg font-semibold text-foreground">Decision Inputs</h3>
-                      <p className="text-sm text-muted-foreground">
-                        Capture one real decision and rate the five forces shaping it.
-                      </p>
-                      <div className="space-y-2">
-                        <p className="text-sm font-semibold text-muted-foreground">Quick Entry</p>
-                        <Input
-                          type="text"
-                          placeholder="What's Your Decision?"
-                          value={decisionName}
-                          onChange={(e) => setDecisionName(e.target.value)}
-                          className="h-12 text-base lg:text-lg"
-                        />
-                      </div>
-                      <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
-                        <Input
-                          type="text"
-                          placeholder="Categorize it"
-                          value={decisionCategory}
-                          onChange={(e) => setDecisionCategory(e.target.value)}
-                        />
-                        <Button
-                          onClick={handleSaveDecision}
-                          className="w-full"
-                          disabled={!decisionName || !decisionCategory}
-                        >
-                          {isSaved ? (
-                            <>
-                              <Check className="w-4 h-4 mr-2" />
-                              Saved!
-                            </>
-                          ) : (
-                            <>
-                              <Save className="w-4 h-4 mr-2" />
-                              Save Decision
-                            </>
-                          )}
-                        </Button>
-                        <Button variant="outline" className="w-full md:col-span-2" asChild>
-                          <Link href="/log#import" className="flex items-center justify-center">
-                            <Upload className="w-4 h-4 mr-2" />
-                            Import Decisions
-                          </Link>
-                        </Button>
-                      </div>
-                    </div>
-                    <div className="space-y-3">
-                      <div className="space-y-2">
-                        <p className="text-sm font-semibold text-foreground">Decision Variables</p>
-                        <p className="text-xs text-muted-foreground">
-                          Each slider represents one of the five forces shaping your call.
-                        </p>
-                        <div className="flex gap-2">
-                          <Badge variant="outline" className="text-xs">
-                            1 = minimal
-                          </Badge>
-                          <Badge variant="outline" className="text-xs">
-                            10 = maximum
-                          </Badge>
-                        </div>
-                      </div>
-                      <div className="space-y-3">
-                        <SliderRow
-                          id="impact"
-                          label="Impact"
-                          hint="How big is the upside if this works?"
-                          value={variables.impact}
-                          onChange={(value) => updateVariable("impact", value)}
-                        />
-                        <SliderRow
-                          id="cost"
-                          label="Cost"
-                          hint="What are you really spending — money, time, reputation, focus?"
-                          value={variables.cost}
-                          onChange={(value) => updateVariable("cost", value)}
-                        />
-                        <SliderRow
-                          id="risk"
-                          label="Risk"
-                          hint="If you’re wrong, what breaks or becomes hard to undo?"
-                          value={variables.risk}
-                          onChange={(value) => updateVariable("risk", value)}
-                        />
-                        <SliderRow
-                          id="urgency"
-                          label="Urgency"
-                          hint="How soon do you actually need to move?"
-                          value={variables.urgency}
-                          onChange={(value) => updateVariable("urgency", value)}
-                        />
-                        <SliderRow
-                          id="confidence"
-                          label="Confidence"
-                          hint="How solid is your evidence and experience — not just your hope?"
-                          value={variables.confidence}
-                          onChange={(value) => updateVariable("confidence", value)}
-                        />
-                      </div>
-                    </div>
+          <section className="space-y-4">
+            <div className="grid grid-cols-1 items-start gap-4 md:grid-cols-[1.1fr_0.9fr] lg:grid-cols-3">
+              <Card className="h-full">
+                <CardHeader className="pb-3">
+                  <CardTitle className="text-base font-semibold">Decision Inputs</CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div className="space-y-2">
+                    <Input
+                      type="text"
+                      placeholder="Decision title"
+                      value={decisionName}
+                      onChange={(e) => setDecisionName(e.target.value)}
+                      className="h-11 text-sm"
+                    />
+                    <Input
+                      type="text"
+                      placeholder="Category"
+                      value={decisionCategory}
+                      onChange={(e) => setDecisionCategory(e.target.value)}
+                      className="h-11 text-sm"
+                    />
                   </div>
-                </div>
-              </div>
-
-              <div className="flex h-full flex-col">
-                <div className="flex flex-1 flex-col rounded-xl border border-slate-100 bg-white p-4 shadow-sm md:p-5 dnav-card-surface">
-                  <div className="space-y-4">
-                    <div className="space-y-2">
-                      <h3 className="text-lg font-semibold text-foreground">Return, Pressure, Stability</h3>
-                      <p className="text-sm text-muted-foreground">
-                        The physics of your decision — upside, execution stress, and survivability.
+                  <div className="flex flex-wrap items-center gap-2">
+                    <Button
+                      onClick={handleSaveDecision}
+                      className="flex-1 min-w-[160px]"
+                      disabled={!decisionName || !decisionCategory}
+                    >
+                      {isSaved ? (
+                        <>
+                          <Check className="mr-2 h-4 w-4" />
+                          Saved!
+                        </>
+                      ) : (
+                        <>
+                          <Save className="mr-2 h-4 w-4" />
+                          Log this decision
+                        </>
+                      )}
+                    </Button>
+                    <Button variant="outline" onClick={handleReset} className="min-w-[120px]">
+                      Reset
+                    </Button>
+                  </div>
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between gap-2">
+                      <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                        Decision variables
                       </p>
+                      <Badge variant="outline" className="text-[11px] font-medium">
+                        1 = minimal · 10 = maximum
+                      </Badge>
                     </div>
-                    <div className="space-y-3">
-                      <StatCard
-                        title="Return"
-                        value={metrics.return}
-                        pill={getPillColor(metrics.return, "return")}
-                        subtitle="Impact − Cost"
-                        description="Return shows if the upside beats the burn."
+                    <div className="divide-y divide-border/60 rounded-lg bg-muted/20 px-3 py-2">
+                      <SliderRow
+                        id="impact"
+                        label="Impact"
+                        hint="How big is the upside if this works?"
+                        value={variables.impact}
+                        onChange={(value) => updateVariable("impact", value)}
+                        compact
                       />
-                      <StatCard
-                        title="Pressure"
-                        value={metrics.pressure}
-                        pill={getPillColor(metrics.pressure, "pressure")}
-                        subtitle="Urgency − Confidence"
-                        description="Pressure shows whether urgency or conviction is steering you."
+                      <SliderRow
+                        id="cost"
+                        label="Cost"
+                        hint="What are you really spending — money, time, reputation, focus?"
+                        value={variables.cost}
+                        onChange={(value) => updateVariable("cost", value)}
+                        compact
                       />
-                      <StatCard
-                        title="Stability"
-                        value={metrics.stability}
-                        pill={getPillColor(metrics.stability, "stability")}
-                        subtitle="Confidence − Risk"
-                        description="Stability tests if evidence can outlast fear."
+                      <SliderRow
+                        id="risk"
+                        label="Risk"
+                        hint="If you’re wrong, what breaks or becomes hard to undo?"
+                        value={variables.risk}
+                        onChange={(value) => updateVariable("risk", value)}
+                        compact
+                      />
+                      <SliderRow
+                        id="urgency"
+                        label="Urgency"
+                        hint="How soon do you actually need to move?"
+                        value={variables.urgency}
+                        onChange={(value) => updateVariable("urgency", value)}
+                        compact
+                      />
+                      <SliderRow
+                        id="confidence"
+                        label="Confidence"
+                        hint="How solid is your evidence and experience — not just your hope?"
+                        value={variables.confidence}
+                        onChange={(value) => updateVariable("confidence", value)}
+                        compact
                       />
                     </div>
                   </div>
-                </div>
-              </div>
+                </CardContent>
+              </Card>
 
-              <div className="flex h-full flex-col">
-                <div className="flex flex-1 flex-col rounded-xl border border-slate-100 bg-white p-4 shadow-sm md:p-5 dnav-card-surface">
-                  <div className="space-y-4 h-full">
-                    <div className="space-y-2">
-                      <h3 className="text-lg font-semibold text-foreground">Archetype &amp; Coach</h3>
-                      <p className="text-sm text-muted-foreground">
-                        Your decision pattern plus the live D-NAV score readout.
-                      </p>
-                    </div>
-                    <SummaryCard metrics={metrics} coachText={coachLine} className="flex flex-1" />
-                  </div>
-                </div>
+              <div className="space-y-4 md:col-span-1 lg:col-span-2 lg:grid lg:grid-cols-2 lg:gap-4 lg:space-y-0">
+                <Card className="h-full">
+                  <CardHeader className="pb-3">
+                    <CardTitle className="text-base font-semibold">Return · Pressure · Stability</CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-3">
+                    <StatCard
+                      title="Return"
+                      value={metrics.return}
+                      pill={getPillColor(metrics.return, "return")}
+                      subtitle="Impact − Cost"
+                      description="Return shows if the upside beats the burn."
+                      dense
+                    />
+                    <StatCard
+                      title="Pressure"
+                      value={metrics.pressure}
+                      pill={getPillColor(metrics.pressure, "pressure")}
+                      subtitle="Urgency − Confidence"
+                      description="Pressure shows whether urgency or conviction is steering you."
+                      dense
+                    />
+                    <StatCard
+                      title="Stability"
+                      value={metrics.stability}
+                      pill={getPillColor(metrics.stability, "stability")}
+                      subtitle="Confidence − Risk"
+                      description="Stability tests if evidence can outlast fear."
+                      dense
+                    />
+                  </CardContent>
+                </Card>
+
+                <Card className="h-full">
+                  <CardHeader className="pb-3">
+                    <CardTitle className="text-base font-semibold">Coach Readout</CardTitle>
+                  </CardHeader>
+                  <CardContent className="flex-1">
+                    <SummaryCard metrics={metrics} coachText={coachLine} className="flex flex-1" compact />
+                  </CardContent>
+                </Card>
               </div>
             </div>
           </section>
