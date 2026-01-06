@@ -24,30 +24,6 @@ const DEFAULT_VARIABLES: DecisionVariables = {
   confidence: 1,
 };
 
-const determineOptimizeFor = (variables: DecisionVariables, metrics: DecisionMetrics) => {
-  if (metrics.stability <= 1) {
-    return "Survivability";
-  }
-
-  if (metrics.pressure >= 3 && variables.urgency - variables.confidence >= 2) {
-    return "Speed";
-  }
-
-  if (metrics.return <= 0 && metrics.stability > 0) {
-    return "Upside";
-  }
-
-  if (variables.confidence >= 7 && variables.risk >= 6) {
-    return "Calibration";
-  }
-
-  if (variables.confidence <= 4 && variables.urgency >= 7) {
-    return "Calibration";
-  }
-
-  return "Calibration";
-};
-
 const getIntensityModifier = (dnav: number) => {
   if (dnav >= 80) {
     return "Make a reversible move, require disconfirming evidence, and align stakeholders before scaling.";
@@ -110,11 +86,17 @@ export default function StressTestPage() {
   };
 
   const coachLine = useMemo(() => coachHint(variables, metrics), [metrics, variables]);
-  const nextMoveLine = useMemo(
-    () => (coachLine ? `Take this step: ${coachLine} ${getIntensityModifier(metrics.dnav)}` : coachLine),
-    [coachLine, metrics.dnav],
-  );
-  const optimizeFor = useMemo(() => determineOptimizeFor(variables, metrics), [metrics, variables]);
+  const nextMoveLine = useMemo(() => {
+    if (!coachLine) return coachLine;
+    const guardrailMessages = [
+      "This decision is unlikely to materially change outcomes. Execute cheaply or ignore.",
+      "Low-signal decision. Don’t overthink—choose the most reversible option.",
+    ];
+    if (guardrailMessages.includes(coachLine)) {
+      return coachLine;
+    }
+    return `${coachLine} ${getIntensityModifier(metrics.dnav)}`;
+  }, [coachLine, metrics.dnav]);
   const judgmentSignal = useMemo(() => detectJudgmentSignal(variables, metrics), [metrics, variables]);
 
   const getPillColor = useCallback(
@@ -324,14 +306,23 @@ export default function StressTestPage() {
 
                 <Card className="flex h-full flex-col">
                   <CardHeader className="pb-1 space-y-1">
-                    <CardTitle className="text-base font-semibold">Coach Readout</CardTitle>
-                    <p className="text-sm text-muted-foreground">Archetype + next move tuned to D-NAV.</p>
+                    <div className="flex items-center justify-between gap-2">
+                      <div>
+                        <CardTitle className="text-base font-semibold">Coach Readout</CardTitle>
+                        <p className="text-sm text-muted-foreground">Archetype + next move tuned to D-NAV.</p>
+                      </div>
+                      <a
+                        href="/scenarios"
+                        className="text-xs font-medium text-muted-foreground underline-offset-4 hover:text-foreground hover:underline"
+                      >
+                        Read scenarios
+                      </a>
+                    </div>
                   </CardHeader>
                   <CardContent className="flex-1">
                     <SummaryCard
                       metrics={metrics}
                       coachText={nextMoveLine}
-                      optimizeFor={optimizeFor}
                       judgmentSignal={judgmentSignal}
                       className="flex flex-1"
                       compact
@@ -350,15 +341,6 @@ export default function StressTestPage() {
                     <Button size="sm" asChild>
                       <a href="/contact">Run a Decision Check</a>
                     </Button>
-                    <Button size="sm" variant="outline" asChild>
-                      <a href="/contact">Book a Decision Audit</a>
-                    </Button>
-                    <a
-                      href="/scenarios"
-                      className="text-sm font-medium text-muted-foreground underline-offset-4 hover:text-foreground hover:underline"
-                    >
-                      Read scenarios
-                    </a>
                   </div>
                 </div>
               </div>

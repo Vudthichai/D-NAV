@@ -15,7 +15,6 @@ interface SummaryCardProps {
   coachText: string;
   className?: string;
   compact?: boolean;
-  optimizeFor?: string;
   showDefinitionLink?: boolean;
   judgmentSignal?: JudgmentSignal | null;
 }
@@ -25,7 +24,6 @@ export default function SummaryCard({
   coachText,
   className,
   compact = false,
-  optimizeFor,
   showDefinitionLink = true,
   judgmentSignal,
 }: SummaryCardProps) {
@@ -37,17 +35,14 @@ export default function SummaryCard({
     <div className={cn("flex flex-1 flex-col", compact ? "gap-4" : "gap-6", className)}>
       {hasJudgmentSignal ? (
         <div className={cn("rounded-lg border border-primary/50 bg-primary/5", compact ? "p-3" : "p-4")}>
-          <p className="text-[11px] font-semibold uppercase tracking-wide text-primary">Judgment Signal Detected</p>
-          <p className={cn("font-black text-foreground", compact ? "text-lg mt-1" : "text-xl mt-1.5")}>
+          <p className={cn("font-black text-foreground", compact ? "text-lg" : "text-xl")}>
             {judgmentSignal?.label}
           </p>
           {judgmentExplanation ? (
             <p className="text-sm leading-snug text-foreground/80">{judgmentExplanation}</p>
           ) : null}
           {judgmentSignal?.correctiveMove ? (
-            <p className="text-sm leading-snug text-foreground">
-              <span className="font-semibold">Corrective move:</span> {judgmentSignal.correctiveMove}
-            </p>
+            <p className="text-sm leading-snug text-foreground">{judgmentSignal.correctiveMove}</p>
           ) : null}
         </div>
       ) : null}
@@ -90,12 +85,6 @@ export default function SummaryCard({
                 <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">D-NAV</p>
                 <p className="text-base font-black text-foreground">{metrics.dnav}</p>
               </div>
-              {optimizeFor ? (
-                <div className="flex items-center gap-2 rounded-full border border-border/70 bg-background/80 px-3 py-1.5 shadow-sm">
-                  <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Optimize for</p>
-                  <span className="text-sm font-semibold text-foreground">{optimizeFor}</span>
-                </div>
-              ) : null}
             </div>
           </div>
           {!hasJudgmentSignal ? (

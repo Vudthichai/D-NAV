@@ -233,22 +233,31 @@ export function getScoreTagText(n: number): string {
   return "Low D-NAV";
 }
 
-export function coachHint(_vars: DecisionVariables, metrics: DecisionMetrics): string {
+export function coachHint(vars: DecisionVariables, metrics: DecisionMetrics): string {
+  const values = [vars.impact, vars.cost, vars.risk, vars.urgency, vars.confidence];
   const pressureHigh = Math.abs(metrics.pressure) >= 3;
 
+  if (values.every((value) => value <= 2)) {
+    return "This decision is unlikely to materially change outcomes. Execute cheaply or ignore.";
+  }
+
+  if (values.every((value) => value >= 3 && value <= 4)) {
+    return "Low-signal decision. Don’t overthink—choose the most reversible option.";
+  }
+
   if (metrics.return < 0) {
-    return "Raise impact or cut cost. Don’t chase loss.";
+    return "Freeze spend and cut scope until Return is positive.";
   }
 
   if (metrics.stability < 0) {
-    return "Reduce risk or add evidence before acting.";
+    return "Stop and add one proof point before committing.";
   }
 
   if (pressureHigh) {
-    return "Name the constraint. Add a rule and commit.";
+    return "Name the blocker and set one rule that slows the push.";
   }
 
-  return "You’re in a workable zone. Tighten one variable and proceed.";
+  return "Lock one variable, set a short checkpoint, and move.";
 }
 
 // Math helpers
