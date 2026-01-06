@@ -18,6 +18,19 @@ export interface DecisionMetrics {
   dnav: number;
 }
 
+export type JudgmentSignalKey =
+  | "fragileExecution"
+  | "narrativeInflation"
+  | "rushedWithoutNecessity"
+  | "underexploitedLeverage";
+
+export interface JudgmentSignal {
+  key: JudgmentSignalKey;
+  label: string;
+  explanation: string;
+  correctiveMove: string;
+}
+
 export interface DecisionEntry extends DecisionVariables, DecisionMetrics {
   ts: number;
   name: string;
@@ -111,6 +124,76 @@ export function computeMetrics(vars: DecisionVariables): DecisionMetrics {
     energy: eInfo.e,
     dnav
   };
+}
+
+export function detectJudgmentSignal(vars: DecisionVariables, metrics: DecisionMetrics): JudgmentSignal | null {
+  const { confidence, risk, urgency } = vars;
+  const { pressure, return: ret, stability } = metrics;
+
+  const candidates: Array<JudgmentSignal & { severity: number; priority: number }> = [];
+
+  if (pressure >= 2 && stability <= 0) {
+    candidates.push({
+      key: "fragileExecution",
+      label: "Fragile Execution Regime",
+      explanation:
+        "Pressure is climbing while Stability is at or below zero (Pressure = Urgency − Confidence; Stability = Confidence − Risk). Speed is outrunning the confidence buffer.",
+      correctiveMove: "Buy time—cut scope or sequence into survivable steps before pushing speed.",
+      severity: pressure - stability + 1,
+      priority: 0,
+    });
+  }
+
+  if (confidence >= 7 && ret <= 1) {
+    candidates.push({
+      key: "narrativeInflation",
+      label: "Narrative Inflation",
+      explanation:
+        "Confidence is compounding while Return (Impact − Cost) is flat or negative. Belief is getting ahead of the economics.",
+      correctiveMove: "Demand one disconfirming datapoint before scaling—run a small test that can fail loudly.",
+      severity: confidence - ret,
+      priority: 1,
+    });
+  }
+
+  if ((urgency >= 7 && risk <= 3) || (pressure >= 2 && risk <= 3)) {
+    const pressureBoost = pressure >= 2 ? pressure - 1 : 0;
+    candidates.push({
+      key: "rushedWithoutNecessity",
+      label: "Rushed Without Necessity",
+      explanation:
+        "Urgency is high while Risk stays low, pushing Pressure above neutral (Pressure = Urgency − Confidence). The timeline looks emotional or political, not externally forced.",
+      correctiveMove: "Name the real driver and reset the clock; if you can’t slow down, raise Confidence with one concrete evidence hit.",
+      severity: urgency + pressureBoost - risk,
+      priority: 2,
+    });
+  }
+
+  if (ret >= 6 && stability >= 2 && pressure <= 1) {
+    candidates.push({
+      key: "underexploitedLeverage",
+      label: "Underexploited Leverage",
+      explanation:
+        "Return (Impact − Cost) is strong, Stability (Confidence − Risk) is positive, and Pressure is manageable. There’s repeatable upside under-allocated.",
+      correctiveMove: "Move now—assign ownership and ship the smallest version this week.",
+      severity: ret + stability - pressure,
+      priority: 3,
+    });
+  }
+
+  if (!candidates.length) return null;
+
+  candidates.sort((a, b) => {
+    if (b.severity !== a.severity) return b.severity - a.severity;
+    return a.priority - b.priority;
+  });
+
+  const strongest = candidates[0];
+
+  if (strongest.severity <= 0) return null;
+
+  const { severity: _severity, priority: _priority, ...signal } = strongest;
+  return signal;
 }
 
 export interface ArchetypeInfo {
