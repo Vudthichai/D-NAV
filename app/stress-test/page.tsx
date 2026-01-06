@@ -136,8 +136,9 @@ export default function StressTestPage() {
           <section className="space-y-4">
             <div className="grid grid-cols-1 items-start gap-4 md:grid-cols-[1.1fr_0.9fr] lg:grid-cols-3">
               <Card className="h-full">
-                <CardHeader className="pb-3">
-                  <CardTitle className="text-base font-semibold">Decision Inputs</CardTitle>
+                <CardHeader className="pb-3 space-y-1">
+                  <CardTitle className="text-base font-semibold">Decision Frame</CardTitle>
+                  <p className="text-sm text-muted-foreground">Name the choice and set the five levers.</p>
                 </CardHeader>
                 <CardContent className="space-y-4">
                   <div className="space-y-2">
@@ -187,47 +188,53 @@ export default function StressTestPage() {
                         1 = minimal · 10 = maximum
                       </Badge>
                     </div>
-                    <div className="divide-y divide-border/60 rounded-lg bg-muted/20 px-3 py-2">
-                      <SliderRow
-                        id="impact"
-                        label="Impact"
-                        hint="How big is the upside if this works?"
-                        value={variables.impact}
-                        onChange={(value) => updateVariable("impact", value)}
-                        compact
-                      />
-                      <SliderRow
-                        id="cost"
-                        label="Cost"
-                        hint="What are you really spending — money, time, reputation, focus?"
-                        value={variables.cost}
-                        onChange={(value) => updateVariable("cost", value)}
-                        compact
-                      />
-                      <SliderRow
-                        id="risk"
-                        label="Risk"
-                        hint="If you’re wrong, what breaks or becomes hard to undo?"
-                        value={variables.risk}
-                        onChange={(value) => updateVariable("risk", value)}
-                        compact
-                      />
-                      <SliderRow
-                        id="urgency"
-                        label="Urgency"
-                        hint="How soon do you actually need to move?"
-                        value={variables.urgency}
-                        onChange={(value) => updateVariable("urgency", value)}
-                        compact
-                      />
-                      <SliderRow
-                        id="confidence"
-                        label="Confidence"
-                        hint="How solid is your evidence and experience — not just your hope?"
-                        value={variables.confidence}
-                        onChange={(value) => updateVariable("confidence", value)}
-                        compact
-                      />
+                    <div className="rounded-lg bg-muted/20 px-3 py-3 space-y-4">
+                      <div className="space-y-3">
+                        <SliderRow
+                          id="impact"
+                          label="Impact"
+                          hint="How big is the upside if this works?"
+                          value={variables.impact}
+                          onChange={(value) => updateVariable("impact", value)}
+                          compact
+                        />
+                        <SliderRow
+                          id="cost"
+                          label="Cost"
+                          hint="What are you really spending — money, time, reputation, focus?"
+                          value={variables.cost}
+                          onChange={(value) => updateVariable("cost", value)}
+                          compact
+                        />
+                      </div>
+                      <div className="space-y-3">
+                        <SliderRow
+                          id="risk"
+                          label="Risk"
+                          hint="If you’re wrong, what breaks or becomes hard to undo?"
+                          value={variables.risk}
+                          onChange={(value) => updateVariable("risk", value)}
+                          compact
+                        />
+                      </div>
+                      <div className="space-y-3">
+                        <SliderRow
+                          id="urgency"
+                          label="Urgency"
+                          hint="How soon do you actually need to move?"
+                          value={variables.urgency}
+                          onChange={(value) => updateVariable("urgency", value)}
+                          compact
+                        />
+                        <SliderRow
+                          id="confidence"
+                          label="Confidence"
+                          hint="How solid is your evidence and experience — not just your hope?"
+                          value={variables.confidence}
+                          onChange={(value) => updateVariable("confidence", value)}
+                          compact
+                        />
+                      </div>
                     </div>
                   </div>
                 </CardContent>
@@ -245,6 +252,7 @@ export default function StressTestPage() {
                       pill={getPillColor(metrics.return, "return")}
                       subtitle="Impact − Cost"
                       description="Return shows if the upside beats the burn."
+                      definitionHref="/definitions"
                       dense
                     />
                     <StatCard
@@ -253,6 +261,7 @@ export default function StressTestPage() {
                       pill={getPillColor(metrics.pressure, "pressure")}
                       subtitle="Urgency − Confidence"
                       description="Pressure shows whether urgency or conviction is steering you."
+                      definitionHref="/definitions"
                       dense
                     />
                     <StatCard
@@ -261,6 +270,7 @@ export default function StressTestPage() {
                       pill={getPillColor(metrics.stability, "stability")}
                       subtitle="Confidence − Risk"
                       description="Stability tests if evidence can outlast fear."
+                      definitionHref="/definitions"
                       dense
                     />
                   </CardContent>
@@ -275,6 +285,16 @@ export default function StressTestPage() {
                   </CardContent>
                 </Card>
               </div>
+            </div>
+
+            <div className="rounded-md border border-border/60 bg-muted/30 px-4 py-3 text-sm text-muted-foreground">
+              Want real-world examples of these readouts?{" "}
+              <a
+                href="/scenarios"
+                className="font-medium text-muted-foreground underline-offset-4 hover:text-foreground hover:underline"
+              >
+                Explore Scenarios →
+              </a>
             </div>
           </section>
         </div>

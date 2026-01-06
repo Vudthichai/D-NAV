@@ -16,6 +16,7 @@ interface StatCardProps {
   subtitle?: string;
   description?: string;
   dense?: boolean;
+  definitionHref?: string;
 }
 
 export default function StatCard({
@@ -27,6 +28,7 @@ export default function StatCard({
   subtitle,
   description,
   dense = false,
+  definitionHref,
 }: StatCardProps) {
   const formatValue = (val: number | string) => {
     if (typeof val === 'number') return val > 0 ? `+${val}` : val < 0 ? val.toString() : '0';
@@ -49,9 +51,24 @@ export default function StatCard({
       )}
     >
       <CardContent className={cn("p-0 flex flex-col h-full", dense ? "gap-1.5" : "justify-between")}>
-        <h3 className={cn("m-0 text-xs text-muted-foreground tracking-wider uppercase font-normal", dense && "mb-0.5")}>
-          {title ?? label}
-        </h3>
+        <div className="flex items-center justify-between gap-2">
+          <h3
+            className={cn(
+              "m-0 text-xs text-muted-foreground tracking-wider uppercase font-normal",
+              dense && "mb-0.5",
+            )}
+          >
+            {title ?? label}
+          </h3>
+          {definitionHref ? (
+            <a
+              href={definitionHref}
+              className="text-[11px] font-medium text-muted-foreground underline-offset-4 hover:text-foreground"
+            >
+              See definition
+            </a>
+          ) : null}
+        </div>
         {subtitle ? (
           <p className="mt-1 text-[11px] font-medium uppercase tracking-wide text-muted-foreground/70">
             {subtitle}

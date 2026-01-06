@@ -150,53 +150,22 @@ export function getScoreTagText(n: number): string {
   return "Low D-NAV";
 }
 
-export function coachHint(vars: DecisionVariables, metrics: DecisionMetrics): string {
-  const et = energyTier(vars.urgency, vars.confidence);
-  let sugs: string[] = [];
-  
-  const needRaiseImpact = (vars.impact <= vars.cost) && (metrics.return <= 0);
-  const needLowerCosts = (vars.impact <= vars.cost) && (metrics.return <= 0);
-  const needLowerRisks = (vars.risk >= vars.confidence);
-  const needAddEvidence = (metrics.stability <= 0);
-  const needNarrowScope = (metrics.pressure > 0);
-  const needAddCapacity = (metrics.pressure > 0 && (et.short === "overdrive" || et.short === "high"));
-  
-  if (needRaiseImpact) sugs.push("raise impact");
-  if (needLowerCosts) sugs.push("lower costs");
-  if (needLowerRisks) sugs.push("lower risks");
-  if (needAddEvidence) sugs.push("add evidence");
-  if (needNarrowScope) sugs.push("narrow scope");
-  if (needAddCapacity) sugs.push("add capacity");
-  
-  const hasCosts = sugs.includes("lower costs");
-  const hasRisks = sugs.includes("lower risks");
-  if (hasCosts || hasRisks) {
-    sugs = sugs.filter(s => s !== "lower costs" && s !== "lower risks");
-    sugs.push(hasCosts && hasRisks ? "lower costs and/or risks" : (hasCosts ? "lower costs" : "lower risks"));
-  }
-  
-  sugs = [...new Set(sugs)].slice(0, 2);
-  const leverLine = sugs.length ? " — " + sugs.join("; ") + "." : ".";
-  
+export function coachHint(_vars: DecisionVariables, metrics: DecisionMetrics): string {
+  const pressureHigh = Math.abs(metrics.pressure) >= 3;
+
   if (metrics.return < 0) {
-    const base = (et.short === "high" || et.short === "overdrive") 
-      ? "High energy chasing negative return — stop or pivot" 
-      : "Negative return — improve unit economics";
-    return base + leverLine;
+    return "Raise impact or cut cost. Don’t chase loss.";
   }
-  
-  if (metrics.return === 0) {
-    let base = "Neutral return";
-    if (metrics.pressure > 0 && metrics.stability <= 0) base += " under pressure on fragile footing";
-    else if (metrics.pressure > 0) base += " under pressure";
-    else if (metrics.stability <= 0) base += " but fragile";
-    return base + leverLine;
+
+  if (metrics.stability < 0) {
+    return "Reduce risk or add evidence before acting.";
   }
-  
-  if (metrics.stability <= 0 && metrics.pressure > 0) return "Upside with fragile footing and pressure" + leverLine;
-  if (metrics.stability <= 0) return "Upside but fragile — shore up footing before scaling" + leverLine;
-  if (metrics.pressure > 0) return "Good profile, but pressured" + leverLine;
-  return sugs.length ? "Greenlight profile" + leverLine : "Greenlight profile — execute with discipline.";
+
+  if (pressureHigh) {
+    return "Name the constraint. Add a rule and commit.";
+  }
+
+  return "You’re in a workable zone. Tighten one variable and proceed.";
 }
 
 // Math helpers

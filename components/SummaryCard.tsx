@@ -16,7 +16,15 @@ export default function SummaryCard({ metrics, coachText, className, compact = f
   return (
     <div className={cn("flex flex-1 flex-col", compact ? "gap-4" : "gap-6", className)}>
       <div className="space-y-1.5">
-        <h3 className="m-0 text-[11px] text-muted-foreground uppercase tracking-wider">Archetype</h3>
+        <div className="flex items-center justify-between gap-2">
+          <h3 className="m-0 text-[11px] text-muted-foreground uppercase tracking-wider">Archetype</h3>
+          <a
+            href="/definitions"
+            className="text-[11px] font-medium text-muted-foreground underline-offset-4 hover:text-foreground"
+          >
+            See definition
+          </a>
+        </div>
         <div className={cn("font-black", compact ? "text-xl leading-tight" : "text-2xl mt-1.5")}>
           {archetype.name}
         </div>
