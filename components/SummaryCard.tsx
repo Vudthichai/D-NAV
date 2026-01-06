@@ -9,9 +9,17 @@ interface SummaryCardProps {
   className?: string;
   compact?: boolean;
   optimizeFor?: string;
+  showDefinitionLink?: boolean;
 }
 
-export default function SummaryCard({ metrics, coachText, className, compact = false, optimizeFor }: SummaryCardProps) {
+export default function SummaryCard({
+  metrics,
+  coachText,
+  className,
+  compact = false,
+  optimizeFor,
+  showDefinitionLink = true,
+}: SummaryCardProps) {
   const archetype = getArchetype(metrics);
 
   return (
@@ -19,12 +27,14 @@ export default function SummaryCard({ metrics, coachText, className, compact = f
       <div className="space-y-1.5">
         <div className="flex items-center justify-between gap-2">
           <h3 className="m-0 text-[11px] text-muted-foreground uppercase tracking-wider">Archetype</h3>
-          <a
-            href="/definitions"
-            className="text-[11px] font-medium text-muted-foreground underline-offset-4 hover:text-foreground"
-          >
-            See definition
-          </a>
+          {showDefinitionLink ? (
+            <a
+              href="/definitions"
+              className="text-[11px] font-medium text-muted-foreground underline-offset-4 hover:text-foreground"
+            >
+              See definition
+            </a>
+          ) : null}
         </div>
         <div className={cn("font-black", compact ? "text-xl leading-tight" : "text-2xl mt-1.5")}>
           {archetype.name}
