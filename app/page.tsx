@@ -104,6 +104,29 @@ function HeroSection() {
           <div className="space-y-6 md:space-y-7 w-full max-w-4xl">
             <h1 className="text-4xl md:text-6xl font-black leading-tight tracking-tight text-white">Decisions fail long before execution. D-NAV shows you where.</h1>
             <p className="text-xl text-slate-200 max-w-3xl">D-NAV is a proprietary decision system used in pre-commitment consulting to surface pressure, risk, and stability before execution begins.</p>
+            <div className="space-y-2">
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:gap-4">
+                <Button
+                  size="lg"
+                  className="h-11 w-full sm:w-auto px-6 text-base font-semibold bg-amber-500 text-black hover:bg-amber-400 focus-visible:ring-amber-300 shadow-[0_12px_40px_-20px_rgba(249,115,22,0.8)]"
+                  asChild
+                >
+                  <Link href="/stress-test">
+                    Stress Test a Decision
+                    <ArrowRight className="ml-2 h-4 w-4" />
+                  </Link>
+                </Button>
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  className="h-10 w-full sm:w-auto px-4 text-sm font-medium text-slate-200 hover:text-amber-200 hover:bg-white/5 focus-visible:ring-amber-300 focus-visible:ring-offset-2 focus-visible:ring-offset-[#050608]"
+                  asChild
+                >
+                  <Link href="/stress-test">I&apos;m returning — take me to Stress Test</Link>
+                </Button>
+              </div>
+              <p className="text-sm text-slate-400">One decision per screen. Adjust the levers. Read it. Act.</p>
+            </div>
             <p className="text-lg text-slate-300 max-w-3xl">
               Decisions rarely collapse because of effort. They fail because pressure, risk, and stability were never surfaced before commitment. D-NAV makes that friction visible early, so execution teams inherit a plan that has already survived scrutiny.
             </p>
