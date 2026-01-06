@@ -52,6 +52,34 @@ const scenarioCards = [
     numbers: "Confidence and risk both high; stability hovers near zero or negative.",
     nextMove: ["Stress-test the risk assumptions and add one disconfirming piece of evidence.", "Design a reversible first move before committing the full plan."],
   },
+  {
+    title: "Narrative inflation",
+    explain: "Confidence is rising faster than results justify. Mispricing hides here.",
+    feelsLike: "The room believes the story more than the scoreboard.",
+    numbers: "Confidence high and climbing while Return is flat/negative; Stability may be neutral.",
+    nextMove: ["Demand one disconfirming datapoint before scaling.", "Convert belief into proof: run a small test that can fail loudly."],
+  },
+  {
+    title: "Fragile execution regime",
+    explain: "Pressure is compressing Stability. Things look fine… until they don’t.",
+    feelsLike: "Everyone is sprinting; no one feels safe to slow down.",
+    numbers: "Pressure elevated (Urgency > Confidence) while Stability is low/negative (Risk ≈ or > Confidence).",
+    nextMove: ["Buy time: cut scope or sequence the plan into survivable steps.", "Protect Stability sources (cash, people, evidence) before pushing speed."],
+  },
+  {
+    title: "Underexploited leverage",
+    explain: "High Impact with low Cost keeps showing up. This is hidden upside.",
+    feelsLike: "“Why didn’t we do this sooner?” energy.",
+    numbers: "Impact high, Cost low → Return strongly positive; Pressure may be manageable.",
+    nextMove: ["Move now: allocate ownership and ship the smallest version this week.", "Create a repeatable playbook so it doesn’t die in debate."],
+  },
+  {
+    title: "Rushed without necessity",
+    explain: "Urgency is spiking without real risk. This is distortion, not reality.",
+    feelsLike: "The timeline feels emotional or political—not externally forced.",
+    numbers: "Urgency high, Risk low; Pressure rises because Confidence doesn’t match the speed.",
+    nextMove: ["Name the real driver (fear, optics, politics) and reset the clock if possible.", "If you can’t slow down, raise Confidence fast: get one concrete evidence hit."],
+  },
 ];
 
 export default function ScenariosPage() {
