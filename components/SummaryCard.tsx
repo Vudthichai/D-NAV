@@ -1,6 +1,6 @@
 'use client';
 
-import { DecisionMetrics, getArchetype } from "@/lib/calculations";
+import { DecisionMetrics, JudgmentSignal, getArchetype } from "@/lib/calculations";
 import { cn } from "@/lib/utils";
 
 interface SummaryCardProps {
@@ -10,6 +10,7 @@ interface SummaryCardProps {
   compact?: boolean;
   optimizeFor?: string;
   showDefinitionLink?: boolean;
+  judgmentSignal?: JudgmentSignal | null;
 }
 
 export default function SummaryCard({
@@ -19,6 +20,7 @@ export default function SummaryCard({
   compact = false,
   optimizeFor,
   showDefinitionLink = true,
+  judgmentSignal,
 }: SummaryCardProps) {
   const archetype = getArchetype(metrics);
 
@@ -54,6 +56,22 @@ export default function SummaryCard({
             <div className="flex items-center justify-between gap-3 rounded-md border border-border/60 bg-muted/40 px-3 py-2">
               <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Optimize for</p>
               <span className="text-sm font-semibold text-foreground">{optimizeFor}</span>
+            </div>
+          ) : null}
+          {judgmentSignal ? (
+            <div className="rounded-md border border-border/60 bg-background/60 px-3 py-2.5">
+              <div className="flex items-center justify-between gap-2">
+                <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+                  Judgment Signal Detected
+                </p>
+                <span className="text-xs font-semibold text-foreground">{judgmentSignal.label}</span>
+              </div>
+              <p className={cn("text-muted-foreground", compact ? "text-sm leading-snug" : "mt-1 text-sm leading-relaxed")}>
+                {judgmentSignal.explanation}
+              </p>
+              <p className={cn("text-foreground", compact ? "text-sm leading-snug" : "text-sm leading-relaxed")}>
+                <span className="font-semibold">Corrective move:</span> {judgmentSignal.correctiveMove}
+              </p>
             </div>
           ) : null}
           <p className={cn("text-foreground", compact ? "text-sm leading-snug" : "mt-1 text-sm leading-relaxed")}>

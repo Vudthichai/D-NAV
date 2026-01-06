@@ -12,7 +12,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { useNetlifyIdentity } from "@/hooks/use-netlify-identity";
-import { DecisionEntry, DecisionMetrics, DecisionVariables, coachHint, computeMetrics } from "@/lib/calculations";
+import { DecisionEntry, DecisionMetrics, DecisionVariables, coachHint, computeMetrics, detectJudgmentSignal } from "@/lib/calculations";
 import { Check, RotateCcw, Save } from "lucide-react";
 import { useCallback, useMemo, useState } from "react";
 
@@ -115,6 +115,7 @@ export default function StressTestPage() {
     [coachLine, metrics.dnav],
   );
   const optimizeFor = useMemo(() => determineOptimizeFor(variables, metrics), [metrics, variables]);
+  const judgmentSignal = useMemo(() => detectJudgmentSignal(variables, metrics), [metrics, variables]);
 
   const getPillColor = useCallback(
     (value: number, type: "return" | "stability" | "pressure") => {
@@ -331,6 +332,7 @@ export default function StressTestPage() {
                       metrics={metrics}
                       coachText={nextMoveLine}
                       optimizeFor={optimizeFor}
+                      judgmentSignal={judgmentSignal}
                       className="flex flex-1"
                       compact
                       showDefinitionLink={false}
