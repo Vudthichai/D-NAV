@@ -10,18 +10,37 @@ interface SliderRowProps {
   value: number;
   onChange: (value: number) => void;
   compact?: boolean;
+  definitionHref?: string;
 }
 
-export default function SliderRow({ id, label, hint, value, onChange, compact = false }: SliderRowProps) {
+export default function SliderRow({
+  id,
+  label,
+  hint,
+  value,
+  onChange,
+  compact = false,
+  definitionHref,
+}: SliderRowProps) {
   return (
     <div
       className={cn(
-        "grid min-w-0 items-center gap-3 sm:grid-cols-[minmax(0,180px)_minmax(0,1fr)_auto]",
-        compact ? "py-1.5" : "py-2",
+        "grid min-w-0 items-center gap-3 sm:grid-cols-[minmax(0,210px)_minmax(0,1fr)_auto]",
+        compact ? "py-2" : "py-3",
       )}
     >
       <label className="flex min-w-0 flex-col gap-1" title={compact ? hint : undefined}>
-        <span className="truncate text-sm font-semibold leading-tight text-foreground">{label}</span>
+        <div className="flex items-center gap-2">
+          <span className="truncate text-sm font-semibold leading-tight text-foreground">{label}</span>
+          {definitionHref ? (
+            <a
+              href={definitionHref}
+              className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground underline-offset-4 hover:text-foreground"
+            >
+              ?
+            </a>
+          ) : null}
+        </div>
         {!compact && hint ? (
           <span className="text-[11px] font-medium leading-snug text-muted-foreground">{hint}</span>
         ) : null}

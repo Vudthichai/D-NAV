@@ -8,9 +8,10 @@ interface SummaryCardProps {
   coachText: string;
   className?: string;
   compact?: boolean;
+  optimizeFor?: string;
 }
 
-export default function SummaryCard({ metrics, coachText, className, compact = false }: SummaryCardProps) {
+export default function SummaryCard({ metrics, coachText, className, compact = false, optimizeFor }: SummaryCardProps) {
   const archetype = getArchetype(metrics);
 
   return (
@@ -34,13 +35,21 @@ export default function SummaryCard({ metrics, coachText, className, compact = f
       </div>
 
       <div className={cn("rounded-lg border border-border/50 bg-muted/20", compact ? "p-3" : "p-4", "mt-auto")}>
-        <div className="flex items-baseline justify-between gap-4">
-          <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">D-NAV score</p>
-          <p className={cn("font-black text-foreground", compact ? "text-2xl" : "text-3xl")}>{metrics.dnav}</p>
+        <div className="flex flex-col gap-1.5">
+          <div className="flex items-baseline justify-between gap-4">
+            <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">D-NAV score</p>
+            <p className={cn("font-black text-foreground", compact ? "text-2xl" : "text-3xl")}>{metrics.dnav}</p>
+          </div>
+          {optimizeFor ? (
+            <div className="flex items-center justify-between gap-3 rounded-md border border-border/60 bg-muted/40 px-3 py-2">
+              <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Optimize for</p>
+              <span className="text-sm font-semibold text-foreground">{optimizeFor}</span>
+            </div>
+          ) : null}
+          <p className={cn("text-foreground", compact ? "text-sm leading-snug" : "mt-1 text-sm leading-relaxed")}>
+            Next move: {coachText}
+          </p>
         </div>
-        <p className={cn("text-foreground", compact ? "mt-2 text-sm leading-snug" : "mt-3 text-sm leading-relaxed")}>
-          Next move: {coachText}
-        </p>
       </div>
     </div>
   );

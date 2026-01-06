@@ -168,17 +168,17 @@ function HeroSection() {
         </div>
 
         <div className="space-y-4 animate-fade-up" style={{ "--delay": "0.14s" } as CSSProperties}>
-          <div className="flex flex-col items-start gap-4 sm:flex-row sm:items-center sm:gap-5">
-            <Button
-              size="lg"
-              className="text-lg px-8 py-6 bg-amber-500 text-black hover:bg-amber-400 focus-visible:ring-amber-300 shadow-[0_12px_40px_-20px_rgba(249,115,22,0.8)]"
-              asChild
-            >
-              <Link href="/calculator">
-                Run a Decision Check
+            <div className="flex flex-col items-start gap-4 sm:flex-row sm:items-center sm:gap-5">
+              <Button
+                size="lg"
+                className="text-lg px-8 py-6 bg-amber-500 text-black hover:bg-amber-400 focus-visible:ring-amber-300 shadow-[0_12px_40px_-20px_rgba(249,115,22,0.8)]"
+                asChild
+              >
+              <Link href="/stress-test">
+                Stress Test a Decision
                 <ArrowRight className="ml-2 h-5 w-5" />
               </Link>
-            </Button>
+              </Button>
             <Button
               size="lg"
               variant="outline"
@@ -384,7 +384,7 @@ function UnderTheHoodSection() {
                   className="w-full justify-center border border-white/15 bg-white/10 text-white hover:bg-white/15 focus-visible:ring-amber-300"
                   asChild
                 >
-                  <Link href="/calculator">Run a Decision Check</Link>
+                  <Link href="/stress-test">Stress Test a Decision</Link>
                 </Button>
                 <Button
                   variant="outline"
@@ -495,7 +495,7 @@ function FinalCTASection() {
                 className="text-lg px-8 py-6 bg-amber-500 text-black hover:bg-amber-400 focus-visible:ring-amber-300"
                 asChild
               >
-                <Link href="/calculator">Run a Decision Check</Link>
+                <Link href="/stress-test">Stress Test a Decision</Link>
               </Button>
               <Button
                 variant="outline"
