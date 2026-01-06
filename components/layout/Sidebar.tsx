@@ -20,6 +20,7 @@ import {
   Gauge,
   ListOrdered,
   MessageSquare,
+  Map,
   Users,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
@@ -34,6 +35,7 @@ const items: Array<{ href: string; label: string; icon: LucideIcon }> = [
   { href: "/calculator", label: "Patterns", icon: Calculator },
   { href: "/log", label: "Log", icon: ListOrdered },
   { href: "/definitions", label: "Definitions", icon: BookOpen },
+  { href: "/scenarios", label: "Scenarios", icon: Map },
   { href: "/use-cases", label: "Use Cases", icon: Users },
   { href: "/contact", label: "Contact", icon: MessageSquare },
 ];
