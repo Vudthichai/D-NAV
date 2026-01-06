@@ -1,73 +1,133 @@
 "use client";
 
+"use client";
+
 import Link from "next/link";
 
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 
-const scenarios = [
+const scenarioCards = [
   {
     title: "Positive Pressure",
-    description: "High-urgency situations where the timeline is against you and confidence doesn’t match. Use rules to keep pace without guessing.",
+    explain:
+      "Urgency is high and confidence is thin. The clock is louder than your evidence.",
+    feelsLike:
+      "You’re late to something that matters — shipping a patch, making a call before close, deciding under scrutiny.",
+    numbers: "Urgency spikes, confidence lags, pressure climbs even if return looks good.",
+    nextMove: ["Buy time by trimming scope or unlocking a quick evidence hit.", "Name the risk you’re accepting so the team isn’t guessing."],
   },
   {
     title: "High Stability",
-    description: "Confidence outweighs risk; you can move without fear (varies by person). This is the zone for decisive execution.",
+    explain: "Confidence outweighs risk. The move is survivable even if pressure exists.",
+    feelsLike: "You can execute without fear; the risk feels priced-in to you even if others hesitate.",
+    numbers: "Confidence sits above risk; stability is positive so pressure feels manageable.",
+    nextMove: ["Advance decisively while the footing is strong.", "Use the stability to teach the team what ‘safe enough’ looks like."],
   },
   {
-    title: "Stability vs Pressure",
-    description: "If stability is positive, you can survive pressure even if it’s ugly. Keep the footing strong while you work the clock.",
+    title: "Stability vs Pressure relationship",
+    explain: "Solid stability makes pressure survivable. It might still be ugly, but it holds.",
+    feelsLike: "You’re under the gun, but you trust the plan and the evidence backing it.",
+    numbers: "Stability positive, pressure elevated. Urgency is high but confidence keeps it from cracking.",
+    nextMove: ["Protect the stability sources (evidence, people, cash) while you burn down pressure.", "Sequence steps so you never give up stability just to sprint."],
   },
   {
-    title: "Negative Return with High D-NAV Energy",
-    description: "Slow hidden burns across teams, deals, or long arcs. Reframe the scope or re-balance the levers before momentum locks in the loss.",
+    title: "Negative Return in high D-NAV situations",
+    explain: "The energy is high but the math is off; you’re burning quietly in the background.",
+    feelsLike: "Work is frantic yet something feels net-negative — a slow leak in a deal or a team.",
+    numbers: "Return negative or neutral while urgency stays elevated. Stability might be masking the burn.",
+    nextMove: ["Find the leak: trim cost, reframe scope, or raise impact before momentum locks in losses.", "If the leak won’t close, exit cleanly instead of dragging it out."],
   },
   {
-    title: "Archetypes in the wild",
-    description: "Match real decisions to the archetypes and tags in Definitions to speed up coaching and communication.",
+    title: "Calm failure",
+    explain: "Low pressure doesn’t mean good. It can be comfortable drift.",
+    feelsLike: "No one is panicked, but nothing is improving — maybe coasting on autopilot.",
+    numbers: "Pressure low because urgency is muted, but return is flat and stability may be soft.",
+    nextMove: ["Create honest urgency or define the impact target so drift stops.", "Shake the system with a small, fast decision to surface real signals."],
+  },
+  {
+    title: "High conviction, high risk",
+    explain: "Confidence may be narrative-heavy while risk is underpriced.",
+    feelsLike: "You ‘know’ this will work and are ready to push, but the downside could bite hard.",
+    numbers: "Confidence and risk both high; stability hovers near zero or negative.",
+    nextMove: ["Stress-test the risk assumptions and add one disconfirming piece of evidence.", "Design a reversible first move before committing the full plan."],
   },
 ];
 
 export default function ScenariosPage() {
   return (
-    <div className="mx-auto max-w-6xl space-y-10 px-4 py-8 md:px-6">
-      <header className="space-y-3">
-        <p className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">Library</p>
-        <h1 className="text-3xl font-bold leading-tight text-foreground">Scenarios</h1>
-        <p className="max-w-3xl text-base text-muted-foreground">
-          Translate D-NAV readouts into real-world situations so teams can act faster under pressure and explain their moves with clarity.
-        </p>
-        <div className="flex flex-wrap items-center gap-3">
-          <Button asChild>
-            <Link href="/contact">Book a Decision Audit</Link>
-          </Button>
-          <a
-            href="/definitions"
-            className="text-sm font-medium text-muted-foreground underline-offset-4 hover:text-foreground hover:underline"
-          >
-            Review Definitions
-          </a>
-        </div>
-      </header>
+    <main className="min-h-screen bg-[#050608] text-white">
+      <section className="mx-auto max-w-6xl space-y-10 px-4 py-10 md:px-6 md:py-14">
+        <header className="space-y-4 text-center">
+          <p className="text-xs uppercase tracking-[0.3em] text-amber-200">Field Guide</p>
+          <h1 className="text-3xl font-bold leading-tight md:text-4xl">Scenarios</h1>
+          <p className="mx-auto max-w-3xl text-base text-slate-200">
+            Real-world decision physics in plain language. Use these as fast translations of Return, Pressure, and
+            Stability before you act.
+          </p>
+          <div className="flex flex-wrap items-center justify-center gap-3">
+            <Button asChild className="bg-amber-500 text-black hover:bg-amber-400">
+              <Link href="/stress-test">Stress test a decision</Link>
+            </Button>
+            <Button variant="outline" asChild className="border-white/30 bg-white/5 text-white hover:bg-white/10">
+              <Link href="/contact">Book a Decision Audit</Link>
+            </Button>
+            <a
+              href="/definitions"
+              className="text-sm font-medium text-slate-200 underline-offset-4 hover:text-white hover:underline"
+            >
+              See definitions
+            </a>
+          </div>
+        </header>
 
-      <div className="grid gap-4 md:grid-cols-2">
-        {scenarios.map((scenario) => (
-          <Card key={scenario.title} className="h-full border-border/60 bg-muted/20">
-            <CardHeader className="pb-2">
-              <CardTitle className="text-lg font-semibold text-foreground">{scenario.title}</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-3">
-              <p className="text-sm leading-relaxed text-muted-foreground">{scenario.description}</p>
-              <a
-                href="/definitions"
-                className="text-sm font-medium text-muted-foreground underline-offset-4 hover:text-foreground hover:underline"
-              >
-                See definitions
-              </a>
-            </CardContent>
-          </Card>
-        ))}
-      </div>
-    </div>
+        <div className="grid gap-4 md:grid-cols-2">
+          {scenarioCards.map((scenario) => (
+            <Card
+              key={scenario.title}
+              className="h-full border-white/10 bg-white/[0.04] text-white shadow-[0_18px_50px_-42px_rgba(0,0,0,0.9)]"
+            >
+              <CardHeader className="pb-2">
+                <CardTitle className="text-lg font-semibold">{scenario.title}</CardTitle>
+                <p className="text-sm text-slate-200">{scenario.explain}</p>
+              </CardHeader>
+              <CardContent className="space-y-3 text-sm text-slate-200">
+                <div className="rounded-lg border border-white/10 bg-white/5 px-3 py-2">
+                  <p className="text-[11px] uppercase tracking-[0.16em] text-amber-200">What it feels like</p>
+                  <p className="mt-1 leading-relaxed">{scenario.feelsLike}</p>
+                </div>
+                <div className="rounded-lg border border-white/10 bg-white/5 px-3 py-2">
+                  <p className="text-[11px] uppercase tracking-[0.16em] text-amber-200">What the numbers usually look like</p>
+                  <p className="mt-1 leading-relaxed">{scenario.numbers}</p>
+                </div>
+                <div className="rounded-lg border border-white/10 bg-white/5 px-3 py-2 space-y-1.5">
+                  <p className="text-[11px] uppercase tracking-[0.16em] text-amber-200">Next move</p>
+                  <ul className="space-y-1.5">
+                    {scenario.nextMove.map((move) => (
+                      <li key={move} className="flex items-start gap-2">
+                        <span className="mt-[6px] h-1.5 w-1.5 rounded-full bg-amber-300" aria-hidden />
+                        <span>{move}</span>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+
+        <div className="flex flex-col items-center justify-center gap-3 rounded-2xl border border-white/10 bg-white/5 px-4 py-5 text-center md:flex-row md:px-6">
+          <p className="text-sm text-slate-200">Ready to translate your own situation?</p>
+          <div className="flex flex-wrap items-center justify-center gap-2">
+            <Button size="sm" className="bg-amber-500 text-black hover:bg-amber-400" asChild>
+              <Link href="/stress-test">Run the Stress Test</Link>
+            </Button>
+            <Button size="sm" variant="outline" asChild className="border-white/30 bg-white/5 text-white hover:bg-white/10">
+              <Link href="/contact">Book a Decision Audit</Link>
+            </Button>
+          </div>
+        </div>
+      </section>
+    </main>
   );
 }
