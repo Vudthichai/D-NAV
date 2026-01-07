@@ -38,15 +38,18 @@ export const TERMS: Record<TermKey, TermDefinition> = {
   },
   return: {
     label: "Return",
-    short: "Impact − Cost.",
+    short: "Net gain.",
+    long: "Impact − Cost.",
   },
   pressure: {
     label: "Pressure",
-    short: "Urgency − Confidence.",
+    short: "What’s pushing you.",
+    long: "Urgency − Confidence.",
   },
   stability: {
     label: "Stability",
-    short: "Confidence − Risk.",
+    short: "Your footing.",
+    long: "Confidence − Risk.",
   },
   dnav: {
     label: "D-NAV",

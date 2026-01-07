@@ -3,6 +3,7 @@
 import { DecisionMetrics, JudgmentSignal, getArchetype, getReadoutLines } from "@/lib/calculations";
 import Term from "@/components/ui/Term";
 import { cn } from "@/lib/utils";
+import { useEffect, useMemo, useState } from "react";
 
 interface SummaryCardProps {
   metrics: DecisionMetrics;
@@ -24,16 +25,20 @@ export default function SummaryCard({
   const archetype = getArchetype(metrics);
   const readoutLines = getReadoutLines(metrics, judgmentSignal);
   const hasJudgmentSignal = Boolean(judgmentSignal);
-  const meaningPreview =
-    readoutLines.meaning.length > 80 ? `${readoutLines.meaning.slice(0, 77)}…` : readoutLines.meaning;
+  const [isMeaningExpanded, setIsMeaningExpanded] = useState(meaningExpanded);
+  const canToggleMeaning = useMemo(() => readoutLines.meaning.length > 180, [readoutLines.meaning]);
+
+  useEffect(() => {
+    setIsMeaningExpanded(meaningExpanded);
+  }, [meaningExpanded]);
 
   return (
     <div className={cn("flex flex-1 flex-col", compact ? "gap-4" : "gap-6", className)}>
       <div className={cn("rounded-lg border border-border/50 bg-muted/20", compact ? "p-3" : "p-4", "mt-auto")}>
-        <div className="flex flex-col gap-3.5">
-          <div className="flex flex-wrap items-start justify-between gap-3">
-            <div className="space-y-1.5">
-              <div className="flex items-center justify-between gap-2">
+        <div className="flex flex-col gap-3">
+          <div className="space-y-2">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <div className="flex items-center gap-2">
                 <h3 className="m-0 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
                   Archetype
                 </h3>
@@ -46,6 +51,8 @@ export default function SummaryCard({
                   </a>
                 ) : null}
               </div>
+            </div>
+            <div className="flex flex-wrap items-center justify-between gap-2">
               <div
                 className={cn(
                   "font-black transition-colors text-foreground",
@@ -55,58 +62,63 @@ export default function SummaryCard({
               >
                 {archetype.name}
               </div>
-              <p
-                className={cn(
-                  hasJudgmentSignal ? "text-muted-foreground/80" : "text-muted-foreground",
-                  compact ? "text-sm leading-snug" : "text-sm leading-relaxed"
-                )}
-              >
-                {archetype.description}
-              </p>
-            </div>
-            <div className="flex flex-wrap items-center justify-end gap-2">
-              <div className="flex items-baseline gap-2 rounded-full border border-border/70 bg-background/80 px-3 py-1.5 shadow-sm">
-                <Term
-                  termKey="dnav"
-                  disableUnderline
-                  className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground"
-                >
-                  D-NAV
-                </Term>
-                <p className="text-base font-black text-foreground">{metrics.dnav}</p>
+              <div className="flex flex-wrap items-center gap-2">
+                <div className="flex items-baseline gap-2 rounded-full border border-border/70 bg-background/80 px-3 py-1 shadow-sm">
+                  <Term
+                    termKey="dnav"
+                    disableUnderline
+                    className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground"
+                  >
+                    D-NAV
+                  </Term>
+                  <p className="text-base font-black text-foreground">{metrics.dnav}</p>
+                </div>
               </div>
             </div>
+            <p
+              className={cn(
+                hasJudgmentSignal ? "text-muted-foreground/80" : "text-muted-foreground",
+                compact ? "text-sm leading-snug" : "text-sm leading-relaxed"
+              )}
+            >
+              {archetype.description}
+            </p>
           </div>
-          <div className="space-y-3">
-            <div>
-              <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Condition</p>
-              <p className={cn("text-foreground", compact ? "text-sm leading-snug" : "text-sm leading-relaxed")}>
-                {readoutLines.condition}
-              </p>
-            </div>
-            <div className="rounded-md border border-border/70 bg-background/80 px-3 py-2.5">
+          <div className="flex flex-wrap items-center gap-2 text-sm">
+            <span className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Condition</span>
+            <span className={cn("text-foreground", compact ? "text-sm leading-snug" : "text-sm leading-relaxed")}>
+              {readoutLines.condition}
+            </span>
+          </div>
+          <div className="grid gap-3 md:grid-cols-2">
+            <div className="rounded-md border border-border/70 bg-background/80 px-3 py-2">
               <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Action</p>
               <p className={cn("text-foreground", compact ? "text-sm leading-snug" : "text-sm leading-relaxed")}>
                 {readoutLines.action}
               </p>
             </div>
-            <div>
-              <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">What this means</p>
-              {meaningExpanded ? (
-                <p className={cn("text-foreground", compact ? "text-sm leading-snug" : "text-sm leading-relaxed")}>
-                  {readoutLines.meaning}
-                </p>
-              ) : (
-                <p
-                  className={cn(
-                    "text-muted-foreground",
-                    compact ? "text-sm leading-snug" : "text-sm leading-relaxed",
-                    "line-clamp-1"
-                  )}
+            <div className="rounded-md border border-border/70 bg-background/80 px-3 py-2">
+              <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+                What this means
+              </p>
+              <p
+                className={cn(
+                  isMeaningExpanded ? "text-foreground" : "text-muted-foreground",
+                  compact ? "text-sm leading-snug" : "text-sm leading-relaxed",
+                  canToggleMeaning && !isMeaningExpanded && "line-clamp-3"
+                )}
+              >
+                {readoutLines.meaning}
+              </p>
+              {canToggleMeaning ? (
+                <button
+                  type="button"
+                  onClick={() => setIsMeaningExpanded((prev) => !prev)}
+                  className="mt-1 inline-flex text-xs font-semibold text-muted-foreground underline-offset-4 hover:text-foreground hover:underline"
                 >
-                  {meaningPreview}
-                </p>
-              )}
+                  {isMeaningExpanded ? "Less" : "More"}
+                </button>
+              ) : null}
             </div>
           </div>
         </div>
