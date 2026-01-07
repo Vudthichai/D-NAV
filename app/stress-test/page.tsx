@@ -26,12 +26,12 @@ const DEFAULT_VARIABLES: DecisionVariables = {
 
 const getIntensityModifier = (dnav: number) => {
   if (dnav >= 80) {
-    return "Make a reversible move, require disconfirming evidence, and align stakeholders before scaling.";
+    return "Keep Cost low, add one disconfirming data point to validate Confidence, and constrain Risk before increasing Impact.";
   }
   if (dnav >= 50) {
-    return "Move with discipline: set a short checkpoint and look for signals that could change your mind.";
+    return "Set a short checkpoint to re-validate Impact, Cost, Risk, Urgency, and Confidence before increasing any one variable.";
   }
-  return "Sprint a cheap test, timebox the analysis, and bias to action.";
+  return "Run a low-Cost test, timebox it, and only increase Impact after Confidence exceeds Risk.";
 };
 
 export default function StressTestPage() {
@@ -89,8 +89,8 @@ export default function StressTestPage() {
   const nextMoveLine = useMemo(() => {
     if (!coachLine) return coachLine;
     const guardrailMessages = [
-      "This decision is unlikely to materially change outcomes. Execute cheaply or ignore.",
-      "Low-signal decision. Don’t overthink—choose the most reversible option.",
+      "Impact, Cost, Risk, Urgency, and Confidence are all ≤ 2. Keep Cost minimal or ignore.",
+      "Impact, Cost, Risk, Urgency, and Confidence are all 3–4. Choose the most reversible option.",
     ];
     if (guardrailMessages.includes(coachLine)) {
       return coachLine;
