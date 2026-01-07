@@ -135,10 +135,10 @@ export function detectJudgmentSignal(vars: DecisionVariables, metrics: DecisionM
   if (pressure >= 2 && stability <= 0) {
     candidates.push({
       key: "fragileExecution",
-      label: "Fragile Execution Regime",
+      label: "Urgency > Confidence with Risk ≥ Confidence",
       explanation:
-        "Pressure is climbing while Stability is at or below zero (Pressure = Urgency − Confidence; Stability = Confidence − Risk). Speed is outrunning the confidence buffer.",
-      correctiveMove: "Buy time—cut scope or sequence into survivable steps before pushing speed.",
+        "Urgency is higher than Confidence and Confidence is lower than or equal to Risk (Pressure = Urgency − Confidence; Stability = Confidence − Risk).",
+      correctiveMove: "Reduce Urgency or increase Confidence before committing; reduce Risk if Confidence cannot increase.",
       severity: pressure - stability + 1,
       priority: 0,
     });
@@ -147,10 +147,10 @@ export function detectJudgmentSignal(vars: DecisionVariables, metrics: DecisionM
   if (confidence >= 7 && ret <= 1) {
     candidates.push({
       key: "narrativeInflation",
-      label: "Narrative Inflation",
+      label: "Confidence High with Impact ≤ Cost",
       explanation:
-        "Confidence is compounding while Return (Impact − Cost) is flat or negative. Belief is getting ahead of the economics.",
-      correctiveMove: "Demand one disconfirming datapoint before scaling—run a small test that can fail loudly.",
+        "Confidence is high while Impact minus Cost is flat or negative.",
+      correctiveMove: "Increase Confidence only after a disconfirming data point; reduce Cost or increase Impact before scaling.",
       severity: confidence - ret,
       priority: 1,
     });
@@ -160,10 +160,10 @@ export function detectJudgmentSignal(vars: DecisionVariables, metrics: DecisionM
     const pressureBoost = pressure >= 2 ? pressure - 1 : 0;
     candidates.push({
       key: "rushedWithoutNecessity",
-      label: "Rushed Without Necessity",
+      label: "Urgency High with Risk Low",
       explanation:
-        "Urgency is high while Risk stays low, pushing Pressure above neutral (Pressure = Urgency − Confidence). The timeline looks emotional or political, not externally forced.",
-      correctiveMove: "Name the real driver and reset the clock; if you can’t slow down, raise Confidence with one concrete evidence hit.",
+        "Urgency is high while Risk is low, pushing Pressure above neutral (Pressure = Urgency − Confidence).",
+      correctiveMove: "Reduce Urgency or increase Confidence; if Urgency must stay high, validate Risk explicitly before acting.",
       severity: urgency + pressureBoost - risk,
       priority: 2,
     });
@@ -172,10 +172,10 @@ export function detectJudgmentSignal(vars: DecisionVariables, metrics: DecisionM
   if (ret >= 6 && stability >= 2 && pressure <= 1) {
     candidates.push({
       key: "underexploitedLeverage",
-      label: "Underexploited Leverage",
+      label: "Impact > Cost with Confidence > Risk",
       explanation:
-        "Return (Impact − Cost) is strong, Stability (Confidence − Risk) is positive, and Pressure is manageable. There’s repeatable upside under-allocated.",
-      correctiveMove: "Move now—assign ownership and ship the smallest version this week.",
+        "Impact minus Cost is strong, Confidence minus Risk is positive, and Urgency is not higher than Confidence.",
+      correctiveMove: "Increase Impact while keeping Cost and Risk constrained.",
       severity: ret + stability - pressure,
       priority: 3,
     });
@@ -211,18 +211,32 @@ export function getArchetype(metrics: DecisionMetrics): ArchetypeInfo {
   const key = [pS, sS, rS].join('|');
   const name = oneWordArchetypes[key] || 'Unclassified';
 
-  const Pword = (s: number) => s > 0 ? 'Pressured' : (s < 0 ? 'Calm' : 'Balanced');
-  const Sword = (s: number) => s > 0 ? 'Stable' : (s < 0 ? 'Fragile' : 'Uncertain');
-  const Rword = (s: number) => s > 0 ? 'Gain' : (s < 0 ? 'Loss' : 'Flat');
-
-  const description = `${Rword(rS)} with ${Sword(sS).toLowerCase()} footing — ${Pword(pS).toLowerCase()} execution.`;
+  const returnLine =
+    rS > 0
+      ? "Impact is higher than Cost."
+      : rS < 0
+      ? "Cost is higher than Impact."
+      : "Impact and Cost are balanced.";
+  const stabilityLine =
+    sS > 0
+      ? "Confidence is higher than Risk."
+      : sS < 0
+      ? "Risk is higher than Confidence."
+      : "Confidence and Risk are balanced.";
+  const pressureLine =
+    pS > 0
+      ? "Urgency is higher than Confidence."
+      : pS < 0
+      ? "Confidence is higher than Urgency."
+      : "Urgency and Confidence are balanced.";
+  const description = `${returnLine} ${stabilityLine} ${pressureLine}`;
 
   return {
     name,
     description,
-    pressureType: Pword(pS),
-    stabilityType: Sword(sS),
-    returnType: Rword(rS),
+    pressureType: pS > 0 ? "Urgency > Confidence" : pS < 0 ? "Confidence > Urgency" : "Urgency = Confidence",
+    stabilityType: sS > 0 ? "Confidence > Risk" : sS < 0 ? "Risk > Confidence" : "Confidence = Risk",
+    returnType: rS > 0 ? "Impact > Cost" : rS < 0 ? "Cost > Impact" : "Impact = Cost",
   };
 }
 
@@ -238,26 +252,30 @@ export function coachHint(vars: DecisionVariables, metrics: DecisionMetrics): st
   const pressureHigh = Math.abs(metrics.pressure) >= 3;
 
   if (values.every((value) => value <= 2)) {
-    return "This decision is unlikely to materially change outcomes. Execute cheaply or ignore.";
+    return "Impact, Cost, Risk, Urgency, and Confidence are all ≤ 2. Keep Cost minimal or ignore.";
   }
 
   if (values.every((value) => value >= 3 && value <= 4)) {
-    return "Low-signal decision. Don’t overthink—choose the most reversible option.";
+    return "Impact, Cost, Risk, Urgency, and Confidence are all 3–4. Choose the most reversible option.";
   }
 
   if (metrics.return < 0) {
-    return "Freeze spend and cut scope until Return is positive.";
+    return "Cost is higher than Impact. Reduce Cost or increase Impact before proceeding.";
   }
 
   if (metrics.stability < 0) {
-    return "Stop and add one proof point before committing.";
+    return "Confidence is lower than Risk. Increase Confidence or reduce Risk before committing.";
   }
 
-  if (pressureHigh) {
-    return "Name the blocker and set one rule that slows the push.";
+  if (pressureHigh && metrics.pressure > 0) {
+    return "Urgency is much higher than Confidence. Reduce Urgency or increase Confidence before moving.";
   }
 
-  return "Lock one variable, set a short checkpoint, and move.";
+  if (pressureHigh && metrics.pressure < 0) {
+    return "Confidence is much higher than Urgency. Validate Urgency before increasing Cost or Risk.";
+  }
+
+  return "Set a checkpoint to validate Impact, Cost, Risk, Urgency, and Confidence before increasing any single variable.";
 }
 
 // Math helpers

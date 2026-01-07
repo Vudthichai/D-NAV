@@ -4,10 +4,10 @@ import { DecisionMetrics, JudgmentSignal, JudgmentSignalKey, getArchetype } from
 import { cn } from "@/lib/utils";
 
 const signalSummaries: Record<JudgmentSignalKey, string> = {
-  fragileExecution: "Speed is outpacing the stability of execution.",
-  narrativeInflation: "Belief is running ahead of the evidence and returns.",
-  rushedWithoutNecessity: "The timeline is racing without a matching external push.",
-  underexploitedLeverage: "Solid returns and footing are being under-used.",
+  fragileExecution: "Urgency is higher than Confidence while Confidence is at or below Risk.",
+  narrativeInflation: "Confidence is high while Impact minus Cost is flat or negative.",
+  rushedWithoutNecessity: "Urgency is high while Risk is low, raising Pressure above neutral.",
+  underexploitedLeverage: "Impact is higher than Cost while Confidence is higher than Risk and Urgency is not higher than Confidence.",
 };
 
 interface SummaryCardProps {
