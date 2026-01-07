@@ -157,7 +157,7 @@ export default function StressTestPage() {
           ) : null}
 
           <section className="space-y-4">
-            <div className="grid grid-cols-1 items-start gap-3 md:grid-cols-[0.95fr_1.05fr] lg:grid-cols-[0.95fr_1.05fr]">
+            <div className="grid grid-cols-1 items-start gap-3 md:grid-cols-[0.72fr_1.28fr] lg:grid-cols-[0.72fr_1.28fr]">
               <Card className="h-full py-5">
                 <CardHeader className="pb-1 space-y-1 px-5">
                   <CardTitle className="text-base font-semibold">Decision Frame</CardTitle>
@@ -269,56 +269,64 @@ export default function StressTestPage() {
 
               <div className="space-y-3">
                 <Card className="flex h-full flex-col">
-                  <CardHeader className="pb-1.5 space-y-1 px-5">
-                    <CardTitle className="text-base font-semibold">
-                      <Term termKey="return" /> · <Term termKey="pressure" /> · <Term termKey="stability" />
-                    </CardTitle>
+                  <CardHeader className="space-y-1 px-5 pb-1">
+                    <CardTitle className="text-base font-semibold">RPS</CardTitle>
                     <p className="text-sm text-muted-foreground">Three fast reads from your inputs.</p>
                   </CardHeader>
-                  <CardContent className="pb-4 px-5">
-                    <div className="grid gap-2 sm:grid-cols-3">
-                      <div className="rounded-lg border border-border/60 bg-muted/30 p-3">
-                        <div className="space-y-2">
-                          <p className="text-xs font-semibold text-muted-foreground">
-                            <Term termKey="return">Net gain</Term>
-                          </p>
-                          <div className="text-3xl font-black text-foreground">{formatStatValue(metrics.return)}</div>
-                          <Badge
-                            variant="outline"
-                            className={`inline-flex w-fit rounded-full px-2 py-0.5 text-[9px] font-extrabold uppercase tracking-wide ${pillVariants[getPillColor(metrics.return, "return").color]}`}
-                          >
-                            {getPillColor(metrics.return, "return").text}
-                          </Badge>
-                        </div>
-                      </div>
-                      <div className="rounded-lg border border-border/60 bg-muted/30 p-3">
-                        <div className="space-y-2">
-                          <p className="text-xs font-semibold text-muted-foreground">
-                            <Term termKey="pressure">What’s pushing the decision</Term>
-                          </p>
-                          <div className="text-3xl font-black text-foreground">{formatStatValue(metrics.pressure)}</div>
-                          <Badge
-                            variant="outline"
-                            className={`inline-flex w-fit rounded-full px-2 py-0.5 text-[9px] font-extrabold uppercase tracking-wide ${pillVariants[getPillColor(metrics.pressure, "pressure").color]}`}
-                          >
-                            {getPillColor(metrics.pressure, "pressure").text}
-                          </Badge>
-                        </div>
-                      </div>
-                      <div className="rounded-lg border border-border/60 bg-muted/30 p-3">
-                        <div className="space-y-2">
-                          <p className="text-xs font-semibold text-muted-foreground">
-                            <Term termKey="stability">Footing / resilience</Term>
-                          </p>
-                          <div className="text-3xl font-black text-foreground">
-                            {formatStatValue(metrics.stability)}
+                  <CardContent className="px-5 pb-3">
+                    <div className="grid gap-1.5 sm:grid-cols-3">
+                      <div className="space-y-1.5">
+                        <p className="text-xs font-semibold text-muted-foreground">
+                          <Term termKey="return">Return</Term>
+                        </p>
+                        <div className="rounded-lg border border-border/60 bg-muted/30 p-2">
+                          <div className="space-y-1">
+                            <div className="text-3xl font-black text-foreground">
+                              {formatStatValue(metrics.return)}
+                            </div>
+                            <Badge
+                              variant="outline"
+                              className={`inline-flex w-fit rounded-full px-2 py-0.5 text-[9px] font-extrabold uppercase tracking-wide ${pillVariants[getPillColor(metrics.return, "return").color]}`}
+                            >
+                              {getPillColor(metrics.return, "return").text}
+                            </Badge>
                           </div>
-                          <Badge
-                            variant="outline"
-                            className={`inline-flex w-fit rounded-full px-2 py-0.5 text-[9px] font-extrabold uppercase tracking-wide ${pillVariants[getPillColor(metrics.stability, "stability").color]}`}
-                          >
-                            {getPillColor(metrics.stability, "stability").text}
-                          </Badge>
+                        </div>
+                      </div>
+                      <div className="space-y-1.5">
+                        <p className="text-xs font-semibold text-muted-foreground">
+                          <Term termKey="pressure">Pressure</Term>
+                        </p>
+                        <div className="rounded-lg border border-border/60 bg-muted/30 p-2">
+                          <div className="space-y-1">
+                            <div className="text-3xl font-black text-foreground">
+                              {formatStatValue(metrics.pressure)}
+                            </div>
+                            <Badge
+                              variant="outline"
+                              className={`inline-flex w-fit rounded-full px-2 py-0.5 text-[9px] font-extrabold uppercase tracking-wide ${pillVariants[getPillColor(metrics.pressure, "pressure").color]}`}
+                            >
+                              {getPillColor(metrics.pressure, "pressure").text}
+                            </Badge>
+                          </div>
+                        </div>
+                      </div>
+                      <div className="space-y-1.5">
+                        <p className="text-xs font-semibold text-muted-foreground">
+                          <Term termKey="stability">Stability</Term>
+                        </p>
+                        <div className="rounded-lg border border-border/60 bg-muted/30 p-2">
+                          <div className="space-y-1">
+                            <div className="text-3xl font-black text-foreground">
+                              {formatStatValue(metrics.stability)}
+                            </div>
+                            <Badge
+                              variant="outline"
+                              className={`inline-flex w-fit rounded-full px-2 py-0.5 text-[9px] font-extrabold uppercase tracking-wide ${pillVariants[getPillColor(metrics.stability, "stability").color]}`}
+                            >
+                              {getPillColor(metrics.stability, "stability").text}
+                            </Badge>
+                          </div>
                         </div>
                       </div>
                     </div>
