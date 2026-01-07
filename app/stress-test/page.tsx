@@ -32,6 +32,7 @@ export default function StressTestPage() {
   const [isSaved, setIsSaved] = useState(false);
   const [hasInteracted, setHasInteracted] = useState(false);
   const [isDefinitionsOpen, setIsDefinitionsOpen] = useState(false);
+  const [isReadoutExpanded, setIsReadoutExpanded] = useState(false);
 
   const { isLoggedIn, logout } = useNetlifyIdentity();
   const { addDataset, setDecisions, isDatasetLoading, loadError } = useDataset();
@@ -177,6 +178,7 @@ export default function StressTestPage() {
                     <Button
                       onClick={handleSaveDecision}
                       className="flex-1 min-w-[170px] h-10"
+                      variant="secondary"
                       disabled={!decisionName || !decisionCategory}
                     >
                       {isSaved ? (
@@ -191,7 +193,7 @@ export default function StressTestPage() {
                         </>
                       )}
                     </Button>
-                    <Button variant="outline" onClick={handleReset} className="min-w-[110px] h-10">
+                    <Button variant="ghost" onClick={handleReset} className="min-w-[110px] h-10">
                       Reset
                     </Button>
                     <a
@@ -289,12 +291,22 @@ export default function StressTestPage() {
                         <CardTitle className="text-base font-semibold">D-NAV Readout</CardTitle>
                         <p className="text-sm text-muted-foreground">System readout across condition, meaning, archetype, and action.</p>
                       </div>
-                      <a
-                        href="/scenarios"
-                        className="text-xs font-medium text-muted-foreground underline-offset-4 hover:text-foreground hover:underline"
-                      >
-                        Read scenarios
-                      </a>
+                      <div className="flex items-center gap-3">
+                        <a
+                          href="/scenarios"
+                          className="text-xs font-medium text-muted-foreground underline-offset-4 hover:text-foreground hover:underline"
+                        >
+                          Read scenarios
+                        </a>
+                        <button
+                          type="button"
+                          onClick={() => setIsReadoutExpanded((prev) => !prev)}
+                          className="text-xs font-medium text-muted-foreground underline-offset-4 hover:text-foreground hover:underline"
+                          aria-expanded={isReadoutExpanded}
+                        >
+                          {isReadoutExpanded ? "Hide" : "Explain"}
+                        </button>
+                      </div>
                     </div>
                   </CardHeader>
                   <CardContent className="flex-1">
@@ -304,6 +316,7 @@ export default function StressTestPage() {
                       className="flex flex-1"
                       compact
                       showDefinitionLink={false}
+                      meaningExpanded={isReadoutExpanded}
                     />
                   </CardContent>
                 </Card>
