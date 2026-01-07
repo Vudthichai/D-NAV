@@ -10,6 +10,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { getDatasetDisplayName } from "@/lib/datasetDisplay";
+import { cn } from "@/lib/utils";
 import { type DatasetId } from "@/types/dataset";
 import { useDataset } from "./DatasetProvider";
 
@@ -17,9 +18,21 @@ interface DatasetSelectProps {
   label?: string;
   side?: "left" | "right";
   allowRemove?: boolean;
+  triggerSize?: "sm" | "default";
+  triggerClassName?: string;
+  labelClassName?: string;
+  containerClassName?: string;
 }
 
-export function DatasetSelect({ label, side, allowRemove = true }: DatasetSelectProps): ReactElement {
+export function DatasetSelect({
+  label,
+  side,
+  allowRemove = true,
+  triggerSize = "default",
+  triggerClassName,
+  labelClassName,
+  containerClassName,
+}: DatasetSelectProps): ReactElement {
   const { datasets, activeDatasetId, activeDataset, setActiveDatasetId, deleteDataset } = useDataset();
 
   const options = useMemo(
@@ -57,12 +70,14 @@ export function DatasetSelect({ label, side, allowRemove = true }: DatasetSelect
   );
 
   return (
-    <div className="flex items-center gap-2">
+    <div className={cn("flex items-center gap-2", containerClassName)}>
       {label ? (
-        <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">{label}</span>
+        <span className={cn("text-xs font-semibold uppercase tracking-wide text-muted-foreground", labelClassName)}>
+          {label}
+        </span>
       ) : null}
       <Select value={activeDatasetId ?? undefined} onValueChange={handleChange}>
-        <SelectTrigger className="min-w-[220px]" data-side={side}>
+        <SelectTrigger className={cn("min-w-[220px]", triggerClassName)} size={triggerSize} data-side={side}>
           <SelectValue placeholder="Select dataset" />
         </SelectTrigger>
         <SelectContent>
