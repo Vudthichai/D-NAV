@@ -138,7 +138,7 @@ export function detectJudgmentSignal(vars: DecisionVariables, metrics: DecisionM
       label: "Pressure is high with fragile Stability.",
       explanation:
         "Urgency is outpacing Confidence while Risk is not contained by that Confidence.",
-      correctiveMove: "Reduce Urgency or raise Confidence; reduce Risk if Confidence cannot increase.",
+      correctiveMove: "Reduce Urgency, raise Confidence, or lower Risk before committing.",
       severity: pressure - stability + 1,
       priority: 0,
     });
@@ -163,7 +163,7 @@ export function detectJudgmentSignal(vars: DecisionVariables, metrics: DecisionM
       label: "Pressure is elevated while Stability is steady.",
       explanation:
         "Urgency is climbing even though Risk stays low and Confidence is not leading the pace.",
-      correctiveMove: "Lower Urgency or raise Confidence; if Urgency must stay high, verify Risk explicitly.",
+      correctiveMove: "Lower Urgency or raise Confidence while keeping Risk explicit.",
       severity: urgency + pressureBoost - risk,
       priority: 2,
     });
