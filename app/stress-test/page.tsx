@@ -13,8 +13,8 @@ import Term from "@/components/ui/Term";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { useNetlifyIdentity } from "@/hooks/use-netlify-identity";
 import { DecisionEntry, DecisionMetrics, DecisionVariables, computeMetrics, detectJudgmentSignal } from "@/lib/calculations";
-import { Check, RotateCcw, Save } from "lucide-react";
-import { useCallback, useMemo, useState } from "react";
+import { Check, Save } from "lucide-react";
+import { useCallback, useMemo, useRef, useState } from "react";
 
 const DEFAULT_VARIABLES: DecisionVariables = {
   impact: 1,
@@ -32,6 +32,8 @@ export default function StressTestPage() {
   const [isSaved, setIsSaved] = useState(false);
   const [hasInteracted, setHasInteracted] = useState(false);
   const [isDefinitionsOpen, setIsDefinitionsOpen] = useState(false);
+  const decisionNameRef = useRef<HTMLInputElement>(null);
+  const decisionCategoryRef = useRef<HTMLInputElement>(null);
 
   const { isLoggedIn, logout } = useNetlifyIdentity();
   const { addDataset, setDecisions, isDatasetLoading, loadError } = useDataset();
@@ -46,8 +48,15 @@ export default function StressTestPage() {
     setIsSaved(false);
   }, []);
 
-  const handleSaveDecision = () => {
-    if (!decisionName.trim() || !decisionCategory.trim()) {
+  const handleSaveDecision = useCallback(() => {
+    if (!decisionName.trim()) {
+      decisionNameRef.current?.focus();
+      alert("Please enter both a decision name and category before saving.");
+      return;
+    }
+
+    if (!decisionCategory.trim()) {
+      decisionCategoryRef.current?.focus();
       alert("Please enter both a decision name and category before saving.");
       return;
     }
@@ -64,7 +73,7 @@ export default function StressTestPage() {
     setIsSaved(true);
 
     setTimeout(() => setIsSaved(false), 3000);
-  };
+  }, [decisionCategory, decisionName, metrics, setDecisions, variables]);
 
   const handleReset = () => {
     setDecisionName("");
@@ -120,16 +129,17 @@ export default function StressTestPage() {
                 <p className="text-sm text-muted-foreground">Measure the judgment behind a decision.</p>
               </div>
               <div className="flex flex-wrap items-center gap-2 sm:justify-end">
-                <div className="flex items-center gap-2 rounded-md border border-border/60 bg-muted/40 px-2.5 py-1.5">
-                  <DatasetSelect label="Dataset" />
-                  <Button variant="ghost" size="sm" className="text-xs font-semibold" onClick={addDataset}>
+                <div className="flex items-center gap-2 rounded-md border border-border/60 bg-muted/20 px-2 py-1">
+                  <DatasetSelect
+                    label="Dataset"
+                    triggerSize="sm"
+                    triggerClassName="min-w-[190px] text-xs"
+                    labelClassName="text-[10px]"
+                  />
+                  <Button variant="ghost" size="sm" className="h-8 px-2 text-xs font-medium" onClick={addDataset}>
                     Add
                   </Button>
                 </div>
-                <Button variant="outline" size="sm" onClick={handleReset} className="gap-1.5">
-                  <RotateCcw className="h-4 w-4" />
-                  Reset
-                </Button>
                 <Button size="sm" onClick={() => setIsDefinitionsOpen(true)} className="font-semibold">
                   Definitions
                 </Button>
@@ -166,6 +176,7 @@ export default function StressTestPage() {
                 <CardContent className="space-y-4 px-5">
                   <div className="grid gap-2.5 sm:grid-cols-2">
                     <Input
+                      ref={decisionNameRef}
                       type="text"
                       placeholder="Decision title"
                       value={decisionName}
@@ -176,6 +187,7 @@ export default function StressTestPage() {
                       className="h-10 text-sm"
                     />
                     <Input
+                      ref={decisionCategoryRef}
                       type="text"
                       placeholder="Category"
                       value={decisionCategory}
@@ -191,7 +203,6 @@ export default function StressTestPage() {
                       onClick={handleSaveDecision}
                       className="h-10 w-full"
                       variant="secondary"
-                      disabled={!decisionName || !decisionCategory}
                     >
                       {isSaved ? (
                         <>
@@ -201,7 +212,7 @@ export default function StressTestPage() {
                       ) : (
                         <>
                           <Save className="mr-2 h-4 w-4" />
-                          Log this decision
+                          Commit this decision
                         </>
                       )}
                     </Button>
@@ -209,12 +220,6 @@ export default function StressTestPage() {
                       <Button variant="ghost" onClick={handleReset} className="h-10 px-3">
                         Reset
                       </Button>
-                      <a
-                        href="/log"
-                        className="text-sm font-medium text-muted-foreground underline-offset-4 hover:text-foreground hover:underline"
-                      >
-                        Go to log
-                      </a>
                     </div>
                   </div>
                   <div className="space-y-2">
@@ -351,14 +356,49 @@ export default function StressTestPage() {
                       </div>
                     </div>
                   </CardHeader>
-                  <CardContent className="flex-1 px-5">
-                    <SummaryCard
-                      metrics={metrics}
-                      judgmentSignal={judgmentSignal}
-                      className="flex flex-1"
-                      compact
-                      showDefinitionLink={false}
-                    />
+                  <CardContent className="flex-1 px-5 pb-4">
+                    <div className="flex h-full flex-col gap-4">
+                      <SummaryCard
+                        metrics={metrics}
+                        judgmentSignal={judgmentSignal}
+                        className="flex flex-1"
+                        compact
+                        showDefinitionLink={false}
+                      />
+                      <div className="border-t border-border/60 pt-4">
+                        <div className="flex flex-col gap-3">
+                          <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+                            <span>This is one decision. Patterns emerge after 10–20.</span>
+                            {isSaved ? (
+                              <span className="inline-flex items-center gap-1 rounded-full border border-emerald-500/30 bg-emerald-500/10 px-2 py-0.5 text-[10px] font-semibold text-emerald-400">
+                                <Check className="h-3 w-3" />
+                                Saved
+                              </span>
+                            ) : null}
+                          </div>
+                          <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+                            {isSaved ? (
+                              <Button className="h-10 sm:w-auto" asChild>
+                                <a href="/log">View decision history</a>
+                              </Button>
+                            ) : (
+                              <Button className="h-10 sm:w-auto" onClick={handleSaveDecision}>
+                                Commit this decision
+                              </Button>
+                            )}
+                            {isSaved ? (
+                              <Button variant="ghost" className="h-10 sm:w-auto" onClick={handleSaveDecision}>
+                                Commit this decision
+                              </Button>
+                            ) : (
+                              <Button variant="ghost" className="h-10 sm:w-auto" asChild>
+                                <a href="/log">View decision history</a>
+                              </Button>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    </div>
                   </CardContent>
                 </Card>
               </div>
