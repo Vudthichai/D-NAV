@@ -135,10 +135,10 @@ export function detectJudgmentSignal(vars: DecisionVariables, metrics: DecisionM
   if (pressure >= 2 && stability <= 0) {
     candidates.push({
       key: "fragileExecution",
-      label: "Urgency > Confidence with Risk ≥ Confidence",
+      label: "Pressure is high with fragile Stability.",
       explanation:
-        "Urgency is higher than Confidence and Confidence is lower than or equal to Risk (Pressure = Urgency − Confidence; Stability = Confidence − Risk).",
-      correctiveMove: "Reduce Urgency or increase Confidence before committing; reduce Risk if Confidence cannot increase.",
+        "Urgency is outpacing Confidence while Risk is not contained by that Confidence.",
+      correctiveMove: "Reduce Urgency or raise Confidence; reduce Risk if Confidence cannot increase.",
       severity: pressure - stability + 1,
       priority: 0,
     });
@@ -147,10 +147,10 @@ export function detectJudgmentSignal(vars: DecisionVariables, metrics: DecisionM
   if (confidence >= 7 && ret <= 1) {
     candidates.push({
       key: "narrativeInflation",
-      label: "Confidence High with Impact ≤ Cost",
+      label: "Return is flat or negative with strong Stability.",
       explanation:
-        "Confidence is high while Impact minus Cost is flat or negative.",
-      correctiveMove: "Increase Confidence only after a disconfirming data point; reduce Cost or increase Impact before scaling.",
+        "Confidence is running ahead of the upside and Cost is not yet covered.",
+      correctiveMove: "Increase Impact or reduce Cost before raising Confidence further.",
       severity: confidence - ret,
       priority: 1,
     });
@@ -160,10 +160,10 @@ export function detectJudgmentSignal(vars: DecisionVariables, metrics: DecisionM
     const pressureBoost = pressure >= 2 ? pressure - 1 : 0;
     candidates.push({
       key: "rushedWithoutNecessity",
-      label: "Urgency High with Risk Low",
+      label: "Pressure is elevated while Stability is steady.",
       explanation:
-        "Urgency is high while Risk is low, pushing Pressure above neutral (Pressure = Urgency − Confidence).",
-      correctiveMove: "Reduce Urgency or increase Confidence; if Urgency must stay high, validate Risk explicitly before acting.",
+        "Urgency is climbing even though Risk stays low and Confidence is not leading the pace.",
+      correctiveMove: "Lower Urgency or raise Confidence; if Urgency must stay high, verify Risk explicitly.",
       severity: urgency + pressureBoost - risk,
       priority: 2,
     });
@@ -172,9 +172,9 @@ export function detectJudgmentSignal(vars: DecisionVariables, metrics: DecisionM
   if (ret >= 6 && stability >= 2 && pressure <= 1) {
     candidates.push({
       key: "underexploitedLeverage",
-      label: "Impact > Cost with Confidence > Risk",
+      label: "Return is strong with stable Stability and low Pressure.",
       explanation:
-        "Impact minus Cost is strong, Confidence minus Risk is positive, and Urgency is not higher than Confidence.",
+        "Upside is clear and Risk feels contained, but Urgency is not pulling action.",
       correctiveMove: "Increase Impact while keeping Cost and Risk constrained.",
       severity: ret + stability - pressure,
       priority: 3,
@@ -204,6 +204,12 @@ export interface ArchetypeInfo {
   returnType: string;
 }
 
+export interface ReadoutLines {
+  condition: string;
+  meaning: string;
+  action: string;
+}
+
 export function getArchetype(metrics: DecisionMetrics): ArchetypeInfo {
   const pS = sign3(metrics.pressure);
   const sS = sign3(metrics.stability);
@@ -213,22 +219,22 @@ export function getArchetype(metrics: DecisionMetrics): ArchetypeInfo {
 
   const returnLine =
     rS > 0
-      ? "Impact is higher than Cost."
+      ? "Return is leading."
       : rS < 0
-      ? "Cost is higher than Impact."
-      : "Impact and Cost are balanced.";
+      ? "Return is dragging."
+      : "Return is neutral.";
   const stabilityLine =
     sS > 0
-      ? "Confidence is higher than Risk."
+      ? "Stability is steady."
       : sS < 0
-      ? "Risk is higher than Confidence."
-      : "Confidence and Risk are balanced.";
+      ? "Stability is fragile."
+      : "Stability is mixed.";
   const pressureLine =
     pS > 0
-      ? "Urgency is higher than Confidence."
+      ? "Pressure is driving the pace."
       : pS < 0
-      ? "Confidence is higher than Urgency."
-      : "Urgency and Confidence are balanced.";
+      ? "Pressure is light."
+      : "Pressure is balanced.";
   const description = `${returnLine} ${stabilityLine} ${pressureLine}`;
 
   return {
@@ -247,35 +253,57 @@ export function getScoreTagText(n: number): string {
   return "Low D-NAV";
 }
 
-export function coachHint(vars: DecisionVariables, metrics: DecisionMetrics): string {
-  const values = [vars.impact, vars.cost, vars.risk, vars.urgency, vars.confidence];
-  const pressureHigh = Math.abs(metrics.pressure) >= 3;
-
-  if (values.every((value) => value <= 2)) {
-    return "Impact, Cost, Risk, Urgency, and Confidence are all ≤ 2. Keep Cost minimal or ignore.";
+export function getReadoutLines(
+  metrics: DecisionMetrics,
+  judgmentSignal?: JudgmentSignal | null,
+): ReadoutLines {
+  if (judgmentSignal) {
+    return {
+      condition: judgmentSignal.label,
+      meaning: judgmentSignal.explanation ?? "Signal detected in the current D-NAV balance.",
+      action: judgmentSignal.correctiveMove ?? "Adjust Impact, Cost, Risk, Urgency, or Confidence to resolve it.",
+    };
   }
 
-  if (values.every((value) => value >= 3 && value <= 4)) {
-    return "Impact, Cost, Risk, Urgency, and Confidence are all 3–4. Choose the most reversible option.";
-  }
+  const returnState = metrics.return >= 2 ? "positive" : metrics.return <= -2 ? "negative" : "flat";
+  const pressureState = metrics.pressure >= 2 ? "elevated" : metrics.pressure <= -2 ? "low" : "balanced";
+  const stabilityState = metrics.stability >= 2 ? "steady" : metrics.stability <= -2 ? "fragile" : "uncertain";
 
-  if (metrics.return < 0) {
-    return "Cost is higher than Impact. Reduce Cost or increase Impact before proceeding.";
-  }
+  const returnMeaning =
+    returnState === "positive"
+      ? "the upside is carrying the decision"
+      : returnState === "negative"
+      ? "the upside is not covering the spend"
+      : "the upside is not decisive yet";
+  const pressureMeaning =
+    pressureState === "elevated"
+      ? "time pressure is setting the pace"
+      : pressureState === "low"
+      ? "time pressure is light"
+      : "timing is not the deciding factor";
+  const stabilityMeaning =
+    stabilityState === "steady"
+      ? "evidence is holding against exposure"
+      : stabilityState === "fragile"
+      ? "evidence is not holding against exposure"
+      : "evidence and exposure are close";
 
-  if (metrics.stability < 0) {
-    return "Confidence is lower than Risk. Increase Confidence or reduce Risk before committing.";
-  }
-
-  if (pressureHigh && metrics.pressure > 0) {
-    return "Urgency is much higher than Confidence. Reduce Urgency or increase Confidence before moving.";
-  }
-
-  if (pressureHigh && metrics.pressure < 0) {
-    return "Confidence is much higher than Urgency. Validate Urgency before increasing Cost or Risk.";
-  }
-
-  return "Set a checkpoint to validate Impact, Cost, Risk, Urgency, and Confidence before increasing any single variable.";
+  return {
+    condition: `Return is ${returnState} with ${pressureState} Pressure and ${stabilityState} Stability.`,
+    meaning: `${returnMeaning}, ${pressureMeaning}, and ${stabilityMeaning}.`,
+    action:
+      returnState === "negative"
+        ? "Increase Impact or reduce Cost before moving."
+        : stabilityState === "fragile"
+        ? "Raise Confidence or reduce Risk before committing."
+        : pressureState === "elevated"
+        ? "Reduce Urgency or raise Confidence to ease Pressure."
+        : pressureState === "low"
+        ? "Validate Urgency, then raise Impact or Confidence before adding Cost or Risk."
+        : returnState === "flat"
+        ? "Increase Impact or reduce Cost to make Return decisive."
+        : "Increase Impact while keeping Cost and Risk constrained.",
+  };
 }
 
 // Math helpers

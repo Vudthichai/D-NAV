@@ -12,7 +12,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { useNetlifyIdentity } from "@/hooks/use-netlify-identity";
-import { DecisionEntry, DecisionMetrics, DecisionVariables, coachHint, computeMetrics, detectJudgmentSignal } from "@/lib/calculations";
+import { DecisionEntry, DecisionMetrics, DecisionVariables, computeMetrics, detectJudgmentSignal } from "@/lib/calculations";
 import { Check, RotateCcw, Save } from "lucide-react";
 import { useCallback, useMemo, useState } from "react";
 
@@ -22,16 +22,6 @@ const DEFAULT_VARIABLES: DecisionVariables = {
   risk: 1,
   urgency: 1,
   confidence: 1,
-};
-
-const getIntensityModifier = (dnav: number) => {
-  if (dnav >= 80) {
-    return "Keep Cost low, add one disconfirming data point to validate Confidence, and constrain Risk before increasing Impact.";
-  }
-  if (dnav >= 50) {
-    return "Set a short checkpoint to re-validate Impact, Cost, Risk, Urgency, and Confidence before increasing any one variable.";
-  }
-  return "Run a low-Cost test, timebox it, and only increase Impact after Confidence exceeds Risk.";
 };
 
 export default function StressTestPage() {
@@ -85,18 +75,6 @@ export default function StressTestPage() {
     setHasInteracted(false);
   };
 
-  const coachLine = useMemo(() => coachHint(variables, metrics), [metrics, variables]);
-  const nextMoveLine = useMemo(() => {
-    if (!coachLine) return coachLine;
-    const guardrailMessages = [
-      "Impact, Cost, Risk, Urgency, and Confidence are all ≤ 2. Keep Cost minimal or ignore.",
-      "Impact, Cost, Risk, Urgency, and Confidence are all 3–4. Choose the most reversible option.",
-    ];
-    if (guardrailMessages.includes(coachLine)) {
-      return coachLine;
-    }
-    return `${coachLine} ${getIntensityModifier(metrics.dnav)}`;
-  }, [coachLine, metrics.dnav]);
   const judgmentSignal = useMemo(() => detectJudgmentSignal(variables, metrics), [metrics, variables]);
 
   const getPillColor = useCallback(
@@ -308,8 +286,8 @@ export default function StressTestPage() {
                   <CardHeader className="pb-1 space-y-1">
                     <div className="flex items-center justify-between gap-2">
                       <div>
-                        <CardTitle className="text-base font-semibold">Coach Readout</CardTitle>
-                        <p className="text-sm text-muted-foreground">Archetype + next move tuned to D-NAV.</p>
+                        <CardTitle className="text-base font-semibold">D-NAV Readout</CardTitle>
+                        <p className="text-sm text-muted-foreground">System readout across condition, meaning, archetype, and action.</p>
                       </div>
                       <a
                         href="/scenarios"
@@ -322,7 +300,6 @@ export default function StressTestPage() {
                   <CardContent className="flex-1">
                     <SummaryCard
                       metrics={metrics}
-                      coachText={nextMoveLine}
                       judgmentSignal={judgmentSignal}
                       className="flex flex-1"
                       compact

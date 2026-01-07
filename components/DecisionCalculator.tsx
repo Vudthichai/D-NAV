@@ -2,7 +2,7 @@
 
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { DecisionMetrics, DecisionVariables, coachHint, computeMetrics } from "@/lib/calculations";
+import { DecisionMetrics, DecisionVariables, computeMetrics } from "@/lib/calculations";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import SliderRow from "./SliderRow";
 import StatCard from "./StatCard";
@@ -22,8 +22,6 @@ export default function DecisionCalculator({ onDataChange }: DecisionCalculatorP
   });
 
   const metrics = useMemo(() => computeMetrics(variables), [variables]);
-  const coachText = useMemo(() => coachHint(variables, metrics), [variables, metrics]);
-
   const updateVariable = useCallback((key: keyof DecisionVariables, value: number) => {
     setVariables((prev) => ({ ...prev, [key]: value }));
   }, []);
@@ -138,13 +136,13 @@ export default function DecisionCalculator({ onDataChange }: DecisionCalculatorP
             </div>
           </CardContent>
         </Card>
-        {/* Summary & Coach */}
+        {/* D-NAV Readout */}
         <Card id="summary-section" className="flex h-full flex-col">
           <CardHeader className="pb-3">
-            <CardTitle className="text-lg">Archetype &amp; Coach</CardTitle>
+            <CardTitle className="text-lg">D-NAV Readout</CardTitle>
           </CardHeader>
           <CardContent className="flex-1">
-            <SummaryCard metrics={metrics} coachText={coachText} />
+            <SummaryCard metrics={metrics} />
           </CardContent>
         </Card>
       </div>
