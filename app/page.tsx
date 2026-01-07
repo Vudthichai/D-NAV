@@ -71,17 +71,17 @@ function HeroSection() {
     {
       badge: "Diagnostic lens",
       title: "What actually drives this decision",
-      copy: "D-NAV surfaces pressure, risk, and stability before commitment. It translates five inputs — Impact, Cost, Risk, Urgency, Confidence — into Return, Pressure, and Stability so judgment happens before work starts.",
+      copy: "Breaks a decision into five variables so hidden pressure and weak assumptions become visible.",
     },
     {
       badge: "Pattern recognition",
       title: "Cross-engagement patterns",
-      copy: "Across engagements, D-NAV reveals how teams consistently earn Return, absorb Pressure, or protect Stability. Recurring signals — not vibes — shape the advisory plan.",
+      copy: "Reveals how decisions cluster over time—where judgment is stable, strained, or inconsistent.",
     },
     {
       badge: "Contrast",
       title: "Stress-test judgment",
-      copy: "Side-by-side contrast exposes hidden pressure and shows where Stability fails unless the plan changes. Contrast removes debate.",
+      copy: "Compares decisions across domains to expose imbalance before it becomes failure.",
     },
   ];
 
@@ -103,7 +103,7 @@ function HeroSection() {
 
           <div className="space-y-6 md:space-y-7 w-full max-w-4xl">
             <h1 className="text-4xl md:text-6xl font-black leading-tight tracking-tight text-white">Decisions fail long before execution. D-NAV shows you where.</h1>
-            <p className="text-xl text-slate-200 max-w-3xl">D-NAV is a proprietary decision system used in pre-commitment consulting to surface pressure, risk, and stability before execution begins.</p>
+            <p className="text-xl text-slate-200 max-w-3xl">D-NAV helps you see the pressure, return, and stability behind decisions—before momentum locks in.</p>
             <div className="space-y-2">
               <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:gap-4">
                 <Button
@@ -125,7 +125,7 @@ function HeroSection() {
                   <Link href="/stress-test">I&apos;m returning — take me to Stress Test</Link>
                 </Button>
               </div>
-              <p className="text-sm text-slate-400">One decision per screen. Adjust the levers. Read it. Act.</p>
+              <p className="text-sm text-slate-400">One decision. Five variables. Immediate clarity.</p>
             </div>
             <p className="text-lg text-slate-300 max-w-3xl">
               Decisions rarely collapse because of effort. They fail because pressure, risk, and stability were never surfaced before commitment. D-NAV makes that friction visible early, so execution teams inherit a plan that has already survived scrutiny.
@@ -135,21 +135,22 @@ function HeroSection() {
               <ul className="space-y-2 text-slate-200 text-sm">
                 <li className="flex items-start gap-2">
                   <span className="mt-1 h-1.5 w-1.5 rounded-full bg-amber-300" aria-hidden />
-                  <span>Endless debate masquerading as alignment</span>
+                  <span>Endless debate without shared criteria</span>
                 </li>
                 <li className="flex items-start gap-2">
                   <span className="mt-1 h-1.5 w-1.5 rounded-full bg-amber-300" aria-hidden />
-                  <span>Confidence built on vibes, not evidence</span>
+                  <span>Confidence masquerading as certainty</span>
                 </li>
                 <li className="flex items-start gap-2">
                   <span className="mt-1 h-1.5 w-1.5 rounded-full bg-amber-300" aria-hidden />
-                  <span>Pressure discovered too late (during execution)</span>
+                  <span>Pressure discovered too late</span>
                 </li>
                 <li className="flex items-start gap-2">
                   <span className="mt-1 h-1.5 w-1.5 rounded-full bg-amber-300" aria-hidden />
                   <span>Execution teams inheriting unresolved risk</span>
                 </li>
               </ul>
+              <p className="text-sm text-slate-300">These aren&apos;t execution problems. They&apos;re judgment problems.</p>
             </div>
           </div>
         </div>
@@ -159,32 +160,14 @@ function HeroSection() {
             <h2 className="text-base md:text-lg font-semibold text-white uppercase tracking-[0.18em]">When D-NAV is the right tool</h2>
             <div className="grid gap-4 md:grid-cols-2">
               <div className="space-y-2 text-slate-200">
-                <ul className="space-y-2 text-base text-slate-200">
-                  <li className="flex items-start gap-2">
-                    <span className="mt-1 h-1.5 w-1.5 rounded-full bg-amber-300" aria-hidden />
-                    <span>A pivotal decision where execution will be expensive or irreversible.</span>
-                  </li>
-                  <li className="flex items-start gap-2">
-                    <span className="mt-1 h-1.5 w-1.5 rounded-full bg-amber-300" aria-hidden />
-                    <span>Judgment needs to be stress-tested before commitment, not discovered in execution.</span>
-                  </li>
-                  <li className="flex items-start gap-2">
-                    <span className="mt-1 h-1.5 w-1.5 rounded-full bg-amber-300" aria-hidden />
-                    <span>A board, client, or partner needs a defensible plan before greenlighting the move.</span>
-                  </li>
-                  <li className="flex items-start gap-2">
-                    <span className="mt-1 h-1.5 w-1.5 rounded-full bg-amber-300" aria-hidden />
-                    <span>An external challenge, review, or diligence process demands proof of judgment quality.</span>
-                  </li>
-                </ul>
+                <p className="text-base text-slate-200">
+                  When decisions feel urgent, complex, or irreversible—and no one can clearly explain why they feel that way.
+                </p>
               </div>
               <div className="rounded-xl border border-white/10 bg-black/30 p-4 space-y-2 text-slate-200">
-                <p className="text-sm font-semibold text-white">Constraints</p>
-                <ul className="space-y-2 text-slate-300 list-disc list-inside">
-                  <li>D-NAV does not predict outcomes.</li>
-                  <li>D-NAV does not replace delivery, domain expertise, or accountability.</li>
-                  <li>D-NAV pressure-tests judgment before commitment.</li>
-                </ul>
+                <p className="text-base text-slate-200">
+                  D-NAV surfaces the pressure, return, and stability dynamics already shaping the outcome.
+                </p>
               </div>
             </div>
           </div>
@@ -321,7 +304,10 @@ function UnderTheHoodSection() {
         />
 
         <p className="text-slate-300 text-base max-w-3xl animate-fade-up" style={{ "--delay": "0.04s" } as CSSProperties}>
-          Merit and Energy are the internal signals. Return, Pressure, and Stability translate them for the consulting readout. RPS is the internal logic; D-NAV is what clients see before commitment.
+          D-NAV doesn&apos;t tell you what to decide. It shows you how your decisions behave under pressure.
+        </p>
+        <p className="text-slate-300 text-base max-w-3xl animate-fade-up" style={{ "--delay": "0.06s" } as CSSProperties}>
+          Return, Pressure, and Stability describe the geometry of a decision—not its outcome.
         </p>
 
         <div className="grid gap-6 lg:grid-cols-[1.05fr_0.95fr]">
@@ -479,9 +465,13 @@ function AudienceSection() {
       <div className="max-w-4xl mx-auto px-6 space-y-6 text-center">
         <SectionHeading title="Built for people who plan in uncertainty" />
         <p className="text-lg text-slate-200">
-          D-NAV is used by leaders operating before the data is clean — where judgment must be defensible and pressure accumulates early.
+          D-NAV is used by people who make decisions before the data is clean—leaders, operators, coaches, and planners whose judgment shapes outcomes long before execution begins.
         </p>
-        <p className="text-base text-slate-300">The same decision physics apply across roles; only the context changes.</p>
+        <div className="space-y-2 text-base text-slate-300">
+          <p>Operators — balancing speed and stability under real constraints</p>
+          <p>Leaders — making irreversible calls with incomplete information</p>
+          <p>Coaches — diagnosing judgment patterns, not just results</p>
+        </div>
         <div className="flex justify-center">
           <Button
             variant="ghost"
@@ -512,6 +502,11 @@ function FinalCTASection() {
               Begin with one decision. If the pressure shows up, move into a decision audit or a pre-commitment consulting engagement.
             </p>
             <p className="text-sm text-slate-400">Built to serve advisory, diligence, and boardroom contexts.</p>
+            <p className="text-lg text-slate-200">
+              You don&apos;t need better answers.
+              <br />
+              You need better questions earlier.
+            </p>
             <div className="flex flex-col sm:flex-row gap-4 justify-center">
               <Button
                 size="lg"
