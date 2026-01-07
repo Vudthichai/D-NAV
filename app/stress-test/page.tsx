@@ -33,7 +33,6 @@ export default function StressTestPage() {
   const [isSaved, setIsSaved] = useState(false);
   const [hasInteracted, setHasInteracted] = useState(false);
   const [isDefinitionsOpen, setIsDefinitionsOpen] = useState(false);
-  const [isReadoutExpanded, setIsReadoutExpanded] = useState(false);
 
   const { isLoggedIn, logout } = useNetlifyIdentity();
   const { addDataset, setDecisions, isDatasetLoading, loadError } = useDataset();
@@ -106,7 +105,7 @@ export default function StressTestPage() {
             <div className="flex flex-wrap items-start justify-between gap-3">
               <div className="space-y-1">
                 <h1 className="text-xl font-semibold text-foreground">Stress Test</h1>
-                <p className="text-sm text-muted-foreground">One screen to frame, read, and act.</p>
+                <p className="text-sm text-muted-foreground">Measure the judgment behind a decision.</p>
               </div>
               <div className="flex flex-wrap items-center gap-2 sm:justify-end">
                 <div className="flex items-center gap-2 rounded-md border border-border/60 bg-muted/40 px-2.5 py-1.5">
@@ -146,13 +145,13 @@ export default function StressTestPage() {
           ) : null}
 
           <section className="space-y-4">
-            <div className="grid grid-cols-1 items-start gap-3 md:grid-cols-[1.05fr_0.95fr] lg:grid-cols-[1.2fr_1fr_1fr]">
-              <Card className="h-full">
-                <CardHeader className="pb-1 space-y-1">
+            <div className="grid grid-cols-1 items-start gap-3 md:grid-cols-[0.95fr_1.05fr] lg:grid-cols-[0.95fr_1fr_1fr]">
+              <Card className="h-full py-5">
+                <CardHeader className="pb-1 space-y-1 px-5">
                   <CardTitle className="text-base font-semibold">Decision Frame</CardTitle>
                   <p className="text-sm text-muted-foreground">Name it and set the five levers.</p>
                 </CardHeader>
-                <CardContent className="space-y-4">
+                <CardContent className="space-y-4 px-5">
                   <div className="grid gap-2.5 sm:grid-cols-2">
                     <Input
                       type="text"
@@ -175,10 +174,10 @@ export default function StressTestPage() {
                       className="h-10 text-sm"
                     />
                   </div>
-                  <div className="flex flex-wrap items-center gap-2">
+                  <div className="grid gap-2.5 sm:grid-cols-2 sm:items-center">
                     <Button
                       onClick={handleSaveDecision}
-                      className="flex-1 min-w-[170px] h-10"
+                      className="h-10 w-full"
                       variant="secondary"
                       disabled={!decisionName || !decisionCategory}
                     >
@@ -194,15 +193,17 @@ export default function StressTestPage() {
                         </>
                       )}
                     </Button>
-                    <Button variant="ghost" onClick={handleReset} className="min-w-[110px] h-10">
-                      Reset
-                    </Button>
-                    <a
-                      href="/log"
-                      className="text-sm font-medium text-muted-foreground underline-offset-4 hover:text-foreground hover:underline"
-                    >
-                      Go to log
-                    </a>
+                    <div className="flex flex-wrap items-center gap-2 sm:justify-end">
+                      <Button variant="ghost" onClick={handleReset} className="h-10 px-3">
+                        Reset
+                      </Button>
+                      <a
+                        href="/log"
+                        className="text-sm font-medium text-muted-foreground underline-offset-4 hover:text-foreground hover:underline"
+                      >
+                        Go to log
+                      </a>
+                    </div>
                   </div>
                   <div className="space-y-2">
                     <div className="flex items-center justify-between gap-2">
@@ -213,38 +214,38 @@ export default function StressTestPage() {
                         1 = low · 10 = high
                       </Badge>
                     </div>
-                    <div className="rounded-lg border border-border/60 bg-muted/20 px-3.5 py-3 space-y-2">
+                    <div className="rounded-lg border border-border/60 bg-muted/20 px-3 py-3 space-y-2">
                       <SliderRow
                         id="impact"
-                        label={<Term term="impact" />}
+                        label={<Term termKey="impact" />}
                         value={variables.impact}
                         onChange={(value) => updateVariable("impact", value)}
                         compact
                       />
                       <SliderRow
                         id="cost"
-                        label={<Term term="cost" />}
+                        label={<Term termKey="cost" />}
                         value={variables.cost}
                         onChange={(value) => updateVariable("cost", value)}
                         compact
                       />
                       <SliderRow
                         id="risk"
-                        label={<Term term="risk" />}
+                        label={<Term termKey="risk" />}
                         value={variables.risk}
                         onChange={(value) => updateVariable("risk", value)}
                         compact
                       />
                       <SliderRow
                         id="urgency"
-                        label={<Term term="urgency" />}
+                        label={<Term termKey="urgency" />}
                         value={variables.urgency}
                         onChange={(value) => updateVariable("urgency", value)}
                         compact
                       />
                       <SliderRow
                         id="confidence"
-                        label={<Term term="confidence" />}
+                        label={<Term termKey="confidence" />}
                         value={variables.confidence}
                         onChange={(value) => updateVariable("confidence", value)}
                         compact
@@ -254,47 +255,58 @@ export default function StressTestPage() {
                 </CardContent>
               </Card>
 
-              <div className="space-y-3 md:col-span-1 lg:col-span-2 lg:grid lg:grid-cols-2 lg:gap-3 lg:space-y-0">
+              <div className="space-y-3 md:col-span-1 lg:col-span-2 lg:grid lg:grid-cols-[0.9fr_1.1fr] lg:gap-3 lg:space-y-0">
                 <Card className="flex h-full flex-col">
-                  <CardHeader className="pb-1.5 space-y-1">
+                  <CardHeader className="pb-1.5 space-y-1 px-5">
                     <CardTitle className="text-base font-semibold">
-                      <Term term="return" /> · <Term term="pressure" /> · <Term term="stability" />
+                      <Term termKey="return" /> · <Term termKey="pressure" /> · <Term termKey="stability" />
                     </CardTitle>
                     <p className="text-sm text-muted-foreground">Three quick reads from the sliders.</p>
                   </CardHeader>
-                  <CardContent className="space-y-2.5 pb-4">
+                  <CardContent className="space-y-2 pb-4 px-5">
                     <StatCard
-                      title="Return"
+                      title={<Term termKey="return">Return</Term>}
                       value={metrics.return}
                       pill={getPillColor(metrics.return, "return")}
-                      subtitle="Impact − Cost"
+                      subtitle={
+                        <>
+                          <Term termKey="impact">Impact</Term> − <Term termKey="cost">Cost</Term>
+                        </>
+                      }
                       dense
                     />
                     <StatCard
-                      title="Pressure"
+                      title={<Term termKey="pressure">Pressure</Term>}
                       value={metrics.pressure}
                       pill={getPillColor(metrics.pressure, "pressure")}
-                      subtitle="Urgency − Confidence"
+                      subtitle={
+                        <>
+                          <Term termKey="urgency">Urgency</Term> − <Term termKey="confidence">Confidence</Term>
+                        </>
+                      }
                       dense
                     />
                     <StatCard
-                      title="Stability"
+                      title={<Term termKey="stability">Stability</Term>}
                       value={metrics.stability}
                       pill={getPillColor(metrics.stability, "stability")}
-                      subtitle="Confidence − Risk"
+                      subtitle={
+                        <>
+                          <Term termKey="confidence">Confidence</Term> − <Term termKey="risk">Risk</Term>
+                        </>
+                      }
                       dense
                     />
                   </CardContent>
                 </Card>
 
                 <Card className="flex h-full flex-col">
-                  <CardHeader className="pb-1 space-y-1">
+                  <CardHeader className="pb-1 space-y-1 px-5">
                     <div className="flex items-center justify-between gap-2">
                       <div>
                         <CardTitle className="text-base font-semibold">
-                          <Term term="dnav">D-NAV</Term> Readout
+                          <Term termKey="dnav">D-NAV</Term> Readout
                         </CardTitle>
-                        <p className="text-sm text-muted-foreground">System readout across condition, meaning, archetype, and action.</p>
                       </div>
                       <div className="flex items-center gap-3">
                         <a
@@ -303,25 +315,17 @@ export default function StressTestPage() {
                         >
                           Read scenarios
                         </a>
-                        <button
-                          type="button"
-                          onClick={() => setIsReadoutExpanded((prev) => !prev)}
-                          className="text-xs font-medium text-muted-foreground underline-offset-4 hover:text-foreground hover:underline"
-                          aria-expanded={isReadoutExpanded}
-                        >
-                          {isReadoutExpanded ? "Hide" : "Explain"}
-                        </button>
                       </div>
                     </div>
                   </CardHeader>
-                  <CardContent className="flex-1">
+                  <CardContent className="flex-1 px-5">
                     <SummaryCard
                       metrics={metrics}
                       judgmentSignal={judgmentSignal}
                       className="flex flex-1"
                       compact
                       showDefinitionLink={false}
-                      meaningExpanded={isReadoutExpanded}
+                      meaningExpanded
                     />
                   </CardContent>
                 </Card>

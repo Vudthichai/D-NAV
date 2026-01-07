@@ -1,6 +1,7 @@
 'use client';
 
 import { DecisionMetrics, JudgmentSignal, getArchetype, getReadoutLines } from "@/lib/calculations";
+import Term from "@/components/ui/Term";
 import { cn } from "@/lib/utils";
 
 interface SummaryCardProps {
@@ -65,7 +66,13 @@ export default function SummaryCard({
             </div>
             <div className="flex flex-wrap items-center justify-end gap-2">
               <div className="flex items-baseline gap-2 rounded-full border border-border/70 bg-background/80 px-3 py-1.5 shadow-sm">
-                <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">D-NAV</p>
+                <Term
+                  termKey="dnav"
+                  disableUnderline
+                  className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground"
+                >
+                  D-NAV
+                </Term>
                 <p className="text-base font-black text-foreground">{metrics.dnav}</p>
               </div>
             </div>
