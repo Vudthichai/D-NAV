@@ -3,17 +3,18 @@
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
+import { ReactNode } from "react";
 
 interface StatCardProps {
-  title?: string;
-  label?: string;
+  title?: ReactNode;
+  label?: ReactNode;
   value: number | string;
   helper?: string;
   pill?: {
     text: string;
     color: 'green' | 'amber' | 'red' | 'blue';
   };
-  subtitle?: string;
+  subtitle?: ReactNode;
   description?: string;
   dense?: boolean;
   definitionHref?: string;
