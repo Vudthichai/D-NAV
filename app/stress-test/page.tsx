@@ -10,6 +10,7 @@ import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import Term from "@/components/ui/Term";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { useNetlifyIdentity } from "@/hooks/use-netlify-identity";
 import { DecisionEntry, DecisionMetrics, DecisionVariables, computeMetrics, detectJudgmentSignal } from "@/lib/calculations";
@@ -215,35 +216,35 @@ export default function StressTestPage() {
                     <div className="rounded-lg border border-border/60 bg-muted/20 px-3.5 py-3 space-y-2">
                       <SliderRow
                         id="impact"
-                        label="Impact"
+                        label={<Term term="impact" />}
                         value={variables.impact}
                         onChange={(value) => updateVariable("impact", value)}
                         compact
                       />
                       <SliderRow
                         id="cost"
-                        label="Cost"
+                        label={<Term term="cost" />}
                         value={variables.cost}
                         onChange={(value) => updateVariable("cost", value)}
                         compact
                       />
                       <SliderRow
                         id="risk"
-                        label="Risk"
+                        label={<Term term="risk" />}
                         value={variables.risk}
                         onChange={(value) => updateVariable("risk", value)}
                         compact
                       />
                       <SliderRow
                         id="urgency"
-                        label="Urgency"
+                        label={<Term term="urgency" />}
                         value={variables.urgency}
                         onChange={(value) => updateVariable("urgency", value)}
                         compact
                       />
                       <SliderRow
                         id="confidence"
-                        label="Confidence"
+                        label={<Term term="confidence" />}
                         value={variables.confidence}
                         onChange={(value) => updateVariable("confidence", value)}
                         compact
@@ -256,7 +257,9 @@ export default function StressTestPage() {
               <div className="space-y-3 md:col-span-1 lg:col-span-2 lg:grid lg:grid-cols-2 lg:gap-3 lg:space-y-0">
                 <Card className="flex h-full flex-col">
                   <CardHeader className="pb-1.5 space-y-1">
-                    <CardTitle className="text-base font-semibold">Return · Pressure · Stability</CardTitle>
+                    <CardTitle className="text-base font-semibold">
+                      <Term term="return" /> · <Term term="pressure" /> · <Term term="stability" />
+                    </CardTitle>
                     <p className="text-sm text-muted-foreground">Three quick reads from the sliders.</p>
                   </CardHeader>
                   <CardContent className="space-y-2.5 pb-4">
@@ -288,7 +291,9 @@ export default function StressTestPage() {
                   <CardHeader className="pb-1 space-y-1">
                     <div className="flex items-center justify-between gap-2">
                       <div>
-                        <CardTitle className="text-base font-semibold">D-NAV Readout</CardTitle>
+                        <CardTitle className="text-base font-semibold">
+                          <Term term="dnav">D-NAV</Term> Readout
+                        </CardTitle>
                         <p className="text-sm text-muted-foreground">System readout across condition, meaning, archetype, and action.</p>
                       </div>
                       <div className="flex items-center gap-3">

@@ -2,10 +2,11 @@
 
 import { Slider } from "@/components/ui/slider";
 import { cn } from "@/lib/utils";
+import { ReactNode } from "react";
 
 interface SliderRowProps {
   id: string;
-  label: string;
+  label: ReactNode;
   hint?: string;
   value: number;
   onChange: (value: number) => void;
