@@ -1,7 +1,6 @@
 "use client";
 
 import SliderRow from "@/components/SliderRow";
-import StatCard from "@/components/StatCard";
 import SummaryCard from "@/components/SummaryCard";
 import DatasetSelect from "@/components/DatasetSelect";
 import { useDataset } from "@/components/DatasetProvider";
@@ -97,6 +96,19 @@ export default function StressTestPage() {
     [],
   );
 
+  const pillVariants: Record<"green" | "amber" | "red" | "blue", string> = {
+    green: "bg-green-500/18 text-green-400 border-green-500/40",
+    amber: "bg-amber-500/18 text-amber-400 border-amber-500/35",
+    red: "bg-red-500/18 text-red-400 border-red-500/40",
+    blue: "bg-blue-500/18 text-blue-400 border-blue-500/35",
+  };
+
+  const formatStatValue = useCallback((value: number) => {
+    if (value > 0) return `+${value}`;
+    if (value < 0) return value.toString();
+    return "0";
+  }, []);
+
   return (
     <TooltipProvider>
       <main className="min-h-screen">
@@ -145,7 +157,7 @@ export default function StressTestPage() {
           ) : null}
 
           <section className="space-y-4">
-            <div className="grid grid-cols-1 items-start gap-3 md:grid-cols-[0.95fr_1.05fr] lg:grid-cols-[0.95fr_1fr_1fr]">
+            <div className="grid grid-cols-1 items-start gap-3 md:grid-cols-[0.95fr_1.05fr] lg:grid-cols-[0.95fr_1.05fr]">
               <Card className="h-full py-5">
                 <CardHeader className="pb-1 space-y-1 px-5">
                   <CardTitle className="text-base font-semibold">Decision Frame</CardTitle>
@@ -255,48 +267,61 @@ export default function StressTestPage() {
                 </CardContent>
               </Card>
 
-              <div className="space-y-3 md:col-span-1 lg:col-span-2 lg:grid lg:grid-cols-[0.9fr_1.1fr] lg:gap-3 lg:space-y-0">
+              <div className="space-y-3">
                 <Card className="flex h-full flex-col">
                   <CardHeader className="pb-1.5 space-y-1 px-5">
-                  <CardTitle className="text-base font-semibold">
+                    <CardTitle className="text-base font-semibold">
                       <Term termKey="return" /> · <Term termKey="pressure" /> · <Term termKey="stability" />
                     </CardTitle>
                     <p className="text-sm text-muted-foreground">Three fast reads from your inputs.</p>
                   </CardHeader>
-                  <CardContent className="space-y-2 pb-4 px-5">
-                    <StatCard
-                      title={<Term termKey="return">Return</Term>}
-                      value={metrics.return}
-                      pill={getPillColor(metrics.return, "return")}
-                      subtitle={
-                        <>
-                          <Term termKey="impact">Impact</Term> − <Term termKey="cost">Cost</Term>
-                        </>
-                      }
-                      dense
-                    />
-                    <StatCard
-                      title={<Term termKey="pressure">Pressure</Term>}
-                      value={metrics.pressure}
-                      pill={getPillColor(metrics.pressure, "pressure")}
-                      subtitle={
-                        <>
-                          <Term termKey="urgency">Urgency</Term> − <Term termKey="confidence">Confidence</Term>
-                        </>
-                      }
-                      dense
-                    />
-                    <StatCard
-                      title={<Term termKey="stability">Stability</Term>}
-                      value={metrics.stability}
-                      pill={getPillColor(metrics.stability, "stability")}
-                      subtitle={
-                        <>
-                          <Term termKey="confidence">Confidence</Term> − <Term termKey="risk">Risk</Term>
-                        </>
-                      }
-                      dense
-                    />
+                  <CardContent className="pb-4 px-5">
+                    <div className="grid gap-2 sm:grid-cols-3">
+                      <div className="rounded-lg border border-border/60 bg-muted/30 p-3">
+                        <div className="space-y-2">
+                          <p className="text-xs font-semibold text-muted-foreground">
+                            <Term termKey="return">Net gain</Term>
+                          </p>
+                          <div className="text-3xl font-black text-foreground">{formatStatValue(metrics.return)}</div>
+                          <Badge
+                            variant="outline"
+                            className={`inline-flex w-fit rounded-full px-2 py-0.5 text-[9px] font-extrabold uppercase tracking-wide ${pillVariants[getPillColor(metrics.return, "return").color]}`}
+                          >
+                            {getPillColor(metrics.return, "return").text}
+                          </Badge>
+                        </div>
+                      </div>
+                      <div className="rounded-lg border border-border/60 bg-muted/30 p-3">
+                        <div className="space-y-2">
+                          <p className="text-xs font-semibold text-muted-foreground">
+                            <Term termKey="pressure">What’s pushing the decision</Term>
+                          </p>
+                          <div className="text-3xl font-black text-foreground">{formatStatValue(metrics.pressure)}</div>
+                          <Badge
+                            variant="outline"
+                            className={`inline-flex w-fit rounded-full px-2 py-0.5 text-[9px] font-extrabold uppercase tracking-wide ${pillVariants[getPillColor(metrics.pressure, "pressure").color]}`}
+                          >
+                            {getPillColor(metrics.pressure, "pressure").text}
+                          </Badge>
+                        </div>
+                      </div>
+                      <div className="rounded-lg border border-border/60 bg-muted/30 p-3">
+                        <div className="space-y-2">
+                          <p className="text-xs font-semibold text-muted-foreground">
+                            <Term termKey="stability">Footing / resilience</Term>
+                          </p>
+                          <div className="text-3xl font-black text-foreground">
+                            {formatStatValue(metrics.stability)}
+                          </div>
+                          <Badge
+                            variant="outline"
+                            className={`inline-flex w-fit rounded-full px-2 py-0.5 text-[9px] font-extrabold uppercase tracking-wide ${pillVariants[getPillColor(metrics.stability, "stability").color]}`}
+                          >
+                            {getPillColor(metrics.stability, "stability").text}
+                          </Badge>
+                        </div>
+                      </div>
+                    </div>
                   </CardContent>
                 </Card>
 

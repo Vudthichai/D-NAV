@@ -26,7 +26,7 @@ export default function SliderRow({
   return (
     <div
       className={cn(
-        "grid min-w-0 items-center gap-3 grid-cols-[6.5rem_minmax(0,1fr)_2.5rem] sm:grid-cols-[7.5rem_minmax(0,1fr)_2.5rem]",
+        "grid min-w-0 items-center gap-2 grid-cols-[5.5rem_minmax(0,1fr)_2.5rem] sm:grid-cols-[6.5rem_minmax(0,1fr)_2.5rem]",
         compact ? "py-2" : "py-3",
       )}
     >
