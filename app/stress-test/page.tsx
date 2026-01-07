@@ -258,10 +258,10 @@ export default function StressTestPage() {
               <div className="space-y-3 md:col-span-1 lg:col-span-2 lg:grid lg:grid-cols-[0.9fr_1.1fr] lg:gap-3 lg:space-y-0">
                 <Card className="flex h-full flex-col">
                   <CardHeader className="pb-1.5 space-y-1 px-5">
-                    <CardTitle className="text-base font-semibold">
+                  <CardTitle className="text-base font-semibold">
                       <Term termKey="return" /> · <Term termKey="pressure" /> · <Term termKey="stability" />
                     </CardTitle>
-                    <p className="text-sm text-muted-foreground">Three quick reads from the sliders.</p>
+                    <p className="text-sm text-muted-foreground">Three fast reads from your inputs.</p>
                   </CardHeader>
                   <CardContent className="space-y-2 pb-4 px-5">
                     <StatCard
@@ -325,7 +325,6 @@ export default function StressTestPage() {
                       className="flex flex-1"
                       compact
                       showDefinitionLink={false}
-                      meaningExpanded
                     />
                   </CardContent>
                 </Card>
@@ -345,6 +344,14 @@ export default function StressTestPage() {
               </div>
             ) : null}
           </section>
+
+          {process.env.NODE_ENV === "development" ? (
+            <div className="rounded-lg border border-dashed border-border/60 bg-muted/30 px-3 py-2 text-xs text-muted-foreground">
+              Tooltip demo: <Term termKey="impact" /> · <Term termKey="cost" /> · <Term termKey="risk" /> ·{" "}
+              <Term termKey="urgency" /> · <Term termKey="confidence" /> · <Term termKey="return" /> ·{" "}
+              <Term termKey="pressure" /> · <Term termKey="stability" /> · <Term termKey="dnav">D-NAV</Term>
+            </div>
+          ) : null}
         </div>
         <DefinitionsSheet open={isDefinitionsOpen} onOpenChange={setIsDefinitionsOpen} />
       </main>

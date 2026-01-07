@@ -15,8 +15,6 @@ type TermProps = {
 export default function Term({ termKey, children, className, disableUnderline = false }: TermProps) {
   const definition = TERMS[termKey];
   const label = children ?? definition.label;
-  const tooltipCopy = definition.long ?? definition.short;
-
   return (
     <Tooltip>
       <TooltipTrigger asChild>
@@ -35,7 +33,8 @@ export default function Term({ termKey, children, className, disableUnderline = 
       </TooltipTrigger>
       <TooltipContent side="top" sideOffset={6} className="max-w-[240px] text-xs leading-snug">
         <div className="font-semibold text-background">{definition.label}</div>
-        <div className="mt-1 text-background/80">{tooltipCopy}</div>
+        <div className="mt-1 text-background/80">{definition.short}</div>
+        {definition.long ? <div className="mt-1 text-[11px] text-background/60">{definition.long}</div> : null}
       </TooltipContent>
     </Tooltip>
   );
