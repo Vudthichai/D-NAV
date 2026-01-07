@@ -20,7 +20,6 @@ export default function DecisionCalculator({ onDataChange }: DecisionCalculatorP
     urgency: 1,
     confidence: 1,
   });
-  const [isReadoutExpanded, setIsReadoutExpanded] = useState(false);
 
   const metrics = useMemo(() => computeMetrics(variables), [variables]);
   const updateVariable = useCallback((key: keyof DecisionVariables, value: number) => {
@@ -142,18 +141,10 @@ export default function DecisionCalculator({ onDataChange }: DecisionCalculatorP
           <CardHeader className="pb-3">
             <div className="flex items-center justify-between gap-2">
               <CardTitle className="text-lg">D-NAV Readout</CardTitle>
-              <button
-                type="button"
-                onClick={() => setIsReadoutExpanded((prev) => !prev)}
-                className="text-xs font-medium text-muted-foreground underline-offset-4 hover:text-foreground hover:underline"
-                aria-expanded={isReadoutExpanded}
-              >
-                {isReadoutExpanded ? "Hide" : "Explain"}
-              </button>
             </div>
           </CardHeader>
           <CardContent className="flex-1">
-            <SummaryCard metrics={metrics} meaningExpanded={isReadoutExpanded} />
+            <SummaryCard metrics={metrics} />
           </CardContent>
         </Card>
       </div>
