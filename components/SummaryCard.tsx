@@ -9,6 +9,7 @@ interface SummaryCardProps {
   metrics: DecisionMetrics;
   className?: string;
   compact?: boolean;
+  showMagnitudeCue?: boolean;
   showDefinitionLink?: boolean;
   judgmentSignal?: JudgmentSignal | null;
   meaningExpanded?: boolean;
@@ -18,6 +19,7 @@ export default function SummaryCard({
   metrics,
   className,
   compact = false,
+  showMagnitudeCue = true,
   judgmentSignal,
 }: SummaryCardProps) {
   const archetype = getArchetype(metrics);
@@ -28,6 +30,7 @@ export default function SummaryCard({
     [readoutLines.condition, readoutLines.meaning],
   );
   const magnitudeCue =
+    showMagnitudeCue &&
     metrics.dnav <= 20
       ? "Low leverage. Treat as a small move unless upside changes."
       : metrics.dnav >= 80

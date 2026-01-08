@@ -27,7 +27,7 @@ export default function SliderRow({
     <div
       className={cn(
         "grid min-w-0 items-center gap-2 grid-cols-[5.5rem_minmax(0,1fr)_2.5rem] sm:grid-cols-[6.5rem_minmax(0,1fr)_2.5rem]",
-        compact ? "py-2" : "py-3",
+        compact ? "py-1.5" : "py-3",
       )}
     >
       <label className="flex min-w-0 flex-col gap-1" title={compact ? hint : undefined}>

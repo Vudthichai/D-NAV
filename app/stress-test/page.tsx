@@ -30,7 +30,6 @@ export default function StressTestPage() {
   const [variables, setVariables] = useState<DecisionVariables>(() => ({ ...DEFAULT_VARIABLES }));
   const [metrics, setMetrics] = useState<DecisionMetrics>(() => computeMetrics(DEFAULT_VARIABLES));
   const [isSaved, setIsSaved] = useState(false);
-  const [hasInteracted, setHasInteracted] = useState(false);
   const [isDefinitionsOpen, setIsDefinitionsOpen] = useState(false);
   const decisionNameRef = useRef<HTMLInputElement>(null);
   const decisionCategoryRef = useRef<HTMLInputElement>(null);
@@ -39,7 +38,6 @@ export default function StressTestPage() {
   const { addDataset, setDecisions, isDatasetLoading, loadError } = useDataset();
 
   const updateVariable = useCallback((key: keyof DecisionVariables, value: number) => {
-    setHasInteracted(true);
     setVariables((prev) => {
       const updated = { ...prev, [key]: value };
       setMetrics(computeMetrics(updated));
@@ -81,7 +79,6 @@ export default function StressTestPage() {
     setVariables({ ...DEFAULT_VARIABLES });
     setMetrics(computeMetrics(DEFAULT_VARIABLES));
     setIsSaved(false);
-    setHasInteracted(false);
   };
 
   const judgmentSignal = useMemo(() => detectJudgmentSignal(variables, metrics), [metrics, variables]);
@@ -121,8 +118,8 @@ export default function StressTestPage() {
   return (
     <TooltipProvider>
       <main className="min-h-screen">
-        <div className="mx-auto max-w-6xl space-y-5 px-4 pb-8 pt-4 md:px-6">
-          <div className="flex flex-col gap-3 border-b border-border/60 pb-3">
+        <div className="mx-auto max-w-6xl space-y-4 px-4 pb-6 pt-4 md:px-6">
+          <div className="flex flex-col gap-2 border-b border-border/60 pb-2">
             <div className="flex flex-wrap items-start justify-between gap-3">
               <div className="space-y-1">
                 <h1 className="text-xl font-semibold text-foreground">Stress Test</h1>
@@ -166,14 +163,14 @@ export default function StressTestPage() {
             </div>
           ) : null}
 
-          <section className="space-y-4">
-            <div className="grid grid-cols-1 items-start gap-2 md:grid-cols-2 lg:grid-cols-[minmax(0,0.72fr)_minmax(0,0.52fr)_minmax(0,0.72fr)]">
-              <Card className="rounded-lg py-2">
-                <CardHeader className="space-y-0.5 px-3 pb-0">
+          <section className="space-y-3">
+            <div className="grid grid-cols-1 items-start gap-3 lg:grid-cols-12">
+              <Card className="rounded-lg lg:col-span-4">
+                <CardHeader className="space-y-0.5 px-4 pb-1 pt-4">
                   <CardTitle className="text-sm font-semibold">Decision Frame</CardTitle>
                   <p className="text-sm text-muted-foreground">Name it and set the five levers.</p>
                 </CardHeader>
-                <CardContent className="space-y-2 px-3">
+                <CardContent className="space-y-2 px-4 pb-4">
                   <div className="grid gap-1 sm:grid-cols-2">
                     <Input
                       ref={decisionNameRef}
@@ -182,7 +179,6 @@ export default function StressTestPage() {
                       value={decisionName}
                       onChange={(e) => {
                         setDecisionName(e.target.value);
-                        setHasInteracted(true);
                       }}
                       className="h-8 text-sm"
                     />
@@ -193,12 +189,11 @@ export default function StressTestPage() {
                       value={decisionCategory}
                       onChange={(e) => {
                         setDecisionCategory(e.target.value);
-                        setHasInteracted(true);
                       }}
                       className="h-8 text-sm"
                     />
                   </div>
-                  <div className="space-y-0.5">
+                  <div className="space-y-1">
                     <div className="flex items-center justify-between gap-2">
                       <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
                         Decision variables
@@ -207,7 +202,7 @@ export default function StressTestPage() {
                         1 = low · 10 = high
                       </Badge>
                     </div>
-                    <div className="rounded-md border border-border/60 bg-muted/20 px-2 py-1 space-y-0.5">
+                    <div className="space-y-0.5 rounded-md border border-border/60 bg-muted/20 px-2 py-1">
                       <SliderRow
                         id="impact"
                         label={<Term termKey="impact" />}
@@ -245,12 +240,8 @@ export default function StressTestPage() {
                       />
                     </div>
                   </div>
-                  <div className="grid gap-1 sm:grid-cols-2 sm:items-center">
-                    <Button
-                      onClick={handleSaveDecision}
-                      className="h-8 w-full"
-                      variant="secondary"
-                    >
+                  <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                    <Button onClick={handleSaveDecision} className="h-8 px-4" variant="secondary">
                       {isSaved ? (
                         <>
                           <Check className="mr-2 h-4 w-4" />
@@ -263,29 +254,27 @@ export default function StressTestPage() {
                         </>
                       )}
                     </Button>
-                    <div className="flex flex-wrap items-center gap-2 sm:justify-end">
-                      <Button variant="ghost" onClick={handleReset} className="h-8 px-3">
-                        Reset
-                      </Button>
-                    </div>
+                    <Button variant="ghost" onClick={handleReset} className="h-8 px-3">
+                      Reset
+                    </Button>
                   </div>
                 </CardContent>
               </Card>
 
-              <Card className="flex h-full flex-col rounded-lg">
-                <CardHeader className="space-y-0.5 px-3 pb-0">
+              <Card className="flex h-full flex-col rounded-lg lg:col-span-4">
+                <CardHeader className="space-y-0.5 px-4 pb-1 pt-4">
                   <CardTitle className="text-sm font-semibold">RPS</CardTitle>
-                  <p className="text-sm text-muted-foreground">Signals from your inputs.</p>
+                  <p className="text-sm text-muted-foreground">Signals from the frame.</p>
                 </CardHeader>
-                <CardContent className="px-3 pb-1.5">
-                  <div className="grid gap-1 sm:grid-cols-[repeat(3,minmax(0,88px))] sm:justify-between">
+                <CardContent className="px-4 pb-4">
+                  <div className="grid gap-2">
                     <div className="space-y-1">
                       <p className="text-xs font-semibold text-muted-foreground">
                         <Term termKey="return">Return</Term>
                       </p>
                       <div className="rounded-md border border-border/60 bg-muted/30 px-1.5 py-0.5">
                         <div className="space-y-0.5">
-                          <div className="text-3xl font-black text-foreground">
+                          <div className="text-2xl font-black text-foreground">
                             {formatStatValue(metrics.return)}
                           </div>
                           <Badge
@@ -303,7 +292,7 @@ export default function StressTestPage() {
                       </p>
                       <div className="rounded-md border border-border/60 bg-muted/30 px-1.5 py-0.5">
                         <div className="space-y-0.5">
-                          <div className="text-3xl font-black text-foreground">
+                          <div className="text-2xl font-black text-foreground">
                             {formatStatValue(metrics.pressure)}
                           </div>
                           <Badge
@@ -321,7 +310,7 @@ export default function StressTestPage() {
                       </p>
                       <div className="rounded-md border border-border/60 bg-muted/30 px-1.5 py-0.5">
                         <div className="space-y-0.5">
-                          <div className="text-3xl font-black text-foreground">
+                          <div className="text-2xl font-black text-foreground">
                             {formatStatValue(metrics.stability)}
                           </div>
                           <Badge
@@ -337,68 +326,26 @@ export default function StressTestPage() {
                 </CardContent>
               </Card>
 
-              <Card className="flex h-full flex-col rounded-lg">
-                <CardHeader className="space-y-0.5 px-3 pb-0">
-                  <div className="flex items-center justify-between gap-2">
-                    <div>
-                      <CardTitle className="text-sm font-semibold">
-                        <Term termKey="dnav">D-NAV</Term> Readout
-                      </CardTitle>
-                    </div>
-                    <div className="flex items-center gap-3">
-                      <a
-                        href="/scenarios"
-                        className="text-xs font-medium text-muted-foreground underline-offset-4 hover:text-foreground hover:underline"
-                      >
-                        Read scenarios
-                      </a>
-                    </div>
-                  </div>
+              <Card className="flex h-full flex-col rounded-lg lg:col-span-4">
+                <CardHeader className="space-y-0.5 px-4 pb-1 pt-4">
+                  <CardTitle className="text-sm font-semibold">
+                    <Term termKey="dnav">D-NAV</Term> Readout
+                  </CardTitle>
                 </CardHeader>
-                <CardContent className="flex-1 px-3 pb-2">
-                  <div className="flex h-full flex-col gap-2.5">
+                <CardContent className="flex-1 px-4 pb-4">
+                  <div className="flex h-full flex-col gap-2">
                     <SummaryCard
                       metrics={metrics}
                       judgmentSignal={judgmentSignal}
                       className="flex flex-1"
                       compact
+                      showMagnitudeCue={false}
                       showDefinitionLink={false}
                     />
-                    <div className="border-t border-border/60 pt-2.5">
-                      <div className="flex flex-col gap-2">
-                        <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
-                          <span>This is one decision. Patterns emerge after 10–20.</span>
-                          {isSaved ? (
-                            <span className="inline-flex items-center gap-1 rounded-full border border-emerald-500/30 bg-emerald-500/10 px-2 py-0.5 text-[10px] font-semibold text-emerald-400">
-                              <Check className="h-3 w-3" />
-                              Saved
-                            </span>
-                          ) : null}
-                        </div>
-                        <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
-                          <Button variant="ghost" className="h-8 sm:w-auto" asChild>
-                            <a href="/log">View decision history</a>
-                          </Button>
-                        </div>
-                      </div>
-                    </div>
                   </div>
                 </CardContent>
               </Card>
             </div>
-
-            {hasInteracted ? (
-              <div className="rounded-lg border border-border/60 bg-muted/20 px-3 py-2.5">
-                <div className="flex flex-col items-start gap-2 sm:flex-row sm:items-center sm:justify-between">
-                  <div className="text-sm font-semibold text-foreground">Ready for a deeper pass?</div>
-                  <div className="flex flex-wrap items-center gap-2">
-                    <Button size="sm" asChild>
-                      <a href="/contact">Run a Decision Check</a>
-                    </Button>
-                  </div>
-                </div>
-              </div>
-            ) : null}
           </section>
 
           {process.env.NODE_ENV === "development" ? (
