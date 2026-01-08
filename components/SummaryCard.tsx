@@ -27,6 +27,12 @@ export default function SummaryCard({
     () => `${readoutLines.condition} ${readoutLines.meaning}`.trim(),
     [readoutLines.condition, readoutLines.meaning],
   );
+  const magnitudeCue =
+    metrics.dnav <= 20
+      ? "Low leverage. Treat as a small move unless upside changes."
+      : metrics.dnav >= 80
+        ? "High leverage. Same geometry, bigger consequences."
+        : null;
 
   return (
     <div className={cn("flex flex-1 flex-col", compact ? "gap-4" : "gap-6", className)}>
@@ -45,15 +51,20 @@ export default function SummaryCard({
                 {archetype.name}
               </div>
             </div>
-            <div className="flex items-center gap-2 rounded-full border border-border/70 bg-background/80 px-3 py-1 shadow-sm">
-              <Term
-                termKey="dnav"
-                disableUnderline
-                className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground"
-              >
-                D-NAV
-              </Term>
-              <p className="text-base font-black text-foreground">{metrics.dnav}</p>
+            <div className="rounded-lg border border-border/70 bg-background/80 px-3 py-1 shadow-sm">
+              <div className="flex items-center gap-2">
+                <Term
+                  termKey="dnav"
+                  disableUnderline
+                  className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground"
+                >
+                  D-NAV
+                </Term>
+                <p className="text-base font-black text-foreground">{metrics.dnav}</p>
+              </div>
+              {magnitudeCue ? (
+                <p className="mt-1 text-[10px] font-medium text-muted-foreground">{magnitudeCue}</p>
+              ) : null}
             </div>
           </div>
           <div className="space-y-1">

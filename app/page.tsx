@@ -122,7 +122,7 @@ function HeroSection() {
                   className="h-10 w-full sm:w-auto px-4 text-sm font-medium text-slate-200 hover:text-amber-200 hover:bg-white/5 focus-visible:ring-amber-300 focus-visible:ring-offset-2 focus-visible:ring-offset-[#050608]"
                   asChild
                 >
-                  <Link href="/stress-test">I&apos;m returning — take me to Stress Test</Link>
+                  <Link href="/contact">Request a pre-commitment review</Link>
                 </Button>
               </div>
               <p className="text-sm text-slate-400">One decision. Five variables. Immediate clarity.</p>
@@ -238,10 +238,10 @@ function ExecutiveReadoutSection() {
               <p>Built for boardrooms, diligence reviews, and executive sessions where judgment must be defensible.</p>
               <p>D-NAV translates the system grammar into a concise brief that makes pressure, risk, and stability legible before any commitment.</p>
               <p>It shows how judgment is applied, where hidden pressure sits, and whether stability can absorb the move — the evidence executives expect in the room.</p>
-              <p>The readout is a consulting deliverable, designed to replace slide decks and post-hoc explanations.</p>
+              <p>The readout is a consulting deliverable designed to reduce slideware and eliminate post-hoc storytelling.</p>
               <p>The goal is a plan that has already survived questioning.</p>
             </div>
-            <p className="text-sm text-slate-400">The D-NAV brief replaces slide decks with a system-led decision narrative.</p>
+            <p className="text-sm text-slate-400">The readout is a consulting deliverable that makes the decision legible before execution.</p>
           </div>
 
           <div className="relative flex justify-center md:justify-end">
@@ -296,12 +296,7 @@ function UnderTheHoodSection() {
   return (
     <section id="quick-start" className="bg-[#040507] py-16 md:py-20">
       <div className="max-w-6xl mx-auto px-6 space-y-10">
-        <SectionHeading
-          title="Under the hood: RPS + D-NAV"
-          subtitle="System grammar used inside consulting engagements."
-          align="left"
-          eyebrow="System grammar"
-        />
+        <SectionHeading title="Under the hood: RPS + D-NAV" align="left" eyebrow="System grammar" />
 
         <p className="text-slate-300 text-base max-w-3xl animate-fade-up" style={{ "--delay": "0.04s" } as CSSProperties}>
           D-NAV doesn&apos;t tell you what to decide. It shows you how your decisions behave under pressure.

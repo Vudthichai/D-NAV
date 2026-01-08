@@ -168,12 +168,12 @@ export default function StressTestPage() {
 
           <section className="space-y-4">
             <div className="grid grid-cols-1 items-start gap-3 md:grid-cols-[1.05fr_0.95fr] lg:grid-cols-[1.05fr_0.95fr]">
-              <Card className="h-full rounded-lg py-2.5">
-                <CardHeader className="space-y-0.5 px-4 pb-0.5">
+              <Card className="rounded-lg py-2">
+                <CardHeader className="space-y-0.5 px-3.5 pb-0">
                   <CardTitle className="text-sm font-semibold">Decision Frame</CardTitle>
                   <p className="text-sm text-muted-foreground">Name it and set the five levers.</p>
                 </CardHeader>
-                <CardContent className="space-y-2 px-4">
+                <CardContent className="space-y-1.5 px-3.5">
                   <div className="grid gap-1 sm:grid-cols-2">
                     <Input
                       ref={decisionNameRef}
@@ -207,7 +207,7 @@ export default function StressTestPage() {
                         1 = low · 10 = high
                       </Badge>
                     </div>
-                    <div className="rounded-md border border-border/60 bg-muted/20 px-2.5 py-1 space-y-1">
+                    <div className="rounded-md border border-border/60 bg-muted/20 px-2 py-1 space-y-0.5">
                       <SliderRow
                         id="impact"
                         label={<Term termKey="impact" />}
@@ -245,7 +245,7 @@ export default function StressTestPage() {
                       />
                     </div>
                   </div>
-                  <div className="grid gap-1.5 sm:grid-cols-2 sm:items-center">
+                  <div className="grid gap-1 sm:grid-cols-2 sm:items-center">
                     <Button
                       onClick={handleSaveDecision}
                       className="h-8 w-full"
@@ -276,16 +276,16 @@ export default function StressTestPage() {
                 <Card className="flex h-full flex-col rounded-lg">
                   <CardHeader className="space-y-0.5 px-3.5 pb-0.5">
                     <CardTitle className="text-sm font-semibold">RPS</CardTitle>
-                    <p className="text-sm text-muted-foreground">Signals derived from the decision frame.</p>
+                    <p className="text-sm text-muted-foreground">Signals from your inputs.</p>
                   </CardHeader>
                   <CardContent className="px-3.5 pb-2">
-                    <div className="grid gap-1.5 sm:grid-cols-[repeat(3,minmax(0,108px))] sm:justify-between">
-                      <div className="space-y-1.5">
+                    <div className="grid gap-1.5 sm:grid-cols-[repeat(3,minmax(0,96px))] sm:justify-between">
+                      <div className="space-y-1">
                         <p className="text-xs font-semibold text-muted-foreground">
                           <Term termKey="return">Return</Term>
                         </p>
-                        <div className="rounded-md border border-border/60 bg-muted/30 px-1.5 py-1">
-                          <div className="space-y-1">
+                        <div className="rounded-md border border-border/60 bg-muted/30 px-2 py-1">
+                          <div className="space-y-0.5">
                             <div className="text-3xl font-black text-foreground">
                               {formatStatValue(metrics.return)}
                             </div>
@@ -298,12 +298,12 @@ export default function StressTestPage() {
                           </div>
                         </div>
                       </div>
-                      <div className="space-y-1.5">
+                      <div className="space-y-1">
                         <p className="text-xs font-semibold text-muted-foreground">
                           <Term termKey="pressure">Pressure</Term>
                         </p>
-                        <div className="rounded-md border border-border/60 bg-muted/30 px-1.5 py-1">
-                          <div className="space-y-1">
+                        <div className="rounded-md border border-border/60 bg-muted/30 px-2 py-1">
+                          <div className="space-y-0.5">
                             <div className="text-3xl font-black text-foreground">
                               {formatStatValue(metrics.pressure)}
                             </div>
@@ -316,12 +316,12 @@ export default function StressTestPage() {
                           </div>
                         </div>
                       </div>
-                      <div className="space-y-1.5">
+                      <div className="space-y-1">
                         <p className="text-xs font-semibold text-muted-foreground">
                           <Term termKey="stability">Stability</Term>
                         </p>
-                        <div className="rounded-md border border-border/60 bg-muted/30 px-1.5 py-1">
-                          <div className="space-y-1">
+                        <div className="rounded-md border border-border/60 bg-muted/30 px-2 py-1">
+                          <div className="space-y-0.5">
                             <div className="text-3xl font-black text-foreground">
                               {formatStatValue(metrics.stability)}
                             </div>
