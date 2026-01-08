@@ -167,14 +167,14 @@ export default function StressTestPage() {
           ) : null}
 
           <section className="space-y-4">
-            <div className="grid grid-cols-1 items-start gap-3 md:grid-cols-[0.72fr_1.28fr] lg:grid-cols-[0.72fr_1.28fr]">
-              <Card className="h-full py-5">
-                <CardHeader className="pb-1 space-y-1 px-5">
-                  <CardTitle className="text-base font-semibold">Decision Frame</CardTitle>
+            <div className="grid grid-cols-1 items-start gap-3 md:grid-cols-[1.05fr_0.95fr] lg:grid-cols-[1.05fr_0.95fr]">
+              <Card className="h-full rounded-lg py-2.5">
+                <CardHeader className="space-y-0.5 px-4 pb-0.5">
+                  <CardTitle className="text-sm font-semibold">Decision Frame</CardTitle>
                   <p className="text-sm text-muted-foreground">Name it and set the five levers.</p>
                 </CardHeader>
-                <CardContent className="space-y-4 px-5">
-                  <div className="grid gap-2.5 sm:grid-cols-2">
+                <CardContent className="space-y-2 px-4">
+                  <div className="grid gap-1 sm:grid-cols-2">
                     <Input
                       ref={decisionNameRef}
                       type="text"
@@ -184,7 +184,7 @@ export default function StressTestPage() {
                         setDecisionName(e.target.value);
                         setHasInteracted(true);
                       }}
-                      className="h-10 text-sm"
+                      className="h-8 text-sm"
                     />
                     <Input
                       ref={decisionCategoryRef}
@@ -195,34 +195,10 @@ export default function StressTestPage() {
                         setDecisionCategory(e.target.value);
                         setHasInteracted(true);
                       }}
-                      className="h-10 text-sm"
+                      className="h-8 text-sm"
                     />
                   </div>
-                  <div className="grid gap-2.5 sm:grid-cols-2 sm:items-center">
-                    <Button
-                      onClick={handleSaveDecision}
-                      className="h-10 w-full"
-                      variant="secondary"
-                    >
-                      {isSaved ? (
-                        <>
-                          <Check className="mr-2 h-4 w-4" />
-                          Saved!
-                        </>
-                      ) : (
-                        <>
-                          <Save className="mr-2 h-4 w-4" />
-                          Commit this decision
-                        </>
-                      )}
-                    </Button>
-                    <div className="flex flex-wrap items-center gap-2 sm:justify-end">
-                      <Button variant="ghost" onClick={handleReset} className="h-10 px-3">
-                        Reset
-                      </Button>
-                    </div>
-                  </div>
-                  <div className="space-y-2">
+                  <div className="space-y-0.5">
                     <div className="flex items-center justify-between gap-2">
                       <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
                         Decision variables
@@ -231,7 +207,7 @@ export default function StressTestPage() {
                         1 = low · 10 = high
                       </Badge>
                     </div>
-                    <div className="rounded-lg border border-border/60 bg-muted/20 px-3 py-3 space-y-2">
+                    <div className="rounded-md border border-border/60 bg-muted/20 px-2.5 py-1 space-y-1">
                       <SliderRow
                         id="impact"
                         label={<Term termKey="impact" />}
@@ -269,22 +245,46 @@ export default function StressTestPage() {
                       />
                     </div>
                   </div>
+                  <div className="grid gap-1.5 sm:grid-cols-2 sm:items-center">
+                    <Button
+                      onClick={handleSaveDecision}
+                      className="h-8 w-full"
+                      variant="secondary"
+                    >
+                      {isSaved ? (
+                        <>
+                          <Check className="mr-2 h-4 w-4" />
+                          Saved!
+                        </>
+                      ) : (
+                        <>
+                          <Save className="mr-2 h-4 w-4" />
+                          Commit this decision
+                        </>
+                      )}
+                    </Button>
+                    <div className="flex flex-wrap items-center gap-2 sm:justify-end">
+                      <Button variant="ghost" onClick={handleReset} className="h-8 px-3">
+                        Reset
+                      </Button>
+                    </div>
+                  </div>
                 </CardContent>
               </Card>
 
               <div className="space-y-3">
-                <Card className="flex h-full flex-col">
-                  <CardHeader className="space-y-1 px-5 pb-1">
-                    <CardTitle className="text-base font-semibold">RPS</CardTitle>
-                    <p className="text-sm text-muted-foreground">Three fast reads from your inputs.</p>
+                <Card className="flex h-full flex-col rounded-lg">
+                  <CardHeader className="space-y-0.5 px-3.5 pb-0.5">
+                    <CardTitle className="text-sm font-semibold">RPS</CardTitle>
+                    <p className="text-sm text-muted-foreground">Signals derived from the decision frame.</p>
                   </CardHeader>
-                  <CardContent className="px-5 pb-3">
-                    <div className="grid gap-1.5 sm:grid-cols-3">
+                  <CardContent className="px-3.5 pb-2">
+                    <div className="grid gap-1.5 sm:grid-cols-[repeat(3,minmax(0,108px))] sm:justify-between">
                       <div className="space-y-1.5">
                         <p className="text-xs font-semibold text-muted-foreground">
                           <Term termKey="return">Return</Term>
                         </p>
-                        <div className="rounded-lg border border-border/60 bg-muted/30 p-2">
+                        <div className="rounded-md border border-border/60 bg-muted/30 px-1.5 py-1">
                           <div className="space-y-1">
                             <div className="text-3xl font-black text-foreground">
                               {formatStatValue(metrics.return)}
@@ -302,7 +302,7 @@ export default function StressTestPage() {
                         <p className="text-xs font-semibold text-muted-foreground">
                           <Term termKey="pressure">Pressure</Term>
                         </p>
-                        <div className="rounded-lg border border-border/60 bg-muted/30 p-2">
+                        <div className="rounded-md border border-border/60 bg-muted/30 px-1.5 py-1">
                           <div className="space-y-1">
                             <div className="text-3xl font-black text-foreground">
                               {formatStatValue(metrics.pressure)}
@@ -320,7 +320,7 @@ export default function StressTestPage() {
                         <p className="text-xs font-semibold text-muted-foreground">
                           <Term termKey="stability">Stability</Term>
                         </p>
-                        <div className="rounded-lg border border-border/60 bg-muted/30 p-2">
+                        <div className="rounded-md border border-border/60 bg-muted/30 px-1.5 py-1">
                           <div className="space-y-1">
                             <div className="text-3xl font-black text-foreground">
                               {formatStatValue(metrics.stability)}
@@ -338,11 +338,11 @@ export default function StressTestPage() {
                   </CardContent>
                 </Card>
 
-                <Card className="flex h-full flex-col">
-                  <CardHeader className="pb-1 space-y-1 px-5">
+                <Card className="flex h-full flex-col rounded-lg">
+                  <CardHeader className="space-y-0.5 px-3.5 pb-0.5">
                     <div className="flex items-center justify-between gap-2">
                       <div>
-                        <CardTitle className="text-base font-semibold">
+                        <CardTitle className="text-sm font-semibold">
                           <Term termKey="dnav">D-NAV</Term> Readout
                         </CardTitle>
                       </div>
@@ -356,8 +356,8 @@ export default function StressTestPage() {
                       </div>
                     </div>
                   </CardHeader>
-                  <CardContent className="flex-1 px-5 pb-4">
-                    <div className="flex h-full flex-col gap-4">
+                  <CardContent className="flex-1 px-3.5 pb-3">
+                    <div className="flex h-full flex-col gap-3">
                       <SummaryCard
                         metrics={metrics}
                         judgmentSignal={judgmentSignal}
@@ -365,8 +365,8 @@ export default function StressTestPage() {
                         compact
                         showDefinitionLink={false}
                       />
-                      <div className="border-t border-border/60 pt-4">
-                        <div className="flex flex-col gap-3">
+                      <div className="border-t border-border/60 pt-3">
+                        <div className="flex flex-col gap-2.5">
                           <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
                             <span>This is one decision. Patterns emerge after 10–20.</span>
                             {isSaved ? (
@@ -377,24 +377,9 @@ export default function StressTestPage() {
                             ) : null}
                           </div>
                           <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
-                            {isSaved ? (
-                              <Button className="h-10 sm:w-auto" asChild>
-                                <a href="/log">View decision history</a>
-                              </Button>
-                            ) : (
-                              <Button className="h-10 sm:w-auto" onClick={handleSaveDecision}>
-                                Commit this decision
-                              </Button>
-                            )}
-                            {isSaved ? (
-                              <Button variant="ghost" className="h-10 sm:w-auto" onClick={handleSaveDecision}>
-                                Commit this decision
-                              </Button>
-                            ) : (
-                              <Button variant="ghost" className="h-10 sm:w-auto" asChild>
-                                <a href="/log">View decision history</a>
-                              </Button>
-                            )}
+                            <Button variant="ghost" className="h-8 sm:w-auto" asChild>
+                              <a href="/log">View decision history</a>
+                            </Button>
                           </div>
                         </div>
                       </div>
