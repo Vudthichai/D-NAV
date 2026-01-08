@@ -167,13 +167,13 @@ export default function StressTestPage() {
           ) : null}
 
           <section className="space-y-4">
-            <div className="grid grid-cols-1 items-start gap-3 md:grid-cols-[1.05fr_0.95fr] lg:grid-cols-[1.05fr_0.95fr]">
+            <div className="grid grid-cols-1 items-start gap-2 md:grid-cols-2 lg:grid-cols-[minmax(0,0.72fr)_minmax(0,0.52fr)_minmax(0,0.72fr)]">
               <Card className="rounded-lg py-2">
-                <CardHeader className="space-y-0.5 px-3.5 pb-0">
+                <CardHeader className="space-y-0.5 px-3 pb-0">
                   <CardTitle className="text-sm font-semibold">Decision Frame</CardTitle>
                   <p className="text-sm text-muted-foreground">Name it and set the five levers.</p>
                 </CardHeader>
-                <CardContent className="space-y-1.5 px-3.5">
+                <CardContent className="space-y-2 px-3">
                   <div className="grid gap-1 sm:grid-cols-2">
                     <Input
                       ref={decisionNameRef}
@@ -272,121 +272,119 @@ export default function StressTestPage() {
                 </CardContent>
               </Card>
 
-              <div className="space-y-3">
-                <Card className="flex h-full flex-col rounded-lg">
-                  <CardHeader className="space-y-0.5 px-3.5 pb-0.5">
-                    <CardTitle className="text-sm font-semibold">RPS</CardTitle>
-                    <p className="text-sm text-muted-foreground">Signals from your inputs.</p>
-                  </CardHeader>
-                  <CardContent className="px-3.5 pb-2">
-                    <div className="grid gap-1.5 sm:grid-cols-[repeat(3,minmax(0,96px))] sm:justify-between">
-                      <div className="space-y-1">
-                        <p className="text-xs font-semibold text-muted-foreground">
-                          <Term termKey="return">Return</Term>
-                        </p>
-                        <div className="rounded-md border border-border/60 bg-muted/30 px-2 py-1">
-                          <div className="space-y-0.5">
-                            <div className="text-3xl font-black text-foreground">
-                              {formatStatValue(metrics.return)}
-                            </div>
-                            <Badge
-                              variant="outline"
-                              className={`inline-flex w-fit rounded-full px-2 py-0.5 text-[9px] font-extrabold uppercase tracking-wide ${pillVariants[getPillColor(metrics.return, "return").color]}`}
-                            >
-                              {getPillColor(metrics.return, "return").text}
-                            </Badge>
+              <Card className="flex h-full flex-col rounded-lg">
+                <CardHeader className="space-y-0.5 px-3 pb-0">
+                  <CardTitle className="text-sm font-semibold">RPS</CardTitle>
+                  <p className="text-sm text-muted-foreground">Signals from your inputs.</p>
+                </CardHeader>
+                <CardContent className="px-3 pb-1.5">
+                  <div className="grid gap-1 sm:grid-cols-[repeat(3,minmax(0,88px))] sm:justify-between">
+                    <div className="space-y-1">
+                      <p className="text-xs font-semibold text-muted-foreground">
+                        <Term termKey="return">Return</Term>
+                      </p>
+                      <div className="rounded-md border border-border/60 bg-muted/30 px-1.5 py-0.5">
+                        <div className="space-y-0.5">
+                          <div className="text-3xl font-black text-foreground">
+                            {formatStatValue(metrics.return)}
                           </div>
-                        </div>
-                      </div>
-                      <div className="space-y-1">
-                        <p className="text-xs font-semibold text-muted-foreground">
-                          <Term termKey="pressure">Pressure</Term>
-                        </p>
-                        <div className="rounded-md border border-border/60 bg-muted/30 px-2 py-1">
-                          <div className="space-y-0.5">
-                            <div className="text-3xl font-black text-foreground">
-                              {formatStatValue(metrics.pressure)}
-                            </div>
-                            <Badge
-                              variant="outline"
-                              className={`inline-flex w-fit rounded-full px-2 py-0.5 text-[9px] font-extrabold uppercase tracking-wide ${pillVariants[getPillColor(metrics.pressure, "pressure").color]}`}
-                            >
-                              {getPillColor(metrics.pressure, "pressure").text}
-                            </Badge>
-                          </div>
-                        </div>
-                      </div>
-                      <div className="space-y-1">
-                        <p className="text-xs font-semibold text-muted-foreground">
-                          <Term termKey="stability">Stability</Term>
-                        </p>
-                        <div className="rounded-md border border-border/60 bg-muted/30 px-2 py-1">
-                          <div className="space-y-0.5">
-                            <div className="text-3xl font-black text-foreground">
-                              {formatStatValue(metrics.stability)}
-                            </div>
-                            <Badge
-                              variant="outline"
-                              className={`inline-flex w-fit rounded-full px-2 py-0.5 text-[9px] font-extrabold uppercase tracking-wide ${pillVariants[getPillColor(metrics.stability, "stability").color]}`}
-                            >
-                              {getPillColor(metrics.stability, "stability").text}
-                            </Badge>
-                          </div>
+                          <Badge
+                            variant="outline"
+                            className={`inline-flex w-fit rounded-full px-2 py-0.5 text-[9px] font-extrabold uppercase tracking-wide ${pillVariants[getPillColor(metrics.return, "return").color]}`}
+                          >
+                            {getPillColor(metrics.return, "return").text}
+                          </Badge>
                         </div>
                       </div>
                     </div>
-                  </CardContent>
-                </Card>
+                    <div className="space-y-1">
+                      <p className="text-xs font-semibold text-muted-foreground">
+                        <Term termKey="pressure">Pressure</Term>
+                      </p>
+                      <div className="rounded-md border border-border/60 bg-muted/30 px-1.5 py-0.5">
+                        <div className="space-y-0.5">
+                          <div className="text-3xl font-black text-foreground">
+                            {formatStatValue(metrics.pressure)}
+                          </div>
+                          <Badge
+                            variant="outline"
+                            className={`inline-flex w-fit rounded-full px-2 py-0.5 text-[9px] font-extrabold uppercase tracking-wide ${pillVariants[getPillColor(metrics.pressure, "pressure").color]}`}
+                          >
+                            {getPillColor(metrics.pressure, "pressure").text}
+                          </Badge>
+                        </div>
+                      </div>
+                    </div>
+                    <div className="space-y-1">
+                      <p className="text-xs font-semibold text-muted-foreground">
+                        <Term termKey="stability">Stability</Term>
+                      </p>
+                      <div className="rounded-md border border-border/60 bg-muted/30 px-1.5 py-0.5">
+                        <div className="space-y-0.5">
+                          <div className="text-3xl font-black text-foreground">
+                            {formatStatValue(metrics.stability)}
+                          </div>
+                          <Badge
+                            variant="outline"
+                            className={`inline-flex w-fit rounded-full px-2 py-0.5 text-[9px] font-extrabold uppercase tracking-wide ${pillVariants[getPillColor(metrics.stability, "stability").color]}`}
+                          >
+                            {getPillColor(metrics.stability, "stability").text}
+                          </Badge>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
 
-                <Card className="flex h-full flex-col rounded-lg">
-                  <CardHeader className="space-y-0.5 px-3.5 pb-0.5">
-                    <div className="flex items-center justify-between gap-2">
-                      <div>
-                        <CardTitle className="text-sm font-semibold">
-                          <Term termKey="dnav">D-NAV</Term> Readout
-                        </CardTitle>
-                      </div>
-                      <div className="flex items-center gap-3">
-                        <a
-                          href="/scenarios"
-                          className="text-xs font-medium text-muted-foreground underline-offset-4 hover:text-foreground hover:underline"
-                        >
-                          Read scenarios
-                        </a>
-                      </div>
+              <Card className="flex h-full flex-col rounded-lg">
+                <CardHeader className="space-y-0.5 px-3 pb-0">
+                  <div className="flex items-center justify-between gap-2">
+                    <div>
+                      <CardTitle className="text-sm font-semibold">
+                        <Term termKey="dnav">D-NAV</Term> Readout
+                      </CardTitle>
                     </div>
-                  </CardHeader>
-                  <CardContent className="flex-1 px-3.5 pb-3">
-                    <div className="flex h-full flex-col gap-3">
-                      <SummaryCard
-                        metrics={metrics}
-                        judgmentSignal={judgmentSignal}
-                        className="flex flex-1"
-                        compact
-                        showDefinitionLink={false}
-                      />
-                      <div className="border-t border-border/60 pt-3">
-                        <div className="flex flex-col gap-2.5">
-                          <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
-                            <span>This is one decision. Patterns emerge after 10–20.</span>
-                            {isSaved ? (
-                              <span className="inline-flex items-center gap-1 rounded-full border border-emerald-500/30 bg-emerald-500/10 px-2 py-0.5 text-[10px] font-semibold text-emerald-400">
-                                <Check className="h-3 w-3" />
-                                Saved
-                              </span>
-                            ) : null}
-                          </div>
-                          <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
-                            <Button variant="ghost" className="h-8 sm:w-auto" asChild>
-                              <a href="/log">View decision history</a>
-                            </Button>
-                          </div>
+                    <div className="flex items-center gap-3">
+                      <a
+                        href="/scenarios"
+                        className="text-xs font-medium text-muted-foreground underline-offset-4 hover:text-foreground hover:underline"
+                      >
+                        Read scenarios
+                      </a>
+                    </div>
+                  </div>
+                </CardHeader>
+                <CardContent className="flex-1 px-3 pb-2">
+                  <div className="flex h-full flex-col gap-2.5">
+                    <SummaryCard
+                      metrics={metrics}
+                      judgmentSignal={judgmentSignal}
+                      className="flex flex-1"
+                      compact
+                      showDefinitionLink={false}
+                    />
+                    <div className="border-t border-border/60 pt-2.5">
+                      <div className="flex flex-col gap-2">
+                        <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+                          <span>This is one decision. Patterns emerge after 10–20.</span>
+                          {isSaved ? (
+                            <span className="inline-flex items-center gap-1 rounded-full border border-emerald-500/30 bg-emerald-500/10 px-2 py-0.5 text-[10px] font-semibold text-emerald-400">
+                              <Check className="h-3 w-3" />
+                              Saved
+                            </span>
+                          ) : null}
+                        </div>
+                        <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+                          <Button variant="ghost" className="h-8 sm:w-auto" asChild>
+                            <a href="/log">View decision history</a>
+                          </Button>
                         </div>
                       </div>
                     </div>
-                  </CardContent>
-                </Card>
-              </div>
+                  </div>
+                </CardContent>
+              </Card>
             </div>
 
             {hasInteracted ? (
