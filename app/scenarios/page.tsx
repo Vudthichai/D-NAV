@@ -144,6 +144,45 @@ export default function ScenariosPage() {
           ))}
         </div>
 
+        <Card className="border-white/10 bg-white/[0.04] text-white shadow-[0_18px_50px_-42px_rgba(0,0,0,0.9)]">
+          <CardHeader className="pb-2">
+            <CardTitle className="text-lg font-semibold">Decision market inefficiencies</CardTitle>
+            <p className="text-sm text-slate-200">Early warning / early opportunity signals.</p>
+          </CardHeader>
+          <CardContent className="space-y-3 text-sm text-slate-200">
+            <ul className="space-y-2">
+              <li className="flex items-start gap-2">
+                <span className="mt-[6px] h-1.5 w-1.5 rounded-full bg-amber-300" aria-hidden />
+                <span>
+                  Confidence ↑ faster than Return → Narrative inflation. Leaders believe more than results justify. This
+                  is where reputational risk and mispricing hide.
+                </span>
+              </li>
+              <li className="flex items-start gap-2">
+                <span className="mt-[6px] h-1.5 w-1.5 rounded-full bg-amber-300" aria-hidden />
+                <span>
+                  Pressure compresses Stability → Fragile execution regimes. Things look fine… until they don’t. Classic
+                  blow-up zone.
+                </span>
+              </li>
+              <li className="flex items-start gap-2">
+                <span className="mt-[6px] h-1.5 w-1.5 rounded-full bg-amber-300" aria-hidden />
+                <span>
+                  High Impact + Low Cost persists → Underexploited leverage. This is where boards ask “why didn’t we do
+                  this sooner?”
+                </span>
+              </li>
+              <li className="flex items-start gap-2">
+                <span className="mt-[6px] h-1.5 w-1.5 rounded-full bg-amber-300" aria-hidden />
+                <span>Urgency spikes without Risk → Political or emotional distortion. Decisions are being rushed without external necessity.</span>
+              </li>
+            </ul>
+            <p className="text-sm text-slate-200">
+              Compare modes tell you how you performed. These tell you where to look next. That distinction matters.
+            </p>
+          </CardContent>
+        </Card>
+
         <div className="flex flex-col items-center justify-center gap-3 rounded-2xl border border-white/10 bg-white/5 px-4 py-5 text-center md:flex-row md:px-6">
           <p className="text-sm text-slate-200">Ready to translate your own situation?</p>
           <div className="flex flex-wrap items-center justify-center gap-2">
