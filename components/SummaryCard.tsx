@@ -38,9 +38,9 @@ export default function SummaryCard({
         : null;
 
   return (
-    <div className={cn("flex flex-1 flex-col", compact ? "gap-4" : "gap-6", className)}>
-      <div className={cn("rounded-lg border border-border/50 bg-muted/20", compact ? "p-3" : "p-4", "mt-auto")}>
-        <div className="flex flex-col gap-3">
+    <div className={cn("flex flex-1 flex-col", compact ? "gap-3" : "gap-6", className)}>
+      <div className={cn("rounded-lg border border-border/50 bg-muted/20", compact ? "p-2.5" : "p-4", "mt-auto")}>
+        <div className={cn("flex flex-col", compact ? "gap-2.5" : "gap-3")}>
           <div className="flex flex-wrap items-start justify-between gap-3">
             <div className="space-y-1">
               <p className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">Archetype</p>
@@ -71,20 +71,41 @@ export default function SummaryCard({
             </div>
           </div>
           <div className="space-y-1">
-            <p className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">System summary</p>
+            <p
+              className={cn(
+                compact
+                  ? "text-[10px] font-medium uppercase tracking-wide text-muted-foreground/70"
+                  : "text-[11px] font-semibold uppercase tracking-wider text-muted-foreground",
+              )}
+            >
+              System summary
+            </p>
             <p
               className={cn(
                 hasJudgmentSignal ? "text-muted-foreground/80" : "text-muted-foreground",
-                compact ? "text-sm leading-snug" : "text-sm leading-relaxed",
+                compact ? "text-xs leading-snug" : "text-sm leading-relaxed",
                 "line-clamp-2",
               )}
             >
               {summaryText}
             </p>
           </div>
-          <div className="rounded-md border border-border/70 bg-background/80 px-3 py-2">
-            <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Action</p>
-            <p className={cn("text-foreground", compact ? "text-sm leading-snug" : "text-sm leading-relaxed")}>
+          <div className={cn("rounded-md border border-border/70 bg-background/80", compact ? "px-3 py-2" : "px-3 py-2.5")}>
+            <p
+              className={cn(
+                compact
+                  ? "text-[10px] font-semibold uppercase tracking-wide text-muted-foreground/70"
+                  : "text-[11px] font-semibold uppercase tracking-wide text-muted-foreground",
+              )}
+            >
+              Action
+            </p>
+            <p
+              className={cn(
+                "text-foreground",
+                compact ? "text-sm font-semibold leading-snug" : "text-sm leading-relaxed",
+              )}
+            >
               {readoutLines.action}
             </p>
           </div>
