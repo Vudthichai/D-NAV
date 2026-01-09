@@ -10,7 +10,6 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import Term from "@/components/ui/Term";
-import { TooltipProvider } from "@/components/ui/tooltip";
 import { useNetlifyIdentity } from "@/hooks/use-netlify-identity";
 import { DecisionEntry, DecisionMetrics, DecisionVariables, computeMetrics, detectJudgmentSignal } from "@/lib/calculations";
 import { Check, Save } from "lucide-react";
@@ -116,9 +115,8 @@ export default function StressTestPage() {
   }, []);
 
   return (
-    <TooltipProvider>
-      <main className="min-h-screen">
-        <div className="mx-auto max-w-6xl space-y-3 px-4 pb-4 pt-3 md:px-6">
+    <main className="min-h-screen">
+      <div className="mx-auto max-w-6xl space-y-3 px-4 pb-4 pt-3 md:px-6">
           <div className="flex flex-col gap-2 border-b border-border/60 pb-1">
             <div className="flex flex-wrap items-start justify-between gap-3">
               <div className="space-y-1">
@@ -330,9 +328,7 @@ export default function StressTestPage() {
 
               <Card className="flex h-full flex-col rounded-lg">
                 <CardHeader className="space-y-0 px-4 pb-2 pt-4">
-                  <CardTitle className="text-sm font-semibold">
-                    <Term termKey="dnav">D-NAV</Term> Readout
-                  </CardTitle>
+                  <CardTitle className="text-sm font-semibold">D-NAV Readout</CardTitle>
                 </CardHeader>
                 <CardContent className="flex-1 px-3 pb-3 pt-1">
                   <div className="flex h-full flex-col gap-2">
@@ -354,16 +350,15 @@ export default function StressTestPage() {
             <p>This is one decision. Patterns emerge after 10–20.</p>
           </div>
 
-          {process.env.NODE_ENV === "development" ? (
-            <div className="rounded-lg border border-dashed border-border/60 bg-muted/30 px-3 py-2 text-xs text-muted-foreground">
-              Tooltip demo: <Term termKey="impact" /> · <Term termKey="cost" /> · <Term termKey="risk" /> ·{" "}
-              <Term termKey="urgency" /> · <Term termKey="confidence" /> · <Term termKey="return" /> ·{" "}
-              <Term termKey="pressure" /> · <Term termKey="stability" /> · <Term termKey="dnav">D-NAV</Term>
-            </div>
-          ) : null}
-        </div>
-        <DefinitionsSheet open={isDefinitionsOpen} onOpenChange={setIsDefinitionsOpen} />
-      </main>
-    </TooltipProvider>
+        {process.env.NODE_ENV === "development" ? (
+          <div className="rounded-lg border border-dashed border-border/60 bg-muted/30 px-3 py-2 text-xs text-muted-foreground">
+            Tooltip demo: <Term termKey="impact" /> · <Term termKey="cost" /> · <Term termKey="risk" /> ·{" "}
+            <Term termKey="urgency" /> · <Term termKey="confidence" /> · <Term termKey="return" /> ·{" "}
+            <Term termKey="pressure" /> · <Term termKey="stability" /> · <Term termKey="archetype" />
+          </div>
+        ) : null}
+      </div>
+      <DefinitionsSheet open={isDefinitionsOpen} onOpenChange={setIsDefinitionsOpen} />
+    </main>
   );
 }

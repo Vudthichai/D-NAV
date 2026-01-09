@@ -48,7 +48,12 @@ export default function SummaryCard({
         <div className={cn("flex flex-1 flex-col", compact ? "gap-2" : "gap-3")}>
           <div className="flex flex-wrap items-start justify-between gap-3">
             <div className="space-y-1">
-              <p className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">Archetype</p>
+              <Term
+                termKey="archetype"
+                className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground"
+              >
+                Archetype
+              </Term>
               <div
                 className={cn(
                   "font-black text-foreground",
@@ -60,13 +65,7 @@ export default function SummaryCard({
             </div>
             <div className="rounded-lg border border-border/70 bg-background/80 px-3 py-1 shadow-sm">
               <div className="flex items-center gap-2">
-                <Term
-                  termKey="dnav"
-                  disableUnderline
-                  className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground"
-                >
-                  D-NAV
-                </Term>
+                <span className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">D-NAV</span>
                 <p className="text-base font-black text-foreground">{metrics.dnav}</p>
               </div>
               {magnitudeCue ? (
