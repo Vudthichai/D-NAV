@@ -39,12 +39,7 @@ export default function SummaryCard({
 
   return (
     <div className={cn("flex h-full flex-1 flex-col", compact ? "gap-2" : "gap-6", className)}>
-      <div
-        className={cn(
-          "flex h-full flex-col rounded-lg border border-border/50 bg-muted/20",
-          compact ? "p-3" : "p-4",
-        )}
-      >
+      <div className={cn("dnav-glass-panel flex h-full flex-col", compact ? "p-3" : "p-4")}>
         <div className={cn("flex flex-1 flex-col", compact ? "gap-2" : "gap-3")}>
           <div className="flex flex-wrap items-start justify-between gap-3">
             <div className="space-y-1">
@@ -58,7 +53,7 @@ export default function SummaryCard({
                 {archetype.name}
               </div>
             </div>
-            <div className="rounded-lg border border-border/70 bg-background/80 px-3 py-1 shadow-sm">
+            <div className="dnav-glass-panel px-3 py-1">
               <div className="flex items-center gap-2">
                 <Term
                   termKey="dnav"
@@ -74,7 +69,7 @@ export default function SummaryCard({
               ) : null}
             </div>
           </div>
-          <div className={cn("rounded-md border border-border/70 bg-background/80", compact ? "px-3 py-2" : "px-3 py-2.5")}>
+          <div className={cn("dnav-glass-panel", compact ? "px-3 py-2" : "px-3 py-2.5")}>
             <p
               className={cn(
                 compact

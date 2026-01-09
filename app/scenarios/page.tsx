@@ -124,19 +124,19 @@ export default function ScenariosPage() {
                 <p className="text-sm text-slate-600 dark:text-slate-200">{scenario.explain}</p>
               </CardHeader>
               <CardContent className="space-y-3 text-sm text-slate-600 dark:text-slate-200">
-                <div className="rounded-lg border border-black/10 bg-white/70 px-3 py-2 dark:border-white/10 dark:bg-white/5">
+                <div className="dnav-glass-panel px-3 py-2">
                   <p className="text-[11px] uppercase tracking-[0.16em] text-amber-700 dark:text-amber-200">
                     What it feels like
                   </p>
                   <p className="mt-1 leading-relaxed">{scenario.feelsLike}</p>
                 </div>
-                <div className="rounded-lg border border-black/10 bg-white/70 px-3 py-2 dark:border-white/10 dark:bg-white/5">
+                <div className="dnav-glass-panel px-3 py-2">
                   <p className="text-[11px] uppercase tracking-[0.16em] text-amber-700 dark:text-amber-200">
                     What the numbers usually look like
                   </p>
                   <p className="mt-1 leading-relaxed">{scenario.numbers}</p>
                 </div>
-                <div className="rounded-lg border border-black/10 bg-white/70 px-3 py-2 space-y-1.5 dark:border-white/10 dark:bg-white/5">
+                <div className="dnav-glass-panel px-3 py-2 space-y-1.5">
                   <p className="text-[11px] uppercase tracking-[0.16em] text-amber-700 dark:text-amber-200">Next move</p>
                   <ul className="space-y-1.5">
                     {scenario.nextMove.map((move) => (
