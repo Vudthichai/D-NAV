@@ -6,10 +6,12 @@ import { SidebarTrigger } from "@/components/ui/sidebar";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { BrandMark } from "@/components/BrandMark";
+import { useDefinitionsPanel } from "@/components/definitions/DefinitionsPanelProvider";
 
 export default function Header() {
   const pathname = usePathname();
   const showThemeToggle = pathname !== "/";
+  const { openDefinitions } = useDefinitionsPanel();
 
   return (
     <header
@@ -31,7 +33,7 @@ export default function Header() {
       </div>
       <div className="flex items-center gap-2">
         {showThemeToggle ? <ThemeToggle /> : null}
-        <Button variant="outline" size="sm">
+        <Button variant="outline" size="sm" onClick={(event) => openDefinitions(event.currentTarget)}>
           Help
         </Button>
       </div>
