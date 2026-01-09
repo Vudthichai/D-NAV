@@ -4,7 +4,7 @@ import SliderRow from "@/components/SliderRow";
 import SummaryCard from "@/components/SummaryCard";
 import DatasetSelect from "@/components/DatasetSelect";
 import { useDataset } from "@/components/DatasetProvider";
-import DefinitionsSheet from "@/components/DefinitionsSheet";
+import DefinitionsPanel from "@/components/stress-test/DefinitionsPanel";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -30,7 +30,7 @@ export default function StressTestPage() {
   const [variables, setVariables] = useState<DecisionVariables>(() => ({ ...DEFAULT_VARIABLES }));
   const [metrics, setMetrics] = useState<DecisionMetrics>(() => computeMetrics(DEFAULT_VARIABLES));
   const [isSaved, setIsSaved] = useState(false);
-  const [isDefinitionsOpen, setIsDefinitionsOpen] = useState(false);
+  const [defsOpen, setDefsOpen] = useState(false);
   const decisionNameRef = useRef<HTMLInputElement>(null);
   const decisionCategoryRef = useRef<HTMLInputElement>(null);
 
@@ -137,7 +137,7 @@ export default function StressTestPage() {
                     Add
                   </Button>
                 </div>
-                <Button size="sm" onClick={() => setIsDefinitionsOpen(true)} className="font-semibold">
+                <Button size="sm" onClick={() => setDefsOpen(true)} className="font-semibold">
                   Definitions
                 </Button>
                 {isLoggedIn ? (
@@ -269,7 +269,7 @@ export default function StressTestPage() {
                   <p className="text-sm text-muted-foreground">Signals derived from your inputs.</p>
                 </CardHeader>
                 <CardContent className="px-4 pb-2">
-                  <div className="grid gap-5">
+                  <div className="grid gap-4">
                     <div className="rounded-md border border-border/60 bg-muted/30 px-2 py-1">
                       <div className="flex items-center justify-between gap-3">
                         <div>
@@ -362,7 +362,7 @@ export default function StressTestPage() {
             </div>
           ) : null}
         </div>
-        <DefinitionsSheet open={isDefinitionsOpen} onOpenChange={setIsDefinitionsOpen} />
+        <DefinitionsPanel open={defsOpen} onClose={() => setDefsOpen(false)} />
       </main>
     </TooltipProvider>
   );
