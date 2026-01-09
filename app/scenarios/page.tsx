@@ -84,12 +84,12 @@ const scenarioCards = [
 
 export default function ScenariosPage() {
   return (
-    <main className="min-h-screen bg-[#050608] text-white">
+    <main className="min-h-screen bg-[#f6f3ee] text-slate-900 dark:bg-[#050608] dark:text-white">
       <section className="mx-auto max-w-6xl space-y-10 px-4 py-10 md:px-6 md:py-14">
         <header className="space-y-4 text-center">
-          <p className="text-xs uppercase tracking-[0.3em] text-amber-200">Field Guide</p>
+          <p className="text-xs uppercase tracking-[0.3em] text-amber-700 dark:text-amber-200">Field Guide</p>
           <h1 className="text-3xl font-bold leading-tight md:text-4xl">Scenarios</h1>
-          <p className="mx-auto max-w-3xl text-base text-slate-200">
+          <p className="mx-auto max-w-3xl text-base text-slate-600 dark:text-slate-200">
             Real-world decision physics in plain language. Use these as fast translations of Return, Pressure, and
             Stability before you act.
           </p>
@@ -97,12 +97,16 @@ export default function ScenariosPage() {
             <Button asChild className="bg-amber-500 text-black hover:bg-amber-400">
               <Link href="/stress-test">Stress test a decision</Link>
             </Button>
-            <Button variant="outline" asChild className="border-white/30 bg-white/5 text-white hover:bg-white/10">
+            <Button
+              variant="outline"
+              asChild
+              className="border-slate-300 bg-white/80 text-slate-900 hover:bg-white dark:border-white/30 dark:bg-white/5 dark:text-white dark:hover:bg-white/10"
+            >
               <Link href="/contact">Book a Decision Audit</Link>
             </Button>
             <a
               href="/definitions"
-              className="text-sm font-medium text-slate-200 underline-offset-4 hover:text-white hover:underline"
+              className="text-sm font-medium text-slate-600 underline-offset-4 hover:text-slate-900 hover:underline dark:text-slate-200 dark:hover:text-white"
             >
               See definitions
             </a>
@@ -113,27 +117,31 @@ export default function ScenariosPage() {
           {scenarioCards.map((scenario) => (
             <GlassCard
               key={scenario.title}
-              className="h-full flex flex-col gap-6 py-6 text-white"
+              className="h-full flex flex-col gap-6 py-6 text-slate-900 dark:text-white"
             >
               <CardHeader className="pb-2">
                 <CardTitle className="text-lg font-semibold">{scenario.title}</CardTitle>
-                <p className="text-sm text-slate-200">{scenario.explain}</p>
+                <p className="text-sm text-slate-600 dark:text-slate-200">{scenario.explain}</p>
               </CardHeader>
-              <CardContent className="space-y-3 text-sm text-slate-200">
-                <div className="rounded-lg border border-white/10 bg-white/5 px-3 py-2">
-                  <p className="text-[11px] uppercase tracking-[0.16em] text-amber-200">What it feels like</p>
+              <CardContent className="space-y-3 text-sm text-slate-600 dark:text-slate-200">
+                <div className="rounded-lg border border-black/10 bg-white/70 px-3 py-2 dark:border-white/10 dark:bg-white/5">
+                  <p className="text-[11px] uppercase tracking-[0.16em] text-amber-700 dark:text-amber-200">
+                    What it feels like
+                  </p>
                   <p className="mt-1 leading-relaxed">{scenario.feelsLike}</p>
                 </div>
-                <div className="rounded-lg border border-white/10 bg-white/5 px-3 py-2">
-                  <p className="text-[11px] uppercase tracking-[0.16em] text-amber-200">What the numbers usually look like</p>
+                <div className="rounded-lg border border-black/10 bg-white/70 px-3 py-2 dark:border-white/10 dark:bg-white/5">
+                  <p className="text-[11px] uppercase tracking-[0.16em] text-amber-700 dark:text-amber-200">
+                    What the numbers usually look like
+                  </p>
                   <p className="mt-1 leading-relaxed">{scenario.numbers}</p>
                 </div>
-                <div className="rounded-lg border border-white/10 bg-white/5 px-3 py-2 space-y-1.5">
-                  <p className="text-[11px] uppercase tracking-[0.16em] text-amber-200">Next move</p>
+                <div className="rounded-lg border border-black/10 bg-white/70 px-3 py-2 space-y-1.5 dark:border-white/10 dark:bg-white/5">
+                  <p className="text-[11px] uppercase tracking-[0.16em] text-amber-700 dark:text-amber-200">Next move</p>
                   <ul className="space-y-1.5">
                     {scenario.nextMove.map((move) => (
                       <li key={move} className="flex items-start gap-2">
-                        <span className="mt-[6px] h-1.5 w-1.5 rounded-full bg-amber-300" aria-hidden />
+                        <span className="mt-[6px] h-1.5 w-1.5 rounded-full bg-amber-500 dark:bg-amber-300" aria-hidden />
                         <span>{move}</span>
                       </li>
                     ))}
@@ -144,52 +152,57 @@ export default function ScenariosPage() {
           ))}
         </div>
 
-        <GlassCard className="flex flex-col gap-6 py-6 text-white">
+        <GlassCard className="flex flex-col gap-6 py-6 text-slate-900 dark:text-white">
           <CardHeader className="pb-2">
             <CardTitle className="text-lg font-semibold">Decision market inefficiencies</CardTitle>
-            <p className="text-sm text-slate-200">Early warning / early opportunity signals.</p>
+            <p className="text-sm text-slate-600 dark:text-slate-200">Early warning / early opportunity signals.</p>
           </CardHeader>
-          <CardContent className="space-y-3 text-sm text-slate-200">
+          <CardContent className="space-y-3 text-sm text-slate-600 dark:text-slate-200">
             <ul className="space-y-2">
               <li className="flex items-start gap-2">
-                <span className="mt-[6px] h-1.5 w-1.5 rounded-full bg-amber-300" aria-hidden />
+                <span className="mt-[6px] h-1.5 w-1.5 rounded-full bg-amber-500 dark:bg-amber-300" aria-hidden />
                 <span>
                   Confidence ↑ faster than Return → Narrative inflation. Leaders believe more than results justify. This
                   is where reputational risk and mispricing hide.
                 </span>
               </li>
               <li className="flex items-start gap-2">
-                <span className="mt-[6px] h-1.5 w-1.5 rounded-full bg-amber-300" aria-hidden />
+                <span className="mt-[6px] h-1.5 w-1.5 rounded-full bg-amber-500 dark:bg-amber-300" aria-hidden />
                 <span>
                   Pressure compresses Stability → Fragile execution regimes. Things look fine… until they don’t. Classic
                   blow-up zone.
                 </span>
               </li>
               <li className="flex items-start gap-2">
-                <span className="mt-[6px] h-1.5 w-1.5 rounded-full bg-amber-300" aria-hidden />
+                <span className="mt-[6px] h-1.5 w-1.5 rounded-full bg-amber-500 dark:bg-amber-300" aria-hidden />
                 <span>
                   High Impact + Low Cost persists → Underexploited leverage. This is where boards ask “why didn’t we do
                   this sooner?”
                 </span>
               </li>
               <li className="flex items-start gap-2">
-                <span className="mt-[6px] h-1.5 w-1.5 rounded-full bg-amber-300" aria-hidden />
+                <span className="mt-[6px] h-1.5 w-1.5 rounded-full bg-amber-500 dark:bg-amber-300" aria-hidden />
                 <span>Urgency spikes without Risk → Political or emotional distortion. Decisions are being rushed without external necessity.</span>
               </li>
             </ul>
-            <p className="text-sm text-slate-200">
+            <p className="text-sm text-slate-600 dark:text-slate-200">
               Compare modes tell you how you performed. These tell you where to look next. That distinction matters.
             </p>
           </CardContent>
         </GlassCard>
 
-        <div className="flex flex-col items-center justify-center gap-3 rounded-2xl border border-white/10 bg-white/5 px-4 py-5 text-center md:flex-row md:px-6">
-          <p className="text-sm text-slate-200">Ready to translate your own situation?</p>
+        <div className="flex flex-col items-center justify-center gap-3 rounded-2xl border border-black/10 bg-white/70 px-4 py-5 text-center dark:border-white/10 dark:bg-white/5 md:flex-row md:px-6">
+          <p className="text-sm text-slate-600 dark:text-slate-200">Ready to translate your own situation?</p>
           <div className="flex flex-wrap items-center justify-center gap-2">
             <Button size="sm" className="bg-amber-500 text-black hover:bg-amber-400" asChild>
               <Link href="/stress-test">Run the Stress Test</Link>
             </Button>
-            <Button size="sm" variant="outline" asChild className="border-white/30 bg-white/5 text-white hover:bg-white/10">
+            <Button
+              size="sm"
+              variant="outline"
+              asChild
+              className="border-slate-300 bg-white/80 text-slate-900 hover:bg-white dark:border-white/30 dark:bg-white/5 dark:text-white dark:hover:bg-white/10"
+            >
               <Link href="/contact">Book a Decision Audit</Link>
             </Button>
           </div>
