@@ -496,6 +496,57 @@ body {
   }
 }
 
+body.exporting-report {
+  background: #ffffff;
+}
+
+body.exporting-report nav,
+body.exporting-report aside,
+body.exporting-report header,
+body.exporting-report footer,
+body.exporting-report .sidebar,
+body.exporting-report .site-chrome,
+body.exporting-report .reports-controls,
+body.exporting-report .no-print {
+  display: none !important;
+}
+
+body.exporting-report .dn-reports-root > :not(.report-export-section) {
+  display: none !important;
+}
+
+body.exporting-report .report-export-root {
+  margin: 0 auto;
+  max-width: 1100px;
+  width: 100%;
+}
+
+body.exporting-report .report-page {
+  margin: 0;
+  padding: 0;
+}
+
+body.exporting-report .report-print-page {
+  margin: 0 auto;
+  max-width: 1100px;
+  width: 100%;
+  border: none;
+  border-radius: 0;
+  box-shadow: none;
+  background: #ffffff;
+}
+
+body.exporting-report .report-export-overlay {
+  display: none !important;
+}
+
+body.exporting-report .report-card {
+  border: none;
+  border-radius: 0;
+  box-shadow: none;
+  background: transparent;
+}
+
 @media print {
   /* Hide app chrome for cleaner report output */
   .dn-sidebar,
@@ -522,7 +573,7 @@ body {
   .report-print-page {
     background: #ffffff !important;
     width: 100%;
-    max-width: 900px;
+    max-width: none;
     margin: 0 auto;
     padding: 24px 32px;
     box-shadow: none;
@@ -568,5 +619,10 @@ body {
   .report-card {
     break-inside: avoid;
     page-break-inside: avoid;
+  }
+
+  .report-archetypes {
+    break-before: page;
+    page-break-before: always;
   }
 }

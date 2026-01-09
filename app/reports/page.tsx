@@ -1,7 +1,7 @@
 "use client";
 export const dynamic = "force-dynamic";
 
-import { Suspense, useCallback, useEffect, useMemo, useState } from "react";
+import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 
 import DatasetSelect from "@/components/DatasetSelect";
@@ -171,6 +171,8 @@ function ReportsPageContent() {
   const [compareMode, setCompareMode] = useState<CompareMode>("entity");
   const [compareResult, setCompareResult] = useState<CompareResult | null>(null);
   const [compareWarning, setCompareWarning] = useState<string | null>(null);
+  const [isExportingReport, setIsExportingReport] = useState(false);
+  const previousTitleRef = useRef<string | null>(null);
   const { isLoggedIn, openLogin } = useNetlifyIdentity();
 
   const datasetOptions = useMemo(
@@ -219,6 +221,37 @@ function ReportsPageContent() {
       setAdaptationDatasetId(datasets[0]?.id ?? null);
     }
   }, [datasetAId, datasetBId, datasets, adaptationDatasetId]);
+
+  useEffect(() => {
+    if (typeof document === "undefined") return;
+    document.body.classList.toggle("exporting-report", isExportingReport);
+  }, [isExportingReport]);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+
+    const handleAfterPrint = () => {
+      setIsExportingReport(false);
+      if (previousTitleRef.current) {
+        document.title = previousTitleRef.current;
+        previousTitleRef.current = null;
+      }
+    };
+
+    window.addEventListener("afterprint", handleAfterPrint);
+    const mediaQuery = window.matchMedia("print");
+    const handleChange = (event: MediaQueryListEvent) => {
+      if (!event.matches) {
+        handleAfterPrint();
+      }
+    };
+    mediaQuery.addEventListener("change", handleChange);
+
+    return () => {
+      window.removeEventListener("afterprint", handleAfterPrint);
+      mediaQuery.removeEventListener("change", handleChange);
+    };
+  }, []);
 
   const datasetA = useMemo(() => getDatasetById(datasetAId) ?? null, [datasetAId, getDatasetById]);
   const datasetB = useMemo(() => getDatasetById(datasetBId) ?? null, [datasetBId, getDatasetById]);
@@ -443,8 +476,16 @@ function ReportsPageContent() {
 
     const filename = `${snapshot.companyName} - Decision Orbit ${snapshot.periodLabel}.pdf`;
 
+    if (!previousTitleRef.current) {
+      previousTitleRef.current = document.title;
+    }
     document.title = filename;
-    window.print();
+    setIsExportingReport(true);
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        window.print();
+      });
+    });
   };
 
   return (
@@ -520,9 +561,9 @@ function ReportsPageContent() {
           </div>
         </section>
 
-        <section className="relative">
+        <section className="relative report-export-section">
           {!isLoggedIn && (
-            <div className="pointer-events-none absolute inset-0 flex items-start justify-center">
+            <div className="report-export-overlay pointer-events-none absolute inset-0 flex items-start justify-center">
               <div className="pointer-events-auto sticky top-24 z-20 flex max-w-2xl flex-col items-center gap-4 rounded-2xl border bg-background/95 p-6 text-center shadow-lg">
                 <h2 className="text-2xl font-semibold">Unlock Your Decision Reports</h2>
                 <p className="text-sm text-muted-foreground">
@@ -545,14 +586,16 @@ function ReportsPageContent() {
           <div
             className={cn("space-y-6", !isLoggedIn && "pointer-events-none filter blur-sm opacity-50")}
           >
-            <OnePageReport
-              snapshot={snapshot}
-              interpretation={interpretation}
-              baselineDistributions={baselineDistributions}
-              topCategories={topCategories}
-              sortedArchetypes={sortedArchetypes}
-              learningStats={learningStats}
-            />
+            <div id="report-export-root" className="report-export-root">
+              <OnePageReport
+                snapshot={snapshot}
+                interpretation={interpretation}
+                baselineDistributions={baselineDistributions}
+                topCategories={topCategories}
+                sortedArchetypes={sortedArchetypes}
+                learningStats={learningStats}
+              />
+            </div>
 
             {/* System-level compare */}
             <section className="no-print mt-10 space-y-4 print:hidden">
@@ -1019,7 +1062,7 @@ function OnePageReport({
         </div>
       </section>
 
-      <section className="report-card rounded-2xl border bg-card p-6 shadow-sm">
+      <section className="report-card report-archetypes rounded-2xl border bg-card p-6 shadow-sm">
         <div className="space-y-1">
           <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
             Archetype Fingerprint — {periodLabel}
