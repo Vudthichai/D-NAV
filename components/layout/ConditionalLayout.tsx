@@ -13,12 +13,12 @@ interface ConditionalLayoutProps {
 
 export default function ConditionalLayout({ children }: ConditionalLayoutProps) {
   const pathname = usePathname();
-  const isHomePage = pathname === "/";
+  const isHomePage = pathname === "/" || pathname === "/home";
 
   if (isHomePage) {
     // For home page, render without sidebar
     return (
-      <div className="flex min-h-screen flex-col">
+      <div className="flex min-h-screen flex-col dark">
         <main className="flex-1">{children}</main>
         <Footer />
       </div>
