@@ -329,12 +329,12 @@ export default function StressTestPage() {
               </Card>
 
               <Card className="flex h-full flex-col rounded-lg">
-                <CardHeader className="space-y-0 px-4 pb-1 pt-3">
+                <CardHeader className="space-y-0 px-4 pb-2 pt-4">
                   <CardTitle className="text-sm font-semibold">
                     <Term termKey="dnav">D-NAV</Term> Readout
                   </CardTitle>
                 </CardHeader>
-                <CardContent className="flex-1 px-3 pb-2">
+                <CardContent className="flex-1 px-3 pb-3 pt-1">
                   <div className="flex h-full flex-col gap-2">
                     <SummaryCard
                       metrics={metrics}

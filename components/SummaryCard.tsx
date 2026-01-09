@@ -38,9 +38,14 @@ export default function SummaryCard({
         : null;
 
   return (
-    <div className={cn("flex flex-1 flex-col", compact ? "gap-2" : "gap-6", className)}>
-      <div className={cn("rounded-lg border border-border/50 bg-muted/20", compact ? "p-2" : "p-4", "mt-auto")}>
-        <div className={cn("flex flex-col", compact ? "gap-2" : "gap-3")}>
+    <div className={cn("flex h-full flex-1 flex-col", compact ? "gap-2" : "gap-6", className)}>
+      <div
+        className={cn(
+          "flex h-full flex-col rounded-lg border border-border/50 bg-muted/20",
+          compact ? "p-3" : "p-4",
+        )}
+      >
+        <div className={cn("flex flex-1 flex-col", compact ? "gap-2" : "gap-3")}>
           <div className="flex flex-wrap items-start justify-between gap-3">
             <div className="space-y-1">
               <p className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">Archetype</p>
@@ -102,7 +107,7 @@ export default function SummaryCard({
               className={cn(
                 hasJudgmentSignal ? "text-muted-foreground/80" : "text-muted-foreground",
                 compact ? "text-[11px] leading-snug" : "text-sm leading-relaxed",
-                "line-clamp-2",
+                "break-words whitespace-normal",
               )}
             >
               {summaryText}
