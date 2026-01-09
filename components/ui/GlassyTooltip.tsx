@@ -25,7 +25,6 @@ export function GlassyTooltip({
   triggerClassName,
 }: GlassyTooltipProps) {
   const [open, setOpen] = React.useState(false);
-  const [isPositioned, setIsPositioned] = React.useState(false);
   const tooltipId = React.useId();
   const triggerRef = React.useRef<HTMLSpanElement | null>(null);
   const tooltipRef = React.useRef<HTMLDivElement | null>(null);
@@ -36,8 +35,6 @@ export function GlassyTooltip({
     if (tooltip) {
       tooltip.removeAttribute("data-side");
     }
-
-    setIsPositioned(false);
 
     setOpen(nextOpen);
   }, []);
@@ -111,9 +108,21 @@ export function GlassyTooltip({
       return;
     }
 
+    const tooltip = tooltipRef.current;
+    if (tooltip) {
+      tooltip.dataset.positioned = "false";
+      tooltip.style.visibility = "hidden";
+      tooltip.style.left = "0px";
+      tooltip.style.top = "0px";
+      tooltip.style.transform = "none";
+    }
+
     positionNow();
     const raf = requestAnimationFrame(() => {
-      setIsPositioned(true);
+      if (tooltip) {
+        tooltip.dataset.positioned = "true";
+        tooltip.style.visibility = "visible";
+      }
     });
 
     const handleResize = () => positionNow();
@@ -164,7 +173,7 @@ export function GlassyTooltip({
             ref={tooltipRef}
             id={tooltipId}
             role="tooltip"
-            data-positioned={isPositioned ? "true" : undefined}
+            data-positioned="false"
             className={cn(
               "group pointer-events-none fixed left-0 top-0 z-50 max-w-xs scale-95 rounded-2xl border border-white/20 bg-white/10 px-3 py-2 text-xs text-white shadow-[0_24px_80px_-50px_rgba(0,0,0,0.8)] backdrop-blur-xl opacity-0 transition-all duration-150 ease-out data-[positioned=true]:scale-100 data-[positioned=true]:opacity-100",
               className
