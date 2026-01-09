@@ -25,6 +25,7 @@ export function GlassyTooltip({
   triggerClassName,
 }: GlassyTooltipProps) {
   const [open, setOpen] = React.useState(false);
+  const [isPositioned, setIsPositioned] = React.useState(false);
   const tooltipId = React.useId();
   const triggerRef = React.useRef<HTMLSpanElement | null>(null);
   const tooltipRef = React.useRef<HTMLDivElement | null>(null);
@@ -33,9 +34,10 @@ export function GlassyTooltip({
     const tooltip = tooltipRef.current;
 
     if (tooltip) {
-      tooltip.removeAttribute("data-positioned");
       tooltip.removeAttribute("data-side");
     }
+
+    setIsPositioned(false);
 
     setOpen(nextOpen);
   }, []);
@@ -102,7 +104,6 @@ export function GlassyTooltip({
     tooltip.style.top = `${Math.round(top)}px`;
     tooltip.style.left = `${Math.round(left)}px`;
     tooltip.setAttribute("data-side", nextSide);
-    tooltip.setAttribute("data-positioned", "true");
   }, [side, sideOffset]);
 
   React.useLayoutEffect(() => {
@@ -111,6 +112,9 @@ export function GlassyTooltip({
     }
 
     positionNow();
+    const raf = requestAnimationFrame(() => {
+      setIsPositioned(true);
+    });
 
     const handleResize = () => positionNow();
     const handleScroll = () => positionNow();
@@ -135,6 +139,7 @@ export function GlassyTooltip({
     }
 
     return () => {
+      cancelAnimationFrame(raf);
       window.removeEventListener("resize", handleResize);
       window.removeEventListener("scroll", handleScroll, true);
       window.removeEventListener("keydown", handleKeyDown);
@@ -159,6 +164,7 @@ export function GlassyTooltip({
             ref={tooltipRef}
             id={tooltipId}
             role="tooltip"
+            data-positioned={isPositioned ? "true" : undefined}
             className={cn(
               "group pointer-events-none fixed left-0 top-0 z-50 max-w-xs scale-95 rounded-2xl border border-white/20 bg-white/10 px-3 py-2 text-xs text-white shadow-[0_24px_80px_-50px_rgba(0,0,0,0.8)] backdrop-blur-xl opacity-0 transition-all duration-150 ease-out data-[positioned=true]:scale-100 data-[positioned=true]:opacity-100",
               className
