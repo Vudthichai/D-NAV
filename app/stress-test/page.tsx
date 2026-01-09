@@ -269,7 +269,7 @@ export default function StressTestPage() {
                   <p className="text-sm text-muted-foreground">Signals derived from your inputs.</p>
                 </CardHeader>
                 <CardContent className="px-4 pb-2">
-                  <div className="grid gap-1">
+                  <div className="grid gap-3">
                     <div className="rounded-md border border-border/60 bg-muted/30 px-2 py-1">
                       <div className="flex items-center justify-between gap-3">
                         <div>
