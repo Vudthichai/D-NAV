@@ -59,15 +59,18 @@ const personas: Persona[] = [
 
 export default function UseCasesPage() {
   return (
-    <main className="min-h-screen bg-[#050608] text-white">
-      <section className="bg-gradient-to-b from-[#050608] via-black/40 to-[#050608] py-14 md:py-16">
+    <main className="min-h-screen bg-[#f6f3ee] text-slate-900 dark:bg-[#050608] dark:text-white">
+      <section className="bg-gradient-to-b from-[#f8f5f1] via-white to-[#f3efe8] py-14 dark:from-[#050608] dark:via-black/40 dark:to-[#050608] md:py-16">
         <div className="mx-auto max-w-6xl space-y-12 px-4 md:px-6">
           <div className="space-y-4 text-center">
-            <Badge variant="outline" className="border-white/20 text-xs uppercase tracking-[0.22em] text-amber-200">
+            <Badge
+              variant="outline"
+              className="border-slate-200 text-xs uppercase tracking-[0.22em] text-amber-700 dark:border-white/20 dark:text-amber-200"
+            >
               Real-World Navigation
             </Badge>
             <h1 className="text-3xl font-bold leading-tight md:text-4xl">Use Cases</h1>
-            <p className="mx-auto max-w-3xl text-lg text-slate-200">
+            <p className="mx-auto max-w-3xl text-lg text-slate-600 dark:text-slate-200">
               D-NAV is built for people who have to decide fast under pressure. Use the Stress Test as the meeting
               language, then expand to audits and consulting when the stakes rise.
             </p>
@@ -75,10 +78,14 @@ export default function UseCasesPage() {
               <Button asChild className="bg-amber-500 text-black hover:bg-amber-400">
                 <Link href="/stress-test">Stress Test a Decision</Link>
               </Button>
-              <Button variant="outline" asChild className="border-white/30 bg-white/5 text-white hover:bg-white/10">
+              <Button
+                variant="outline"
+                asChild
+                className="border-slate-300 bg-white/80 text-slate-900 hover:bg-white dark:border-white/30 dark:bg-white/5 dark:text-white dark:hover:bg-white/10"
+              >
                 <Link href="/contact">Book a Decision Audit</Link>
               </Button>
-              <Button variant="ghost" asChild className="text-white hover:bg-white/10">
+              <Button variant="ghost" asChild className="text-slate-700 hover:bg-black/5 dark:text-white dark:hover:bg-white/10">
                 <Link href="/scenarios">
                   See real-life scenarios <span aria-hidden>→</span>
                 </Link>
@@ -90,26 +97,28 @@ export default function UseCasesPage() {
             {personas.map((persona) => (
               <GlassCard
                 key={persona.title}
-                className="h-full flex flex-col gap-6 py-6 text-white"
+                className="h-full flex flex-col gap-6 py-6 text-slate-900 dark:text-white"
               >
                 <CardHeader className="flex flex-row items-start justify-between gap-3 pb-2">
                   <div className="space-y-1">
                     <CardTitle className="text-xl font-semibold">{persona.title}</CardTitle>
-                    <p className="text-xs uppercase tracking-[0.18em] text-amber-200">{persona.label}</p>
+                    <p className="text-xs uppercase tracking-[0.18em] text-amber-700 dark:text-amber-200">
+                      {persona.label}
+                    </p>
                   </div>
-                  <span className="inline-flex h-10 w-10 items-center justify-center rounded-full border border-white/10 bg-white/10 text-white">
+                  <span className="inline-flex h-10 w-10 items-center justify-center rounded-full border border-black/10 bg-white/70 text-slate-900 shadow-sm dark:border-white/10 dark:bg-white/10 dark:text-white">
                     {persona.title.startsWith("Managers") ? <ClipboardCheck className="h-5 w-5" /> : null}
                     {persona.title.startsWith("Operators") ? <Compass className="h-5 w-5" /> : null}
                     {persona.title.startsWith("Coaches") ? <Sparkles className="h-5 w-5" /> : null}
                     {persona.title.startsWith("Founders") ? <Target className="h-5 w-5" /> : null}
                   </span>
                 </CardHeader>
-                <CardContent className="space-y-4 text-slate-200">
+                <CardContent className="space-y-4 text-slate-600 dark:text-slate-200">
                   <p className="text-base leading-relaxed">{persona.description}</p>
                   <ul className="space-y-2 text-sm">
                     {persona.highlights.map((highlight) => (
                       <li key={highlight} className="flex items-start gap-2">
-                        <span className="mt-1 h-1.5 w-1.5 rounded-full bg-amber-300" aria-hidden />
+                        <span className="mt-1 h-1.5 w-1.5 rounded-full bg-amber-500 dark:bg-amber-300" aria-hidden />
                         <span>{highlight}</span>
                       </li>
                     ))}
@@ -118,7 +127,12 @@ export default function UseCasesPage() {
                     <Button size="sm" asChild className="bg-amber-500 text-black hover:bg-amber-400">
                       <Link href="/stress-test">Stress Test a Decision</Link>
                     </Button>
-                    <Button size="sm" variant="outline" asChild className="border-white/30 bg-white/5 text-white hover:bg-white/10">
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      asChild
+                      className="border-slate-300 bg-white/80 text-slate-900 hover:bg-white dark:border-white/30 dark:bg-white/5 dark:text-white dark:hover:bg-white/10"
+                    >
                       <Link href="/contact">Talk with our team</Link>
                     </Button>
                   </div>
