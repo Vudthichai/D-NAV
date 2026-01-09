@@ -463,8 +463,24 @@ body {
   }
 }
 
+.print-page {
+  min-height: 100vh;
+  background: #ffffff;
+}
+
+.print-root {
+  width: min(100%, 7.5in);
+  margin: 0 auto;
+  padding: 2rem 1.5rem;
+}
+
 /* D-NAV one-pager print layout */
 @media print {
+  @page {
+    size: Letter;
+    margin: 0.5in;
+  }
+
   body {
     background: #ffffff;
   }
@@ -606,6 +622,11 @@ body.exporting-report .report-card {
 }
 
 @media print {
+  * {
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+
   body {
     -webkit-print-color-adjust: exact;
     print-color-adjust: exact;
@@ -624,5 +645,33 @@ body.exporting-report .report-card {
   .report-archetypes {
     break-before: page;
     page-break-before: always;
+  }
+}
+
+@media print {
+  html,
+  body {
+    background: #ffffff !important;
+  }
+
+  .print-page {
+    background: #ffffff !important;
+  }
+
+  .print-root {
+    width: auto !important;
+    max-width: none !important;
+    padding: 0 !important;
+    margin: 0 !important;
+  }
+
+  .print-section {
+    break-inside: avoid;
+    page-break-inside: avoid;
+  }
+
+  .print-root .rounded-xl,
+  .print-root .rounded-lg {
+    border-radius: 0 !important;
   }
 }

@@ -1,7 +1,7 @@
 "use client";
 export const dynamic = "force-dynamic";
 
-import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { Suspense, useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 
 import DatasetSelect from "@/components/DatasetSelect";
@@ -171,8 +171,6 @@ function ReportsPageContent() {
   const [compareMode, setCompareMode] = useState<CompareMode>("entity");
   const [compareResult, setCompareResult] = useState<CompareResult | null>(null);
   const [compareWarning, setCompareWarning] = useState<string | null>(null);
-  const [isExportingReport, setIsExportingReport] = useState(false);
-  const previousTitleRef = useRef<string | null>(null);
   const { isLoggedIn, openLogin } = useNetlifyIdentity();
 
   const datasetOptions = useMemo(
@@ -222,36 +220,6 @@ function ReportsPageContent() {
     }
   }, [datasetAId, datasetBId, datasets, adaptationDatasetId]);
 
-  useEffect(() => {
-    if (typeof document === "undefined") return;
-    document.body.classList.toggle("exporting-report", isExportingReport);
-  }, [isExportingReport]);
-
-  useEffect(() => {
-    if (typeof window === "undefined") return;
-
-    const handleAfterPrint = () => {
-      setIsExportingReport(false);
-      if (previousTitleRef.current) {
-        document.title = previousTitleRef.current;
-        previousTitleRef.current = null;
-      }
-    };
-
-    window.addEventListener("afterprint", handleAfterPrint);
-    const mediaQuery = window.matchMedia("print");
-    const handleChange = (event: MediaQueryListEvent) => {
-      if (!event.matches) {
-        handleAfterPrint();
-      }
-    };
-    mediaQuery.addEventListener("change", handleChange);
-
-    return () => {
-      window.removeEventListener("afterprint", handleAfterPrint);
-      mediaQuery.removeEventListener("change", handleChange);
-    };
-  }, []);
 
   const datasetA = useMemo(() => getDatasetById(datasetAId) ?? null, [datasetAId, getDatasetById]);
   const datasetB = useMemo(() => getDatasetById(datasetBId) ?? null, [datasetBId, getDatasetById]);
@@ -474,18 +442,12 @@ function ReportsPageContent() {
   const handlePrint = () => {
     if (typeof window === "undefined") return;
 
-    const filename = `${snapshot.companyName} - Decision Orbit ${snapshot.periodLabel}.pdf`;
-
-    if (!previousTitleRef.current) {
-      previousTitleRef.current = document.title;
+    const params = new URLSearchParams(searchParams.toString());
+    params.set("window", selectedTimeframe);
+    if (datasetId) {
+      params.set("dataset", datasetId);
     }
-    document.title = filename;
-    setIsExportingReport(true);
-    requestAnimationFrame(() => {
-      requestAnimationFrame(() => {
-        window.print();
-      });
-    });
+    window.open(`/reports/print?${params.toString()}`, "_blank", "noopener,noreferrer");
   };
 
   return (
