@@ -5,7 +5,7 @@
 import Link from "next/link";
 
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { CardContent, CardHeader, CardTitle, GlassCard } from "@/components/ui/card";
 
 const scenarioCards = [
   {
@@ -111,9 +111,9 @@ export default function ScenariosPage() {
 
         <div className="grid gap-4 md:grid-cols-2">
           {scenarioCards.map((scenario) => (
-            <Card
+            <GlassCard
               key={scenario.title}
-              className="h-full border-white/10 bg-white/[0.04] text-white shadow-[0_18px_50px_-42px_rgba(0,0,0,0.9)]"
+              className="h-full flex flex-col gap-6 py-6 text-white"
             >
               <CardHeader className="pb-2">
                 <CardTitle className="text-lg font-semibold">{scenario.title}</CardTitle>
@@ -140,11 +140,11 @@ export default function ScenariosPage() {
                   </ul>
                 </div>
               </CardContent>
-            </Card>
+            </GlassCard>
           ))}
         </div>
 
-        <Card className="border-white/10 bg-white/[0.04] text-white shadow-[0_18px_50px_-42px_rgba(0,0,0,0.9)]">
+        <GlassCard className="flex flex-col gap-6 py-6 text-white">
           <CardHeader className="pb-2">
             <CardTitle className="text-lg font-semibold">Decision market inefficiencies</CardTitle>
             <p className="text-sm text-slate-200">Early warning / early opportunity signals.</p>
@@ -181,7 +181,7 @@ export default function ScenariosPage() {
               Compare modes tell you how you performed. These tell you where to look next. That distinction matters.
             </p>
           </CardContent>
-        </Card>
+        </GlassCard>
 
         <div className="flex flex-col items-center justify-center gap-3 rounded-2xl border border-white/10 bg-white/5 px-4 py-5 text-center md:flex-row md:px-6">
           <p className="text-sm text-slate-200">Ready to translate your own situation?</p>

@@ -15,6 +15,16 @@ function Card({ className, ...props }: React.ComponentProps<"div">) {
   )
 }
 
+function GlassCard({ className, ...props }: React.ComponentProps<"div">) {
+  return (
+    <div
+      data-slot="glass-card"
+      className={cn("dnav-glass-card", className)}
+      {...props}
+    />
+  )
+}
+
 function CardHeader({ className, ...props }: React.ComponentProps<"div">) {
   return (
     <div
@@ -83,6 +93,7 @@ function CardFooter({ className, ...props }: React.ComponentProps<"div">) {
 
 export {
   Card,
+  GlassCard,
   CardHeader,
   CardFooter,
   CardTitle,
