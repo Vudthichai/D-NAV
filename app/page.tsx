@@ -1,21 +1,16 @@
 "use client";
 
-import type { CSSProperties, HTMLAttributes, ReactNode } from "react";
+import type { CSSProperties } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { Activity, ArrowRight, Shield, TrendingUp } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
-import { cn } from "@/lib/utils";
+import { GlassCard } from "@/components/ui/card";
 import { RpsDistributions } from "@/components/RpsDistributions";
 
 const noiseTexture =
   "data:image/svg+xml;base64,PHN2ZyB4bWxucz0naHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmcnIHdpZHRoPScxMDAnIGhlaWdodD0nMTAwJz48ZmlsdGVyIGlkPSdudCcgZmlsdGVyVW5pdHM9J3VzZXJTcGFjZU9uVXNlJyB4PScwJyB5PScwJz48ZmVUdXJidWxlbmNlIGJhc2VGcmVxdWVuY3k9Jy4zJyBudW1PY3RhdmVzPSc0Jy8+PGZlQ29sb3JNYXRyaXggdHlwZT0nc2F0dXJhdGUnIHZhbHVlcz0nMCAwIDAgMCAwIDEgMCAwIDAgMCAwIDAgMCAwIDAgMC4xIDAgMCAwIDAgMCcvPjwvZmlsdGVyPjxyZWN0IHdpZHRoPScxMDAnIGhlaWdodD0nMTAwJyBmaWx0ZXI9InVybCgjbnQpIiBvcGFjaXR5PScwLjQnLz48L3N2Zz4=\n";
-
-type GlassPanelProps = HTMLAttributes<HTMLDivElement> & {
-  className?: string;
-  children?: ReactNode;
-};
 
 function HeroBackground() {
   return (
@@ -29,21 +24,6 @@ function HeroBackground() {
             "radial-gradient(circle at 30% 22%, rgba(249,115,22,0.18), transparent 38%), radial-gradient(circle at 78% 12%, rgba(59,130,246,0.12), transparent 32%), radial-gradient(circle at 55% 80%, rgba(16,185,129,0.12), transparent 28%)",
         }}
       />
-    </div>
-  );
-}
-
-function GlassPanel({ children, className, ...rest }: GlassPanelProps) {
-  return (
-    <div
-      className={cn(
-        "relative overflow-hidden rounded-[24px] border border-white/10 bg-white/5 shadow-[0_30px_80px_-60px_rgba(0,0,0,0.8)] backdrop-blur-xl",
-        className,
-      )}
-      {...rest}
-    >
-      <div className="absolute inset-0 bg-gradient-to-br from-white/5 via-transparent to-white/5 opacity-40" />
-      <div className="relative z-10">{children}</div>
     </div>
   );
 }
@@ -306,7 +286,7 @@ function UnderTheHoodSection() {
         </p>
 
         <div className="grid gap-6 lg:grid-cols-[1.05fr_0.95fr]">
-          <GlassPanel className="p-6 md:p-8 animate-fade-up" style={{ "--delay": "0.08s" } as CSSProperties}>
+          <GlassCard className="p-6 md:p-8 animate-fade-up" style={{ "--delay": "0.08s" } as CSSProperties}>
             <div className="space-y-5">
               <div className="flex items-center gap-2 text-xs uppercase tracking-[0.2em] text-amber-200">
                 <span className="h-1.5 w-1.5 rounded-full bg-amber-400" aria-hidden />
@@ -363,9 +343,9 @@ function UnderTheHoodSection() {
                 </ul>
               </div>
             </div>
-          </GlassPanel>
+          </GlassCard>
 
-          <GlassPanel className="p-6 md:p-8 animate-fade-up" style={{ "--delay": "0.14s" } as CSSProperties}>
+          <GlassCard className="p-6 md:p-8 animate-fade-up" style={{ "--delay": "0.14s" } as CSSProperties}>
             <div className="space-y-5">
               <div className="flex items-center justify-between gap-2">
                 <div className="space-y-2">
@@ -399,11 +379,11 @@ function UnderTheHoodSection() {
                 </Button>
               </div>
             </div>
-          </GlassPanel>
+          </GlassCard>
         </div>
 
         <div className="grid gap-6 md:grid-cols-2">
-          <GlassPanel className="p-6 md:p-7 animate-fade-up" style={{ "--delay": "0.18s" } as CSSProperties}>
+          <GlassCard className="p-6 md:p-7 animate-fade-up" style={{ "--delay": "0.18s" } as CSSProperties}>
             <div className="space-y-3">
               <div className="flex items-center gap-2 text-xs uppercase tracking-[0.2em] text-amber-200">
                 <span className="h-1.5 w-1.5 rounded-full bg-amber-400" aria-hidden />
@@ -426,9 +406,9 @@ function UnderTheHoodSection() {
                 </li>
               </ul>
             </div>
-          </GlassPanel>
+          </GlassCard>
 
-          <GlassPanel className="p-6 md:p-7 animate-fade-up" style={{ "--delay": "0.22s" } as CSSProperties}>
+          <GlassCard className="p-6 md:p-7 animate-fade-up" style={{ "--delay": "0.22s" } as CSSProperties}>
             <div className="space-y-3">
               <div className="flex items-center gap-2 text-xs uppercase tracking-[0.2em] text-amber-200">
                 <span className="h-1.5 w-1.5 rounded-full bg-amber-400" aria-hidden />
@@ -447,7 +427,7 @@ function UnderTheHoodSection() {
                 </div>
               </div>
             </div>
-          </GlassPanel>
+          </GlassCard>
         </div>
       </div>
     </section>
@@ -490,7 +470,7 @@ function FinalCTASection() {
   return (
     <section className="bg-[#040507] py-16 md:py-20">
       <div className="max-w-5xl mx-auto px-6">
-        <GlassPanel className="animate-fade-up" style={{ "--delay": "0.12s" } as CSSProperties}>
+        <GlassCard className="animate-fade-up" style={{ "--delay": "0.12s" } as CSSProperties}>
           <div className="p-10 sm:p-12 space-y-6 text-center">
             <h2 className="text-3xl md:text-4xl font-bold text-white">Start with a decision check. Expand to an audit.</h2>
             <p className="text-lg text-slate-300 max-w-3xl mx-auto">
@@ -528,7 +508,7 @@ function FinalCTASection() {
               </Button>
             </div>
           </div>
-        </GlassPanel>
+        </GlassCard>
       </div>
     </section>
   );

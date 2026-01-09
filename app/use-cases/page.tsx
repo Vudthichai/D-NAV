@@ -4,7 +4,7 @@ import Link from "next/link";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { CardContent, CardHeader, CardTitle, GlassCard } from "@/components/ui/card";
 import { ClipboardCheck, Compass, Sparkles, Target } from "lucide-react";
 
 type Persona = {
@@ -88,9 +88,9 @@ export default function UseCasesPage() {
 
           <div className="grid gap-5 md:grid-cols-2">
             {personas.map((persona) => (
-              <Card
+              <GlassCard
                 key={persona.title}
-                className="h-full border-white/10 bg-white/[0.05] text-white shadow-[0_18px_50px_-42px_rgba(0,0,0,0.9)]"
+                className="h-full flex flex-col gap-6 py-6 text-white"
               >
                 <CardHeader className="flex flex-row items-start justify-between gap-3 pb-2">
                   <div className="space-y-1">
@@ -123,7 +123,7 @@ export default function UseCasesPage() {
                     </Button>
                   </div>
                 </CardContent>
-              </Card>
+              </GlassCard>
             ))}
           </div>
         </div>
