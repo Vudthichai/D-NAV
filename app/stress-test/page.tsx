@@ -4,7 +4,7 @@ import SliderRow from "@/components/SliderRow";
 import SummaryCard from "@/components/SummaryCard";
 import DatasetSelect from "@/components/DatasetSelect";
 import { useDataset } from "@/components/DatasetProvider";
-import DefinitionsPanel from "@/components/stress-test/DefinitionsPanel";
+import { useDefinitionsPanel } from "@/components/definitions/DefinitionsPanelProvider";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -30,9 +30,9 @@ export default function StressTestPage() {
   const [variables, setVariables] = useState<DecisionVariables>(() => ({ ...DEFAULT_VARIABLES }));
   const [metrics, setMetrics] = useState<DecisionMetrics>(() => computeMetrics(DEFAULT_VARIABLES));
   const [isSaved, setIsSaved] = useState(false);
-  const [defsOpen, setDefsOpen] = useState(false);
   const decisionNameRef = useRef<HTMLInputElement>(null);
   const decisionCategoryRef = useRef<HTMLInputElement>(null);
+  const { openDefinitions } = useDefinitionsPanel();
 
   const { isLoggedIn, logout } = useNetlifyIdentity();
   const { addDataset, setDecisions, isDatasetLoading, loadError } = useDataset();
@@ -137,7 +137,7 @@ export default function StressTestPage() {
                     Add
                   </Button>
                 </div>
-                <Button size="sm" onClick={() => setDefsOpen(true)} className="font-semibold">
+                <Button size="sm" onClick={(event) => openDefinitions(event.currentTarget)} className="font-semibold">
                   Definitions
                 </Button>
                 {isLoggedIn ? (
@@ -362,7 +362,6 @@ export default function StressTestPage() {
             </div>
           ) : null}
         </div>
-        <DefinitionsPanel open={defsOpen} onClose={() => setDefsOpen(false)} />
       </main>
     </TooltipProvider>
   );
