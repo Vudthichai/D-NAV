@@ -14,6 +14,7 @@ interface ConditionalLayoutProps {
 export default function ConditionalLayout({ children }: ConditionalLayoutProps) {
   const pathname = usePathname();
   const isHomePage = pathname === "/" || pathname === "/home";
+  const isPrintPage = pathname?.startsWith("/reports/print");
 
   if (isHomePage) {
     // For home page, render without sidebar
@@ -23,6 +24,10 @@ export default function ConditionalLayout({ children }: ConditionalLayoutProps) 
         <Footer />
       </div>
     );
+  }
+
+  if (isPrintPage) {
+    return <main className="min-h-screen">{children}</main>;
   }
 
   // For all other pages, render with sidebar
