@@ -1,7 +1,9 @@
 'use client';
 
 import { DecisionMetrics, JudgmentSignal, getArchetype, getReadoutLines } from "@/lib/calculations";
+import GlassyTooltip from "@/components/ui/GlassyTooltip";
 import Term from "@/components/ui/Term";
+import { ARCHETYPE_DEFINITION } from "@/src/lib/definitions";
 import { cn } from "@/lib/utils";
 import { useMemo } from "react";
 
@@ -13,6 +15,7 @@ interface SummaryCardProps {
   showDefinitionLink?: boolean;
   judgmentSignal?: JudgmentSignal | null;
   meaningExpanded?: boolean;
+  showArchetypeTooltip?: boolean;
 }
 
 export default function SummaryCard({
@@ -21,6 +24,7 @@ export default function SummaryCard({
   compact = false,
   showMagnitudeCue = true,
   judgmentSignal,
+  showArchetypeTooltip = false,
 }: SummaryCardProps) {
   const archetype = getArchetype(metrics);
   const readoutLines = getReadoutLines(metrics, judgmentSignal);
@@ -48,7 +52,21 @@ export default function SummaryCard({
         <div className={cn("flex flex-1 flex-col", compact ? "gap-2" : "gap-3")}>
           <div className="flex flex-wrap items-start justify-between gap-3">
             <div className="space-y-1">
-              <p className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">Archetype</p>
+              {showArchetypeTooltip ? (
+                <GlassyTooltip
+                  content={
+                    <div className="space-y-1">
+                      <div className="text-xs font-semibold text-foreground">{ARCHETYPE_DEFINITION.title}</div>
+                      <div className="text-xs text-muted-foreground">{ARCHETYPE_DEFINITION.body}</div>
+                    </div>
+                  }
+                  triggerClassName="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground cursor-help"
+                >
+                  Archetype
+                </GlassyTooltip>
+              ) : (
+                <p className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">Archetype</p>
+              )}
               <div
                 className={cn(
                   "font-black text-foreground",
