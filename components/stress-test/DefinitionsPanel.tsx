@@ -47,6 +47,7 @@ export default function DefinitionsPanel({ open, onClose }: Props) {
       <div
         onClick={(e) => e.stopPropagation()}
         className={[
+          "definitions-panel",
           "absolute right-4 top-4 bottom-4 w-[440px] max-w-[calc(100vw-2rem)]",
           "transition-transform duration-300 ease-out",
           open ? "translate-x-0" : "translate-x-[110%]",
