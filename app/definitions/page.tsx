@@ -948,7 +948,7 @@ export default function DefinitionsPage() {
                 <div>
                   <h2 className="text-2xl font-bold tracking-tight mb-2">Decision Archetypes</h2>
                   <p className="mt-2 text-sm text-muted-foreground">
-                    Each outcome is defined by the signs of Pressure, Stability, and Return (P–S–R). Together they
+                    Each outcome is defined by the signs of Return, Pressure, and Stability (R–P–S). Together they
                     describe how the decision felt to make (pressure), how safe it left the system (stability), and
                     whether it created value (return).
                   </p>
