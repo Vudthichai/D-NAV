@@ -46,9 +46,14 @@ export function DefinitionsSheet({ open, onOpenChange }: DefinitionsSheetProps) 
     <Sheet open={open} onOpenChange={onOpenChange}>
       <SheetContent
         side="right"
-        className="relative gap-0 border-l border-black/10 bg-white/70 shadow-2xl backdrop-blur-xl sm:max-w-md dark:border-white/10 dark:bg-zinc-950/60"
+        overlayClassName="bg-black/20 backdrop-blur-[1px] dark:bg-black/50"
+        closeClassName="rounded-full border border-white/40 bg-white/70 text-zinc-900 shadow-sm opacity-90 transition hover:opacity-100 dark:border-white/10 dark:bg-zinc-900/60 dark:text-zinc-100"
+        className="relative gap-0 border-l border-white/40 bg-white/55 shadow-[0_30px_90px_rgba(0,0,0,0.18)] ring-1 ring-black/5 backdrop-blur-2xl sm:max-w-md dark:border-white/10 dark:bg-zinc-950/45 dark:ring-white/5"
       >
-        <div className="pointer-events-none absolute inset-0 bg-gradient-to-b from-white/40 via-transparent to-transparent dark:from-white/10" />
+        <div className="pointer-events-none absolute inset-0">
+          <div className="absolute inset-0 bg-gradient-to-b from-white/35 via-white/15 to-white/10 dark:from-white/10 dark:via-transparent dark:to-transparent" />
+          <div className="absolute inset-0 opacity-[0.06] dark:opacity-[0.08] [background-image:radial-gradient(circle_at_1px_1px,rgba(0,0,0,0.25)_1px,transparent_0)] [background-size:16px_16px]" />
+        </div>
         <div className="relative flex h-full flex-col">
           <SheetHeader className="border-b border-black/5 px-5 pt-6 pb-4 text-left dark:border-white/10">
             <SheetTitle className="text-lg">Definitions</SheetTitle>
