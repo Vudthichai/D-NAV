@@ -135,6 +135,9 @@ export function ReportPrintView({
           <div className="rounded-xl border border-orange-100 border-l-4 border-l-orange-500 bg-orange-50/70 px-4 py-3 print:break-inside-avoid">
             <p className="text-[11px] font-semibold uppercase tracking-wide text-neutral-600">System Directive</p>
             <p className="mt-1 text-[13px] leading-[1.45] text-neutral-900">{systemDirective}</p>
+            <p className="mt-2 text-[11px] text-neutral-600">
+              Apply this by logging new decisions in the categories below.
+            </p>
           </div>
         </div>
 
@@ -228,7 +231,10 @@ export function ReportPrintView({
           {topCategories.map((category) => (
             <div key={category.name} className="rounded-2xl border border-black/10 p-3">
               <div className="flex items-center justify-between text-[13px] font-semibold">
-                <span>{category.name}</span>
+                <div className="space-y-1">
+                  <span>{category.name}</span>
+                  <p className="text-[10px] font-normal text-neutral-500">Log next decision in this category</p>
+                </div>
                 <span className="text-[11px] text-neutral-900">{category.decisionCount} decisions</span>
               </div>
               <div className="mt-2 grid grid-cols-2 gap-3 text-[11px] leading-[1.45] text-neutral-900 sm:grid-cols-4">

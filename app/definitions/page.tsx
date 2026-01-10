@@ -99,12 +99,14 @@ export default function DefinitionsPage() {
       return (
         <Card key={key} className="p-4">
           <div className="space-y-3">
-            <div className="flex items-center justify-between">
-              <h4 className="font-semibold text-lg">{title}</h4>
-              <div className="flex gap-2">
+            <div className="space-y-1">
+              <div className="flex items-start justify-between gap-2">
+                <h4 className="font-semibold text-lg">{title}</h4>
+              </div>
+              <div className="flex flex-wrap gap-2">
+                <Badge variant={getBadgeVariant(r)}>R{r > 0 ? "+" : r < 0 ? "-" : "0"}</Badge>
                 <Badge variant={getBadgeVariant(p)}>P{p > 0 ? "+" : p < 0 ? "-" : "0"}</Badge>
                 <Badge variant={getBadgeVariant(s)}>S{s > 0 ? "+" : s < 0 ? "-" : "0"}</Badge>
-                <Badge variant={getBadgeVariant(r)}>R{r > 0 ? "+" : r < 0 ? "-" : "0"}</Badge>
               </div>
             </div>
             <p className="text-sm text-muted-foreground">{line}</p>

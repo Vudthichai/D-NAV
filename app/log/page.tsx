@@ -32,6 +32,7 @@ import {
   Upload,
 } from "lucide-react";
 import { type ChangeEvent, useEffect, useMemo, useRef, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import * as XLSX from "xlsx";
 
 export interface DecisionRow {
@@ -45,14 +46,37 @@ export interface DecisionRow {
   confidence: number;
 }
 
+type QuickEntry = {
+  name: string;
+  category: string;
+  impact: number;
+  cost: number;
+  risk: number;
+  urgency: number;
+  confidence: number;
+};
+
+type QuickMetricKey = "impact" | "cost" | "risk" | "urgency" | "confidence";
+
 type ParsedRecord =
   Partial<Record<keyof DecisionRow, string | number | null>> &
   Record<string, unknown>;
 
 export default function LogPage() {
+  const searchParams = useSearchParams();
   const [isCompact, setIsCompact] = useState(false);
   const [importStatus, setImportStatus] = useState<string | null>(null);
   const [importError, setImportError] = useState<string | null>(null);
+  const categoryParam = useMemo(() => searchParams.get("category")?.trim() ?? "", [searchParams]);
+  const [quickEntry, setQuickEntry] = useState<QuickEntry>({
+    name: "",
+    category: "",
+    impact: 5,
+    cost: 5,
+    risk: 5,
+    urgency: 5,
+    confidence: 5,
+  });
   const [companyContext, setCompanyContext] = useState<CompanyContext>({
     companyName: "",
     timeframeLabel: "",
@@ -77,6 +101,11 @@ export default function LogPage() {
   useEffect(() => {
     setCompanyContext(datasetMetaToCompanyContext(meta));
   }, [datasetId, meta]);
+
+  useEffect(() => {
+    if (!categoryParam) return;
+    setQuickEntry((prev) => (prev.category ? prev : { ...prev, category: categoryParam }));
+  }, [categoryParam]);
 
   const handleDeleteDecision = (timestamp: number) => {
     if (confirm("Are you sure you want to delete this decision?")) {
@@ -131,6 +160,44 @@ export default function LogPage() {
   const handleContextInput = (event: ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const { name, value } = event.target;
     handleContextChange(name as keyof CompanyContext, value);
+  };
+
+  const clampMetric = (value: number) => Math.min(10, Math.max(1, value));
+
+  const handleQuickMetricChange = (field: QuickMetricKey, value: string) => {
+    const numeric = Number(value);
+    if (Number.isNaN(numeric)) return;
+    setQuickEntry((prev) => ({ ...prev, [field]: clampMetric(numeric) }));
+  };
+
+  const handleQuickAddDecision = () => {
+    if (!quickEntry.name.trim() || !quickEntry.category.trim()) {
+      alert("Please enter both a decision name and category before saving.");
+      return;
+    }
+
+    const metrics = computeMetrics({
+      impact: quickEntry.impact,
+      cost: quickEntry.cost,
+      risk: quickEntry.risk,
+      urgency: quickEntry.urgency,
+      confidence: quickEntry.confidence,
+    });
+
+    const entry: DecisionEntry = {
+      ts: Date.now(),
+      name: quickEntry.name.trim(),
+      category: quickEntry.category.trim(),
+      impact: quickEntry.impact,
+      cost: quickEntry.cost,
+      risk: quickEntry.risk,
+      urgency: quickEntry.urgency,
+      confidence: quickEntry.confidence,
+      ...metrics,
+    };
+
+    setDecisions((prev) => [entry, ...prev]);
+    setQuickEntry((prev) => ({ ...prev, name: "" }));
   };
 
   const handleDeleteDataset = () => {
@@ -716,6 +783,12 @@ export default function LogPage() {
     return "text-yellow-600";
   };
 
+  const categorySuggestions = useMemo(() => {
+    const categorySet = new Set(decisions.map((decision) => decision.category));
+    if (categoryParam) categorySet.add(categoryParam);
+    return Array.from(categorySet).sort((a, b) => a.localeCompare(b));
+  }, [categoryParam, decisions]);
+
   return (
     <div className="max-w-6xl mx-auto grid gap-4 grid-cols-1">
       <div className="flex flex-wrap items-center justify-between gap-3">
@@ -977,6 +1050,69 @@ export default function LogPage() {
               {importError && <p className="text-destructive">{importError}</p>}
             </div>
           )}
+          <div className="mb-4 rounded-lg border border-muted/50 bg-muted/20 p-3">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <p className="text-xs font-semibold uppercase text-muted-foreground">Quick Log</p>
+              <Button size="sm" variant="secondary" onClick={handleQuickAddDecision}>
+                Add decision
+              </Button>
+            </div>
+            <div className="mt-3 grid gap-3 md:grid-cols-2">
+              <div className="space-y-2">
+                <label className="text-xs font-medium text-muted-foreground" htmlFor="quickDecisionName">
+                  Decision name
+                </label>
+                <Input
+                  id="quickDecisionName"
+                  value={quickEntry.name}
+                  onChange={(event) => setQuickEntry((prev) => ({ ...prev, name: event.target.value }))}
+                  placeholder="e.g., Launch beta release"
+                />
+              </div>
+              <div className="space-y-2">
+                <label className="text-xs font-medium text-muted-foreground" htmlFor="quickDecisionCategory">
+                  Category
+                </label>
+                <Input
+                  id="quickDecisionCategory"
+                  list="log-category-options"
+                  value={quickEntry.category}
+                  onChange={(event) =>
+                    setQuickEntry((prev) => ({ ...prev, category: event.target.value }))
+                  }
+                  placeholder="e.g., Product"
+                />
+                <datalist id="log-category-options">
+                  {categorySuggestions.map((category) => (
+                    <option key={category} value={category} />
+                  ))}
+                </datalist>
+              </div>
+            </div>
+            <div className="mt-3 grid grid-cols-2 gap-3 md:grid-cols-5">
+              {([
+                { key: "impact", label: "Impact" },
+                { key: "cost", label: "Cost" },
+                { key: "risk", label: "Risk" },
+                { key: "urgency", label: "Urgency" },
+                { key: "confidence", label: "Confidence" },
+              ] as const).map(({ key, label }) => (
+                <div key={key} className="space-y-1">
+                  <label className="text-[11px] font-medium text-muted-foreground" htmlFor={`quick-${key}`}>
+                    {label}
+                  </label>
+                  <Input
+                    id={`quick-${key}`}
+                    type="number"
+                    min={1}
+                    max={10}
+                    value={quickEntry[key]}
+                    onChange={(event) => handleQuickMetricChange(key, event.target.value)}
+                  />
+                </div>
+              ))}
+            </div>
+          </div>
           <Table>
             <TableHeader>
               <TableRow>
