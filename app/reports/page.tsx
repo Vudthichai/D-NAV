@@ -3,6 +3,7 @@ export const dynamic = "force-dynamic";
 
 import { Suspense, useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
+import Link from "next/link";
 
 import DatasetSelect from "@/components/DatasetSelect";
 import SystemComparePanel from "@/components/SystemComparePanel";
@@ -927,6 +928,9 @@ function OnePageReport({
             <div className="mt-4 rounded-xl border border-orange-100 border-l-4 border-l-orange-500 bg-orange-50/70 px-4 py-3 print:break-inside-avoid">
               <p className="text-[11px] font-semibold uppercase tracking-wide text-neutral-600">System Directive</p>
               <p className="mt-1 text-[13px] leading-[1.45] text-neutral-900">{systemDirective}</p>
+              <p className="mt-2 text-[11px] text-neutral-600">
+                Apply this by logging new decisions in the categories below.
+              </p>
             </div>
           </div>
 
@@ -1021,8 +1025,22 @@ function OnePageReport({
           <div className="mt-4 space-y-4">
             {topCategories.map((category) => (
               <div key={category.name} className="rounded-2xl border border-black/10 bg-white p-3">
-                <div className="flex items-center justify-between text-[13px] font-semibold">
-                  <span>{category.name}</span>
+                <div className="flex flex-wrap items-center justify-between gap-2 text-[13px] font-semibold">
+                  <div className="space-y-1">
+                    <span>{category.name}</span>
+                    <div>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="h-7 px-2 text-[11px] text-neutral-700 print:hidden"
+                        asChild
+                      >
+                        <Link href={`/log?category=${encodeURIComponent(category.name)}`}>
+                          Log decision in this category
+                        </Link>
+                      </Button>
+                    </div>
+                  </div>
                   <span className="text-[11px] text-neutral-900">{category.decisionCount} decisions</span>
                 </div>
                 <div className="mt-2 grid grid-cols-2 gap-3 text-[11px] leading-[1.45] text-neutral-900 sm:grid-cols-4">
