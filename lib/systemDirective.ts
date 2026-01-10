@@ -2,44 +2,28 @@ type SystemDirectiveInput = {
   avgReturn: number;
   avgPressure: number;
   avgStability: number;
-  returnNegativePct?: number;
   pressurePressuredPct?: number;
   stabilityFragilePct?: number;
 };
 
 export function getSystemDirective({
-  avgReturn,
+  avgReturn: _avgReturn,
   avgPressure,
   avgStability,
-  returnNegativePct = 0,
   pressurePressuredPct = 0,
   stabilityFragilePct = 0,
 }: SystemDirectiveInput) {
-  let permission: string;
-
   if (avgPressure <= -1 && avgStability >= 1) {
-    permission = "You're stable and under low pressure —";
-  } else if (avgPressure > 1) {
-    permission = "You're under high pressure —";
-  } else if (avgStability < -1 || stabilityFragilePct >= 15) {
-    permission = "Stability is thin —";
-  } else {
-    permission = "You're in a neutral posture —";
+    return "You’re stable and under low pressure — use the category results below to choose where to act: push Impact up (or Cost down) in the best-return category first, and avoid moves that reduce Stability.";
   }
 
-  const primaryLever =
-    avgReturn <= 0 || returnNegativePct >= 15
-      ? "prioritize increasing Return by raising Impact or reducing Cost"
-      : "increase ambition selectively by raising Impact or reducing Cost where return is already strongest";
+  if (avgPressure > 1 || pressurePressuredPct >= 20) {
+    return "You’re under high pressure — reduce execution strain first (lower Cost / lower Urgency), then raise Impact selectively in the categories that already perform.";
+  }
 
-  let guardrail: string;
   if (avgStability < 1 || stabilityFragilePct >= 15) {
-    guardrail = "while keeping decisions on stable footing";
-  } else if (avgPressure > 1 || pressurePressuredPct >= 20) {
-    guardrail = "while reducing execution strain";
-  } else {
-    guardrail = "without destabilizing the operating base";
+    return "Stability is at risk — protect stable footing first (lower Risk / lower Cost), then push Impact selectively in the categories that can absorb it.";
   }
 
-  return `${permission} ${primaryLever} ${guardrail}.`;
+  return "You’re in a neutral posture — use the category results below to focus effort: improve Return by raising Impact or reducing Cost where outcomes are already consistent, and keep Stability steady.";
 }

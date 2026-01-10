@@ -864,7 +864,6 @@ function OnePageReport({
     avgReturn: rpsBaseline.avgReturn,
     avgPressure: rpsBaseline.avgPressure,
     avgStability: rpsBaseline.avgStability,
-    returnNegativePct: returnDistribution.negative,
     pressurePressuredPct: pressureDistribution.positive,
     stabilityFragilePct: stabilityDistribution.negative,
   });
@@ -925,8 +924,8 @@ function OnePageReport({
               </div>
             </div>
 
-            <div className="mt-4 rounded-2xl border border-black/10 bg-white px-4 py-3">
-              <p className="text-[11px] font-semibold uppercase tracking-wide text-neutral-700">System Directive</p>
+            <div className="mt-4 rounded-xl border border-orange-100 border-l-4 border-l-orange-500 bg-orange-50/70 px-4 py-3 print:break-inside-avoid">
+              <p className="text-[11px] font-semibold uppercase tracking-wide text-neutral-600">System Directive</p>
               <p className="mt-1 text-[13px] leading-[1.45] text-neutral-900">{systemDirective}</p>
             </div>
           </div>
