@@ -24,6 +24,7 @@ import {
   FullInterpretation,
   generateFullInterpretation,
 } from "@/lib/dnavSummaryEngine";
+import { getSystemDirective } from "@/lib/systemDirective";
 import { getDatasetDisplayName } from "@/lib/datasetDisplay";
 import { loadDecisionsForDataset } from "@/lib/reportSnapshot";
 import { useDataset } from "@/components/DatasetProvider";
@@ -859,6 +860,15 @@ function OnePageReport({
   const getArchetypeShare = (count: number) =>
     rpsBaseline.totalDecisions > 0 ? ((count / rpsBaseline.totalDecisions) * 100).toFixed(1) : "0.0";
 
+  const systemDirective = getSystemDirective({
+    avgReturn: rpsBaseline.avgReturn,
+    avgPressure: rpsBaseline.avgPressure,
+    avgStability: rpsBaseline.avgStability,
+    returnNegativePct: returnDistribution.negative,
+    pressurePressuredPct: pressureDistribution.positive,
+    stabilityFragilePct: stabilityDistribution.negative,
+  });
+
   return (
     <div className="report-page space-y-6">
       <div className="report-print-page mx-auto max-w-6xl space-y-5 rounded-2xl border border-black/10 bg-white p-6 text-neutral-900 shadow-none print:max-w-none print:border-none print:bg-white">
@@ -913,6 +923,11 @@ function OnePageReport({
                 </h3>
                 <p>{interpretation.learningSummary}</p>
               </div>
+            </div>
+
+            <div className="mt-4 rounded-2xl border border-black/10 bg-white px-4 py-3">
+              <p className="text-[11px] font-semibold uppercase tracking-wide text-neutral-700">System Directive</p>
+              <p className="mt-1 text-[13px] leading-[1.45] text-neutral-900">{systemDirective}</p>
             </div>
           </div>
 

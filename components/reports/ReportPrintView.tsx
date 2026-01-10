@@ -2,6 +2,7 @@
 
 import { MetricDistribution } from "@/components/reports/MetricDistribution";
 import type { CompanyPeriodSnapshot, FullInterpretation } from "@/lib/dnavSummaryEngine";
+import { getSystemDirective } from "@/lib/systemDirective";
 
 type BaselineDistribution = {
   positive: number;
@@ -70,6 +71,15 @@ export function ReportPrintView({
   const getArchetypeShare = (count: number) =>
     rpsBaseline.totalDecisions > 0 ? ((count / rpsBaseline.totalDecisions) * 100).toFixed(1) : "0.0";
 
+  const systemDirective = getSystemDirective({
+    avgReturn: rpsBaseline.avgReturn,
+    avgPressure: rpsBaseline.avgPressure,
+    avgStability: rpsBaseline.avgStability,
+    returnNegativePct: returnDistribution.negative,
+    pressurePressuredPct: pressureDistribution.positive,
+    stabilityFragilePct: stabilityDistribution.negative,
+  });
+
   return (
     <div className="print-root space-y-6 text-neutral-900">
       <header className="print-section flex flex-col gap-2 border-b border-black/10 pb-4 sm:flex-row sm:items-baseline sm:justify-between">
@@ -121,6 +131,11 @@ export function ReportPrintView({
               </h3>
               <p>{interpretation.learningSummary}</p>
             </div>
+          </div>
+
+          <div className="rounded-2xl border border-black/10 bg-white px-4 py-3">
+            <p className="text-[11px] font-semibold uppercase tracking-wide text-neutral-700">System Directive</p>
+            <p className="mt-1 text-[13px] leading-[1.45] text-neutral-900">{systemDirective}</p>
           </div>
         </div>
 
