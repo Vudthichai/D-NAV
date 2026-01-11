@@ -96,6 +96,22 @@ export const oneWordArchetypes: Record<string, string> = {
   "1|-1|-1": "Meltdown", "0|-1|-1": "Collapse", "-1|-1|-1": "Decay"
 };
 
+export type RpsSignal = -1 | 0 | 1;
+
+const archetypeSignalsByName: Record<string, { r: RpsSignal; p: RpsSignal; s: RpsSignal }> =
+  Object.entries(oneWordArchetypes).reduce(
+    (acc, [key, name]) => {
+      const [p, s, r] = key.split("|").map((value) => Number(value) as RpsSignal);
+      acc[name] = { r, p, s };
+      return acc;
+    },
+    {} as Record<string, { r: RpsSignal; p: RpsSignal; s: RpsSignal }>
+  );
+
+export function getArchetypeSignals(archetypeName: string): { r: RpsSignal; p: RpsSignal; s: RpsSignal } | null {
+  return archetypeSignalsByName[archetypeName] ?? null;
+}
+
 export function sign3(x: number): number {
   return x > 0 ? 1 : x < 0 ? -1 : 0;
 }

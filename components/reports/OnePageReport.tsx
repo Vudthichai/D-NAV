@@ -1,3 +1,4 @@
+import { ArchetypeRpsChips } from "@/components/reports/ArchetypeRpsChips";
 import type { CompanyPeriodSnapshot, FullInterpretation } from "@/lib/dnavSummaryEngine";
 
 type BaselineDistribution = {
@@ -231,7 +232,13 @@ export default function OnePageReport({
           <h2 className="text-sm font-semibold text-slate-700 mb-2">Archetype Fingerprint — {periodLabel}</h2>
           <div className="text-xs space-y-2">
             <p>
-              Primary archetype: <span className="font-semibold">{primaryArchetype?.archetype ?? "Not enough data"}</span>
+              <span className="inline-flex flex-wrap items-center gap-2">
+                <span>Primary archetype:</span>
+                <span className="inline-flex flex-wrap items-center gap-2 font-semibold">
+                  <span>{primaryArchetype?.archetype ?? "Not enough data"}</span>
+                  {primaryArchetype && <ArchetypeRpsChips archetype={primaryArchetype.archetype} />}
+                </span>
+              </span>
               {primaryArchetype && (
                 <span className="text-slate-500">
                   {" "}(R {primaryArchetype.avgR.toFixed(1)} · P {primaryArchetype.avgP.toFixed(1)} · S {primaryArchetype.avgS.toFixed(1)} · {primaryArchetype.count} decisions)
@@ -239,7 +246,13 @@ export default function OnePageReport({
               )}
             </p>
             <p>
-              Secondary archetype: <span className="font-semibold">{secondaryArchetype?.archetype ?? "Not enough data"}</span>
+              <span className="inline-flex flex-wrap items-center gap-2">
+                <span>Secondary archetype:</span>
+                <span className="inline-flex flex-wrap items-center gap-2 font-semibold">
+                  <span>{secondaryArchetype?.archetype ?? "Not enough data"}</span>
+                  {secondaryArchetype && <ArchetypeRpsChips archetype={secondaryArchetype.archetype} />}
+                </span>
+              </span>
               {secondaryArchetype && (
                 <span className="text-slate-500">
                   {" "}(R {secondaryArchetype.avgR.toFixed(1)} · P {secondaryArchetype.avgP.toFixed(1)} · S {secondaryArchetype.avgS.toFixed(1)} · {secondaryArchetype.count} decisions)
@@ -258,7 +271,12 @@ export default function OnePageReport({
               <tbody>
                 {sortedArchetypes.slice(0, 4).map((archetype) => (
                   <tr key={archetype.archetype} className="border-t">
-                    <td className="py-1 pr-2 font-semibold">{archetype.archetype}</td>
+                    <td className="py-1 pr-2 font-semibold">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <span>{archetype.archetype}</span>
+                        <ArchetypeRpsChips archetype={archetype.archetype} />
+                      </div>
+                    </td>
                     <td className="py-1 pr-2">{archetype.count}</td>
                     <td className="py-1">
                       {snapshot.rpsBaseline.totalDecisions

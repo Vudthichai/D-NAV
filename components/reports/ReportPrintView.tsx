@@ -1,6 +1,7 @@
 "use client";
 
 import { MetricDistribution } from "@/components/reports/MetricDistribution";
+import { ArchetypeRpsChips } from "@/components/reports/ArchetypeRpsChips";
 import type { CompanyPeriodSnapshot, FullInterpretation } from "@/lib/dnavSummaryEngine";
 import { getSystemDirective } from "@/lib/systemDirective";
 
@@ -270,7 +271,18 @@ export function ReportPrintView({
             Archetype Fingerprint — {periodLabel}
           </p>
           <p className="text-[13px] leading-[1.45] text-neutral-900">
-            Primary: {primaryArchetype?.archetype ?? "N/A"} · Secondary: {secondaryArchetype?.archetype ?? "N/A"}
+            <span className="inline-flex flex-wrap items-center gap-2">
+              <span>Primary:</span>
+              <span className="inline-flex flex-wrap items-center gap-2">
+                <span>{primaryArchetype?.archetype ?? "N/A"}</span>
+                {primaryArchetype && <ArchetypeRpsChips archetype={primaryArchetype.archetype} />}
+              </span>
+              <span>· Secondary:</span>
+              <span className="inline-flex flex-wrap items-center gap-2">
+                <span>{secondaryArchetype?.archetype ?? "N/A"}</span>
+                {secondaryArchetype && <ArchetypeRpsChips archetype={secondaryArchetype.archetype} />}
+              </span>
+            </span>
           </p>
         </div>
 
@@ -286,7 +298,12 @@ export function ReportPrintView({
             <tbody className="divide-y divide-black/10 bg-white">
               {archetypeRows.map((entry) => (
                 <tr key={entry.archetype}>
-                  <td className="px-3 py-2 font-medium text-neutral-900">{entry.archetype}</td>
+                  <td className="px-3 py-2 font-medium text-neutral-900">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <span>{entry.archetype}</span>
+                      <ArchetypeRpsChips archetype={entry.archetype} />
+                    </div>
+                  </td>
                   <td className="px-3 py-2 text-right text-neutral-900">{entry.count}</td>
                   <td className="px-3 py-2 text-right text-neutral-900">{getArchetypeShare(entry.count)}%</td>
                 </tr>
