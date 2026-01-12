@@ -1,8 +1,9 @@
 "use client";
 
 import { InfoTooltip } from "@/components/InfoTooltip";
-import DatasetSelect from "@/components/DatasetSelect";
 import { useDataset } from "@/components/DatasetProvider";
+import StressTestCalculator from "@/components/stress-test/StressTestCalculator";
+import StressTestDatasetControls from "@/components/stress-test/StressTestDatasetControls";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -420,14 +421,11 @@ export default function TheDNavPage() {
   const [timeWindow, setTimeWindow] = useState("0");
   const [isGeneratingStatsPdf, setIsGeneratingStatsPdf] = useState(false);
   const statsContainerRef = useRef<HTMLDivElement>(null);
-  const { isLoggedIn, openLogin, logout } = useNetlifyIdentity();
+  const { isLoggedIn, openLogin } = useNetlifyIdentity();
   const {
     activeDatasetId: datasetId,
     meta,
     decisions,
-    addDataset,
-    isDatasetLoading,
-    loadError,
   } = useDataset();
   const [categorySort, setCategorySort] = useState<{ key: CategorySortKey; direction: "asc" | "desc" }>(
     { key: "decisionCount", direction: "desc" },
@@ -870,10 +868,6 @@ export default function TheDNavPage() {
     window.location.href = "/contact";
   };
 
-  const handleLogoutClick = () => {
-    logout();
-  };
-
   return (
     <TooltipProvider>
       <main className="min-h-screen">
@@ -887,34 +881,8 @@ export default function TheDNavPage() {
                 Turn decisions into data. Turn that data into patterns. Turn patterns into leverage.
               </p>
             </div>
-            <div className="flex gap-2 self-start items-center">
-              <div className="flex items-center gap-2">
-                <DatasetSelect label="Dataset" />
-                <Button variant="outline" size="sm" onClick={addDataset}>
-                  Add dataset
-                </Button>
-              </div>
-              {isLoggedIn ? (
-                <button
-                  type="button"
-                  onClick={handleLogoutClick}
-                  className="logout-btn text-xs text-muted-foreground underline-offset-2 hover:underline"
-                >
-                  Log out
-                </button>
-              ) : null}
-            </div>
+            <StressTestDatasetControls />
           </div>
-
-          {loadError ? (
-            <div className="rounded-lg border border-destructive/40 bg-destructive/10 px-4 py-3 text-sm text-destructive">
-              {loadError}
-            </div>
-          ) : isDatasetLoading ? (
-            <div className="rounded-lg border border-muted/60 bg-muted/20 px-4 py-3 text-sm text-muted-foreground">
-              Loading dataset…
-            </div>
-          ) : null}
 
           <section className="space-y-6">
 
@@ -987,6 +955,7 @@ export default function TheDNavPage() {
                   </div>
 
                     <div className="space-y-12">
+                      <StressTestCalculator logMode="link" showFooter={false} />
                       <Card>
                         <CardHeader className="pb-3 space-y-2">
                           <CardTitle className="text-xl font-semibold">RPS Baseline</CardTitle>
