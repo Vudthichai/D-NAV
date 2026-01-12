@@ -21,7 +21,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { useNetlifyIdentity } from "@/hooks/use-netlify-identity";
 import { ChevronDown, Pencil } from "lucide-react";
 import Link from "next/link";
-import { useCallback, useRef, useState, type MouseEvent } from "react";
+import { useCallback, useEffect, useRef, useState, type MouseEvent } from "react";
 
 type BaselineBucketKey = "intent" | "constraints" | "actions" | "movement";
 
@@ -90,6 +90,7 @@ const DEFAULT_DECISIONS = [
 ];
 
 const DECISION_CATEGORIES = ["Uncategorized", "Growth", "Operations", "Finance", "Risk", "People", "Product", "Market"];
+const SESSION_DECISIONS_KEY = "dnav_stress_test_session_decisions";
 
 export default function StressTestPage() {
   const [baselineBuckets, setBaselineBuckets] = useState<Record<BaselineBucketKey, BaselineBucketState>>({
@@ -99,7 +100,17 @@ export default function StressTestPage() {
     movement: { text: "", file: null },
   });
   const [isExtracting, setIsExtracting] = useState(false);
-  const [extractedDecisions, setExtractedDecisions] = useState<ExtractedDecision[]>([]);
+  const [sessionDecisions, setSessionDecisions] = useState<ExtractedDecision[]>(() => {
+    if (typeof window === "undefined") return [];
+    try {
+      const stored = window.sessionStorage.getItem(SESSION_DECISIONS_KEY);
+      const parsed = stored ? JSON.parse(stored) : null;
+      return Array.isArray(parsed) ? parsed : [];
+    } catch (error) {
+      console.error("Failed to load stress test session decisions.", error);
+      return [];
+    }
+  });
   const [editingDecisionId, setEditingDecisionId] = useState<string | null>(null);
   const [isBaselineOpen, setIsBaselineOpen] = useState(false);
   const calculatorRef = useRef<StressTestCalculatorHandle>(null);
@@ -136,10 +147,19 @@ export default function StressTestPage() {
     }));
 
     window.setTimeout(() => {
-      setExtractedDecisions(decisions);
+      setSessionDecisions(decisions);
       setIsExtracting(false);
     }, 900);
   }, [baselineBuckets.actions.text, isExtracting]);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    try {
+      window.sessionStorage.setItem(SESSION_DECISIONS_KEY, JSON.stringify(sessionDecisions));
+    } catch (error) {
+      console.error("Failed to save stress test session decisions.", error);
+    }
+  }, [sessionDecisions]);
 
   const handleDecisionSelect = useCallback((decision: ExtractedDecision) => {
     calculatorRef.current?.selectDecision({ name: decision.text, category: decision.category });
@@ -343,22 +363,22 @@ export default function StressTestPage() {
                         </div>
                       ) : null}
 
-                      {extractedDecisions.length > 0 ? (
+                      {sessionDecisions.length > 0 ? (
                         <div className="space-y-3">
                           <div className="space-y-1">
                             <h3 className="text-base font-semibold text-foreground">Detected Decisions</h3>
                             <p className="text-sm text-muted-foreground">
                               Do these reflect how you see your actions? Edit anything before scoring.
                             </p>
-                            {extractedDecisions.length < 10 ? (
+                            {sessionDecisions.length < 10 ? (
                               <p className="text-xs text-muted-foreground">
-                                We found {extractedDecisions.length}. Add more actions or upload a document to reveal
+                                We found {sessionDecisions.length}. Add more actions or upload a document to reveal
                                 patterns.
                               </p>
                             ) : null}
                           </div>
                           <div className="space-y-3">
-                            {extractedDecisions.map((decision) => (
+                            {sessionDecisions.map((decision) => (
                               <div
                                 key={decision.id}
                                 className="flex w-full flex-col gap-3 rounded-2xl border border-border/40 bg-muted/10 px-4 py-3 shadow-sm transition hover:border-border/70"
@@ -368,7 +388,7 @@ export default function StressTestPage() {
                                   <Checkbox
                                     checked={decision.included}
                                     onCheckedChange={(value) => {
-                                      setExtractedDecisions((prev) =>
+                                      setSessionDecisions((prev) =>
                                         prev.map((item) =>
                                           item.id === decision.id
                                             ? { ...item, included: value === true }
@@ -383,7 +403,7 @@ export default function StressTestPage() {
                                         value={decision.text}
                                         onChange={(event) => {
                                           const nextValue = event.target.value;
-                                          setExtractedDecisions((prev) =>
+                                          setSessionDecisions((prev) =>
                                             prev.map((item) =>
                                               item.id === decision.id ? { ...item, text: nextValue } : item,
                                             ),
@@ -419,7 +439,7 @@ export default function StressTestPage() {
                                   <Select
                                     value={decision.category}
                                     onValueChange={(value) => {
-                                      setExtractedDecisions((prev) =>
+                                      setSessionDecisions((prev) =>
                                         prev.map((item) =>
                                           item.id === decision.id ? { ...item, category: value } : item,
                                         ),
