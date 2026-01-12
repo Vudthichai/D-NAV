@@ -71,6 +71,18 @@ const downloadBlob = (blob: Blob, filename: string) => {
   URL.revokeObjectURL(url);
 };
 
+const parseFilenameFromDisposition = (header: string | null) => {
+  if (!header) return null;
+  const match = header.match(/filename\*=UTF-8''([^;]+)|filename="?([^";]+)"?/i);
+  const filename = match?.[1] ?? match?.[2];
+  if (!filename) return null;
+  try {
+    return decodeURIComponent(filename);
+  } catch {
+    return filename;
+  }
+};
+
 const buildDecisionRows = (decisions: DecisionEntry[]) =>
   decisions.map((decision) => ({
     Date: new Date(decision.ts).toLocaleDateString(),
@@ -171,6 +183,7 @@ function ReportsPageContent() {
   const [compareTimeframe, setCompareTimeframe] = useState<TimeframeValue>(resolvedTimeframe);
   const [adaptationWindowSize, setAdaptationWindowSize] = useState(25);
   const [isCompareLoading, setIsCompareLoading] = useState(false);
+  const [isPdfDownloading, setIsPdfDownloading] = useState(false);
   const [compareMode, setCompareMode] = useState<CompareMode>("entity");
   const [compareResult, setCompareResult] = useState<CompareResult | null>(null);
   const [compareWarning, setCompareWarning] = useState<string | null>(null);
@@ -441,17 +454,37 @@ function ReportsPageContent() {
     downloadBlob(blob, filename);
   };
 
-  // Use the browser print dialog to export the report view.
-  const handlePrint = () => {
-    if (typeof window === "undefined") return;
-
-    const params = new URLSearchParams(searchParams.toString());
-    params.set("window", selectedTimeframe);
-    if (datasetId) {
-      params.set("dataset", datasetId);
+  const handleDownloadReport = useCallback(async () => {
+    if (!isLoggedIn || !hasData || isPdfDownloading) return;
+    setIsPdfDownloading(true);
+    try {
+      const params = new URLSearchParams(searchParams.toString());
+      params.set("window", selectedTimeframe);
+      if (datasetId) {
+        params.set("dataset", datasetId);
+      }
+      const response = await fetch(`/api/reports/pdf?${params.toString()}`);
+      if (!response.ok) {
+        throw new Error(`PDF request failed with status ${response.status}`);
+      }
+      const blob = await response.blob();
+      const headerFilename = parseFilenameFromDisposition(response.headers.get("content-disposition"));
+      const fallbackFilename = `dnav-report-${slugify(timeframeConfig.label)}.pdf`;
+      downloadBlob(blob, headerFilename ?? fallbackFilename);
+    } catch (error) {
+      console.error("Failed to download report PDF", error);
+    } finally {
+      setIsPdfDownloading(false);
     }
-    window.open(`/reports/print?${params.toString()}`, "_blank", "noopener,noreferrer");
-  };
+  }, [
+    datasetId,
+    hasData,
+    isLoggedIn,
+    isPdfDownloading,
+    searchParams,
+    selectedTimeframe,
+    timeframeConfig.label,
+  ]);
 
   return (
     <TooltipProvider>
@@ -488,15 +521,15 @@ function ReportsPageContent() {
               <Button
                 size="sm"
                 className="bg-orange-500 text-white hover:bg-orange-600"
-                onClick={handlePrint}
-                disabled={!isLoggedIn || !hasData}
+                onClick={handleDownloadReport}
+                disabled={!isLoggedIn || !hasData || isPdfDownloading}
               >
                 <FileDown className="mr-2 h-4 w-4" />
-                Download report
+                {isPdfDownloading ? "Preparing PDF..." : "Download report"}
               </Button>
             </div>
             <div className="print:hidden text-xs text-muted-foreground">
-              For best results, enable “Background Graphics” in the print dialog.
+              PDFs are rendered server-side for consistent layout across browsers.
             </div>
           </div>
         </section>

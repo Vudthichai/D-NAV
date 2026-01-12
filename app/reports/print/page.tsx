@@ -23,6 +23,7 @@ function PrintReportPageContent() {
   const searchParams = useSearchParams();
   const queryTimeframe = useMemo(() => searchParams.get("window"), [searchParams]);
   const queryDataset = useMemo(() => searchParams.get("dataset"), [searchParams]);
+  const isPdfRender = useMemo(() => searchParams.get("render") === "pdf", [searchParams]);
   const resolvedTimeframe = useMemo<TimeframeValue>(
     () =>
       TIMEFRAMES.some(({ value }) => value === queryTimeframe)
@@ -136,6 +137,7 @@ function PrintReportPageContent() {
   useEffect(() => {
     if (typeof window === "undefined") return;
     if (hasPrintedRef.current) return;
+    if (isPdfRender) return;
 
     const timer = window.setTimeout(() => {
       hasPrintedRef.current = true;
@@ -151,7 +153,7 @@ function PrintReportPageContent() {
       window.clearTimeout(timer);
       window.removeEventListener("afterprint", handleAfterPrint);
     };
-  }, [stats.totalDecisions]);
+  }, [isPdfRender, stats.totalDecisions]);
 
   return (
     <div className="print-page bg-white">
