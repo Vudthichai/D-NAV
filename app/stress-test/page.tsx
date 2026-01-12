@@ -19,7 +19,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import Term from "@/components/ui/Term";
-import { TooltipProvider } from "@/components/ui/tooltip";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { useNetlifyIdentity } from "@/hooks/use-netlify-identity";
 import { MetricDistribution, type MetricDistributionSegment } from "@/components/reports/MetricDistribution";
 import { ChevronDown, Pencil } from "lucide-react";
@@ -360,42 +360,42 @@ export default function StressTestPage() {
   const sessionActionOutput = useMemo(() => {
     if (sessionDecisions.length === 0) {
       return {
-        callout: "Save decisions to generate a session pattern.",
-        invitation: "Log one decision to unlock a sharper action output.",
+        callout: "Action Insight will appear once a few decisions are logged.",
+        invitation: "Log one decision to surface a pressure pattern.",
       };
     }
 
     if (sessionStats.avgUrgency - sessionStats.avgConfidence >= 1) {
       return {
-        callout: "Urgency is outrunning Confidence. That’s a pressure pattern.",
-        invitation: "Log one decision you’ve been avoiding and watch what it does to Pressure.",
+        callout: "Urgency is consistently outpacing Confidence across this session. That’s a pressure pattern — not a one-off decision.",
+        invitation: "Left unchecked, this pattern scales risk faster than impact.",
       };
     }
 
     if (sessionStats.avgReturn > 0 && sessionStats.avgStability < 0.5) {
       return {
-        callout: "Returns look positive, but Stability is fragile — you’re winning without reinforcement.",
-        invitation: "Re-score one decision with Risk one point lower to see if Stability firms up.",
+        callout: "Returns look positive, but Stability is fragile across the session.",
+        invitation: "Left unchecked, this pattern compounds risk faster than resilience.",
       };
     }
 
     if (sessionStats.avgImpact - sessionStats.avgConfidence >= 1) {
       return {
-        callout: "Confidence is consistently low relative to Impact — you’re aiming before you’re sure.",
-        invitation: "Re-score one decision with Confidence two points higher. See if the readout flips.",
+        callout: "Confidence is consistently low relative to Impact across this session.",
+        invitation: "Left unchecked, this pattern stretches execution beyond evidence.",
       };
     }
 
     if (sessionStats.avgReturn <= 0 || sessionStats.avgPressure > 1) {
       return {
-        callout: "Return is muted while Pressure climbs — the upside isn’t clearing the drag.",
-        invitation: "Log one decision with higher Impact and compare the Return signal.",
+        callout: "Return is muted while Pressure climbs across this session.",
+        invitation: "Left unchecked, this pattern limits upside while drag compounds.",
       };
     }
 
     return {
-      callout: "Signals are mostly aligned, but Pressure is still present.",
-      invitation: "Re-score one easy decision and see if Pressure relaxes.",
+      callout: "Signals are mostly aligned, and the system is stable.",
+      invitation: "Left unchecked, this pattern can drift if urgency spikes.",
     };
   }, [
     sessionDecisions.length,
@@ -497,18 +497,34 @@ export default function StressTestPage() {
 
             <div className="flex flex-col gap-2 rounded-lg border border-border/60 bg-muted/10 px-3 py-2 text-xs text-muted-foreground">
               <div className="flex flex-wrap items-center justify-between gap-2 text-xs font-semibold text-foreground">
-                <span>{sessionDecisions.length}/10 decisions saved</span>
-                <div className="flex items-center gap-2 text-muted-foreground">
-                  <span>Session progress</span>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    className="h-7 px-2 text-[11px] font-semibold uppercase tracking-wide"
-                    onClick={handleClearSession}
-                    disabled={sessionDecisions.length === 0}
-                  >
-                    Clear session
-                  </Button>
+                <span>
+                  {sessionDecisions.length >= 10
+                    ? "10/10 decisions logged — signal unlocked"
+                    : `${sessionDecisions.length}/10 decisions logged`}
+                </span>
+                <div className="flex flex-col items-end gap-1 text-muted-foreground">
+                  <div className="flex items-center gap-2">
+                    <span>Session progress</span>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="h-7 px-2 text-[11px] font-semibold uppercase tracking-wide"
+                      onClick={handleClearSession}
+                      disabled={sessionDecisions.length === 0}
+                    >
+                      Clear session
+                    </Button>
+                  </div>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <span className="cursor-pointer text-[11px] font-medium text-muted-foreground underline underline-offset-2">
+                        What does this mean?
+                      </span>
+                    </TooltipTrigger>
+                    <TooltipContent side="bottom" className="max-w-[240px]">
+                      Session Analysis shows how your decisions behave under pressure before hindsight distorts them.
+                    </TooltipContent>
+                  </Tooltip>
                 </div>
               </div>
               <div className="h-2 w-full overflow-hidden rounded-full bg-muted/30">
@@ -517,17 +533,16 @@ export default function StressTestPage() {
                   style={{ width: `${progressCount * 10}%` }}
                 />
               </div>
-              {sessionDecisions.length < 10 ? (
-                <p className="text-[11px] text-muted-foreground">Unlock session analysis at 10.</p>
-              ) : (
-                <p className="text-[11px] text-muted-foreground">
-                  You’ve unlocked session analysis. Open it to review trends.
-                </p>
-              )}
+              <p className="text-[11px] text-muted-foreground">
+                This is enough volume to see patterns. More decisions sharpen the signal.
+              </p>
 
               {sessionDecisions.length > 0 ? (
                 <div className="overflow-x-auto">
                   <div className="min-w-[720px] space-y-1">
+                    <p className="text-[11px] text-muted-foreground">
+                      These are live decisions captured in-the-moment — before outcomes rewrite the story.
+                    </p>
                     <div className="grid grid-cols-[minmax(180px,1.6fr)_repeat(5,minmax(48px,0.5fr))_repeat(3,minmax(40px,0.4fr))_minmax(56px,0.5fr)] items-center gap-2 rounded-lg border border-border/40 bg-muted/20 px-3 py-1 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
                       <span>Decision</span>
                       <span className="text-center">Impact</span>
@@ -571,11 +586,11 @@ export default function StressTestPage() {
                   className="h-9 px-4 text-xs font-semibold uppercase tracking-wide"
                   onClick={handleSessionAnalysisToggle}
                 >
-                  Open Session Analysis
+                  OPEN SESSION ANALYSIS
                 </Button>
               ) : (
                 <Button className="h-9 px-4 text-xs font-semibold uppercase tracking-wide" disabled>
-                  View Decision Analysis
+                  OPEN SESSION ANALYSIS
                 </Button>
               )}
             </div>
@@ -587,9 +602,11 @@ export default function StressTestPage() {
               >
                 <div className="flex flex-wrap items-start justify-between gap-3">
                   <div className="space-y-1">
-                    <h2 className="text-base font-semibold text-foreground">Session Analysis</h2>
+                    <h2 className="text-base font-semibold text-foreground">
+                      Session Analysis — Your Judgment Under Pressure
+                    </h2>
                     <p className="text-xs text-muted-foreground">
-                      Session-only readout based on your last saved decisions.
+                      A pattern-level readout of how you make decisions before outcomes intervene.
                     </p>
                   </div>
                   <Button
@@ -603,9 +620,12 @@ export default function StressTestPage() {
                 </div>
                 <div className="rounded-xl border border-border/40 bg-muted/10 px-3 py-2">
                   <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
-                    Session Directive
+                    What this session is teaching you
                   </p>
                   <p className="mt-1 text-[13px] leading-[1.45] text-foreground">{sessionDirective}</p>
+                  <p className="mt-2 text-[11px] text-muted-foreground">
+                    This pattern compounds over time — especially across teams.
+                  </p>
                 </div>
                 <div className="grid gap-3 md:grid-cols-2">
                   <div className="rounded-xl border border-border/40 bg-muted/10 px-3 py-2">
@@ -633,6 +653,9 @@ export default function StressTestPage() {
                     </div>
                   </div>
                 </div>
+                <p className="text-[11px] text-muted-foreground">
+                  Decision posture distribution (this is what repeats when stakes rise)
+                </p>
                 <div className="grid gap-3 md:grid-cols-3">
                   <div className="rounded-xl border border-border/40 bg-muted/10 px-3 py-2">
                     <MetricDistribution metricLabel="Return distribution" segments={sessionDistributions.returnSegments} />
@@ -652,22 +675,43 @@ export default function StressTestPage() {
                 </div>
                 <div className="rounded-xl border border-border/40 bg-muted/10 px-3 py-2">
                   <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
-                    Action Output
+                    Action Insight
                   </p>
                   <div className="mt-2 space-y-1 text-[13px] leading-[1.45] text-foreground">
                     <p>{sessionActionOutput.callout}</p>
                     <p className="text-muted-foreground">{sessionActionOutput.invitation}</p>
                   </div>
                 </div>
-                <div className="flex flex-wrap items-center gap-2 border-t border-border/40 pt-3">
-                  <Button asChild size="sm" className="h-9 px-4 text-xs font-semibold uppercase tracking-wide">
-                    <Link href="/calculator">Go to Patterns to save as a dataset</Link>
-                  </Button>
+                <div className="flex flex-col gap-3 border-t border-border/40 pt-3">
+                  <div className="flex flex-col gap-1">
+                    <Button asChild size="sm" className="h-9 px-4 text-xs font-semibold uppercase tracking-wide">
+                      <Link href="/calculator">SAVE THIS AS A DATASET (PATTERNS)</Link>
+                    </Button>
+                    <p className="text-[11px] text-muted-foreground">Turn this session into a long-term signal.</p>
+                  </div>
+                  <div className="flex flex-col gap-1">
+                    <Button asChild size="sm" variant="link" className="h-8 px-0 text-xs font-semibold">
+                      <Link href="/mockups/Computer-Report.png" target="_blank" rel="noreferrer">
+                        See a sample decision analysis (Apple, real-world example)
+                      </Link>
+                    </Button>
+                    <p className="text-[11px] text-muted-foreground">See how this framework works at scale.</p>
+                  </div>
                   {!isLoggedIn ? (
                     <Button size="sm" variant="outline" className="h-9 px-4 text-xs" onClick={openLogin}>
                       Log in
                     </Button>
                   ) : null}
+                  <div className="rounded-lg border border-border/60 bg-muted/10 px-3 py-2 text-xs text-muted-foreground">
+                    <p className="text-[11px] font-semibold uppercase tracking-wide text-foreground">Want to go deeper?</p>
+                    <p className="mt-1 text-[11px] text-muted-foreground">
+                      Live decisions tell the truth. In guided sessions, teams use D-NAV to surface blind spots before
+                      outcomes create hindsight bias.
+                    </p>
+                    <Button variant="link" size="sm" className="mt-1 h-auto px-0 text-[11px]">
+                      Explore guided decision analysis
+                    </Button>
+                  </div>
                 </div>
               </div>
             ) : null}
