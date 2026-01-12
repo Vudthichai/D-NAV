@@ -8,6 +8,7 @@ import { useDefinitionsPanel } from "@/components/definitions/DefinitionsPanelPr
 import { Badge } from "@/components/ui/badge";
 import { GlassCard } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { Callout } from "@/components/ui/Callout";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -673,30 +674,22 @@ export default function StressTestPage() {
                     />
                   </div>
                 </div>
-                <div className="rounded-xl border border-border/40 bg-muted/10 px-3 py-2">
-                  <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
-                    Action Insight
-                  </p>
-                  <div className="mt-2 space-y-1 text-[13px] leading-[1.45] text-foreground">
-                    <p>{sessionActionOutput.callout}</p>
-                    <p className="text-muted-foreground">{sessionActionOutput.invitation}</p>
-                  </div>
-                </div>
+                <Callout label="Action Insight" labelClassName="text-muted-foreground" bodyClassName="text-foreground">
+                  <p>{sessionActionOutput.callout}</p>
+                  <p className="mt-2 text-[11px] text-muted-foreground">{sessionActionOutput.invitation}</p>
+                </Callout>
                 <div className="flex flex-col gap-3 border-t border-border/40 pt-3">
-                  <div className="flex flex-col gap-1">
-                    <Button asChild size="sm" className="h-9 px-4 text-xs font-semibold uppercase tracking-wide">
-                      <Link href="/calculator">SAVE THIS AS A DATASET (PATTERNS)</Link>
-                    </Button>
-                    <p className="text-[11px] text-muted-foreground">Turn this session into a long-term signal.</p>
-                  </div>
-                  <div className="flex flex-col gap-1">
-                    <Button asChild size="sm" variant="link" className="h-8 px-0 text-xs font-semibold">
-                      <Link href="/mockups/Computer-Report.png" target="_blank" rel="noreferrer">
-                        See a sample decision analysis (Apple, real-world example)
-                      </Link>
-                    </Button>
-                    <p className="text-[11px] text-muted-foreground">See how this framework works at scale.</p>
-                  </div>
+                  <a
+                    href="/mockups/John-Smith%27s-Consulting.pdf"
+                    target="_blank"
+                    rel="noreferrer"
+                    className="rounded-xl border border-orange-100 bg-orange-50/70 px-4 py-3 text-left text-orange-700 transition hover:bg-orange-100/70"
+                  >
+                    <div className="text-sm font-semibold">See sample report →</div>
+                    <p className="text-[11px] text-orange-700/80">
+                      Real consulting-style Decision Analysis PDF.
+                    </p>
+                  </a>
                   {!isLoggedIn ? (
                     <Button size="sm" variant="outline" className="h-9 px-4 text-xs" onClick={openLogin}>
                       Log in
@@ -708,8 +701,8 @@ export default function StressTestPage() {
                       Live decisions tell the truth. In guided sessions, teams use D-NAV to surface blind spots before
                       outcomes create hindsight bias.
                     </p>
-                    <Button variant="link" size="sm" className="mt-1 h-auto px-0 text-[11px]">
-                      Explore guided decision analysis
+                    <Button asChild variant="link" size="sm" className="mt-1 h-auto px-0 text-[11px]">
+                      <Link href="/use-cases">Explore guided decision analysis</Link>
                     </Button>
                   </div>
                 </div>
