@@ -38,6 +38,7 @@ const DEFAULT_VARIABLES: DecisionVariables = {
 
 export interface StressTestCalculatorHandle {
   selectDecision: (decision: { name: string; category: string }) => void;
+  resetSavedState: () => void;
 }
 
 export interface StressTestDecisionSnapshot extends DecisionVariables, DecisionMetrics {
@@ -181,6 +182,9 @@ const StressTestCalculator = forwardRef<StressTestCalculatorHandle, StressTestCa
         setIsSaved(false);
         decisionFrameRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
         decisionNameRef.current?.focus();
+      },
+      resetSavedState: () => {
+        setIsSaved(false);
       },
     }));
 
