@@ -157,7 +157,7 @@ export default function StressTestPage() {
     try {
       window.sessionStorage.setItem(SESSION_DECISIONS_KEY, JSON.stringify(sessionDecisions));
     } catch (error) {
-      console.error("Failed to save stress test session decisions.", error);
+      console.error("Failed to persist stress test session decisions.", error);
     }
   }, [sessionDecisions]);
 
