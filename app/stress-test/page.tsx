@@ -190,7 +190,11 @@ export default function StressTestPage() {
   useEffect(() => {
     if (typeof window === "undefined") return;
     try {
-      window.sessionStorage.setItem(SESSION_DECISIONS_KEY, JSON.stringify(sessionDecisions));
+      if (sessionDecisions.length === 0) {
+        window.sessionStorage.removeItem(SESSION_DECISIONS_KEY);
+      } else {
+        window.sessionStorage.setItem(SESSION_DECISIONS_KEY, JSON.stringify(sessionDecisions));
+      }
     } catch (error) {
       console.error("Failed to persist stress test session decisions.", error);
     }
@@ -235,6 +239,11 @@ export default function StressTestPage() {
   const sessionStats = useMemo(() => {
     if (sessionDecisions.length === 0) {
       return {
+        avgImpact: 0,
+        avgCost: 0,
+        avgRisk: 0,
+        avgUrgency: 0,
+        avgConfidence: 0,
         avgReturn: 0,
         avgPressure: 0,
         avgStability: 0,
@@ -244,17 +253,27 @@ export default function StressTestPage() {
 
     const totals = sessionDecisions.reduce(
       (acc, decision) => {
+        acc.impact += decision.impact;
+        acc.cost += decision.cost;
+        acc.risk += decision.risk;
+        acc.urgency += decision.urgency;
+        acc.confidence += decision.confidence;
         acc.return += decision.r;
         acc.pressure += decision.p;
         acc.stability += decision.s;
         acc.dnav += decision.dnav;
         return acc;
       },
-      { return: 0, pressure: 0, stability: 0, dnav: 0 },
+      { impact: 0, cost: 0, risk: 0, urgency: 0, confidence: 0, return: 0, pressure: 0, stability: 0, dnav: 0 },
     );
 
     const count = sessionDecisions.length;
     return {
+      avgImpact: totals.impact / count,
+      avgCost: totals.cost / count,
+      avgRisk: totals.risk / count,
+      avgUrgency: totals.urgency / count,
+      avgConfidence: totals.confidence / count,
       avgReturn: totals.return / count,
       avgPressure: totals.pressure / count,
       avgStability: totals.stability / count,
@@ -338,6 +357,56 @@ export default function StressTestPage() {
     sessionStats.avgStability,
   ]);
 
+  const sessionActionOutput = useMemo(() => {
+    if (sessionDecisions.length === 0) {
+      return {
+        callout: "Save decisions to generate a session pattern.",
+        invitation: "Log one decision to unlock a sharper action output.",
+      };
+    }
+
+    if (sessionStats.avgUrgency - sessionStats.avgConfidence >= 1) {
+      return {
+        callout: "Urgency is outrunning Confidence. That’s a pressure pattern.",
+        invitation: "Log one decision you’ve been avoiding and watch what it does to Pressure.",
+      };
+    }
+
+    if (sessionStats.avgReturn > 0 && sessionStats.avgStability < 0.5) {
+      return {
+        callout: "Returns look positive, but Stability is fragile — you’re winning without reinforcement.",
+        invitation: "Re-score one decision with Risk one point lower to see if Stability firms up.",
+      };
+    }
+
+    if (sessionStats.avgImpact - sessionStats.avgConfidence >= 1) {
+      return {
+        callout: "Confidence is consistently low relative to Impact — you’re aiming before you’re sure.",
+        invitation: "Re-score one decision with Confidence two points higher. See if the readout flips.",
+      };
+    }
+
+    if (sessionStats.avgReturn <= 0 || sessionStats.avgPressure > 1) {
+      return {
+        callout: "Return is muted while Pressure climbs — the upside isn’t clearing the drag.",
+        invitation: "Log one decision with higher Impact and compare the Return signal.",
+      };
+    }
+
+    return {
+      callout: "Signals are mostly aligned, but Pressure is still present.",
+      invitation: "Re-score one easy decision and see if Pressure relaxes.",
+    };
+  }, [
+    sessionDecisions.length,
+    sessionStats.avgConfidence,
+    sessionStats.avgImpact,
+    sessionStats.avgPressure,
+    sessionStats.avgReturn,
+    sessionStats.avgStability,
+    sessionStats.avgUrgency,
+  ]);
+
   const handleSessionAnalysisToggle = useCallback(() => {
     const nextOpen = !isSessionAnalysisOpen;
     setIsSessionAnalysisOpen(nextOpen);
@@ -351,6 +420,26 @@ export default function StressTestPage() {
   const formatCompact = useCallback((value: number, digits = 0) => {
     if (!Number.isFinite(value)) return "0";
     return value.toFixed(digits);
+  }, []);
+
+  const formatSignal = useCallback((value: number) => {
+    if (!Number.isFinite(value)) return "0";
+    const formatted = value.toFixed(1).replace(/\.0$/, "");
+    if (value > 0) return `+${formatted}`;
+    return formatted;
+  }, []);
+
+  const handleClearSession = useCallback(() => {
+    if (typeof window === "undefined") return;
+    if (!window.confirm("Clear saved session decisions?")) return;
+    setSessionDecisions([]);
+    setIsSessionAnalysisOpen(false);
+    calculatorRef.current?.resetSavedState();
+    try {
+      window.sessionStorage.removeItem(SESSION_DECISIONS_KEY);
+    } catch (error) {
+      console.error("Failed to clear stress test session decisions.", error);
+    }
   }, []);
 
   return (
@@ -407,9 +496,20 @@ export default function StressTestPage() {
             />
 
             <div className="flex flex-col gap-2 rounded-lg border border-border/60 bg-muted/10 px-3 py-2 text-xs text-muted-foreground">
-              <div className="flex items-center justify-between text-xs font-semibold text-foreground">
+              <div className="flex flex-wrap items-center justify-between gap-2 text-xs font-semibold text-foreground">
                 <span>{sessionDecisions.length}/10 decisions saved</span>
-                <span className="text-muted-foreground">Session progress</span>
+                <div className="flex items-center gap-2 text-muted-foreground">
+                  <span>Session progress</span>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="h-7 px-2 text-[11px] font-semibold uppercase tracking-wide"
+                    onClick={handleClearSession}
+                    disabled={sessionDecisions.length === 0}
+                  >
+                    Clear session
+                  </Button>
+                </div>
               </div>
               <div className="h-2 w-full overflow-hidden rounded-full bg-muted/30">
                 <div
@@ -426,28 +526,43 @@ export default function StressTestPage() {
               )}
 
               {sessionDecisions.length > 0 ? (
-                <div className="space-y-1">
-                  {sessionDecisions.map((decision) => (
-                    <div
-                      key={decision.id}
-                      className="grid grid-cols-[minmax(0,1.2fr)_minmax(0,0.7fr)_minmax(0,1fr)_minmax(0,0.7fr)_minmax(0,0.4fr)] items-center gap-2 rounded-full border border-border/40 bg-muted/10 px-3 py-1 text-[11px] text-muted-foreground"
-                    >
-                      <span className="truncate font-semibold text-foreground">{decision.title}</span>
-                      <span className="truncate">{decision.category}</span>
-                      <span className="truncate">
-                        I:{formatCompact(decision.impact)} C:{formatCompact(decision.cost)} R:
-                        {formatCompact(decision.risk)} U:{formatCompact(decision.urgency)} Conf:
-                        {formatCompact(decision.confidence)}
-                      </span>
-                      <span className="truncate">
-                        R:{formatCompact(decision.r, 1)} / P:{formatCompact(decision.p, 1)} / S:
-                        {formatCompact(decision.s, 1)}
-                      </span>
-                      <span className="text-right font-semibold text-foreground">
-                        {formatCompact(decision.dnav, 1)}
-                      </span>
+                <div className="overflow-x-auto">
+                  <div className="min-w-[720px] space-y-1">
+                    <div className="grid grid-cols-[minmax(180px,1.6fr)_repeat(5,minmax(48px,0.5fr))_repeat(3,minmax(40px,0.4fr))_minmax(56px,0.5fr)] items-center gap-2 rounded-lg border border-border/40 bg-muted/20 px-3 py-1 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+                      <span>Decision</span>
+                      <span className="text-center">Impact</span>
+                      <span className="text-center">Cost</span>
+                      <span className="text-center">Risk</span>
+                      <span className="text-center">Urgency</span>
+                      <span className="text-center">Confidence</span>
+                      <span className="text-center">R</span>
+                      <span className="text-center">P</span>
+                      <span className="text-center">S</span>
+                      <span className="text-right">D-NAV</span>
                     </div>
-                  ))}
+                    {sessionDecisions.map((decision) => (
+                      <div
+                        key={decision.id}
+                        className="grid grid-cols-[minmax(180px,1.6fr)_repeat(5,minmax(48px,0.5fr))_repeat(3,minmax(40px,0.4fr))_minmax(56px,0.5fr)] items-center gap-2 rounded-lg border border-border/40 bg-muted/10 px-3 py-1 text-[11px] text-muted-foreground"
+                      >
+                        <div className="min-w-0">
+                          <p className="truncate font-semibold text-foreground">{decision.title}</p>
+                          <p className="truncate text-[10px] text-muted-foreground">{decision.category}</p>
+                        </div>
+                        <span className="text-center tabular-nums">{formatCompact(decision.impact)}</span>
+                        <span className="text-center tabular-nums">{formatCompact(decision.cost)}</span>
+                        <span className="text-center tabular-nums">{formatCompact(decision.risk)}</span>
+                        <span className="text-center tabular-nums">{formatCompact(decision.urgency)}</span>
+                        <span className="text-center tabular-nums">{formatCompact(decision.confidence)}</span>
+                        <span className="text-center tabular-nums">{formatSignal(decision.r)}</span>
+                        <span className="text-center tabular-nums">{formatSignal(decision.p)}</span>
+                        <span className="text-center tabular-nums">{formatSignal(decision.s)}</span>
+                        <span className="text-right font-semibold text-foreground tabular-nums">
+                          {formatCompact(decision.dnav, 1)}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
                 </div>
               ) : null}
 
@@ -535,30 +650,13 @@ export default function StressTestPage() {
                     />
                   </div>
                 </div>
-                <div className="space-y-2">
-                  <div className="flex items-center justify-between">
-                    <h3 className="text-sm font-semibold text-foreground">Recent decisions</h3>
-                    <span className="text-xs text-muted-foreground">Session only</span>
-                  </div>
-                  <div className="space-y-2">
-                    {sessionDecisions.slice(0, 5).map((decision) => (
-                      <div
-                        key={decision.id}
-                        className="flex items-center justify-between rounded-lg border border-border/40 bg-muted/10 px-3 py-2 text-xs"
-                      >
-                        <div>
-                          <p className="font-semibold text-foreground">{decision.title}</p>
-                          <p className="text-[11px] text-muted-foreground">{decision.category}</p>
-                        </div>
-                        <div className="text-right">
-                          <p className="text-[11px] text-muted-foreground">D-NAV</p>
-                          <p className="font-semibold text-foreground">{decision.dnav.toFixed(1)}</p>
-                        </div>
-                      </div>
-                    ))}
-                    {sessionDecisions.length === 0 ? (
-                      <p className="text-xs text-muted-foreground">No session decisions yet.</p>
-                    ) : null}
+                <div className="rounded-xl border border-border/40 bg-muted/10 px-3 py-2">
+                  <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+                    Action Output
+                  </p>
+                  <div className="mt-2 space-y-1 text-[13px] leading-[1.45] text-foreground">
+                    <p>{sessionActionOutput.callout}</p>
+                    <p className="text-muted-foreground">{sessionActionOutput.invitation}</p>
                   </div>
                 </div>
                 <div className="flex flex-wrap items-center gap-2 border-t border-border/40 pt-3">
