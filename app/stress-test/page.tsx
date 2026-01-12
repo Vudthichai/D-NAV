@@ -1,7 +1,6 @@
 "use client";
 
 import StressTestCalculator, { StressTestCalculatorHandle } from "@/components/stress-test/StressTestCalculator";
-import { useDataset } from "@/components/DatasetProvider";
 import { useDefinitionsPanel } from "@/components/definitions/DefinitionsPanelProvider";
 import { Badge } from "@/components/ui/badge";
 import { GlassCard } from "@/components/ui/card";
@@ -19,9 +18,10 @@ import {
 import Term from "@/components/ui/Term";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { useNetlifyIdentity } from "@/hooks/use-netlify-identity";
+import { type DecisionEntry, getArchetype } from "@/lib/calculations";
 import { ChevronDown, Pencil } from "lucide-react";
 import Link from "next/link";
-import { useCallback, useRef, useState, type MouseEvent } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type MouseEvent } from "react";
 
 type BaselineBucketKey = "intent" | "constraints" | "actions" | "movement";
 
@@ -43,6 +43,23 @@ interface ExtractedDecision {
   text: string;
   category: string;
   included: boolean;
+}
+
+interface SessionDecision {
+  id: string;
+  title: string;
+  category: string;
+  impact: number;
+  cost: number;
+  risk: number;
+  urgency: number;
+  confidence: number;
+  dnav: number;
+  return: number;
+  pressure: number;
+  stability: number;
+  archetype: string;
+  timestamp: number;
 }
 
 const BASELINE_BUCKETS: BaselineBucketConfig[] = [
@@ -90,6 +107,7 @@ const DEFAULT_DECISIONS = [
 ];
 
 const DECISION_CATEGORIES = ["Uncategorized", "Growth", "Operations", "Finance", "Risk", "People", "Product", "Market"];
+const SESSION_DECISIONS_KEY = "dnav_stress_test_session_decisions";
 
 export default function StressTestPage() {
   const [baselineBuckets, setBaselineBuckets] = useState<Record<BaselineBucketKey, BaselineBucketState>>({
@@ -102,11 +120,128 @@ export default function StressTestPage() {
   const [extractedDecisions, setExtractedDecisions] = useState<ExtractedDecision[]>([]);
   const [editingDecisionId, setEditingDecisionId] = useState<string | null>(null);
   const [isBaselineOpen, setIsBaselineOpen] = useState(false);
+  const [sessionDecisions, setSessionDecisions] = useState<SessionDecision[]>([]);
+  const [isSessionAnalysisOpen, setIsSessionAnalysisOpen] = useState(false);
   const calculatorRef = useRef<StressTestCalculatorHandle>(null);
 
-  const { isDatasetLoading, loadError, decisions } = useDataset();
   const { openDefinitions } = useDefinitionsPanel();
   const { isLoggedIn, openLogin } = useNetlifyIdentity();
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const stored = sessionStorage.getItem(SESSION_DECISIONS_KEY);
+    if (!stored) return;
+    try {
+      const parsed = JSON.parse(stored);
+      if (Array.isArray(parsed)) {
+        setSessionDecisions(parsed);
+      }
+    } catch (error) {
+      console.error("Failed to load stress test session decisions.", error);
+    }
+  }, []);
+
+  const persistSessionDecisions = useCallback((nextDecisions: SessionDecision[]) => {
+    if (typeof window === "undefined") return;
+    sessionStorage.setItem(SESSION_DECISIONS_KEY, JSON.stringify(nextDecisions));
+  }, []);
+
+  const generateSessionId = useCallback(() => {
+    if (typeof crypto !== "undefined" && "randomUUID" in crypto) {
+      return crypto.randomUUID();
+    }
+    return `session-${Date.now()}-${Math.random().toString(16).slice(2)}`;
+  }, []);
+
+  const handleSaveSessionDecision = useCallback(
+    (decision: DecisionEntry) => {
+      const archetype = getArchetype(decision).name;
+      const nextDecision: SessionDecision = {
+        id: generateSessionId(),
+        title: decision.name,
+        category: decision.category || "Uncategorized",
+        impact: decision.impact,
+        cost: decision.cost,
+        risk: decision.risk,
+        urgency: decision.urgency,
+        confidence: decision.confidence,
+        dnav: decision.dnav,
+        return: decision.return,
+        pressure: decision.pressure,
+        stability: decision.stability,
+        archetype,
+        timestamp: decision.ts ?? Date.now(),
+      };
+
+      setSessionDecisions((prev) => {
+        const next = [...prev, nextDecision];
+        persistSessionDecisions(next);
+        return next;
+      });
+    },
+    [generateSessionId, persistSessionDecisions],
+  );
+
+  const sessionStats = useMemo(() => {
+    const total = sessionDecisions.length;
+    const base = {
+      total,
+      avgDnav: 0,
+      avgReturn: 0,
+      avgPressure: 0,
+      avgStability: 0,
+      returnBuckets: { positive: 0, neutral: 0, negative: 0 },
+      pressureBuckets: { calm: 0, balanced: 0, overloaded: 0 },
+      stabilityBuckets: { stable: 0, uncertain: 0, fragile: 0 },
+    };
+
+    if (total === 0) return base;
+
+    const sums = sessionDecisions.reduce(
+      (acc, decision) => {
+        acc.dnav += decision.dnav;
+        acc.return += decision.return;
+        acc.pressure += decision.pressure;
+        acc.stability += decision.stability;
+
+        if (decision.return >= 2) acc.returnBuckets.positive += 1;
+        else if (decision.return <= -2) acc.returnBuckets.negative += 1;
+        else acc.returnBuckets.neutral += 1;
+
+        if (decision.pressure >= 2) acc.pressureBuckets.overloaded += 1;
+        else if (decision.pressure <= -2) acc.pressureBuckets.calm += 1;
+        else acc.pressureBuckets.balanced += 1;
+
+        if (decision.stability >= 2) acc.stabilityBuckets.stable += 1;
+        else if (decision.stability <= -2) acc.stabilityBuckets.fragile += 1;
+        else acc.stabilityBuckets.uncertain += 1;
+
+        return acc;
+      },
+      {
+        dnav: 0,
+        return: 0,
+        pressure: 0,
+        stability: 0,
+        returnBuckets: { positive: 0, neutral: 0, negative: 0 },
+        pressureBuckets: { calm: 0, balanced: 0, overloaded: 0 },
+        stabilityBuckets: { stable: 0, uncertain: 0, fragile: 0 },
+      },
+    );
+
+    return {
+      total,
+      avgDnav: sums.dnav / total,
+      avgReturn: sums.return / total,
+      avgPressure: sums.pressure / total,
+      avgStability: sums.stability / total,
+      returnBuckets: sums.returnBuckets,
+      pressureBuckets: sums.pressureBuckets,
+      stabilityBuckets: sums.stabilityBuckets,
+    };
+  }, [sessionDecisions]);
+
+  const recentDecisions = useMemo(() => sessionDecisions.slice(-20), [sessionDecisions]);
 
   const updateBaselineBucket = useCallback((key: BaselineBucketKey, update: Partial<BaselineBucketState>) => {
     setBaselineBuckets((prev) => ({
@@ -189,7 +324,7 @@ export default function StressTestPage() {
                   </div>
                   {!isLoggedIn ? (
                     <p className="text-xs text-muted-foreground">
-                      Log in to save decisions and{" "}
+                      Log in to turn sessions into datasets and{" "}
                       <Link href="/contact" className="underline underline-offset-2">
                         request analysis
                       </Link>
@@ -200,48 +335,131 @@ export default function StressTestPage() {
               </div>
             </div>
 
-            {loadError ? (
-              <div className="rounded-lg border border-destructive/40 bg-destructive/10 px-4 py-3 text-sm text-destructive">
-                {loadError}
-              </div>
-            ) : isDatasetLoading ? (
-              <div className="rounded-lg border border-muted/60 bg-muted/20 px-4 py-3 text-sm text-muted-foreground">
-                Loading dataset…
-              </div>
-            ) : null}
-
-            <StressTestCalculator ref={calculatorRef} saveLabel="Save decision" requireLoginForSave />
+            <StressTestCalculator
+              ref={calculatorRef}
+              saveLabel="Save decision"
+              onSaveDecision={handleSaveSessionDecision}
+            />
 
             <div className="flex flex-col gap-2 rounded-lg border border-border/60 bg-muted/10 px-3 py-2 text-xs text-muted-foreground">
-              {decisions.length === 0 ? (
-                <p>You’re seeing one decision. Patterns require volume.</p>
-              ) : decisions.length <= 2 ? (
-                <p>Nice. You’re building signal. Patterns start forming at 10.</p>
-              ) : decisions.length < 10 ? (
+              {sessionDecisions.length < 10 ? (
                 <>
                   <div className="flex items-center justify-between text-xs font-semibold text-foreground">
-                    <span>{decisions.length}/10 decisions logged</span>
-                    <span className="text-muted-foreground">Unlock analysis at 10</span>
+                    <span>{sessionDecisions.length}/10 decisions saved</span>
+                    <span className="text-muted-foreground">Unlock session analysis at 10</span>
                   </div>
                   <div className="h-2 w-full overflow-hidden rounded-full bg-muted/30">
                     <div
                       className="h-full rounded-full bg-primary/70 transition-all"
-                      style={{ width: `${Math.min(decisions.length, 10) * 10}%` }}
+                      style={{ width: `${Math.min(sessionDecisions.length, 10) * 10}%` }}
                     />
                   </div>
-                  <p className="text-[11px] text-muted-foreground">Keep going. Unlock analysis at 10.</p>
+                  <p className="text-[11px] text-muted-foreground">Unlock session analysis at 10.</p>
                 </>
               ) : (
                 <div className="flex flex-col gap-2">
-                  <Button asChild className="h-9 px-4 text-xs font-semibold uppercase tracking-wide">
-                    <Link href="/reports">View Decision Analysis</Link>
+                  <Button
+                    onClick={() => setIsSessionAnalysisOpen((prev) => !prev)}
+                    className="h-9 px-4 text-xs font-semibold uppercase tracking-wide"
+                  >
+                    {isSessionAnalysisOpen ? "Hide Session Analysis" : "Open Session Analysis"}
                   </Button>
                   <p className="text-[11px] text-muted-foreground">
-                    You’ve logged enough decisions for patterns to be meaningful.
+                    You’ve saved enough decisions for session analysis.
                   </p>
                 </div>
               )}
             </div>
+
+            {sessionDecisions.length >= 10 && isSessionAnalysisOpen ? (
+              <div className="space-y-3 rounded-lg border border-border/60 bg-muted/10 px-4 py-4 text-xs text-muted-foreground">
+                <div className="space-y-1">
+                  <h2 className="text-sm font-semibold text-foreground">Session RPS Baseline</h2>
+                  <p className="text-xs text-muted-foreground">Session summary based on saved stress tests.</p>
+                </div>
+                <div className="grid gap-3 md:grid-cols-2">
+                  <div className="rounded-lg border border-border/60 bg-background/80 p-3">
+                    <p className="text-[11px] font-semibold uppercase text-muted-foreground">Totals</p>
+                    <div className="mt-2 grid gap-1 text-sm text-foreground">
+                      <p>Total decisions: {sessionStats.total}</p>
+                      <p>Avg D-NAV: {sessionStats.avgDnav.toFixed(1)}</p>
+                      <p>Avg Return: {sessionStats.avgReturn.toFixed(1)}</p>
+                      <p>Avg Pressure: {sessionStats.avgPressure.toFixed(1)}</p>
+                      <p>Avg Stability: {sessionStats.avgStability.toFixed(1)}</p>
+                    </div>
+                  </div>
+                  <div className="rounded-lg border border-border/60 bg-background/80 p-3">
+                    <p className="text-[11px] font-semibold uppercase text-muted-foreground">Distributions</p>
+                    <div className="mt-2 space-y-2 text-sm text-foreground">
+                      <div>
+                        <p className="text-[11px] uppercase text-muted-foreground">Return</p>
+                        <p>
+                          Positive: {sessionStats.returnBuckets.positive} · Neutral:{" "}
+                          {sessionStats.returnBuckets.neutral} · Negative: {sessionStats.returnBuckets.negative}
+                        </p>
+                      </div>
+                      <div>
+                        <p className="text-[11px] uppercase text-muted-foreground">Pressure</p>
+                        <p>
+                          Calm: {sessionStats.pressureBuckets.calm} · Balanced:{" "}
+                          {sessionStats.pressureBuckets.balanced} · Overloaded:{" "}
+                          {sessionStats.pressureBuckets.overloaded}
+                        </p>
+                      </div>
+                      <div>
+                        <p className="text-[11px] uppercase text-muted-foreground">Stability</p>
+                        <p>
+                          Stable: {sessionStats.stabilityBuckets.stable} · Uncertain:{" "}
+                          {sessionStats.stabilityBuckets.uncertain} · Fragile:{" "}
+                          {sessionStats.stabilityBuckets.fragile}
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="space-y-2">
+                  <p className="text-[11px] font-semibold uppercase text-muted-foreground">Latest decisions</p>
+                  <div className="space-y-2">
+                    {recentDecisions.map((decision) => (
+                      <div
+                        key={decision.id}
+                        className="flex items-center justify-between gap-3 rounded-lg border border-border/60 bg-background/80 px-3 py-2 text-sm text-foreground"
+                      >
+                        <div>
+                          <p className="text-sm font-semibold">{decision.title}</p>
+                          <p className="text-[11px] text-muted-foreground">{decision.category}</p>
+                        </div>
+                        <div className="text-right">
+                          <p className="text-[11px] uppercase text-muted-foreground">D-NAV</p>
+                          <p className="text-base font-semibold">{decision.dnav}</p>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                <div className="flex flex-wrap items-center justify-between gap-2 pt-1">
+                  <p className="text-[11px] text-muted-foreground">
+                    Want to keep this session? Turn it into a dataset when you log in.
+                  </p>
+                  {isLoggedIn ? (
+                    <Button asChild variant="outline" size="sm" className="h-8 px-3 text-[11px] font-semibold">
+                      <Link href="/calculator">Turn this into a dataset</Link>
+                    </Button>
+                  ) : (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="h-8 px-3 text-[11px] font-semibold"
+                      onClick={openLogin}
+                    >
+                      Log in to turn this into a dataset
+                    </Button>
+                  )}
+                </div>
+              </div>
+            ) : null}
 
             <div className="mt-5 space-y-4">
               <div className="h-px w-full bg-border/40" />

@@ -42,10 +42,11 @@ export interface StressTestCalculatorHandle {
 interface StressTestCalculatorProps {
   saveLabel?: string;
   requireLoginForSave?: boolean;
+  onSaveDecision?: (decision: DecisionEntry) => void;
 }
 
 const StressTestCalculator = forwardRef<StressTestCalculatorHandle, StressTestCalculatorProps>(
-  ({ saveLabel = "Log this decision", requireLoginForSave = false }, ref) => {
+  ({ saveLabel = "Log this decision", requireLoginForSave = false, onSaveDecision }, ref) => {
   const [decisionName, setDecisionName] = useState("");
   const [decisionCategory, setDecisionCategory] = useState("");
   const [variables, setVariables] = useState<DecisionVariables>(() => ({ ...DEFAULT_VARIABLES }));
@@ -93,11 +94,24 @@ const StressTestCalculator = forwardRef<StressTestCalculatorHandle, StressTestCa
       category: decisionCategory.trim(),
     };
 
-    setDecisions((prev) => [decisionEntry, ...prev]);
+    if (onSaveDecision) {
+      onSaveDecision(decisionEntry);
+    } else {
+      setDecisions((prev) => [decisionEntry, ...prev]);
+    }
     setIsSaved(true);
 
     setTimeout(() => setIsSaved(false), 3000);
-  }, [decisionCategory, decisionName, isLoggedIn, metrics, requireLoginForSave, setDecisions, variables]);
+  }, [
+    decisionCategory,
+    decisionName,
+    isLoggedIn,
+    metrics,
+    onSaveDecision,
+    requireLoginForSave,
+    setDecisions,
+    variables,
+  ]);
 
   const handleReset = () => {
     setDecisionName("");
