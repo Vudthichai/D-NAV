@@ -42,10 +42,17 @@ export interface StressTestCalculatorHandle {
 interface StressTestCalculatorProps {
   saveLabel?: string;
   requireLoginForSave?: boolean;
+  onSaveDecision?: (decision: {
+    name: string;
+    category: string;
+    variables: DecisionVariables;
+    metrics: DecisionMetrics;
+    timestamp: number;
+  }) => void;
 }
 
 const StressTestCalculator = forwardRef<StressTestCalculatorHandle, StressTestCalculatorProps>(
-  ({ saveLabel = "Log this decision", requireLoginForSave = false }, ref) => {
+  ({ saveLabel = "Log this decision", requireLoginForSave = false, onSaveDecision }, ref) => {
   const [decisionName, setDecisionName] = useState("");
   const [decisionCategory, setDecisionCategory] = useState("");
   const [variables, setVariables] = useState<DecisionVariables>(() => ({ ...DEFAULT_VARIABLES }));
@@ -85,19 +92,41 @@ const StressTestCalculator = forwardRef<StressTestCalculatorHandle, StressTestCa
       return;
     }
 
-    const decisionEntry: DecisionEntry = {
-      ...variables,
-      ...metrics,
-      ts: Date.now(),
-      name: decisionName.trim(),
-      category: decisionCategory.trim(),
-    };
+    const timestamp = Date.now();
+    const trimmedName = decisionName.trim();
+    const trimmedCategory = decisionCategory.trim();
 
-    setDecisions((prev) => [decisionEntry, ...prev]);
+    if (onSaveDecision) {
+      onSaveDecision({
+        name: trimmedName,
+        category: trimmedCategory,
+        variables,
+        metrics,
+        timestamp,
+      });
+    } else {
+      const decisionEntry: DecisionEntry = {
+        ...variables,
+        ...metrics,
+        ts: timestamp,
+        name: trimmedName,
+        category: trimmedCategory,
+      };
+      setDecisions((prev) => [decisionEntry, ...prev]);
+    }
     setIsSaved(true);
 
     setTimeout(() => setIsSaved(false), 3000);
-  }, [decisionCategory, decisionName, isLoggedIn, metrics, requireLoginForSave, setDecisions, variables]);
+  }, [
+    decisionCategory,
+    decisionName,
+    isLoggedIn,
+    metrics,
+    onSaveDecision,
+    requireLoginForSave,
+    setDecisions,
+    variables,
+  ]);
 
   const handleReset = () => {
     setDecisionName("");

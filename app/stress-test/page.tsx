@@ -1,7 +1,6 @@
 "use client";
 
 import StressTestCalculator, { StressTestCalculatorHandle } from "@/components/stress-test/StressTestCalculator";
-import { useDataset } from "@/components/DatasetProvider";
 import { useDefinitionsPanel } from "@/components/definitions/DefinitionsPanelProvider";
 import { Badge } from "@/components/ui/badge";
 import { GlassCard } from "@/components/ui/card";
@@ -19,9 +18,10 @@ import {
 import Term from "@/components/ui/Term";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { useNetlifyIdentity } from "@/hooks/use-netlify-identity";
+import { oneWordArchetypes, sign3, type DecisionMetrics, type DecisionVariables } from "@/lib/calculations";
 import { ChevronDown, Pencil } from "lucide-react";
 import Link from "next/link";
-import { useCallback, useEffect, useRef, useState, type MouseEvent } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type MouseEvent } from "react";
 
 type BaselineBucketKey = "intent" | "constraints" | "actions" | "movement";
 
@@ -43,6 +43,31 @@ interface ExtractedDecision {
   text: string;
   category: string;
   included: boolean;
+}
+
+interface SessionDecision {
+  id: string;
+  title: string;
+  category: string;
+  impact: number;
+  cost: number;
+  risk: number;
+  urgency: number;
+  confidence: number;
+  dnav: number;
+  return: number;
+  pressure: number;
+  stability: number;
+  archetype: string | null;
+  timestamp: number;
+}
+
+interface SessionDecisionPayload {
+  name: string;
+  category: string;
+  variables: DecisionVariables;
+  metrics: DecisionMetrics;
+  timestamp: number;
 }
 
 const BASELINE_BUCKETS: BaselineBucketConfig[] = [
@@ -91,6 +116,7 @@ const DEFAULT_DECISIONS = [
 
 const DECISION_CATEGORIES = ["Uncategorized", "Growth", "Operations", "Finance", "Risk", "People", "Product", "Market"];
 const SESSION_DECISIONS_KEY = "dnav_stress_test_session_decisions";
+const EXTRACTED_DECISIONS_KEY = "dnav_stress_test_extracted_decisions";
 
 export default function StressTestPage() {
   const [baselineBuckets, setBaselineBuckets] = useState<Record<BaselineBucketKey, BaselineBucketState>>({
@@ -100,22 +126,13 @@ export default function StressTestPage() {
     movement: { text: "", file: null },
   });
   const [isExtracting, setIsExtracting] = useState(false);
-  const [sessionDecisions, setSessionDecisions] = useState<ExtractedDecision[]>(() => {
-    if (typeof window === "undefined") return [];
-    try {
-      const stored = window.sessionStorage.getItem(SESSION_DECISIONS_KEY);
-      const parsed = stored ? JSON.parse(stored) : null;
-      return Array.isArray(parsed) ? parsed : [];
-    } catch (error) {
-      console.error("Failed to load stress test session decisions.", error);
-      return [];
-    }
-  });
+  const [extractedDecisions, setExtractedDecisions] = useState<ExtractedDecision[]>([]);
+  const [sessionLog, setSessionLog] = useState<SessionDecision[]>([]);
   const [editingDecisionId, setEditingDecisionId] = useState<string | null>(null);
   const [isBaselineOpen, setIsBaselineOpen] = useState(false);
+  const [isSessionAnalysisOpen, setIsSessionAnalysisOpen] = useState(false);
   const calculatorRef = useRef<StressTestCalculatorHandle>(null);
 
-  const { isDatasetLoading, loadError, decisions } = useDataset();
   const { openDefinitions } = useDefinitionsPanel();
   const { isLoggedIn, openLogin } = useNetlifyIdentity();
 
@@ -147,7 +164,7 @@ export default function StressTestPage() {
     }));
 
     window.setTimeout(() => {
-      setSessionDecisions(decisions);
+      setExtractedDecisions(decisions);
       setIsExtracting(false);
     }, 900);
   }, [baselineBuckets.actions.text, isExtracting]);
@@ -155,11 +172,42 @@ export default function StressTestPage() {
   useEffect(() => {
     if (typeof window === "undefined") return;
     try {
-      window.sessionStorage.setItem(SESSION_DECISIONS_KEY, JSON.stringify(sessionDecisions));
+      const stored = window.sessionStorage.getItem(EXTRACTED_DECISIONS_KEY);
+      const parsed = stored ? JSON.parse(stored) : null;
+      setExtractedDecisions(Array.isArray(parsed) ? parsed : []);
+    } catch (error) {
+      console.error("Failed to load extracted stress test decisions.", error);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    try {
+      window.sessionStorage.setItem(EXTRACTED_DECISIONS_KEY, JSON.stringify(extractedDecisions));
+    } catch (error) {
+      console.error("Failed to save extracted stress test decisions.", error);
+    }
+  }, [extractedDecisions]);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    try {
+      const stored = window.sessionStorage.getItem(SESSION_DECISIONS_KEY);
+      const parsed = stored ? JSON.parse(stored) : null;
+      setSessionLog(Array.isArray(parsed) ? parsed : []);
+    } catch (error) {
+      console.error("Failed to load stress test session decisions.", error);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    try {
+      window.sessionStorage.setItem(SESSION_DECISIONS_KEY, JSON.stringify(sessionLog));
     } catch (error) {
       console.error("Failed to save stress test session decisions.", error);
     }
-  }, [sessionDecisions]);
+  }, [sessionLog]);
 
   const handleDecisionSelect = useCallback((decision: ExtractedDecision) => {
     calculatorRef.current?.selectDecision({ name: decision.text, category: decision.category });
@@ -172,6 +220,104 @@ export default function StressTestPage() {
       handleDecisionSelect(decision);
     },
     [handleDecisionSelect],
+  );
+
+  const handleSessionDecisionSave = useCallback((payload: SessionDecisionPayload) => {
+    const id =
+      typeof window !== "undefined" && "crypto" in window && "randomUUID" in window.crypto
+        ? window.crypto.randomUUID()
+        : `session-${payload.timestamp}-${Math.random().toString(16).slice(2)}`;
+    const archetypeKey = `${sign3(payload.metrics.pressure)}|${sign3(payload.metrics.stability)}|${sign3(
+      payload.metrics.return,
+    )}`;
+    const archetype = oneWordArchetypes[archetypeKey] ?? null;
+
+    setSessionLog((prev) => [
+      {
+        id,
+        title: payload.name,
+        category: payload.category || "Uncategorized",
+        impact: payload.variables.impact,
+        cost: payload.variables.cost,
+        risk: payload.variables.risk,
+        urgency: payload.variables.urgency,
+        confidence: payload.variables.confidence,
+        dnav: payload.metrics.dnav,
+        return: payload.metrics.return,
+        pressure: payload.metrics.pressure,
+        stability: payload.metrics.stability,
+        archetype,
+        timestamp: payload.timestamp,
+      },
+      ...prev,
+    ]);
+  }, []);
+
+  const sessionCount = sessionLog.length;
+
+  const sessionSnapshot = useMemo(() => {
+    if (sessionLog.length === 0) {
+      return {
+        total: 0,
+        avgDnav: 0,
+        avgReturn: 0,
+        avgPressure: 0,
+        avgStability: 0,
+        returnBuckets: { positive: 0, neutral: 0, negative: 0 },
+        pressureBuckets: { calm: 0, balanced: 0, overloaded: 0 },
+        stabilityBuckets: { stable: 0, uncertain: 0, fragile: 0 },
+      };
+    }
+
+    const totals = sessionLog.reduce(
+      (acc, decision) => {
+        acc.dnav += decision.dnav;
+        acc.return += decision.return;
+        acc.pressure += decision.pressure;
+        acc.stability += decision.stability;
+
+        if (decision.return > 0) acc.returnBuckets.positive += 1;
+        else if (decision.return < 0) acc.returnBuckets.negative += 1;
+        else acc.returnBuckets.neutral += 1;
+
+        if (decision.pressure > 0) acc.pressureBuckets.overloaded += 1;
+        else if (decision.pressure < 0) acc.pressureBuckets.calm += 1;
+        else acc.pressureBuckets.balanced += 1;
+
+        if (decision.stability > 0) acc.stabilityBuckets.stable += 1;
+        else if (decision.stability < 0) acc.stabilityBuckets.fragile += 1;
+        else acc.stabilityBuckets.uncertain += 1;
+
+        return acc;
+      },
+      {
+        dnav: 0,
+        return: 0,
+        pressure: 0,
+        stability: 0,
+        returnBuckets: { positive: 0, neutral: 0, negative: 0 },
+        pressureBuckets: { calm: 0, balanced: 0, overloaded: 0 },
+        stabilityBuckets: { stable: 0, uncertain: 0, fragile: 0 },
+      },
+    );
+
+    const total = sessionLog.length;
+
+    return {
+      total,
+      avgDnav: totals.dnav / total,
+      avgReturn: totals.return / total,
+      avgPressure: totals.pressure / total,
+      avgStability: totals.stability / total,
+      returnBuckets: totals.returnBuckets,
+      pressureBuckets: totals.pressureBuckets,
+      stabilityBuckets: totals.stabilityBuckets,
+    };
+  }, [sessionLog]);
+
+  const sessionList = useMemo(
+    () => [...sessionLog].sort((a, b) => b.timestamp - a.timestamp).slice(0, 20),
+    [sessionLog],
   );
 
   return (
@@ -209,59 +355,148 @@ export default function StressTestPage() {
                   </div>
                   {!isLoggedIn ? (
                     <p className="text-xs text-muted-foreground">
-                      Log in to save decisions and{" "}
-                      <Link href="/contact" className="underline underline-offset-2">
-                        request analysis
-                      </Link>
-                      .
+                      Log in to turn session decisions into Patterns analysis.
                     </p>
                   ) : null}
                 </div>
               </div>
             </div>
 
-            {loadError ? (
-              <div className="rounded-lg border border-destructive/40 bg-destructive/10 px-4 py-3 text-sm text-destructive">
-                {loadError}
-              </div>
-            ) : isDatasetLoading ? (
-              <div className="rounded-lg border border-muted/60 bg-muted/20 px-4 py-3 text-sm text-muted-foreground">
-                Loading dataset…
-              </div>
-            ) : null}
-
-            <StressTestCalculator ref={calculatorRef} saveLabel="Save decision" requireLoginForSave />
+            <StressTestCalculator
+              ref={calculatorRef}
+              saveLabel="Save decision"
+              onSaveDecision={handleSessionDecisionSave}
+            />
 
             <div className="flex flex-col gap-2 rounded-lg border border-border/60 bg-muted/10 px-3 py-2 text-xs text-muted-foreground">
-              {decisions.length === 0 ? (
-                <p>You’re seeing one decision. Patterns require volume.</p>
-              ) : decisions.length <= 2 ? (
-                <p>Nice. You’re building signal. Patterns start forming at 10.</p>
-              ) : decisions.length < 10 ? (
+              {sessionCount < 10 ? (
                 <>
                   <div className="flex items-center justify-between text-xs font-semibold text-foreground">
-                    <span>{decisions.length}/10 decisions logged</span>
-                    <span className="text-muted-foreground">Unlock analysis at 10</span>
+                    <span>{sessionCount}/10 decisions saved</span>
+                    <span className="text-muted-foreground">Unlock session analysis at 10</span>
                   </div>
                   <div className="h-2 w-full overflow-hidden rounded-full bg-muted/30">
                     <div
                       className="h-full rounded-full bg-primary/70 transition-all"
-                      style={{ width: `${Math.min(decisions.length, 10) * 10}%` }}
+                      style={{ width: `${Math.min(sessionCount, 10) * 10}%` }}
                     />
                   </div>
-                  <p className="text-[11px] text-muted-foreground">Keep going. Unlock analysis at 10.</p>
+                  <p className="text-[11px] text-muted-foreground">Unlock session analysis at 10.</p>
                 </>
               ) : (
                 <div className="flex flex-col gap-2">
-                  <Button asChild className="h-9 px-4 text-xs font-semibold uppercase tracking-wide">
-                    <Link href="/reports">View Decision Analysis</Link>
+                  <Button
+                    className="h-9 px-4 text-xs font-semibold uppercase tracking-wide"
+                    onClick={() => setIsSessionAnalysisOpen((prev) => !prev)}
+                  >
+                    Open Session Analysis
                   </Button>
                   <p className="text-[11px] text-muted-foreground">
-                    You’ve logged enough decisions for patterns to be meaningful.
+                    You’ve saved enough decisions for session analysis.
                   </p>
                 </div>
               )}
             </div>
+
+            {sessionCount >= 10 && isSessionAnalysisOpen ? (
+              <div className="space-y-3 rounded-2xl border border-border/60 bg-white/80 px-4 py-4 shadow-sm dark:bg-black/30">
+                <div className="space-y-1">
+                  <h2 className="text-base font-semibold text-foreground">Session RPS Baseline</h2>
+                  <p className="text-xs text-muted-foreground">Your in-session diagnostic view.</p>
+                </div>
+                <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+                  <GlassCard className="space-y-1 p-3">
+                    <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+                      Decisions
+                    </p>
+                    <p className="text-lg font-semibold text-foreground">{sessionSnapshot.total}</p>
+                  </GlassCard>
+                  <GlassCard className="space-y-1 p-3">
+                    <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Avg D-NAV</p>
+                    <p className="text-lg font-semibold text-foreground">{sessionSnapshot.avgDnav.toFixed(2)}</p>
+                  </GlassCard>
+                  <GlassCard className="space-y-1 p-3">
+                    <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+                      Avg Return
+                    </p>
+                    <p className="text-lg font-semibold text-foreground">{sessionSnapshot.avgReturn.toFixed(2)}</p>
+                  </GlassCard>
+                  <GlassCard className="space-y-1 p-3">
+                    <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+                      Avg Pressure / Stability
+                    </p>
+                    <p className="text-lg font-semibold text-foreground">
+                      {sessionSnapshot.avgPressure.toFixed(2)} / {sessionSnapshot.avgStability.toFixed(2)}
+                    </p>
+                  </GlassCard>
+                </div>
+
+                <div className="grid gap-3 md:grid-cols-3">
+                  <GlassCard className="space-y-2 p-3">
+                    <p className="text-xs font-semibold text-foreground">Return distribution</p>
+                    <ul className="space-y-1 text-[11px] text-muted-foreground">
+                      <li>Positive: {sessionSnapshot.returnBuckets.positive}</li>
+                      <li>Neutral: {sessionSnapshot.returnBuckets.neutral}</li>
+                      <li>Negative: {sessionSnapshot.returnBuckets.negative}</li>
+                    </ul>
+                  </GlassCard>
+                  <GlassCard className="space-y-2 p-3">
+                    <p className="text-xs font-semibold text-foreground">Pressure distribution</p>
+                    <ul className="space-y-1 text-[11px] text-muted-foreground">
+                      <li>Calm: {sessionSnapshot.pressureBuckets.calm}</li>
+                      <li>Balanced: {sessionSnapshot.pressureBuckets.balanced}</li>
+                      <li>Overloaded: {sessionSnapshot.pressureBuckets.overloaded}</li>
+                    </ul>
+                  </GlassCard>
+                  <GlassCard className="space-y-2 p-3">
+                    <p className="text-xs font-semibold text-foreground">Stability distribution</p>
+                    <ul className="space-y-1 text-[11px] text-muted-foreground">
+                      <li>Stable: {sessionSnapshot.stabilityBuckets.stable}</li>
+                      <li>Uncertain: {sessionSnapshot.stabilityBuckets.uncertain}</li>
+                      <li>Fragile: {sessionSnapshot.stabilityBuckets.fragile}</li>
+                    </ul>
+                  </GlassCard>
+                </div>
+
+                <div className="space-y-2">
+                  <h3 className="text-sm font-semibold text-foreground">Saved decisions</h3>
+                  <div className="grid gap-2 md:grid-cols-2">
+                    {sessionList.map((decision) => (
+                      <div
+                        key={decision.id}
+                        className="flex items-center justify-between rounded-lg border border-border/50 bg-muted/10 px-3 py-2 text-xs text-muted-foreground"
+                      >
+                        <div>
+                          <p className="text-sm font-semibold text-foreground">{decision.title}</p>
+                          <p>{decision.category}</p>
+                        </div>
+                        <div className="text-right">
+                          <p className="text-[11px] font-semibold uppercase text-muted-foreground">D-NAV</p>
+                          <p className="text-sm font-semibold text-foreground">{decision.dnav.toFixed(2)}</p>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                <div className="flex flex-wrap items-center justify-between gap-3 border-t border-border/40 pt-3">
+                  <p className="text-xs text-muted-foreground">Ready to convert this to a dataset?</p>
+                  {isLoggedIn ? (
+                    <Button asChild variant="outline" className="h-8 px-3 text-xs font-semibold">
+                      <Link href="/calculator">Open Patterns</Link>
+                    </Button>
+                  ) : (
+                    <Button
+                      variant="outline"
+                      className="h-8 px-3 text-xs font-semibold"
+                      onClick={openLogin}
+                    >
+                      Log in to turn this into a dataset
+                    </Button>
+                  )}
+                </div>
+              </div>
+            ) : null}
 
             <div className="mt-5 space-y-4">
               <div className="h-px w-full bg-border/40" />
@@ -363,22 +598,22 @@ export default function StressTestPage() {
                         </div>
                       ) : null}
 
-                      {sessionDecisions.length > 0 ? (
+                      {extractedDecisions.length > 0 ? (
                         <div className="space-y-3">
                           <div className="space-y-1">
                             <h3 className="text-base font-semibold text-foreground">Detected Decisions</h3>
                             <p className="text-sm text-muted-foreground">
                               Do these reflect how you see your actions? Edit anything before scoring.
                             </p>
-                            {sessionDecisions.length < 10 ? (
+                            {extractedDecisions.length < 10 ? (
                               <p className="text-xs text-muted-foreground">
-                                We found {sessionDecisions.length}. Add more actions or upload a document to reveal
+                                We found {extractedDecisions.length}. Add more actions or upload a document to reveal
                                 patterns.
                               </p>
                             ) : null}
                           </div>
                           <div className="space-y-3">
-                            {sessionDecisions.map((decision) => (
+                            {extractedDecisions.map((decision) => (
                               <div
                                 key={decision.id}
                                 className="flex w-full flex-col gap-3 rounded-2xl border border-border/40 bg-muted/10 px-4 py-3 shadow-sm transition hover:border-border/70"
@@ -388,7 +623,7 @@ export default function StressTestPage() {
                                   <Checkbox
                                     checked={decision.included}
                                     onCheckedChange={(value) => {
-                                      setSessionDecisions((prev) =>
+                                      setExtractedDecisions((prev) =>
                                         prev.map((item) =>
                                           item.id === decision.id
                                             ? { ...item, included: value === true }
@@ -403,7 +638,7 @@ export default function StressTestPage() {
                                         value={decision.text}
                                         onChange={(event) => {
                                           const nextValue = event.target.value;
-                                          setSessionDecisions((prev) =>
+                                          setExtractedDecisions((prev) =>
                                             prev.map((item) =>
                                               item.id === decision.id ? { ...item, text: nextValue } : item,
                                             ),
@@ -439,7 +674,7 @@ export default function StressTestPage() {
                                   <Select
                                     value={decision.category}
                                     onValueChange={(value) => {
-                                      setSessionDecisions((prev) =>
+                                      setExtractedDecisions((prev) =>
                                         prev.map((item) =>
                                           item.id === decision.id ? { ...item, category: value } : item,
                                         ),
