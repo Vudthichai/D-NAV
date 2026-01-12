@@ -21,6 +21,7 @@ import {
 import Term from "@/components/ui/Term";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { useNetlifyIdentity } from "@/hooks/use-netlify-identity";
+import { MetricDistribution, type MetricDistributionSegment } from "@/components/reports/MetricDistribution";
 import { ChevronDown, Pencil } from "lucide-react";
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useRef, useState, type MouseEvent } from "react";
@@ -45,6 +46,22 @@ interface ExtractedDecision {
   text: string;
   category: string;
   included: boolean;
+}
+
+interface SessionDecision {
+  id: string;
+  title: string;
+  category: string;
+  impact: number;
+  cost: number;
+  risk: number;
+  urgency: number;
+  confidence: number;
+  r: number;
+  p: number;
+  s: number;
+  dnav: number;
+  createdAt: number;
 }
 
 const BASELINE_BUCKETS: BaselineBucketConfig[] = [
@@ -92,18 +109,18 @@ const DEFAULT_DECISIONS = [
 ];
 
 const DECISION_CATEGORIES = ["Uncategorized", "Growth", "Operations", "Finance", "Risk", "People", "Product", "Market"];
-const SESSION_DECISIONS_KEY = "dnav_stress_test_session_decisions";
+const SESSION_DECISIONS_KEY = "dnav:stressTest:sessionDecisions";
 
-const isSessionDecisionSnapshot = (value: unknown): value is StressTestDecisionSnapshot => {
+const isSessionDecisionSnapshot = (value: unknown): value is SessionDecision => {
   if (!value || typeof value !== "object") return false;
-  const candidate = value as Partial<StressTestDecisionSnapshot>;
+  const candidate = value as Partial<SessionDecision>;
   return (
     typeof candidate.id === "string" &&
-    typeof candidate.name === "string" &&
+    typeof candidate.title === "string" &&
     typeof candidate.category === "string" &&
-    typeof candidate.return === "number" &&
-    typeof candidate.pressure === "number" &&
-    typeof candidate.stability === "number" &&
+    typeof candidate.r === "number" &&
+    typeof candidate.p === "number" &&
+    typeof candidate.s === "number" &&
     typeof candidate.dnav === "number"
   );
 };
@@ -117,7 +134,7 @@ export default function StressTestPage() {
   });
   const [isExtracting, setIsExtracting] = useState(false);
   const [extractedDecisions, setExtractedDecisions] = useState<ExtractedDecision[]>([]);
-  const [sessionDecisions, setSessionDecisions] = useState<StressTestDecisionSnapshot[]>(() => {
+  const [sessionDecisions, setSessionDecisions] = useState<SessionDecision[]>(() => {
     if (typeof window === "undefined") return [];
     try {
       const stored = window.sessionStorage.getItem(SESSION_DECISIONS_KEY);
@@ -132,6 +149,7 @@ export default function StressTestPage() {
   const [isBaselineOpen, setIsBaselineOpen] = useState(false);
   const [isSessionAnalysisOpen, setIsSessionAnalysisOpen] = useState(false);
   const calculatorRef = useRef<StressTestCalculatorHandle>(null);
+  const sessionAnalysisRef = useRef<HTMLDivElement>(null);
 
   const { openDefinitions } = useDefinitionsPanel();
   const { isLoggedIn, openLogin } = useNetlifyIdentity();
@@ -179,7 +197,23 @@ export default function StressTestPage() {
   }, [sessionDecisions]);
 
   const handleSaveSessionDecision = useCallback((decision: StressTestDecisionSnapshot) => {
-    setSessionDecisions((prev) => [decision, ...prev]);
+    const title = decision.name?.trim() || "Untitled decision";
+    const sessionDecision: SessionDecision = {
+      id: decision.id,
+      title,
+      category: decision.category,
+      impact: decision.impact,
+      cost: decision.cost,
+      risk: decision.risk,
+      urgency: decision.urgency,
+      confidence: decision.confidence,
+      r: decision.return,
+      p: decision.pressure,
+      s: decision.stability,
+      dnav: decision.dnav,
+      createdAt: decision.createdAt,
+    };
+    setSessionDecisions((prev) => [sessionDecision, ...prev]);
   }, []);
 
   const handleDecisionSelect = useCallback((decision: ExtractedDecision) => {
@@ -210,9 +244,9 @@ export default function StressTestPage() {
 
     const totals = sessionDecisions.reduce(
       (acc, decision) => {
-        acc.return += decision.return;
-        acc.pressure += decision.pressure;
-        acc.stability += decision.stability;
+        acc.return += decision.r;
+        acc.pressure += decision.p;
+        acc.stability += decision.s;
         acc.dnav += decision.dnav;
         return acc;
       },
@@ -231,26 +265,93 @@ export default function StressTestPage() {
   const sessionBuckets = useMemo(() => {
     const buckets = {
       return: { Positive: 0, Neutral: 0, Negative: 0 },
-      pressure: { Pressured: 0, Balanced: 0, Calm: 0 },
-      stability: { Stable: 0, Uncertain: 0, Fragile: 0 },
+      pressure: { Pressured: 0, Neutral: 0, Calm: 0 },
+      stability: { Stable: 0, Neutral: 0, Fragile: 0 },
     };
 
     sessionDecisions.forEach((decision) => {
-      if (decision.return > 0) buckets.return.Positive += 1;
-      else if (decision.return < 0) buckets.return.Negative += 1;
+      if (decision.r > 0) buckets.return.Positive += 1;
+      else if (decision.r < 0) buckets.return.Negative += 1;
       else buckets.return.Neutral += 1;
 
-      if (decision.pressure > 0) buckets.pressure.Pressured += 1;
-      else if (decision.pressure < 0) buckets.pressure.Calm += 1;
-      else buckets.pressure.Balanced += 1;
+      if (decision.p > 0) buckets.pressure.Pressured += 1;
+      else if (decision.p < 0) buckets.pressure.Calm += 1;
+      else buckets.pressure.Neutral += 1;
 
-      if (decision.stability > 0) buckets.stability.Stable += 1;
-      else if (decision.stability < 0) buckets.stability.Fragile += 1;
-      else buckets.stability.Uncertain += 1;
+      if (decision.s > 0) buckets.stability.Stable += 1;
+      else if (decision.s < 0) buckets.stability.Fragile += 1;
+      else buckets.stability.Neutral += 1;
     });
 
     return buckets;
   }, [sessionDecisions]);
+
+  const sessionDistributions = useMemo(() => {
+    const total = sessionDecisions.length;
+    const toPct = (value: number) => (total > 0 ? (value / total) * 100 : 0);
+
+    const returnSegments: MetricDistributionSegment[] = [
+      { label: "Positive", value: toPct(sessionBuckets.return.Positive), colorClass: "bg-emerald-500" },
+      { label: "Neutral", value: toPct(sessionBuckets.return.Neutral), colorClass: "bg-muted" },
+      { label: "Negative", value: toPct(sessionBuckets.return.Negative), colorClass: "bg-rose-500" },
+    ];
+
+    const pressureSegments: MetricDistributionSegment[] = [
+      { label: "Pressured", value: toPct(sessionBuckets.pressure.Pressured), colorClass: "bg-amber-500" },
+      { label: "Neutral", value: toPct(sessionBuckets.pressure.Neutral), colorClass: "bg-muted" },
+      { label: "Calm", value: toPct(sessionBuckets.pressure.Calm), colorClass: "bg-sky-500" },
+    ];
+
+    const stabilitySegments: MetricDistributionSegment[] = [
+      { label: "Stable", value: toPct(sessionBuckets.stability.Stable), colorClass: "bg-emerald-600" },
+      { label: "Neutral", value: toPct(sessionBuckets.stability.Neutral), colorClass: "bg-muted" },
+      { label: "Fragile", value: toPct(sessionBuckets.stability.Fragile), colorClass: "bg-rose-500" },
+    ];
+
+    return {
+      returnSegments,
+      pressureSegments,
+      stabilitySegments,
+      pressurePressuredPct: toPct(sessionBuckets.pressure.Pressured),
+      stabilityFragilePct: toPct(sessionBuckets.stability.Fragile),
+    };
+  }, [sessionBuckets, sessionDecisions.length]);
+
+  const sessionDirective = useMemo(() => {
+    if (sessionDecisions.length === 0) return "Save decisions to generate a session directive.";
+    if (sessionStats.avgPressure > 1 || sessionDistributions.pressurePressuredPct >= 20) {
+      return "Reduce urgency or increase confidence before scaling.";
+    }
+    if (sessionStats.avgStability < 1 || sessionDistributions.stabilityFragilePct >= 15) {
+      return "Increase evidence or reduce risk to stabilize the system.";
+    }
+    if (sessionStats.avgReturn <= 0) {
+      return "Raise Impact or reduce Cost to make Return decisive.";
+    }
+    return "Focus on the highest-return moves while keeping Stability steady.";
+  }, [
+    sessionDecisions.length,
+    sessionDistributions.pressurePressuredPct,
+    sessionDistributions.stabilityFragilePct,
+    sessionStats.avgPressure,
+    sessionStats.avgReturn,
+    sessionStats.avgStability,
+  ]);
+
+  const handleSessionAnalysisToggle = useCallback(() => {
+    const nextOpen = !isSessionAnalysisOpen;
+    setIsSessionAnalysisOpen(nextOpen);
+    if (nextOpen) {
+      requestAnimationFrame(() => {
+        sessionAnalysisRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+      });
+    }
+  }, [isSessionAnalysisOpen]);
+
+  const formatCompact = useCallback((value: number, digits = 0) => {
+    if (!Number.isFinite(value)) return "0";
+    return value.toFixed(digits);
+  }, []);
 
   return (
     <TooltipProvider>
@@ -324,30 +425,72 @@ export default function StressTestPage() {
                 </p>
               )}
 
+              {sessionDecisions.length > 0 ? (
+                <div className="space-y-1">
+                  {sessionDecisions.map((decision) => (
+                    <div
+                      key={decision.id}
+                      className="grid grid-cols-[minmax(0,1.2fr)_minmax(0,0.7fr)_minmax(0,1fr)_minmax(0,0.7fr)_minmax(0,0.4fr)] items-center gap-2 rounded-full border border-border/40 bg-muted/10 px-3 py-1 text-[11px] text-muted-foreground"
+                    >
+                      <span className="truncate font-semibold text-foreground">{decision.title}</span>
+                      <span className="truncate">{decision.category}</span>
+                      <span className="truncate">
+                        I:{formatCompact(decision.impact)} C:{formatCompact(decision.cost)} R:
+                        {formatCompact(decision.risk)} U:{formatCompact(decision.urgency)} Conf:
+                        {formatCompact(decision.confidence)}
+                      </span>
+                      <span className="truncate">
+                        R:{formatCompact(decision.r, 1)} / P:{formatCompact(decision.p, 1)} / S:
+                        {formatCompact(decision.s, 1)}
+                      </span>
+                      <span className="text-right font-semibold text-foreground">
+                        {formatCompact(decision.dnav, 1)}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              ) : null}
+
               {canOpenSessionAnalysis ? (
                 <Button
                   className="h-9 px-4 text-xs font-semibold uppercase tracking-wide"
-                  onClick={() => setIsSessionAnalysisOpen((prev) => !prev)}
+                  onClick={handleSessionAnalysisToggle}
                 >
                   Open Session Analysis
                 </Button>
               ) : (
-                <Button
-                  className="h-9 px-4 text-xs font-semibold uppercase tracking-wide"
-                  disabled
-                >
+                <Button className="h-9 px-4 text-xs font-semibold uppercase tracking-wide" disabled>
                   View Decision Analysis
                 </Button>
               )}
             </div>
 
             {canOpenSessionAnalysis && isSessionAnalysisOpen ? (
-              <div className="space-y-4 rounded-2xl border border-border/60 bg-white/70 p-4 shadow-sm dark:bg-black/30">
-                <div className="space-y-1">
-                  <h2 className="text-base font-semibold text-foreground">Session Analysis</h2>
-                  <p className="text-xs text-muted-foreground">
-                    Session-only readout based on your last saved decisions.
+              <div
+                ref={sessionAnalysisRef}
+                className="space-y-4 rounded-2xl border border-border/60 bg-white/70 p-4 shadow-sm dark:bg-black/30"
+              >
+                <div className="flex flex-wrap items-start justify-between gap-3">
+                  <div className="space-y-1">
+                    <h2 className="text-base font-semibold text-foreground">Session Analysis</h2>
+                    <p className="text-xs text-muted-foreground">
+                      Session-only readout based on your last saved decisions.
+                    </p>
+                  </div>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="h-8 px-3 text-xs font-semibold uppercase tracking-wide"
+                    onClick={() => setIsSessionAnalysisOpen(false)}
+                  >
+                    Collapse
+                  </Button>
+                </div>
+                <div className="rounded-xl border border-border/40 bg-muted/10 px-3 py-2">
+                  <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+                    Session Directive
                   </p>
+                  <p className="mt-1 text-[13px] leading-[1.45] text-foreground">{sessionDirective}</p>
                 </div>
                 <div className="grid gap-3 md:grid-cols-2">
                   <div className="rounded-xl border border-border/40 bg-muted/10 px-3 py-2">
@@ -376,56 +519,20 @@ export default function StressTestPage() {
                   </div>
                 </div>
                 <div className="grid gap-3 md:grid-cols-3">
-                  <div className="rounded-xl border border-border/40 bg-muted/10 px-3 py-2 text-xs text-muted-foreground">
-                    <p className="text-[11px] font-semibold uppercase tracking-wide text-foreground">Return buckets</p>
-                    <div className="mt-2 space-y-1">
-                      <div className="flex items-center justify-between">
-                        <span>Positive</span>
-                        <span className="font-semibold text-foreground">{sessionBuckets.return.Positive}</span>
-                      </div>
-                      <div className="flex items-center justify-between">
-                        <span>Neutral</span>
-                        <span className="font-semibold text-foreground">{sessionBuckets.return.Neutral}</span>
-                      </div>
-                      <div className="flex items-center justify-between">
-                        <span>Negative</span>
-                        <span className="font-semibold text-foreground">{sessionBuckets.return.Negative}</span>
-                      </div>
-                    </div>
+                  <div className="rounded-xl border border-border/40 bg-muted/10 px-3 py-2">
+                    <MetricDistribution metricLabel="Return distribution" segments={sessionDistributions.returnSegments} />
                   </div>
-                  <div className="rounded-xl border border-border/40 bg-muted/10 px-3 py-2 text-xs text-muted-foreground">
-                    <p className="text-[11px] font-semibold uppercase tracking-wide text-foreground">Pressure buckets</p>
-                    <div className="mt-2 space-y-1">
-                      <div className="flex items-center justify-between">
-                        <span>Pressured</span>
-                        <span className="font-semibold text-foreground">{sessionBuckets.pressure.Pressured}</span>
-                      </div>
-                      <div className="flex items-center justify-between">
-                        <span>Balanced</span>
-                        <span className="font-semibold text-foreground">{sessionBuckets.pressure.Balanced}</span>
-                      </div>
-                      <div className="flex items-center justify-between">
-                        <span>Calm</span>
-                        <span className="font-semibold text-foreground">{sessionBuckets.pressure.Calm}</span>
-                      </div>
-                    </div>
+                  <div className="rounded-xl border border-border/40 bg-muted/10 px-3 py-2">
+                    <MetricDistribution
+                      metricLabel="Pressure distribution"
+                      segments={sessionDistributions.pressureSegments}
+                    />
                   </div>
-                  <div className="rounded-xl border border-border/40 bg-muted/10 px-3 py-2 text-xs text-muted-foreground">
-                    <p className="text-[11px] font-semibold uppercase tracking-wide text-foreground">Stability buckets</p>
-                    <div className="mt-2 space-y-1">
-                      <div className="flex items-center justify-between">
-                        <span>Stable</span>
-                        <span className="font-semibold text-foreground">{sessionBuckets.stability.Stable}</span>
-                      </div>
-                      <div className="flex items-center justify-between">
-                        <span>Uncertain</span>
-                        <span className="font-semibold text-foreground">{sessionBuckets.stability.Uncertain}</span>
-                      </div>
-                      <div className="flex items-center justify-between">
-                        <span>Fragile</span>
-                        <span className="font-semibold text-foreground">{sessionBuckets.stability.Fragile}</span>
-                      </div>
-                    </div>
+                  <div className="rounded-xl border border-border/40 bg-muted/10 px-3 py-2">
+                    <MetricDistribution
+                      metricLabel="Stability distribution"
+                      segments={sessionDistributions.stabilitySegments}
+                    />
                   </div>
                 </div>
                 <div className="space-y-2">
@@ -440,7 +547,7 @@ export default function StressTestPage() {
                         className="flex items-center justify-between rounded-lg border border-border/40 bg-muted/10 px-3 py-2 text-xs"
                       >
                         <div>
-                          <p className="font-semibold text-foreground">{decision.name}</p>
+                          <p className="font-semibold text-foreground">{decision.title}</p>
                           <p className="text-[11px] text-muted-foreground">{decision.category}</p>
                         </div>
                         <div className="text-right">
