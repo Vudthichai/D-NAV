@@ -16,6 +16,8 @@ import {
   detectJudgmentSignal,
 } from "@/lib/calculations";
 import { Check, Save } from "lucide-react";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { useNetlifyIdentity } from "@/hooks/use-netlify-identity";
 import {
   forwardRef,
   useCallback,
@@ -37,16 +39,24 @@ export interface StressTestCalculatorHandle {
   selectDecision: (decision: { name: string; category: string }) => void;
 }
 
-const StressTestCalculator = forwardRef<StressTestCalculatorHandle>((_, ref) => {
+interface StressTestCalculatorProps {
+  saveLabel?: string;
+  requireLoginForSave?: boolean;
+}
+
+const StressTestCalculator = forwardRef<StressTestCalculatorHandle, StressTestCalculatorProps>(
+  ({ saveLabel = "Log this decision", requireLoginForSave = false }, ref) => {
   const [decisionName, setDecisionName] = useState("");
   const [decisionCategory, setDecisionCategory] = useState("");
   const [variables, setVariables] = useState<DecisionVariables>(() => ({ ...DEFAULT_VARIABLES }));
   const [metrics, setMetrics] = useState<DecisionMetrics>(() => computeMetrics(DEFAULT_VARIABLES));
   const [isSaved, setIsSaved] = useState(false);
+  const [showLoginPrompt, setShowLoginPrompt] = useState(false);
   const decisionNameRef = useRef<HTMLInputElement>(null);
   const decisionCategoryRef = useRef<HTMLInputElement>(null);
   const decisionFrameRef = useRef<HTMLDivElement>(null);
   const { setDecisions } = useDataset();
+  const { isLoggedIn, openLogin } = useNetlifyIdentity();
 
   const updateVariable = useCallback((key: keyof DecisionVariables, value: number) => {
     setVariables((prev) => {
@@ -58,6 +68,11 @@ const StressTestCalculator = forwardRef<StressTestCalculatorHandle>((_, ref) => 
   }, []);
 
   const handleSaveDecision = useCallback(() => {
+    if (requireLoginForSave && !isLoggedIn) {
+      setShowLoginPrompt(true);
+      return;
+    }
+
     if (!decisionName.trim()) {
       decisionNameRef.current?.focus();
       alert("Please enter both a decision name and category before saving.");
@@ -82,7 +97,7 @@ const StressTestCalculator = forwardRef<StressTestCalculatorHandle>((_, ref) => 
     setIsSaved(true);
 
     setTimeout(() => setIsSaved(false), 3000);
-  }, [decisionCategory, decisionName, metrics, setDecisions, variables]);
+  }, [decisionCategory, decisionName, isLoggedIn, metrics, requireLoginForSave, setDecisions, variables]);
 
   const handleReset = () => {
     setDecisionName("");
@@ -138,6 +153,34 @@ const StressTestCalculator = forwardRef<StressTestCalculatorHandle>((_, ref) => 
 
   return (
     <section className="space-y-2">
+      <Dialog open={showLoginPrompt} onOpenChange={setShowLoginPrompt}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="text-base font-semibold">Log in to save decisions.</DialogTitle>
+          </DialogHeader>
+          <div className="flex flex-col gap-3 text-sm text-muted-foreground">
+            <p>Your inputs are safe here, but saving requires a login.</p>
+            <div className="flex flex-wrap gap-2">
+              <Button
+                onClick={() => {
+                  openLogin();
+                  setShowLoginPrompt(false);
+                }}
+                className="h-9 px-4 text-xs font-semibold uppercase tracking-wide"
+              >
+                Log in
+              </Button>
+              <Button
+                variant="ghost"
+                onClick={() => setShowLoginPrompt(false)}
+                className="h-9 px-4 text-xs"
+              >
+                Not now
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
       <div className="grid grid-cols-1 items-stretch gap-2 lg:auto-rows-fr lg:grid-cols-3">
         <div ref={decisionFrameRef} className="scroll-mt-4">
           <GlassCard className="flex h-full flex-col gap-6 py-6">
@@ -231,7 +274,7 @@ const StressTestCalculator = forwardRef<StressTestCalculatorHandle>((_, ref) => 
                   ) : (
                     <>
                       <Save className="mr-2 h-4 w-4" />
-                      Log this decision
+                      {saveLabel}
                     </>
                   )}
                 </Button>
