@@ -232,8 +232,9 @@ export default function StressTestPage() {
     [handleDecisionSelect],
   );
 
-  const progressCount = Math.min(sessionDecisions.length, 10);
-  const canOpenSessionAnalysis = sessionDecisions.length >= 10;
+  const decisionCount = sessionDecisions.length;
+  const progressCount = Math.min(decisionCount, 10);
+  const canOpenSessionAnalysis = decisionCount >= 10;
 
   const sessionStats = useMemo(() => {
     if (sessionDecisions.length === 0) {
@@ -338,15 +339,15 @@ export default function StressTestPage() {
   const sessionDirective = useMemo(() => {
     if (sessionDecisions.length === 0) return "Save decisions to generate a session directive.";
     if (sessionStats.avgPressure > 1 || sessionDistributions.pressurePressuredPct >= 20) {
-      return "Reduce urgency or increase confidence before scaling.";
+      return "Across this session, urgency outruns confidence and risk accelerates. Tune by slowing commitment velocity or raising conviction inputs.";
     }
     if (sessionStats.avgStability < 1 || sessionDistributions.stabilityFragilePct >= 15) {
-      return "Increase evidence or reduce risk to stabilize the system.";
+      return "Across this session, risk rises faster than confidence. Tune by increasing evidence or reducing exposure before urgency spikes.";
     }
     if (sessionStats.avgReturn <= 0) {
-      return "Raise Impact or reduce Cost to make Return decisive.";
+      return "Across this session, urgency and confidence are not converting into return. Tune impact or cost before risk compounds.";
     }
-    return "Focus on the highest-return moves while keeping Stability steady.";
+    return "Across this session, urgency, confidence, and risk are mostly balanced. Tune by keeping confidence inputs ahead of urgency as stakes rise.";
   }, [
     sessionDecisions.length,
     sessionDistributions.pressurePressuredPct,
@@ -367,7 +368,7 @@ export default function StressTestPage() {
 
     if (sessionStats.avgUrgency - sessionStats.avgConfidence >= 1) {
       return {
-        callout: "Urgency is consistently outpacing Confidence across this session. That’s a pressure pattern — not a one-off decision.",
+        callout: "Urgency outpaces Confidence across the session.",
         invitation: "Left unchecked, this pattern scales risk faster than impact.",
         note: null,
       };
@@ -375,7 +376,7 @@ export default function StressTestPage() {
 
     if (sessionStats.avgReturn > 0 && sessionStats.avgStability < 0.5) {
       return {
-        callout: "Returns look positive, but Stability is fragile across the session.",
+        callout: "Returns are positive, but Stability is fragile across the session.",
         invitation: "Left unchecked, this pattern compounds risk faster than resilience.",
         note: null,
       };
@@ -383,7 +384,7 @@ export default function StressTestPage() {
 
     if (sessionStats.avgImpact - sessionStats.avgConfidence >= 1) {
       return {
-        callout: "Confidence is consistently low relative to Impact across this session.",
+        callout: "Confidence runs low relative to Impact across the session.",
         invitation: "Left unchecked, this pattern stretches execution beyond evidence.",
         note: null,
       };
@@ -391,7 +392,7 @@ export default function StressTestPage() {
 
     if (sessionStats.avgReturn <= 0 || sessionStats.avgPressure > 1) {
       return {
-        callout: "Return is muted while Pressure climbs across this session.",
+        callout: "Return is muted while Pressure climbs across the session.",
         invitation: "Left unchecked, this pattern limits upside while drag compounds.",
         note: null,
       };
@@ -479,9 +480,9 @@ export default function StressTestPage() {
             <div className="flex flex-col gap-2 rounded-lg border border-border/60 bg-muted/10 px-3 py-2 text-xs text-muted-foreground">
               <div className="flex flex-wrap items-center justify-between gap-2 text-xs font-semibold text-foreground">
                 <span>
-                  {sessionDecisions.length >= 10
+                  {decisionCount >= 10
                     ? "10/10 decisions logged — signal unlocked"
-                    : `${sessionDecisions.length}/10 decisions logged`}
+                    : `${decisionCount}/10 decisions logged`}
                 </span>
                 <div className="flex flex-col items-end gap-1 text-muted-foreground">
                   <div className="flex items-center gap-2">
@@ -491,7 +492,7 @@ export default function StressTestPage() {
                       size="sm"
                       className="h-7 px-2 text-[11px] font-semibold uppercase tracking-wide"
                       onClick={handleClearSession}
-                      disabled={sessionDecisions.length === 0}
+                      disabled={decisionCount === 0}
                     >
                       Clear session
                     </Button>
@@ -515,13 +516,13 @@ export default function StressTestPage() {
                 />
               </div>
               <p className="text-[11px] text-muted-foreground">
-                {sessionDecisions.length >= 10
-                  ? "Session insight is based on these 10 decisions. More decisions sharpen the signal."
+                {decisionCount >= 10
+                  ? `Session insight is based on these ${decisionCount} decisions. More decisions sharpen the signal.`
                   : "Insight unlocks at 10 decisions. More decisions sharpen the signal."}
               </p>
               <p className="text-[11px] text-muted-foreground">Session-only. Nothing is saved.</p>
 
-              {sessionDecisions.length > 0 ? (
+              {decisionCount > 0 ? (
                 <div className="overflow-x-auto">
                   <div className="min-w-[720px] space-y-1">
                     <p className="text-[11px] text-muted-foreground">
@@ -592,6 +593,10 @@ export default function StressTestPage() {
                     <p className="text-xs text-muted-foreground">
                       A pattern-level readout of how you make decisions before outcomes intervene.
                     </p>
+                    <p className="text-[11px] text-muted-foreground">
+                      In guided consulting sessions, we review many decisions to surface the real variables — and
+                      understand the physics of judgment under pressure.
+                    </p>
                   </div>
                   <Button
                     variant="ghost"
@@ -607,10 +612,10 @@ export default function StressTestPage() {
                     <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
                       Total decisions
                     </p>
-                    <p className="text-lg font-semibold text-foreground">{sessionDecisions.length}</p>
+                    <p className="text-lg font-semibold text-foreground">{decisionCount}</p>
                     <p className="text-[11px] text-muted-foreground">
-                      {sessionDecisions.length >= 10
-                        ? "This insight reflects 10 decisions from this session."
+                      {decisionCount >= 10
+                        ? `This insight reflects ${decisionCount} decisions from this session.`
                         : "Build toward 10 decisions to unlock session insight."}
                     </p>
                   </div>
@@ -653,7 +658,12 @@ export default function StressTestPage() {
                     />
                   </div>
                 </div>
-                <Callout label="Session Insight" labelClassName="text-muted-foreground" bodyClassName="text-foreground">
+                <Callout
+                  label="Session Insight"
+                  labelClassName="text-muted-foreground"
+                  bodyClassName="text-foreground"
+                  className="overflow-hidden"
+                >
                   <p className="font-semibold">{sessionActionOutput.callout}</p>
                   <p className="mt-1 text-[11px] text-muted-foreground">{sessionDirective}</p>
                 </Callout>
