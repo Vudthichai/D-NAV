@@ -436,7 +436,7 @@ const buildCategoryInsight = (row: CategoryHeatmapRow) => {
 
   return {
     summary: "The category shows a balanced profile with manageable pressure and steady outcomes.",
-    action: "Action: Maintain discipline and keep logging decisions to confirm the signal.",
+    action: "Maintain current discipline and monitor for pressure drift as volume increases.",
   };
 };
 
@@ -692,6 +692,13 @@ export default function TheDNavPage() {
     () => sortedCategories.filter((category) => category.decisionCount >= 3),
     [sortedCategories],
   );
+  const categoryNavigationRows = useMemo(
+    () => [
+      ...visibleCategories.map((row) => ({ kind: "category" as const, row })),
+      ...(miscCategoryRow ? [{ kind: "misc" as const, row: miscCategoryRow }] : []),
+    ],
+    [miscCategoryRow, visibleCategories],
+  );
   const sortedArchetypeRows = useMemo(() => {
     const sorted = [...archetypes.rows];
     sorted.sort((a, b) => {
@@ -714,13 +721,29 @@ export default function TheDNavPage() {
     () => sortedArchetypeRows.findIndex((row) => row.archetype === selectedArchetype?.archetype),
     [selectedArchetype, sortedArchetypeRows],
   );
+  const selectedCategoryIndex = useMemo(
+    () =>
+      selectedCategory
+        ? categoryNavigationRows.findIndex((item) => item.row.category === selectedCategory.row.category)
+        : -1,
+    [categoryNavigationRows, selectedCategory],
+  );
 
   const hasPreviousArchetype = selectedArchetypeIndex > 0;
   const hasNextArchetype = selectedArchetypeIndex >= 0 && selectedArchetypeIndex < sortedArchetypeRows.length - 1;
+  const hasPreviousCategory = selectedCategoryIndex > 0;
+  const hasNextCategory =
+    selectedCategoryIndex >= 0 && selectedCategoryIndex < categoryNavigationRows.length - 1;
 
   const handleArchetypeChange = (value: string) => {
     const nextSelection = sortedArchetypeRows.find((row) => row.archetype === value) ?? null;
     setSelectedArchetype(nextSelection);
+  };
+  const handleCategoryChange = (value: string) => {
+    const nextSelection = categoryNavigationRows.find((item) => item.row.category === value) ?? null;
+    if (nextSelection) {
+      handleCategorySelect(nextSelection.row, nextSelection.kind);
+    }
   };
 
   const handleNavigateArchetype = (direction: "prev" | "next") => {
@@ -731,6 +754,16 @@ export default function TheDNavPage() {
 
     if (target) {
       setSelectedArchetype(target);
+    }
+  };
+  const handleNavigateCategory = (direction: "prev" | "next") => {
+    if (selectedCategoryIndex === -1) return;
+
+    const offset = direction === "next" ? 1 : -1;
+    const target = categoryNavigationRows[selectedCategoryIndex + offset];
+
+    if (target) {
+      handleCategorySelect(target.row, target.kind);
     }
   };
 
@@ -915,6 +948,7 @@ export default function TheDNavPage() {
     () => (selectedCategory ? buildCategoryInsight(selectedCategory.row) : null),
     [selectedCategory],
   );
+  const categoryDecisionCount = categoryDecisions.length;
 
   const categorySignal = useMemo(
     () => (selectedCategory ? getSignalStrength(selectedCategory.row.decisionCount) : null),
@@ -1569,8 +1603,15 @@ export default function TheDNavPage() {
                     <DialogContent className="w-[90vw] max-w-[90vw] h-[85vh] p-0 overflow-x-auto overflow-y-auto">
                       <div className="flex h-full flex-col bg-background">
                         <div className="flex items-start justify-between border-b px-6 py-4">
-                          <DialogTitle className="text-lg font-semibold">
-                            {selectedCategory ? `${selectedCategory.row.category} decisions` : "Category decisions"}
+                          <DialogTitle className="text-lg font-semibold flex flex-wrap items-center gap-2">
+                            <span>
+                              {selectedCategory ? `${selectedCategory.row.category} decisions` : "Category decisions"}
+                            </span>
+                            {selectedCategory && (
+                              <span className="text-sm font-medium text-muted-foreground">
+                                · {categoryDecisionCount} decisions
+                              </span>
+                            )}
                           </DialogTitle>
                           <DialogClose className="rounded-md opacity-70 ring-offset-background transition-opacity hover:opacity-100 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2">
                             <X className="h-4 w-4" />
@@ -1581,28 +1622,75 @@ export default function TheDNavPage() {
                         {selectedCategory && categorySignal && categoryInsight && (
                           <>
                             <div className="space-y-4 border-b bg-card/60 px-6 py-4">
-                              <div className="space-y-3">
-                                <div className="flex flex-wrap items-center justify-between gap-2">
-                                  <p className="text-sm font-semibold text-foreground">Category Action Insight</p>
-                                  <Badge variant="outline" className={cn("text-xs", categorySignal.className)}>
-                                    {categorySignal.label} signal
-                                  </Badge>
-                                </div>
-                                <div
-                                  className={cn(
-                                    "space-y-1 text-sm",
-                                    selectedCategory.row.decisionCount < 5 && "text-muted-foreground",
+                              <div className="flex flex-wrap items-start justify-between gap-3">
+                                <div className="space-y-3 max-w-2xl">
+                                  <div className="flex flex-wrap items-center justify-between gap-2">
+                                    <p className="text-sm font-semibold text-foreground">Category Action Insight</p>
+                                    <Badge variant="outline" className={cn("text-xs", categorySignal.className)}>
+                                      {categorySignal.label} signal
+                                    </Badge>
+                                  </div>
+                                  <div
+                                    className={cn(
+                                      "space-y-1 text-sm",
+                                      selectedCategory.row.decisionCount < 5 && "text-muted-foreground",
+                                    )}
+                                  >
+                                    <p>{categoryInsight.summary}</p>
+                                    <p className="font-medium">{categoryInsight.action}</p>
+                                  </div>
+                                  {selectedCategory.row.decisionCount < 5 && (
+                                    <p className="text-xs text-muted-foreground">
+                                      Signal is weak at N={selectedCategory.row.decisionCount}. Log more decisions to
+                                      stabilize the pattern.
+                                    </p>
                                   )}
-                                >
-                                  <p>{categoryInsight.summary}</p>
-                                  <p className="font-medium">{categoryInsight.action}</p>
                                 </div>
-                                {selectedCategory.row.decisionCount < 5 && (
-                                  <p className="text-xs text-muted-foreground">
-                                    Signal is weak at N={selectedCategory.row.decisionCount}. Log more decisions to
-                                    stabilize the pattern.
-                                  </p>
-                                )}
+                                <div className="flex flex-col items-start gap-3 md:items-end">
+                                  <div className="flex flex-wrap items-center gap-2">
+                                    <Select
+                                      value={selectedCategory?.row.category ?? ""}
+                                      onValueChange={handleCategoryChange}
+                                    >
+                                      <SelectTrigger className="w-64 truncate">
+                                        <SelectValue placeholder="Select category" />
+                                      </SelectTrigger>
+                                      <SelectContent>
+                                        <SelectGroup>
+                                          {categoryNavigationRows.map((item) => (
+                                            <SelectItem
+                                              key={`${item.kind}-${item.row.category}`}
+                                              value={item.row.category}
+                                              className="truncate"
+                                            >
+                                              {item.row.category}
+                                            </SelectItem>
+                                          ))}
+                                        </SelectGroup>
+                                      </SelectContent>
+                                    </Select>
+                                    <div className="flex items-center gap-2">
+                                      <Button
+                                        variant="outline"
+                                        size="icon"
+                                        disabled={!hasPreviousCategory}
+                                        onClick={() => handleNavigateCategory("prev")}
+                                      >
+                                        <ArrowLeft className="h-4 w-4" />
+                                        <span className="sr-only">Previous category</span>
+                                      </Button>
+                                      <Button
+                                        variant="outline"
+                                        size="icon"
+                                        disabled={!hasNextCategory}
+                                        onClick={() => handleNavigateCategory("next")}
+                                      >
+                                        <ArrowRight className="h-4 w-4" />
+                                        <span className="sr-only">Next category</span>
+                                      </Button>
+                                    </div>
+                                  </div>
+                                </div>
                               </div>
 
                               {selectedCategory.kind === "misc" && selectedCategory.includedCategories?.length ? (
