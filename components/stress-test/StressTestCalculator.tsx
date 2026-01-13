@@ -323,13 +323,13 @@ const StressTestCalculator = forwardRef<StressTestCalculatorHandle, StressTestCa
             </GlassCard>
           </div>
 
-          <GlassCard className="flex h-full flex-col gap-6 py-6">
-            <CardHeader className="space-y-0 px-4 pb-1 pt-3">
+          <GlassCard className="flex h-full flex-col gap-4 py-4">
+            <CardHeader className="space-y-0 px-4 pb-1 pt-2">
               <CardTitle className="text-sm font-semibold">RPS</CardTitle>
               <p className="text-sm text-muted-foreground">Signals derived from your inputs.</p>
             </CardHeader>
-            <CardContent className="px-4 pb-2">
-              <div className="grid gap-4">
+            <CardContent className="px-4 pb-3">
+              <div className="grid gap-3">
                 <div className="dnav-glass-panel px-2 py-1">
                   <div className="flex items-center justify-between gap-3">
                     <div>
