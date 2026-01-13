@@ -607,34 +607,55 @@ export default function StressTestPage() {
                     Collapse
                   </Button>
                 </div>
-                <div className="grid gap-3 md:grid-cols-2">
-                  <div className="rounded-xl border border-border/40 bg-muted/10 px-3 py-2">
-                    <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
-                      Total decisions
-                    </p>
-                    <p className="text-lg font-semibold text-foreground">{decisionCount}</p>
-                    <p className="text-[11px] text-muted-foreground">
-                      {decisionCount >= 10
-                        ? `This insight reflects ${decisionCount} decisions from this session.`
-                        : "Build toward 10 decisions to unlock session insight."}
-                    </p>
+                <Callout
+                  label="Session Insight"
+                  labelClassName="text-muted-foreground"
+                  bodyClassName="text-foreground"
+                >
+                  <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+                    <div className="space-y-1">
+                      <p className="font-semibold">{sessionActionOutput.callout}</p>
+                      <p className="text-[11px] text-muted-foreground">{sessionDirective}</p>
+                    </div>
+                    <div className="flex flex-col gap-2 text-[11px] text-muted-foreground md:max-w-[220px] md:items-end md:text-right">
+                      <p className="text-[10px] font-semibold uppercase tracking-wide text-foreground">Next step</p>
+                      <p>Review 10–20 decisions live and tune the variables.</p>
+                      <Button asChild size="sm" className="h-8 px-3 text-[11px]">
+                        <Link href="/contact">Book a Decision Review</Link>
+                      </Button>
+                    </div>
                   </div>
-                  <div className="grid gap-2 rounded-xl border border-border/40 bg-muted/10 px-3 py-2 text-xs text-muted-foreground">
-                    <div className="flex items-center justify-between">
-                      <span>Avg D-NAV</span>
-                      <span className="font-semibold text-foreground">{sessionStats.avgDnav.toFixed(1)}</span>
+                </Callout>
+                <div className="rounded-xl border border-border/40 bg-muted/10 px-3 py-2">
+                  <div className="flex flex-wrap items-start justify-between gap-2">
+                    <div className="space-y-1">
+                      <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+                        Total decisions
+                      </p>
+                      <p className="text-lg font-semibold text-foreground">{decisionCount}</p>
+                      <p className="text-[11px] text-muted-foreground">
+                        {decisionCount >= 10
+                          ? `This insight reflects ${decisionCount} decisions from this session.`
+                          : "Build toward 10 decisions to unlock session insight."}
+                      </p>
                     </div>
-                    <div className="flex items-center justify-between">
-                      <span>Avg Return</span>
-                      <span className="font-semibold text-foreground">{sessionStats.avgReturn.toFixed(1)}</span>
-                    </div>
-                    <div className="flex items-center justify-between">
-                      <span>Avg Pressure</span>
-                      <span className="font-semibold text-foreground">{sessionStats.avgPressure.toFixed(1)}</span>
-                    </div>
-                    <div className="flex items-center justify-between">
-                      <span>Avg Stability</span>
-                      <span className="font-semibold text-foreground">{sessionStats.avgStability.toFixed(1)}</span>
+                    <div className="grid w-full gap-2 text-xs text-muted-foreground sm:grid-cols-2 md:w-auto md:min-w-[220px]">
+                      <div className="flex items-center justify-between gap-4">
+                        <span>Avg D-NAV</span>
+                        <span className="font-semibold text-foreground">{sessionStats.avgDnav.toFixed(1)}</span>
+                      </div>
+                      <div className="flex items-center justify-between gap-4">
+                        <span>Avg Return</span>
+                        <span className="font-semibold text-foreground">{sessionStats.avgReturn.toFixed(1)}</span>
+                      </div>
+                      <div className="flex items-center justify-between gap-4">
+                        <span>Avg Pressure</span>
+                        <span className="font-semibold text-foreground">{sessionStats.avgPressure.toFixed(1)}</span>
+                      </div>
+                      <div className="flex items-center justify-between gap-4">
+                        <span>Avg Stability</span>
+                        <span className="font-semibold text-foreground">{sessionStats.avgStability.toFixed(1)}</span>
+                      </div>
                     </div>
                   </div>
                 </div>
@@ -658,14 +679,6 @@ export default function StressTestPage() {
                     />
                   </div>
                 </div>
-                <Callout
-                  label="Session Insight"
-                  labelClassName="text-muted-foreground"
-                  bodyClassName="text-foreground"
-                >
-                  <p className="font-semibold">{sessionActionOutput.callout}</p>
-                  <p className="mt-1 text-[11px] text-muted-foreground">{sessionDirective}</p>
-                </Callout>
                 <a
                   href="/mockups/John-Smith's-Consulting.pdf"
                   target="_blank"
