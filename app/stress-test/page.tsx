@@ -22,6 +22,7 @@ import {
 import Term from "@/components/ui/Term";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { MetricDistribution, type MetricDistributionSegment } from "@/components/reports/MetricDistribution";
+import { getSessionActionInsight } from "@/lib/sessionActionInsight";
 import { ChevronDown, Pencil } from "lucide-react";
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useRef, useState, type MouseEvent } from "react";
@@ -337,8 +338,21 @@ export default function StressTestPage() {
   }, [sessionBuckets, sessionDecisions.length]);
 
   const sessionDirective = useMemo(
-    () => "Reduce commitment speed until confidence matches the risk being taken.",
-    [],
+    () =>
+      getSessionActionInsight({
+        avgReturn: sessionStats.avgReturn,
+        avgPressure: sessionStats.avgPressure,
+        avgStability: sessionStats.avgStability,
+        avgRisk: sessionStats.avgRisk,
+        avgConfidence: sessionStats.avgConfidence,
+      }),
+    [
+      sessionStats.avgConfidence,
+      sessionStats.avgPressure,
+      sessionStats.avgReturn,
+      sessionStats.avgRisk,
+      sessionStats.avgStability,
+    ],
   );
 
   const sessionActionOutput = useMemo(() => {
