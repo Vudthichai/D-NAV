@@ -15,7 +15,7 @@ test("getSystemDirective returns low-pressure stable directive", () => {
 
   assert.equal(
     directive,
-    "You're stable and under low pressure — increase ambition selectively by raising Impact or reducing Cost where return is already strongest without destabilizing the operating base.",
+    "This dataset is operating under low pressure with stable footing. Use the category results below to choose where to act: increase Impact (or reduce Cost) in the highest-return categories first, and avoid changes that reduce Stability.",
   );
 });
 
@@ -31,7 +31,7 @@ test("getSystemDirective emphasizes strain when pressure is high", () => {
 
   assert.equal(
     directive,
-    "You're under high pressure — prioritize increasing Return by raising Impact or reducing Cost while reducing execution strain.",
+    "This dataset is under high pressure — reduce execution strain first (lower Cost / lower Urgency), then raise Impact selectively in the categories that already perform.",
   );
 });
 
@@ -47,6 +47,6 @@ test("getSystemDirective protects footing when stability is thin", () => {
 
   assert.equal(
     directive,
-    "Stability is thin — increase ambition selectively by raising Impact or reducing Cost where return is already strongest while keeping decisions on stable footing.",
+    "This dataset’s stability is thin — protect stable footing first (lower Risk / lower Cost), then raise Impact selectively in the categories that can absorb it.",
   );
 });
