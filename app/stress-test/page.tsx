@@ -21,7 +21,6 @@ import {
 } from "@/components/ui/select";
 import Term from "@/components/ui/Term";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
-import { useNetlifyIdentity } from "@/hooks/use-netlify-identity";
 import { MetricDistribution, type MetricDistributionSegment } from "@/components/reports/MetricDistribution";
 import { ChevronDown, Pencil } from "lucide-react";
 import Link from "next/link";
@@ -153,7 +152,6 @@ export default function StressTestPage() {
   const sessionAnalysisRef = useRef<HTMLDivElement>(null);
 
   const { openDefinitions } = useDefinitionsPanel();
-  const { isLoggedIn, openLogin } = useNetlifyIdentity();
 
   const updateBaselineBucket = useCallback((key: BaselineBucketKey, update: Partial<BaselineBucketState>) => {
     setBaselineBuckets((prev) => ({
@@ -363,6 +361,7 @@ export default function StressTestPage() {
       return {
         callout: "Action Insight will appear once a few decisions are logged.",
         invitation: "Log one decision to surface a pressure pattern.",
+        note: null,
       };
     }
 
@@ -370,6 +369,7 @@ export default function StressTestPage() {
       return {
         callout: "Urgency is consistently outpacing Confidence across this session. That’s a pressure pattern — not a one-off decision.",
         invitation: "Left unchecked, this pattern scales risk faster than impact.",
+        note: null,
       };
     }
 
@@ -377,6 +377,7 @@ export default function StressTestPage() {
       return {
         callout: "Returns look positive, but Stability is fragile across the session.",
         invitation: "Left unchecked, this pattern compounds risk faster than resilience.",
+        note: null,
       };
     }
 
@@ -384,6 +385,7 @@ export default function StressTestPage() {
       return {
         callout: "Confidence is consistently low relative to Impact across this session.",
         invitation: "Left unchecked, this pattern stretches execution beyond evidence.",
+        note: null,
       };
     }
 
@@ -391,12 +393,14 @@ export default function StressTestPage() {
       return {
         callout: "Return is muted while Pressure climbs across this session.",
         invitation: "Left unchecked, this pattern limits upside while drag compounds.",
+        note: null,
       };
     }
 
     return {
       callout: "Signals are mostly aligned, and the system is stable.",
       invitation: "Left unchecked, this pattern can drift if urgency spikes.",
+      note: "Aligned signals can still hide emerging pressure without guided review.",
     };
   }, [
     sessionDecisions.length,
@@ -452,9 +456,13 @@ export default function StressTestPage() {
               <div className="flex flex-wrap items-start justify-between gap-3">
                 <div className="space-y-1">
                   <h1 className="text-xl font-semibold text-foreground">Stress Test</h1>
-                  <p className="text-sm text-muted-foreground">
-                    Run a fast diagnostic on a decision and capture the signal.
-                  </p>
+                  <p className="text-sm text-muted-foreground">Run a fast diagnostic on a decision and capture the signal.</p>
+                  <div className="pt-1">
+                    <p className="text-xs font-semibold uppercase tracking-wide text-foreground">
+                      This isn’t a recommendation tool.
+                    </p>
+                    <p className="text-xs text-muted-foreground">It reveals pressure in judgment before execution.</p>
+                  </div>
                 </div>
                 <div className="flex flex-col items-end gap-1">
                   <div className="flex flex-wrap items-center gap-2">
@@ -466,35 +474,12 @@ export default function StressTestPage() {
                     >
                       Definitions
                     </Button>
-                    {isLoggedIn ? (
-                      <Button asChild size="sm">
-                        <Link href="/calculator">Go to Patterns</Link>
-                      </Button>
-                    ) : (
-                      <Button size="sm" onClick={openLogin}>
-                        Log in
-                      </Button>
-                    )}
                   </div>
-                  {!isLoggedIn ? (
-                    <p className="text-xs text-muted-foreground">
-                      Log in to save decisions and{" "}
-                      <Link href="/contact" className="underline underline-offset-2">
-                        request analysis
-                      </Link>
-                      .
-                    </p>
-                  ) : null}
                 </div>
               </div>
             </div>
 
-            <StressTestCalculator
-              ref={calculatorRef}
-              saveLabel="Save decision"
-              requireLoginForSave
-              onSaveDecision={handleSaveSessionDecision}
-            />
+            <StressTestCalculator ref={calculatorRef} saveLabel="Save decision" onSaveDecision={handleSaveSessionDecision} />
 
             <div className="flex flex-col gap-2 rounded-lg border border-border/60 bg-muted/10 px-3 py-2 text-xs text-muted-foreground">
               <div className="flex flex-wrap items-center justify-between gap-2 text-xs font-semibold text-foreground">
@@ -537,6 +522,7 @@ export default function StressTestPage() {
               <p className="text-[11px] text-muted-foreground">
                 This is enough volume to see patterns. More decisions sharpen the signal.
               </p>
+              <p className="text-[11px] text-muted-foreground">Session-only. Nothing is saved.</p>
 
               {sessionDecisions.length > 0 ? (
                 <div className="overflow-x-auto">
@@ -677,24 +663,22 @@ export default function StressTestPage() {
                 <Callout label="Action Insight" labelClassName="text-muted-foreground" bodyClassName="text-foreground">
                   <p>{sessionActionOutput.callout}</p>
                   <p className="mt-2 text-[11px] text-muted-foreground">{sessionActionOutput.invitation}</p>
+                  {sessionActionOutput.note ? (
+                    <p className="mt-1 text-[11px] text-muted-foreground">{sessionActionOutput.note}</p>
+                  ) : null}
                 </Callout>
                 <div className="flex flex-col gap-3 border-t border-border/40 pt-3">
                   <a
-                    href="/mockups/John-Smith%27s-Consulting.pdf"
+                    href="/mockups/John-Smith's-Consulting.pdf"
                     target="_blank"
                     rel="noreferrer"
                     className="rounded-xl border border-orange-100 bg-orange-50/70 px-4 py-3 text-left text-orange-700 transition hover:bg-orange-100/70"
                   >
-                    <div className="text-sm font-semibold">See sample report →</div>
+                    <div className="text-sm font-semibold">Download sample Decision Brief →</div>
                     <p className="text-[11px] text-orange-700/80">
-                      Real consulting-style Decision Analysis PDF.
+                      A real pre-commitment consulting deliverable (PDF).
                     </p>
                   </a>
-                  {!isLoggedIn ? (
-                    <Button size="sm" variant="outline" className="h-9 px-4 text-xs" onClick={openLogin}>
-                      Log in
-                    </Button>
-                  ) : null}
                   <div className="rounded-lg border border-border/60 bg-muted/10 px-3 py-2 text-xs text-muted-foreground">
                     <p className="text-[11px] font-semibold uppercase tracking-wide text-foreground">Want to go deeper?</p>
                     <p className="mt-1 text-[11px] text-muted-foreground">
@@ -702,7 +686,7 @@ export default function StressTestPage() {
                       outcomes create hindsight bias.
                     </p>
                     <Button asChild variant="link" size="sm" className="mt-1 h-auto px-0 text-[11px]">
-                      <Link href="/use-cases">Explore guided decision analysis</Link>
+                      <Link href="/use-cases">Explore Use Cases →</Link>
                     </Button>
                   </div>
                 </div>
