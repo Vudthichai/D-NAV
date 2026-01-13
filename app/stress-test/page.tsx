@@ -337,17 +337,18 @@ export default function StressTestPage() {
   }, [sessionBuckets, sessionDecisions.length]);
 
   const sessionDirective = useMemo(() => {
-    if (sessionDecisions.length === 0) return "Save decisions to generate a session directive.";
+    if (sessionDecisions.length === 0)
+      return "Log decisions to surface the pressure, confidence, and risk direction.";
     if (sessionStats.avgPressure > 1 || sessionDistributions.pressurePressuredPct >= 20) {
-      return "Across this session, urgency outruns confidence and risk accelerates. Tune by slowing commitment velocity or raising conviction inputs.";
+      return "Ease commitment velocity until confidence and pressure re-balance.";
     }
     if (sessionStats.avgStability < 1 || sessionDistributions.stabilityFragilePct >= 15) {
-      return "Across this session, risk is being taken faster than confidence is earned. Slow commitment or raise conviction before scaling.";
+      return "Tighten commitment and raise confidence before scaling risk exposure.";
     }
     if (sessionStats.avgReturn <= 0) {
-      return "Across this session, urgency and confidence are not converting into return. Tune impact or cost before risk compounds.";
+      return "Re-center on confidence and impact before adding pressure or risk.";
     }
-    return "Across this session, urgency, confidence, and risk are mostly balanced. Tune by keeping confidence inputs ahead of urgency as stakes rise.";
+    return "Keep confidence slightly ahead of urgency to prevent pressure drift.";
   }, [
     sessionDecisions.length,
     sessionDistributions.pressurePressuredPct,
@@ -368,7 +369,7 @@ export default function StressTestPage() {
 
     if (sessionStats.avgUrgency - sessionStats.avgConfidence >= 1) {
       return {
-        callout: "Urgency outpaces Confidence across the session.",
+        callout: "Urgency is leading confidence across the session.",
         invitation: "Left unchecked, this pattern scales risk faster than impact.",
         note: null,
       };
@@ -376,7 +377,7 @@ export default function StressTestPage() {
 
     if (sessionStats.avgReturn > 0 && sessionStats.avgStability < 0.5) {
       return {
-        callout: "Returns are positive, but Stability is fragile across the session.",
+        callout: "Returns lead, but stability is lagging across the session.",
         invitation: "Left unchecked, this pattern compounds risk faster than resilience.",
         note: null,
       };
@@ -384,7 +385,7 @@ export default function StressTestPage() {
 
     if (sessionStats.avgImpact - sessionStats.avgConfidence >= 1) {
       return {
-        callout: "Confidence runs low relative to Impact across the session.",
+        callout: "Impact is leading, while confidence is lagging across the session.",
         invitation: "Left unchecked, this pattern stretches execution beyond evidence.",
         note: null,
       };
@@ -392,14 +393,14 @@ export default function StressTestPage() {
 
     if (sessionStats.avgReturn <= 0 || sessionStats.avgPressure > 1) {
       return {
-        callout: "Return is muted while Pressure climbs across the session.",
+        callout: "Pressure is rising while return is muted across the session.",
         invitation: "Left unchecked, this pattern limits upside while drag compounds.",
         note: null,
       };
     }
 
     return {
-      callout: "Signals are mostly aligned, and the system is stable.",
+      callout: "Confidence, pressure, and return are aligned across the session.",
       invitation: "Left unchecked, this pattern can drift if urgency spikes.",
       note: "Aligned signals can still hide emerging pressure without guided review.",
     };
@@ -626,38 +627,22 @@ export default function StressTestPage() {
                     </div>
                   </div>
                 </Callout>
-                <div className="rounded-xl border border-border/40 bg-muted/10 px-3 py-2">
-                  <div className="flex flex-wrap items-start justify-between gap-2">
-                    <div className="space-y-1">
-                      <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
-                        Total decisions
-                      </p>
-                      <p className="text-lg font-semibold text-foreground">{decisionCount}</p>
-                      <p className="text-[11px] text-muted-foreground">
-                        {decisionCount >= 10
-                          ? `This insight reflects ${decisionCount} decisions from this session.`
-                          : "Build toward 10 decisions to unlock session insight."}
-                      </p>
+                <div className="flex flex-wrap gap-2">
+                  {[
+                    { label: "Decisions", value: decisionCount.toString() },
+                    { label: "D-NAV", value: sessionStats.avgDnav.toFixed(1) },
+                    { label: "Return", value: sessionStats.avgReturn.toFixed(1) },
+                    { label: "Pressure", value: sessionStats.avgPressure.toFixed(1) },
+                    { label: "Stability", value: sessionStats.avgStability.toFixed(1) },
+                  ].map((pill) => (
+                    <div
+                      key={pill.label}
+                      className="flex h-9 w-full items-center justify-between gap-3 rounded-full border border-border/40 bg-muted/10 px-3 text-[11px] sm:w-auto"
+                    >
+                      <span className="font-semibold uppercase tracking-wide text-muted-foreground">{pill.label}</span>
+                      <span className="text-sm font-semibold text-foreground tabular-nums">{pill.value}</span>
                     </div>
-                    <div className="grid w-full gap-2 text-xs text-muted-foreground sm:grid-cols-2 md:w-auto md:min-w-[220px]">
-                      <div className="flex items-center justify-between gap-4">
-                        <span>Avg D-NAV</span>
-                        <span className="font-semibold text-foreground">{sessionStats.avgDnav.toFixed(1)}</span>
-                      </div>
-                      <div className="flex items-center justify-between gap-4">
-                        <span>Avg Return</span>
-                        <span className="font-semibold text-foreground">{sessionStats.avgReturn.toFixed(1)}</span>
-                      </div>
-                      <div className="flex items-center justify-between gap-4">
-                        <span>Avg Pressure</span>
-                        <span className="font-semibold text-foreground">{sessionStats.avgPressure.toFixed(1)}</span>
-                      </div>
-                      <div className="flex items-center justify-between gap-4">
-                        <span>Avg Stability</span>
-                        <span className="font-semibold text-foreground">{sessionStats.avgStability.toFixed(1)}</span>
-                      </div>
-                    </div>
-                  </div>
+                  ))}
                 </div>
                 <p className="text-[11px] text-muted-foreground">
                   Decision posture distribution (this is what repeats when stakes rise)
