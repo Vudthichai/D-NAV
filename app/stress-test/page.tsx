@@ -670,10 +670,12 @@ export default function StressTestPage() {
                   href="/mockups/John-Smith's-Consulting.pdf"
                   target="_blank"
                   rel="noreferrer"
-                  className="relative isolate mt-1 rounded-xl border border-orange-100 bg-orange-50/70 px-4 py-3 text-left text-orange-700 transition hover:bg-orange-100/70"
+                  className="mt-1 block text-left"
                 >
-                  <div className="text-sm font-semibold">Download Sample Decision Brief →</div>
-                  <p className="text-[11px] text-orange-700/80">A real pre-commitment consulting deliverable (PDF).</p>
+                  <div className="text-sm font-semibold text-foreground">Download Sample Decision Brief →</div>
+                  <p className="text-[11px] text-muted-foreground">
+                    A real pre-commitment consulting deliverable (PDF).
+                  </p>
                 </a>
                 <div className="rounded-lg border border-border/60 bg-muted/10 px-3 py-2 text-xs text-muted-foreground">
                   <p className="text-[11px] font-semibold uppercase tracking-wide text-foreground">WANT TO GO DEEPER?</p>
