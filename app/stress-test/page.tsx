@@ -342,7 +342,7 @@ export default function StressTestPage() {
       return "Across this session, urgency outruns confidence and risk accelerates. Tune by slowing commitment velocity or raising conviction inputs.";
     }
     if (sessionStats.avgStability < 1 || sessionDistributions.stabilityFragilePct >= 15) {
-      return "Across this session, risk rises faster than confidence. Tune by increasing evidence or reducing exposure before urgency spikes.";
+      return "Across this session, risk is being taken faster than confidence is earned. Slow commitment or raise conviction before scaling.";
     }
     if (sessionStats.avgReturn <= 0) {
       return "Across this session, urgency and confidence are not converting into return. Tune impact or cost before risk compounds.";
@@ -583,7 +583,7 @@ export default function StressTestPage() {
             {canOpenSessionAnalysis && isSessionAnalysisOpen ? (
               <div
                 ref={sessionAnalysisRef}
-                className="space-y-4 rounded-2xl border border-border/60 bg-white/70 p-4 shadow-sm dark:bg-black/30"
+                className="space-y-4 rounded-2xl border border-border/60 bg-white/70 p-4 shadow-sm dark:bg-black/20 dark:bg-gradient-to-br dark:from-white/10 dark:via-white/5 dark:to-transparent dark:shadow-[inset_0_1px_0_rgba(255,255,255,0.08)]"
               >
                 <div className="flex flex-wrap items-start justify-between gap-3">
                   <div className="space-y-1">
@@ -662,7 +662,6 @@ export default function StressTestPage() {
                   label="Session Insight"
                   labelClassName="text-muted-foreground"
                   bodyClassName="text-foreground"
-                  className="overflow-hidden"
                 >
                   <p className="font-semibold">{sessionActionOutput.callout}</p>
                   <p className="mt-1 text-[11px] text-muted-foreground">{sessionDirective}</p>
@@ -671,7 +670,7 @@ export default function StressTestPage() {
                   href="/mockups/John-Smith's-Consulting.pdf"
                   target="_blank"
                   rel="noreferrer"
-                  className="rounded-xl border border-orange-100 bg-orange-50/70 px-4 py-3 text-left text-orange-700 transition hover:bg-orange-100/70"
+                  className="relative isolate mt-1 rounded-xl border border-orange-100 bg-orange-50/70 px-4 py-3 text-left text-orange-700 transition hover:bg-orange-100/70"
                 >
                   <div className="text-sm font-semibold">Download Sample Decision Brief →</div>
                   <p className="text-[11px] text-orange-700/80">A real pre-commitment consulting deliverable (PDF).</p>
@@ -683,7 +682,7 @@ export default function StressTestPage() {
                     outcomes create hindsight bias.
                   </p>
                   <Button asChild variant="link" size="sm" className="mt-1 h-auto px-0 text-[11px]">
-                    <Link href="/use-cases">Explore Use Cases →</Link>
+                    <Link href="/scenarios">Explore Scenarios →</Link>
                   </Button>
                 </div>
               </div>
