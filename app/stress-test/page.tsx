@@ -336,27 +336,10 @@ export default function StressTestPage() {
     };
   }, [sessionBuckets, sessionDecisions.length]);
 
-  const sessionDirective = useMemo(() => {
-    if (sessionDecisions.length === 0)
-      return "Log decisions to surface the pressure, confidence, and risk direction.";
-    if (sessionStats.avgPressure > 1 || sessionDistributions.pressurePressuredPct >= 20) {
-      return "Ease commitment velocity until confidence and pressure re-balance.";
-    }
-    if (sessionStats.avgStability < 1 || sessionDistributions.stabilityFragilePct >= 15) {
-      return "Tighten commitment and raise confidence before scaling risk exposure.";
-    }
-    if (sessionStats.avgReturn <= 0) {
-      return "Re-center on confidence and impact before adding pressure or risk.";
-    }
-    return "Keep confidence slightly ahead of urgency to prevent pressure drift.";
-  }, [
-    sessionDecisions.length,
-    sessionDistributions.pressurePressuredPct,
-    sessionDistributions.stabilityFragilePct,
-    sessionStats.avgPressure,
-    sessionStats.avgReturn,
-    sessionStats.avgStability,
-  ]);
+  const sessionDirective = useMemo(
+    () => "Reduce commitment speed until confidence matches the risk being taken.",
+    [],
+  );
 
   const sessionActionOutput = useMemo(() => {
     if (sessionDecisions.length === 0) {
