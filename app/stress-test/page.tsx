@@ -456,13 +456,8 @@ export default function StressTestPage() {
               <div className="flex flex-wrap items-start justify-between gap-3">
                 <div className="space-y-1">
                   <h1 className="text-xl font-semibold text-foreground">Stress Test</h1>
+                  <p className="text-sm font-semibold text-foreground">See the shape of your decision.</p>
                   <p className="text-sm text-muted-foreground">Run a fast diagnostic on a decision and capture the signal.</p>
-                  <div className="pt-1">
-                    <p className="text-xs font-semibold uppercase tracking-wide text-foreground">
-                      This isn’t a recommendation tool.
-                    </p>
-                    <p className="text-xs text-muted-foreground">It reveals pressure in judgment before execution.</p>
-                  </div>
                 </div>
                 <div className="flex flex-col items-end gap-1">
                   <div className="flex flex-wrap items-center gap-2">
@@ -520,7 +515,9 @@ export default function StressTestPage() {
                 />
               </div>
               <p className="text-[11px] text-muted-foreground">
-                This is enough volume to see patterns. More decisions sharpen the signal.
+                {sessionDecisions.length >= 10
+                  ? "Session insight is based on these 10 decisions. More decisions sharpen the signal."
+                  : "Insight unlocks at 10 decisions. More decisions sharpen the signal."}
               </p>
               <p className="text-[11px] text-muted-foreground">Session-only. Nothing is saved.</p>
 
@@ -605,21 +602,17 @@ export default function StressTestPage() {
                     Collapse
                   </Button>
                 </div>
-                <div className="rounded-xl border border-border/40 bg-muted/10 px-3 py-2">
-                  <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
-                    What this session is teaching you
-                  </p>
-                  <p className="mt-1 text-[13px] leading-[1.45] text-foreground">{sessionDirective}</p>
-                  <p className="mt-2 text-[11px] text-muted-foreground">
-                    This pattern compounds over time — especially across teams.
-                  </p>
-                </div>
                 <div className="grid gap-3 md:grid-cols-2">
                   <div className="rounded-xl border border-border/40 bg-muted/10 px-3 py-2">
                     <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
-                      Total decisions saved
+                      Total decisions
                     </p>
                     <p className="text-lg font-semibold text-foreground">{sessionDecisions.length}</p>
+                    <p className="text-[11px] text-muted-foreground">
+                      {sessionDecisions.length >= 10
+                        ? "This insight reflects 10 decisions from this session."
+                        : "Build toward 10 decisions to unlock session insight."}
+                    </p>
                   </div>
                   <div className="grid gap-2 rounded-xl border border-border/40 bg-muted/10 px-3 py-2 text-xs text-muted-foreground">
                     <div className="flex items-center justify-between">
@@ -643,52 +636,45 @@ export default function StressTestPage() {
                 <p className="text-[11px] text-muted-foreground">
                   Decision posture distribution (this is what repeats when stakes rise)
                 </p>
-                <div className="grid gap-3 md:grid-cols-3">
-                  <div className="rounded-xl border border-border/40 bg-muted/10 px-3 py-2">
+                <div className="grid gap-2 md:grid-cols-3">
+                  <div className="rounded-xl border border-border/40 bg-muted/10 px-3 py-1.5">
                     <MetricDistribution metricLabel="Return distribution" segments={sessionDistributions.returnSegments} />
                   </div>
-                  <div className="rounded-xl border border-border/40 bg-muted/10 px-3 py-2">
+                  <div className="rounded-xl border border-border/40 bg-muted/10 px-3 py-1.5">
                     <MetricDistribution
                       metricLabel="Pressure distribution"
                       segments={sessionDistributions.pressureSegments}
                     />
                   </div>
-                  <div className="rounded-xl border border-border/40 bg-muted/10 px-3 py-2">
+                  <div className="rounded-xl border border-border/40 bg-muted/10 px-3 py-1.5">
                     <MetricDistribution
                       metricLabel="Stability distribution"
                       segments={sessionDistributions.stabilitySegments}
                     />
                   </div>
                 </div>
-                <Callout label="Action Insight" labelClassName="text-muted-foreground" bodyClassName="text-foreground">
-                  <p>{sessionActionOutput.callout}</p>
-                  <p className="mt-2 text-[11px] text-muted-foreground">{sessionActionOutput.invitation}</p>
-                  {sessionActionOutput.note ? (
-                    <p className="mt-1 text-[11px] text-muted-foreground">{sessionActionOutput.note}</p>
-                  ) : null}
+                <Callout label="Session Insight" labelClassName="text-muted-foreground" bodyClassName="text-foreground">
+                  <p className="font-semibold">{sessionActionOutput.callout}</p>
+                  <p className="mt-1 text-[11px] text-muted-foreground">{sessionDirective}</p>
                 </Callout>
-                <div className="flex flex-col gap-3 border-t border-border/40 pt-3">
-                  <a
-                    href="/mockups/John-Smith's-Consulting.pdf"
-                    target="_blank"
-                    rel="noreferrer"
-                    className="rounded-xl border border-orange-100 bg-orange-50/70 px-4 py-3 text-left text-orange-700 transition hover:bg-orange-100/70"
-                  >
-                    <div className="text-sm font-semibold">Download sample Decision Brief →</div>
-                    <p className="text-[11px] text-orange-700/80">
-                      A real pre-commitment consulting deliverable (PDF).
-                    </p>
-                  </a>
-                  <div className="rounded-lg border border-border/60 bg-muted/10 px-3 py-2 text-xs text-muted-foreground">
-                    <p className="text-[11px] font-semibold uppercase tracking-wide text-foreground">Want to go deeper?</p>
-                    <p className="mt-1 text-[11px] text-muted-foreground">
-                      Live decisions tell the truth. In guided sessions, teams use D-NAV to surface blind spots before
-                      outcomes create hindsight bias.
-                    </p>
-                    <Button asChild variant="link" size="sm" className="mt-1 h-auto px-0 text-[11px]">
-                      <Link href="/use-cases">Explore Use Cases →</Link>
-                    </Button>
-                  </div>
+                <a
+                  href="/mockups/John-Smith's-Consulting.pdf"
+                  target="_blank"
+                  rel="noreferrer"
+                  className="rounded-xl border border-orange-100 bg-orange-50/70 px-4 py-3 text-left text-orange-700 transition hover:bg-orange-100/70"
+                >
+                  <div className="text-sm font-semibold">Download Sample Decision Brief →</div>
+                  <p className="text-[11px] text-orange-700/80">A real pre-commitment consulting deliverable (PDF).</p>
+                </a>
+                <div className="rounded-lg border border-border/60 bg-muted/10 px-3 py-2 text-xs text-muted-foreground">
+                  <p className="text-[11px] font-semibold uppercase tracking-wide text-foreground">WANT TO GO DEEPER?</p>
+                  <p className="mt-1 text-[11px] text-muted-foreground">
+                    Live decisions tell the truth. In guided sessions, teams use D-NAV to surface blind spots before
+                    outcomes create hindsight bias.
+                  </p>
+                  <Button asChild variant="link" size="sm" className="mt-1 h-auto px-0 text-[11px]">
+                    <Link href="/use-cases">Explore Use Cases →</Link>
+                  </Button>
                 </div>
               </div>
             ) : null}
