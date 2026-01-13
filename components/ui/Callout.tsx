@@ -14,7 +14,7 @@ function Callout({ label, children, className, labelClassName, bodyClassName }: 
   return (
     <div
       className={cn(
-        "rounded-2xl border border-orange-100 border-l-4 border-l-orange-500 bg-orange-50/70 px-4 py-3 print:break-inside-avoid",
+        "relative isolate overflow-hidden rounded-2xl border border-orange-100 border-l-4 border-l-orange-500 bg-orange-50/70 px-4 py-3 print:break-inside-avoid",
         className
       )}
     >
