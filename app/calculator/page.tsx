@@ -51,10 +51,12 @@ import {
   normalizeDecision,
   type ArchetypePatternRow,
   type CategoryHeatmapRow,
+  type JudgmentDecision,
 } from "@/utils/judgmentDashboard";
 import { cn } from "@/lib/utils";
 import { type CompanyContext } from "@/types/company";
 import { datasetMetaToCompanyContext } from "@/types/dataset";
+import { mean, stdev } from "@/utils/stats";
 
 
 interface DistributionSegment {
@@ -94,6 +96,13 @@ type ArchetypeDecisionSortKey =
   | "dnavScore";
 
 type ArchetypeTableSortKey = "archetype" | "count" | "avgR" | "avgP" | "avgS" | "avgDnav";
+
+type CategorySelection = {
+  kind: "category" | "misc";
+  row: CategoryHeatmapRow;
+  decisions: JudgmentDecision[];
+  includedCategories?: CategoryHeatmapRow[];
+};
 
 
 const TOOLTIP_COPY: Record<string, string> = {
@@ -348,6 +357,89 @@ const buildDistributionSegments = (
   ];
 };
 
+const buildCategoryRollupRow = (
+  label: string,
+  decisions: JudgmentDecision[],
+  totalDecisions: number,
+): CategoryHeatmapRow => {
+  const avg = (selector: (decision: JudgmentDecision) => number) => mean(decisions.map(selector));
+  const std = (selector: (decision: JudgmentDecision) => number) => stdev(decisions.map(selector));
+  const impactAvg = avg((decision) => decision.impact0);
+  const costAvg = avg((decision) => decision.cost0);
+  const riskAvg = avg((decision) => decision.risk0);
+  const urgencyAvg = avg((decision) => decision.urgency0);
+  const confidenceAvg = avg((decision) => decision.confidence0);
+  const returnDrifts = decisions
+    .map((decision) => (decision.return1 !== undefined ? decision.return1 - decision.return0 : null))
+    .filter((value): value is number => value !== null);
+
+  const dominantPairs: [string, number][] = [
+    ["Impact", Math.abs(impactAvg)],
+    ["Cost", Math.abs(costAvg)],
+    ["Risk", Math.abs(riskAvg)],
+    ["Urgency", Math.abs(urgencyAvg)],
+    ["Confidence", Math.abs(confidenceAvg)],
+  ];
+  const dominantVariable = dominantPairs.sort((a, b) => b[1] - a[1])[0][0];
+
+  return {
+    category: label,
+    decisionCount: decisions.length,
+    percent: totalDecisions > 0 ? (decisions.length / totalDecisions) * 100 : 0,
+    avgDnav: avg((decision) => decision.dnavScore),
+    avgR: avg((decision) => decision.return0),
+    avgP: avg((decision) => decision.pressure0),
+    avgS: avg((decision) => decision.stability0),
+    avgImpact: impactAvg,
+    avgCost: costAvg,
+    avgRisk: riskAvg,
+    avgUrgency: urgencyAvg,
+    avgConfidence: confidenceAvg,
+    dominantVariable,
+    stdDnav: std((decision) => decision.dnavScore),
+    stdReturn: std((decision) => decision.return0),
+    avgReturnDrift: returnDrifts.length ? mean(returnDrifts) : 0,
+  };
+};
+
+const getSignalStrength = (count: number) => {
+  if (count >= 10) {
+    return { label: "Strong", className: "bg-emerald-500/10 text-emerald-500 border-emerald-500/30" };
+  }
+  if (count >= 5) {
+    return { label: "Emerging", className: "bg-amber-500/10 text-amber-500 border-amber-500/30" };
+  }
+  return { label: "Weak", className: "bg-muted text-muted-foreground border-border" };
+};
+
+const buildCategoryInsight = (row: CategoryHeatmapRow) => {
+  if (row.avgP - row.avgConfidence >= 1) {
+    return {
+      summary: "Pressure runs ahead of confidence in this category.",
+      action: "Reduce commitment speed until confidence matches the risk being taken.",
+    };
+  }
+
+  if (row.avgR < 0 && row.avgP > 0.5) {
+    return {
+      summary: "Risk is elevated without corresponding return in this category.",
+      action: "Action: Tighten criteria or scale down exposure until return improves.",
+    };
+  }
+
+  if (row.avgR > 0 && row.avgS < -0.5) {
+    return {
+      summary: "Returns are positive, but stability is lagging in this category.",
+      action: "Action: Add stabilizers before scaling commitments further.",
+    };
+  }
+
+  return {
+    summary: "The category shows a balanced profile with manageable pressure and steady outcomes.",
+    action: "Action: Maintain discipline and keep logging decisions to confirm the signal.",
+  };
+};
+
 const segmentsToDistribution = (segments: { metricKey: string; value: number; label: string }[]) => ({
   positivePct: segments.find((segment) => segment.metricKey === "positive")?.value ?? 0,
   neutralPct: segments.find((segment) => segment.metricKey === "neutral")?.value ?? 0,
@@ -433,10 +525,15 @@ export default function TheDNavPage() {
     { key: "decisionCount", direction: "desc" },
   );
   const [selectedArchetype, setSelectedArchetype] = useState<ArchetypePatternRow | null>(null);
+  const [selectedCategory, setSelectedCategory] = useState<CategorySelection | null>(null);
   const [archetypeTableSort, setArchetypeTableSort] = useState<{
     key: ArchetypeTableSortKey;
     direction: "asc" | "desc";
   }>({ key: "count", direction: "desc" });
+  const [categoryDecisionSort, setCategoryDecisionSort] = useState<{
+    key: ArchetypeDecisionSortKey;
+    direction: "asc" | "desc";
+  }>({ key: "title", direction: "asc" });
   const [archetypeDecisionSort, setArchetypeDecisionSort] = useState<{
     key: ArchetypeDecisionSortKey;
     direction: "asc" | "desc";
@@ -544,6 +641,36 @@ export default function TheDNavPage() {
   }, [archetypes.rows, baseline, categories, companyContext, hygiene?.decisionDebt, learning, timeWindow]);
 
   const interpretation = useMemo(() => generateFullInterpretation(companySnapshot), [companySnapshot]);
+  const decisionsByCategory = useMemo(() => {
+    const map: Record<string, JudgmentDecision[]> = {};
+    normalized.forEach((decision) => {
+      map[decision.category] = map[decision.category] || [];
+      map[decision.category].push(decision);
+    });
+    return map;
+  }, [normalized]);
+
+  const smallCategories = useMemo(
+    () => categories.filter((category) => category.decisionCount < 3),
+    [categories],
+  );
+
+  const smallCategoryDecisions = useMemo(
+    () => smallCategories.flatMap((category) => decisionsByCategory[category.category] ?? []),
+    [decisionsByCategory, smallCategories],
+  );
+
+  const miscCategoryRow = useMemo(
+    () =>
+      smallCategories.length
+        ? buildCategoryRollupRow(
+            "Miscellaneous (Small Categories)",
+            smallCategoryDecisions,
+            normalized.length,
+          )
+        : null,
+    [normalized.length, smallCategories.length, smallCategoryDecisions],
+  );
   const sortedCategories = useMemo(() => {
     const sorted = [...categories];
     sorted.sort((a, b) => {
@@ -561,6 +688,10 @@ export default function TheDNavPage() {
     });
     return sorted;
   }, [categories, categorySort]);
+  const visibleCategories = useMemo(
+    () => sortedCategories.filter((category) => category.decisionCount >= 3),
+    [sortedCategories],
+  );
   const sortedArchetypeRows = useMemo(() => {
     const sorted = [...archetypes.rows];
     sorted.sort((a, b) => {
@@ -603,12 +734,37 @@ export default function TheDNavPage() {
     }
   };
 
+  const handleCategorySelect = (row: CategoryHeatmapRow, kind: CategorySelection["kind"] = "category") => {
+    const decisions =
+      kind === "category"
+        ? decisionsByCategory[row.category] ?? []
+        : kind === "misc"
+          ? smallCategoryDecisions
+          : [];
+    setSelectedCategory({
+      kind,
+      row,
+      decisions,
+      includedCategories: kind === "misc" ? smallCategories : undefined,
+    });
+  };
+
   const archetypeDecisions = useMemo(
     () =>
       selectedArchetype
         ? normalized.filter((decision) => decision.archetype === selectedArchetype.archetype)
         : [],
     [normalized, selectedArchetype],
+  );
+
+  const categoryDecisions = useMemo(
+    () =>
+      selectedCategory?.kind === "category"
+        ? decisionsByCategory[selectedCategory.row.category] ?? []
+        : selectedCategory?.kind === "misc"
+          ? smallCategoryDecisions
+          : [],
+    [decisionsByCategory, selectedCategory, smallCategoryDecisions],
   );
 
   const primaryArchetypeRow = useMemo(
@@ -682,6 +838,24 @@ export default function TheDNavPage() {
     return sorted;
   }, [archetypeDecisions, archetypeDecisionSort]);
 
+  const sortedCategoryDecisions = useMemo(() => {
+    const sorted = [...categoryDecisions];
+    sorted.sort((a, b) => {
+      const { key, direction } = categoryDecisionSort;
+      const first = a[key];
+      const second = b[key];
+
+      if (typeof first === "number" && typeof second === "number") {
+        return direction === "asc" ? first - second : second - first;
+      }
+
+      return direction === "asc"
+        ? String(first).localeCompare(String(second))
+        : String(second).localeCompare(String(first));
+    });
+    return sorted;
+  }, [categoryDecisions, categoryDecisionSort]);
+
   const archetypeDistributions = useMemo(
     () => {
       if (!selectedArchetype) return null;
@@ -711,8 +885,50 @@ export default function TheDNavPage() {
     [archetypeDecisions, selectedArchetype],
   );
 
+  const categoryDistributions = useMemo(() => {
+    if (!selectedCategory) return null;
+
+    const returns = categoryDecisions.map((decision) => decision.return0 ?? 0);
+    const pressures = categoryDecisions.map((decision) => decision.pressure0 ?? 0);
+    const stabilities = categoryDecisions.map((decision) => decision.stability0 ?? 0);
+
+    return {
+      returnSegments: buildDistributionSegments(returns, {
+        positive: "#22c55e",
+        neutral: "#eab308",
+        negative: "#ef4444",
+      }),
+      pressureSegments: buildDistributionSegments(pressures, {
+        positive: "#ef4444",
+        neutral: "#eab308",
+        negative: "#22c55e",
+      }),
+      stabilitySegments: buildDistributionSegments(stabilities, {
+        positive: "#22c55e",
+        neutral: "#eab308",
+        negative: "#ef4444",
+      }),
+    };
+  }, [categoryDecisions, selectedCategory]);
+
+  const categoryInsight = useMemo(
+    () => (selectedCategory ? buildCategoryInsight(selectedCategory.row) : null),
+    [selectedCategory],
+  );
+
+  const categorySignal = useMemo(
+    () => (selectedCategory ? getSignalStrength(selectedCategory.row.decisionCount) : null),
+    [selectedCategory],
+  );
+
   const handleCategorySort = (key: CategorySortKey) => {
     setCategorySort((prev) =>
+      prev.key === key ? { key, direction: prev.direction === "asc" ? "desc" : "asc" } : { key, direction: "desc" },
+    );
+  };
+
+  const handleCategoryDecisionSort = (key: ArchetypeDecisionSortKey) => {
+    setCategoryDecisionSort((prev) =>
       prev.key === key ? { key, direction: prev.direction === "asc" ? "desc" : "asc" } : { key, direction: "desc" },
     );
   };
@@ -1063,7 +1279,7 @@ export default function TheDNavPage() {
                         <p className="text-sm text-muted-foreground">{interpretation.categorySummary}</p>
                       </CardHeader>
                       <CardContent className="space-y-4">
-                        {sortedCategories.length === 0 ? (
+                        {visibleCategories.length === 0 && !miscCategoryRow ? (
                           <p className="text-sm text-muted-foreground">No categories in view.</p>
                         ) : (
                           <div className="overflow-x-auto">
@@ -1109,11 +1325,20 @@ export default function TheDNavPage() {
                                 </TableRow>
                               </TableHeader>
                               <TableBody>
-                                {sortedCategories.map((row: CategoryHeatmapRow) => (
+                                {visibleCategories.map((row: CategoryHeatmapRow) => (
                                   <TableRow
                                     key={row.category}
-                                    className="hover:bg-muted/50"
+                                    className="hover:bg-muted/50 cursor-pointer"
                                     style={{ display: "grid", gridTemplateColumns: categoryGridTemplate }}
+                                    onClick={() => handleCategorySelect(row)}
+                                    tabIndex={0}
+                                    role="button"
+                                    onKeyDown={(event) => {
+                                      if (event.key === "Enter" || event.key === " ") {
+                                        event.preventDefault();
+                                        handleCategorySelect(row);
+                                      }
+                                    }}
                                   >
                                     {categoryColumns.map((column) => (
                                       <TableCell
@@ -1128,6 +1353,34 @@ export default function TheDNavPage() {
                                     ))}
                                   </TableRow>
                                 ))}
+                                {miscCategoryRow && (
+                                  <TableRow
+                                    key="misc-category-rollup"
+                                    className="hover:bg-muted/50 cursor-pointer bg-muted/30"
+                                    style={{ display: "grid", gridTemplateColumns: categoryGridTemplate }}
+                                    onClick={() => handleCategorySelect(miscCategoryRow, "misc")}
+                                    tabIndex={0}
+                                    role="button"
+                                    onKeyDown={(event) => {
+                                      if (event.key === "Enter" || event.key === " ") {
+                                        event.preventDefault();
+                                        handleCategorySelect(miscCategoryRow, "misc");
+                                      }
+                                    }}
+                                  >
+                                    {categoryColumns.map((column) => (
+                                      <TableCell
+                                        key={column.key}
+                                        className={cn(
+                                          column.align === "right" ? "text-right" : "text-left",
+                                          column.key === "category" && "font-medium",
+                                        )}
+                                      >
+                                        {renderCategoryCell(miscCategoryRow, column.key)}
+                                      </TableCell>
+                                    ))}
+                                  </TableRow>
+                                )}
                               </TableBody>
                             </Table>
                           </div>
@@ -1310,10 +1563,174 @@ export default function TheDNavPage() {
                     </div>
                   </section>
                   <Dialog
+                    open={!!selectedCategory}
+                    onOpenChange={(open) => setSelectedCategory(open ? selectedCategory : null)}
+                  >
+                    <DialogContent className="w-[90vw] max-w-[90vw] h-[85vh] p-0 overflow-x-auto overflow-y-auto">
+                      <div className="flex h-full flex-col bg-background">
+                        <div className="flex items-start justify-between border-b px-6 py-4">
+                          <DialogTitle className="text-lg font-semibold">
+                            {selectedCategory ? `${selectedCategory.row.category} decisions` : "Category decisions"}
+                          </DialogTitle>
+                          <DialogClose className="rounded-md opacity-70 ring-offset-background transition-opacity hover:opacity-100 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2">
+                            <X className="h-4 w-4" />
+                            <span className="sr-only">Close</span>
+                          </DialogClose>
+                        </div>
+
+                        {selectedCategory && categorySignal && categoryInsight && (
+                          <>
+                            <div className="space-y-4 border-b bg-card/60 px-6 py-4">
+                              <div className="space-y-3">
+                                <div className="flex flex-wrap items-center justify-between gap-2">
+                                  <p className="text-sm font-semibold text-foreground">Category Action Insight</p>
+                                  <Badge variant="outline" className={cn("text-xs", categorySignal.className)}>
+                                    {categorySignal.label} signal
+                                  </Badge>
+                                </div>
+                                <div
+                                  className={cn(
+                                    "space-y-1 text-sm",
+                                    selectedCategory.row.decisionCount < 5 && "text-muted-foreground",
+                                  )}
+                                >
+                                  <p>{categoryInsight.summary}</p>
+                                  <p className="font-medium">{categoryInsight.action}</p>
+                                </div>
+                                {selectedCategory.row.decisionCount < 5 && (
+                                  <p className="text-xs text-muted-foreground">
+                                    Signal is weak at N={selectedCategory.row.decisionCount}. Log more decisions to
+                                    stabilize the pattern.
+                                  </p>
+                                )}
+                              </div>
+
+                              {selectedCategory.kind === "misc" && selectedCategory.includedCategories?.length ? (
+                                <div className="space-y-2">
+                                  <p className="text-xs font-semibold uppercase text-muted-foreground">
+                                    Included categories
+                                  </p>
+                                  <div className="flex flex-wrap gap-2 text-xs text-muted-foreground">
+                                    {selectedCategory.includedCategories.map((category) => (
+                                      <Badge key={category.category} variant="secondary">
+                                        {category.category} · {category.decisionCount}
+                                      </Badge>
+                                    ))}
+                                  </div>
+                                </div>
+                              ) : null}
+
+                              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-sm">
+                                <div>
+                                  <p className="text-[10px] font-semibold uppercase text-muted-foreground">Avg R</p>
+                                  <p className="font-semibold text-foreground">
+                                    {formatValue(selectedCategory.row.avgR)}
+                                  </p>
+                                </div>
+                                <div>
+                                  <p className="text-[10px] font-semibold uppercase text-muted-foreground">Avg P</p>
+                                  <p className="font-semibold text-foreground">
+                                    {formatValue(selectedCategory.row.avgP)}
+                                  </p>
+                                </div>
+                                <div>
+                                  <p className="text-[10px] font-semibold uppercase text-muted-foreground">Avg S</p>
+                                  <p className="font-semibold text-foreground">
+                                    {formatValue(selectedCategory.row.avgS)}
+                                  </p>
+                                </div>
+                                <div>
+                                  <p className="text-[10px] font-semibold uppercase text-muted-foreground">Avg D-NAV</p>
+                                  <p className="font-semibold text-foreground">
+                                    {formatValue(selectedCategory.row.avgDnav)}
+                                  </p>
+                                </div>
+                              </div>
+
+                              <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                                <DistributionCard
+                                  title="Return distribution"
+                                  segments={categoryDistributions?.returnSegments ?? []}
+                                  tooltip={TOOLTIP_COPY["Return distribution"]}
+                                />
+                                <DistributionCard
+                                  title="Pressure distribution"
+                                  segments={categoryDistributions?.pressureSegments ?? []}
+                                  tooltip={TOOLTIP_COPY["Pressure distribution"]}
+                                />
+                                <DistributionCard
+                                  title="Stability distribution"
+                                  segments={categoryDistributions?.stabilitySegments ?? []}
+                                  tooltip={TOOLTIP_COPY["Stability distribution"]}
+                                />
+                              </div>
+                            </div>
+
+                            <div className="flex-1 overflow-auto px-6 pb-6 pt-4">
+                              <div className="overflow-x-auto">
+                                <Table className="text-sm min-w-[1100px]">
+                                  <TableHeader>
+                                    <TableRow>
+                                      {[
+                                        { key: "title", label: "Title" },
+                                        { key: "category", label: "Category" },
+                                        { key: "impact0", label: "Impact" },
+                                        { key: "cost0", label: "Cost" },
+                                        { key: "risk0", label: "Risk" },
+                                        { key: "urgency0", label: "Urgency" },
+                                        { key: "confidence0", label: "Confidence" },
+                                        { key: "return0", label: "Return" },
+                                        { key: "pressure0", label: "Pressure" },
+                                        { key: "stability0", label: "Stability" },
+                                        { key: "dnavScore", label: "D-NAV" },
+                                      ].map((column) => (
+                                        <TableHead key={column.key} className="text-right first:text-left">
+                                          <button
+                                            type="button"
+                                            className="flex items-center gap-1 w-full justify-between text-left"
+                                            onClick={() =>
+                                              handleCategoryDecisionSort(column.key as ArchetypeDecisionSortKey)
+                                            }
+                                          >
+                                            <span>{column.label}</span>
+                                            <ArrowUpDown className="h-4 w-4" />
+                                          </button>
+                                        </TableHead>
+                                      ))}
+                                    </TableRow>
+                                  </TableHeader>
+                                  <TableBody>
+                                    {sortedCategoryDecisions.map((decision) => (
+                                      <TableRow key={decision.id}>
+                                        <TableCell className="font-medium max-w-[380px] truncate align-top">
+                                          {decision.title}
+                                        </TableCell>
+                                        <TableCell className="text-right">{decision.category}</TableCell>
+                                        <TableCell className="text-right">{formatValue(decision.impact0)}</TableCell>
+                                        <TableCell className="text-right">{formatValue(decision.cost0)}</TableCell>
+                                        <TableCell className="text-right">{formatValue(decision.risk0)}</TableCell>
+                                        <TableCell className="text-right">{formatValue(decision.urgency0)}</TableCell>
+                                        <TableCell className="text-right">{formatValue(decision.confidence0)}</TableCell>
+                                        <TableCell className="text-right">{formatValue(decision.return0)}</TableCell>
+                                        <TableCell className="text-right">{formatValue(decision.pressure0)}</TableCell>
+                                        <TableCell className="text-right">{formatValue(decision.stability0)}</TableCell>
+                                        <TableCell className="text-right">{formatValue(decision.dnavScore)}</TableCell>
+                                      </TableRow>
+                                    ))}
+                                  </TableBody>
+                                </Table>
+                              </div>
+                            </div>
+                          </>
+                        )}
+                      </div>
+                    </DialogContent>
+                  </Dialog>
+                  <Dialog
                     open={!!selectedArchetype}
                     onOpenChange={(open) => setSelectedArchetype(open ? selectedArchetype : null)}
                   >
-                  <DialogContent className="w-[90vw] max-w-[90vw] h-[85vh] p-0 overflow-x-auto overflow-y-auto">
+                    <DialogContent className="w-[90vw] max-w-[90vw] h-[85vh] p-0 overflow-x-auto overflow-y-auto">
                       <div className="flex h-full flex-col bg-background">
                         <div className="flex items-start justify-between border-b px-6 py-4">
                           <DialogTitle className="text-lg font-semibold">
