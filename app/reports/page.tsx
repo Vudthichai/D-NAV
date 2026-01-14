@@ -26,7 +26,6 @@ import {
   FullInterpretation,
   generateFullInterpretation,
 } from "@/lib/dnavSummaryEngine";
-import { getSystemDirective } from "@/lib/systemDirective";
 import { getDatasetDisplayName } from "@/lib/datasetDisplay";
 import { loadDecisionsForDataset } from "@/lib/reportSnapshot";
 import { useDataset } from "@/components/DatasetProvider";
@@ -922,13 +921,11 @@ function OnePageReport({
   const getArchetypeShare = (count: number) =>
     rpsBaseline.totalDecisions > 0 ? ((count / rpsBaseline.totalDecisions) * 100).toFixed(1) : "0.0";
 
-  const systemDirective = getSystemDirective({
-    avgReturn: rpsBaseline.avgReturn,
-    avgPressure: rpsBaseline.avgPressure,
-    avgStability: rpsBaseline.avgStability,
-    pressurePressuredPct: pressureDistribution.positive,
-    stabilityFragilePct: stabilityDistribution.negative,
-  });
+  const systemDirectiveCopy = [
+    "This dataset is operating with stable footing and low overall pressure, favoring repeatable execution over high-variance bets.",
+    "The one thing the dataset must protect right now is Stability — improve results by increasing Impact selectively, without adding stress that weakens the base.",
+    "Most upside will come from concentration, not acceleration.",
+  ];
 
   return (
     <div className="report-page space-y-6">
@@ -986,16 +983,6 @@ function OnePageReport({
               </div>
             </div>
 
-            <Callout label="SYSTEM DIRECTIVE" className="mt-4">
-              <div className="space-y-2">
-                {systemDirective.map((paragraph) => (
-                  <p key={paragraph}>{paragraph}</p>
-                ))}
-              </div>
-              <p className="mt-2 text-[11px] text-neutral-600">
-                Apply this by logging new decisions in the categories below.
-              </p>
-            </Callout>
           </div>
 
           <div className="space-y-4">
@@ -1077,6 +1064,16 @@ function OnePageReport({
         </section>
 
         <section className="report-card rounded-2xl border border-black/10 bg-white p-5">
+          <Callout label="SYSTEM DIRECTIVE" className="mb-4">
+            <div className="space-y-2">
+              {systemDirectiveCopy.map((paragraph) => (
+                <p key={paragraph}>{paragraph}</p>
+              ))}
+            </div>
+            <p className="mt-2 text-[11px] text-neutral-600">
+              Apply this by logging new decisions in the categories below.
+            </p>
+          </Callout>
           <div className="flex items-start justify-between gap-2">
             <div>
               <p className="text-[11px] font-semibold uppercase tracking-wide text-neutral-900">
