@@ -240,59 +240,48 @@ export function ReportPrintView({
         <div className="mt-4 space-y-4">
           {topCategories.map((category) => (
             <div key={category.name} className="rounded-2xl border border-black/10 p-3">
-              <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
-                <div className="flex-1 space-y-3">
-                  <div className="flex flex-wrap items-center justify-between gap-2 text-[13px] font-semibold">
+              <div className="space-y-3">
+                <div className="flex flex-wrap items-start gap-3">
+                  <div className="flex flex-wrap items-center gap-2 text-[13px] font-semibold">
                     <span>{category.name}</span>
                     <span className="text-[11px] text-neutral-900">{category.decisionCount} decisions</span>
                   </div>
-
-                  <div className="rounded-2xl border border-orange-100 border-l-4 border-l-orange-500 bg-orange-50/70 px-4 py-3">
-                    <div className="flex flex-wrap items-center gap-2 text-[11px] font-semibold uppercase tracking-wide text-neutral-600">
-                      <span>Category Action Insight</span>
-                      <Badge
-                        variant="secondary"
-                        className={cn("text-[10px] font-semibold", signalToneStyles[category.insight.signalStrength])}
-                      >
-                        {category.insight.signalStrength === "strong"
-                          ? "Strong signal"
-                          : category.insight.signalStrength === "medium"
-                            ? "Medium signal"
-                            : "Weak signal"}
-                      </Badge>
-                    </div>
-                    <p className="mt-1 text-[13px] leading-[1.45] text-neutral-900">
-                      {category.insight.insightText}
-                    </p>
-                    {category.insight.logMoreHint && (
-                      <p className="mt-2 text-[11px] text-neutral-600">{category.insight.logMoreHint}</p>
-                    )}
+                  <div className="ml-auto flex flex-wrap items-center justify-end gap-2">
+                    <Badge variant="secondary" className="rounded-full px-2 py-0.5 text-[10px] font-medium">
+                      Volume: {formatPct(category.share)}
+                    </Badge>
+                    <Badge variant="secondary" className="rounded-full px-2 py-0.5 text-[10px] font-medium">
+                      Avg D-NAV: {category.avgDnav.toFixed(1)}
+                    </Badge>
+                    <Badge variant="secondary" className="rounded-full px-2 py-0.5 text-[10px] font-medium">
+                      R / P / S: {category.avgR.toFixed(1)} / {category.avgP.toFixed(1)} / {category.avgS.toFixed(1)}
+                    </Badge>
+                    <Badge variant="secondary" className="rounded-full px-2 py-0.5 text-[10px] font-medium">
+                      Dominant: {category.dominantFactor ?? "Balanced"}
+                    </Badge>
                   </div>
-
-                  <p className="text-[10px] font-normal text-neutral-500">Log next decision in this category</p>
                 </div>
 
-                <div className="grid w-full grid-cols-2 gap-3 text-[11px] leading-[1.45] text-neutral-900 md:w-56 md:grid-cols-1">
-                  <div className="space-y-1">
-                    <p className="text-[11px] uppercase">Share of volume</p>
-                    <p className="text-[13px] font-semibold text-neutral-900">{formatPct(category.share)}</p>
+                <div className="rounded-2xl border border-orange-100 border-l-4 border-l-orange-500 bg-orange-50/70 px-4 py-3">
+                  <div className="flex flex-wrap items-center gap-2 text-[11px] font-semibold uppercase tracking-wide text-neutral-600">
+                    <span>Category Action Insight</span>
+                    <Badge
+                      variant="secondary"
+                      className={cn("text-[10px] font-semibold", signalToneStyles[category.insight.signalStrength])}
+                    >
+                      {category.insight.signalStrength === "strong"
+                        ? "Strong signal"
+                        : category.insight.signalStrength === "medium"
+                          ? "Medium signal"
+                          : "Weak signal"}
+                    </Badge>
                   </div>
-                  <div className="space-y-1">
-                    <p className="text-[11px] uppercase">Avg D-NAV</p>
-                    <p className="text-[13px] font-semibold text-neutral-900">{category.avgDnav.toFixed(1)}</p>
-                  </div>
-                  <div className="space-y-1">
-                    <p className="text-[11px] uppercase">R / P / S</p>
-                    <p className="text-[13px] font-semibold text-neutral-900">
-                      {category.avgR.toFixed(1)} / {category.avgP.toFixed(1)} / {category.avgS.toFixed(1)}
-                    </p>
-                  </div>
-                  <div className="space-y-1">
-                    <p className="text-[11px] uppercase">Dominant factor</p>
-                    <p className="text-[13px] font-semibold text-neutral-900">
-                      {category.dominantFactor ?? "Balanced"}
-                    </p>
-                  </div>
+                  <p className="mt-1 text-[13px] leading-[1.45] text-neutral-900">
+                    {category.insight.insightText}
+                  </p>
+                  {category.insight.logMoreHint && (
+                    <p className="mt-2 text-[11px] text-neutral-600">{category.insight.logMoreHint}</p>
+                  )}
                 </div>
               </div>
             </div>
