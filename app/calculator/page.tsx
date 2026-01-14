@@ -20,7 +20,7 @@ import {
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { getArchetype } from "@/lib/calculations";
 import { CompanyPeriodSnapshot, generateFullInterpretation } from "@/lib/dnavSummaryEngine";
-import { buildCategoryActionInsight, type CategoryActionInsight } from "@/lib/insights";
+import { buildCategoryActionInsight } from "@/lib/insights";
 import { useNetlifyIdentity } from "@/hooks/use-netlify-identity";
 import {
   Download,
@@ -403,12 +403,6 @@ const buildCategoryRollupRow = (
   };
 };
 
-const signalBadgeStyles: Record<CategoryActionInsight["signal"], string> = {
-  Strong: "bg-emerald-500/10 text-emerald-500 border-emerald-500/30",
-  Mixed: "bg-amber-500/10 text-amber-500 border-amber-500/30",
-  Weak: "bg-muted text-muted-foreground border-border",
-};
-
 const segmentsToDistribution = (segments: { metricKey: string; value: number; label: string }[]) => ({
   positivePct: segments.find((segment) => segment.metricKey === "positive")?.value ?? 0,
   neutralPct: segments.find((segment) => segment.metricKey === "neutral")?.value ?? 0,
@@ -495,6 +489,7 @@ export default function TheDNavPage() {
   );
   const [selectedArchetype, setSelectedArchetype] = useState<ArchetypePatternRow | null>(null);
   const [selectedCategory, setSelectedCategory] = useState<CategorySelection | null>(null);
+  const [showCategoryInsightDetails, setShowCategoryInsightDetails] = useState(false);
   const [archetypeTableSort, setArchetypeTableSort] = useState<{
     key: ArchetypeTableSortKey;
     direction: "asc" | "desc";
@@ -743,6 +738,7 @@ export default function TheDNavPage() {
         : kind === "misc"
           ? smallCategoryDecisions
           : [];
+    setShowCategoryInsightDetails(false);
     setSelectedCategory({
       kind,
       row,
@@ -949,6 +945,28 @@ export default function TheDNavPage() {
     () => (selectedCategory ? categoryInsights.get(selectedCategory.row.category) ?? null : null),
     [categoryInsights, selectedCategory],
   );
+  const categoryInsightSummary = useMemo(() => {
+    if (!selectedCategoryInsight) return null;
+    const posture = selectedCategoryInsight.posture.trim();
+    const postureSentence = posture.endsWith(".") ? posture : `${posture}.`;
+    const adjustment = selectedCategoryInsight.guidance[0]?.trim();
+    if (!adjustment) {
+      return postureSentence;
+    }
+    const adjustmentSentence = adjustment.replace(/\.$/, "");
+    const watchOut = selectedCategoryInsight.risks[0];
+    const directive = watchOut
+      ? `${adjustmentSentence} and watch for ${watchOut}`
+      : adjustmentSentence;
+    return `${postureSentence} ${directive}.`;
+  }, [selectedCategoryInsight]);
+  const categoryInsightDetails = useMemo(() => {
+    if (!selectedCategoryInsight) return null;
+    const leverageLine = `Leverage: ${selectedCategoryInsight.leverage.primary}`;
+    const watchItems = selectedCategoryInsight.risks.slice(0, 2);
+    const watchLine = watchItems.length ? `Watch: ${watchItems.join("; ")}` : null;
+    return { leverageLine, watchLine };
+  }, [selectedCategoryInsight]);
   const categoryDecisionCount = categoryDecisions.length;
 
   const handleCategorySort = (key: CategorySortKey) => {
@@ -1619,52 +1637,29 @@ export default function TheDNavPage() {
                           <>
                             <div className="space-y-4 border-b bg-card/60 px-6 py-4">
                               <div className="flex flex-wrap items-start justify-between gap-3">
-                                <div className="space-y-3 max-w-2xl">
-                                  <div className="flex flex-wrap items-center justify-between gap-2">
-                                    <p className="text-sm font-semibold text-foreground">Category Action Insight</p>
-                                    <Badge
-                                      variant="outline"
-                                      className={cn("text-xs", signalBadgeStyles[selectedCategoryInsight.signal])}
+                                <div className="space-y-2 max-w-2xl">
+                                  <p className="text-sm font-semibold text-foreground">Category Action Insight</p>
+                                  {categoryInsightSummary && (
+                                    <p className="text-sm text-muted-foreground leading-snug">
+                                      {categoryInsightSummary}
+                                    </p>
+                                  )}
+                                  {categoryInsightDetails && (
+                                    <Button
+                                      type="button"
+                                      variant="ghost"
+                                      size="sm"
+                                      className="h-auto px-0 text-xs text-muted-foreground"
+                                      onClick={() => setShowCategoryInsightDetails((prev) => !prev)}
                                     >
-                                      {selectedCategoryInsight.signal} signal
-                                    </Badge>
-                                  </div>
-                                  <div
-                                    className={cn(
-                                      "space-y-2 text-sm",
-                                      selectedCategory.row.decisionCount < 5 && "text-muted-foreground",
-                                    )}
-                                  >
-                                    <p>{selectedCategoryInsight.posture}</p>
-                                    <p className="text-xs text-muted-foreground">
-                                      Primary lever:{" "}
-                                      <span className="font-semibold text-foreground">
-                                        {selectedCategoryInsight.leverage.primary}
-                                      </span>{" "}
-                                      · {selectedCategoryInsight.leverage.reason}
-                                    </p>
-                                  </div>
-                                  {selectedCategoryInsight.risks.length > 0 && (
-                                    <div className="flex flex-wrap gap-1.5">
-                                      {selectedCategoryInsight.risks.map((risk) => (
-                                        <Badge key={risk} variant="secondary" className="text-xs font-medium">
-                                          {risk}
-                                        </Badge>
-                                      ))}
+                                      {showCategoryInsightDetails ? "Hide details" : "Show details"}
+                                    </Button>
+                                  )}
+                                  {showCategoryInsightDetails && categoryInsightDetails && (
+                                    <div className="space-y-1 text-xs text-muted-foreground">
+                                      <p>{categoryInsightDetails.leverageLine}</p>
+                                      {categoryInsightDetails.watchLine && <p>{categoryInsightDetails.watchLine}</p>}
                                     </div>
-                                  )}
-                                  {selectedCategoryInsight.guidance.length > 0 && (
-                                    <ul className="list-disc space-y-1 pl-4 text-xs text-muted-foreground">
-                                      {selectedCategoryInsight.guidance.map((line) => (
-                                        <li key={line}>{line}</li>
-                                      ))}
-                                    </ul>
-                                  )}
-                                  {selectedCategory.row.decisionCount < 5 && (
-                                    <p className="text-xs text-muted-foreground">
-                                      Signal is weak at N={selectedCategory.row.decisionCount}. Log more decisions to
-                                      stabilize the pattern.
-                                    </p>
                                   )}
                                 </div>
                                 <div className="flex flex-col items-start gap-3 md:items-end">
