@@ -916,13 +916,13 @@ function OnePageReport({
   const secondaryArchetype = sortedArchetypes[1];
   const archetypeRows = sortedArchetypes.slice(0, 4);
   const neutralStatPillClass =
-    "rounded-full px-2 py-0.5 text-[10px] font-medium bg-muted/60 text-muted-foreground";
+    "rounded-full px-2 py-0.5 text-[10px] font-medium bg-muted/60 text-muted-foreground border border-transparent";
 
   const getArchetypeShare = (count: number) =>
     rpsBaseline.totalDecisions > 0 ? ((count / rpsBaseline.totalDecisions) * 100).toFixed(1) : "0.0";
 
   const systemDirectiveCopy = [
-    "This dataset is operating with stable footing and low overall pressure, favoring repeatable execution over high-variance bets.",
+    "This decision system is operating with stable footing and low overall pressure, favoring repeatable execution over high-variance bets.",
     "The one thing the dataset must protect right now is Stability — improve results by increasing Impact selectively, without adding stress that weakens the base.",
     "Most upside will come from concentration, not acceleration.",
   ];
@@ -1075,11 +1075,11 @@ function OnePageReport({
             </p>
           </Callout>
           <div className="flex items-start justify-between gap-2">
-            <div>
-              <p className="text-[11px] font-semibold uppercase tracking-wide text-neutral-900">
-                Decision Terrain — Top Judgment Arenas
-              </p>
-              <h3 className="text-base font-semibold text-neutral-900">Where judgment volume concentrates</h3>
+            <div className="space-y-0.5">
+              <h3 className="text-base font-semibold text-neutral-900">
+                DECISION TERRAIN — TOP JUDGMENT ARENAS
+              </h3>
+              <p className="text-xs text-muted-foreground">Where judgment volume concentrates</p>
             </div>
             <span className="text-[11px] text-neutral-900">Top 3 categories</span>
           </div>

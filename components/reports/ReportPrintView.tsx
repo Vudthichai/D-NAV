@@ -79,7 +79,7 @@ export function ReportPrintView({
   const secondaryArchetype = sortedArchetypes[1];
   const archetypeRows = sortedArchetypes.slice(0, 4);
   const neutralStatPillClass =
-    "rounded-full px-2 py-0.5 text-[10px] font-medium bg-muted/60 text-muted-foreground";
+    "rounded-full px-2 py-0.5 text-[10px] font-medium bg-muted/60 text-muted-foreground border border-transparent";
 
   const getArchetypeShare = (count: number) =>
     rpsBaseline.totalDecisions > 0 ? ((count / rpsBaseline.totalDecisions) * 100).toFixed(1) : "0.0";
@@ -110,128 +110,124 @@ export function ReportPrintView({
         </div>
       </header>
 
-      <section className="print-section grid gap-6 lg:grid-cols-[minmax(0,2fr)_minmax(0,1.1fr)]">
-        <div className="space-y-4">
-          <div className="space-y-2">
-            <p className="text-[11px] font-semibold uppercase tracking-wide text-neutral-900">Executive Overview</p>
-            <h2 className="text-lg font-semibold tracking-tight text-neutral-900">
-              {companyName} · Decision Orbit {periodLabel}
-            </h2>
-            <p className="text-[13px] leading-[1.45] text-neutral-900">
-              System-level RPS profile across {rpsBaseline.totalDecisions} logged decisions
-            </p>
+      <section className="print-section space-y-4">
+        <div className="grid gap-6 lg:grid-cols-[minmax(0,2fr)_minmax(0,1.1fr)]">
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <p className="text-[11px] font-semibold uppercase tracking-wide text-neutral-900">Executive Overview</p>
+              <h2 className="text-lg font-semibold tracking-tight text-neutral-900">
+                {companyName} · Decision Orbit {periodLabel}
+              </h2>
+              <p className="text-[13px] leading-[1.45] text-neutral-900">
+                System-level RPS profile across {rpsBaseline.totalDecisions} logged decisions
+              </p>
+            </div>
+
+            <div className="space-y-3 text-[13px] leading-[1.45] text-neutral-900">
+              <div className="space-y-1">
+                <h3 className="text-[13px] font-semibold text-neutral-900">
+                  RPS Baseline — Calm, repeatable execution
+                </h3>
+                <p>{interpretation.rpsSummary}</p>
+              </div>
+              <div className="space-y-1">
+                <h3 className="text-[13px] font-semibold text-neutral-900">
+                  Category Profile — Where judgment actually lives
+                </h3>
+                <p>{interpretation.categorySummary}</p>
+              </div>
+              <div className="space-y-1">
+                <h3 className="text-[13px] font-semibold text-neutral-900">
+                  Archetype Profile — Behavioral fingerprint
+                </h3>
+                <p>{interpretation.archetypeSummary}</p>
+              </div>
+              <div className="space-y-1">
+                <h3 className="text-[13px] font-semibold text-neutral-900">
+                  Learning &amp; Recovery — Decision debt &amp; correction
+                </h3>
+                <p>{interpretation.learningSummary}</p>
+              </div>
+            </div>
           </div>
 
-          <div className="space-y-3 text-[13px] leading-[1.45] text-neutral-900">
-            <div className="space-y-1">
-              <h3 className="text-[13px] font-semibold text-neutral-900">RPS Baseline — Calm, repeatable execution</h3>
-              <p>{interpretation.rpsSummary}</p>
+          <div className="space-y-4">
+            <div className="rounded-2xl border border-black/10 p-4">
+              <div className="flex flex-wrap items-start justify-between gap-2">
+                <div>
+                  <p className="text-[11px] font-semibold uppercase tracking-wide text-neutral-900">
+                    Key Metrics Snapshot
+                  </p>
+                  <p className="text-[11px] text-neutral-900">Period: {periodLabel}</p>
+                </div>
+                <span className="text-[11px] text-neutral-900">R · P · S averages</span>
+              </div>
+              <div className="mt-3 grid grid-cols-2 gap-3 text-[13px] leading-[1.45]">
+                <div>
+                  <p className="text-[11px] uppercase text-neutral-900">Average D-NAV</p>
+                  <p className="text-base font-semibold text-neutral-900">{rpsBaseline.avgDnav.toFixed(1)}</p>
+                  <p className="text-[11px] leading-[1.45] text-neutral-900">
+                    Average judgment quality in this window after cost.
+                  </p>
+                </div>
+                <div>
+                  <p className="text-[11px] uppercase text-neutral-900">Avg Return (R)</p>
+                  <p className="text-base font-semibold text-neutral-900">{rpsBaseline.avgReturn.toFixed(1)}</p>
+                  <p className="text-[11px] leading-[1.45] text-neutral-900">Net value creation per decision.</p>
+                </div>
+                <div>
+                  <p className="text-[11px] uppercase text-neutral-900">Avg Pressure (P)</p>
+                  <p className="text-base font-semibold text-neutral-900">{rpsBaseline.avgPressure.toFixed(1)}</p>
+                  <p className="text-[11px] leading-[1.45] text-neutral-900">Execution stress posture.</p>
+                </div>
+                <div>
+                  <p className="text-[11px] uppercase text-neutral-900">Avg Stability (S)</p>
+                  <p className="text-base font-semibold text-neutral-900">{rpsBaseline.avgStability.toFixed(1)}</p>
+                  <p className="text-[11px] leading-[1.45] text-neutral-900">How safe decisions leave the system.</p>
+                </div>
+                <div>
+                  <p className="text-[11px] uppercase text-neutral-900">Learning Curve Index</p>
+                  <p className="text-base font-semibold text-neutral-900">{learningStats.lci.toFixed(1)}</p>
+                  <p className="text-[11px] leading-[1.45] text-neutral-900">Recovery efficiency after dips.</p>
+                </div>
+              </div>
             </div>
-            <div className="space-y-1">
-              <h3 className="text-[13px] font-semibold text-neutral-900">
-                Category Profile — Where judgment actually lives
-              </h3>
-              <p>{interpretation.categorySummary}</p>
-            </div>
-            <div className="space-y-1">
-              <h3 className="text-[13px] font-semibold text-neutral-900">Archetype Profile — Behavioral fingerprint</h3>
-              <p>{interpretation.archetypeSummary}</p>
-            </div>
-            <div className="space-y-1">
-              <h3 className="text-[13px] font-semibold text-neutral-900">
-                Learning &amp; Recovery — Decision debt &amp; correction
-              </h3>
-              <p>{interpretation.learningSummary}</p>
+
+            <div className="rounded-2xl border border-black/10 p-4">
+              <p className="text-[11px] font-semibold uppercase tracking-wide text-neutral-900">
+                Distributions (Return / Pressure / Stability)
+              </p>
+              <div className="mt-3 space-y-3 text-[13px] leading-[1.45]">
+                <MetricDistribution
+                  metricLabel="Return"
+                  segments={[
+                    { label: "Positive", value: returnDistribution.positive, colorClass: "bg-emerald-500" },
+                    { label: "Neutral", value: returnDistribution.neutral, colorClass: "bg-muted" },
+                    { label: "Negative", value: returnDistribution.negative, colorClass: "bg-rose-500" },
+                  ]}
+                />
+                <MetricDistribution
+                  metricLabel="Pressure"
+                  segments={[
+                    { label: "Pressured", value: pressureDistribution.positive, colorClass: "bg-amber-500" },
+                    { label: "Neutral", value: pressureDistribution.neutral, colorClass: "bg-muted" },
+                    { label: "Calm", value: pressureDistribution.negative, colorClass: "bg-sky-500" },
+                  ]}
+                />
+                <MetricDistribution
+                  metricLabel="Stability"
+                  segments={[
+                    { label: "Stable", value: stabilityDistribution.positive, colorClass: "bg-emerald-600" },
+                    { label: "Neutral", value: stabilityDistribution.neutral, colorClass: "bg-muted" },
+                    { label: "Fragile", value: stabilityDistribution.negative, colorClass: "bg-rose-500" },
+                  ]}
+                />
+              </div>
             </div>
           </div>
         </div>
 
-        <div className="space-y-4">
-          <div className="rounded-2xl border border-black/10 p-4">
-            <div className="flex flex-wrap items-start justify-between gap-2">
-              <div>
-                <p className="text-[11px] font-semibold uppercase tracking-wide text-neutral-900">
-                  Key Metrics Snapshot
-                </p>
-                <p className="text-[11px] text-neutral-900">Period: {periodLabel}</p>
-              </div>
-              <span className="text-[11px] text-neutral-900">R · P · S averages</span>
-            </div>
-            <div className="mt-3 grid grid-cols-2 gap-3 text-[13px] leading-[1.45]">
-              <div>
-                <p className="text-[11px] uppercase text-neutral-900">Average D-NAV</p>
-                <p className="text-base font-semibold text-neutral-900">{rpsBaseline.avgDnav.toFixed(1)}</p>
-                <p className="text-[11px] leading-[1.45] text-neutral-900">
-                  Average judgment quality in this window after cost.
-                </p>
-              </div>
-              <div>
-                <p className="text-[11px] uppercase text-neutral-900">Avg Return (R)</p>
-                <p className="text-base font-semibold text-neutral-900">{rpsBaseline.avgReturn.toFixed(1)}</p>
-                <p className="text-[11px] leading-[1.45] text-neutral-900">Net value creation per decision.</p>
-              </div>
-              <div>
-                <p className="text-[11px] uppercase text-neutral-900">Avg Pressure (P)</p>
-                <p className="text-base font-semibold text-neutral-900">{rpsBaseline.avgPressure.toFixed(1)}</p>
-                <p className="text-[11px] leading-[1.45] text-neutral-900">Execution stress posture.</p>
-              </div>
-              <div>
-                <p className="text-[11px] uppercase text-neutral-900">Avg Stability (S)</p>
-                <p className="text-base font-semibold text-neutral-900">{rpsBaseline.avgStability.toFixed(1)}</p>
-                <p className="text-[11px] leading-[1.45] text-neutral-900">How safe decisions leave the system.</p>
-              </div>
-              <div>
-                <p className="text-[11px] uppercase text-neutral-900">Learning Curve Index</p>
-                <p className="text-base font-semibold text-neutral-900">{learningStats.lci.toFixed(1)}</p>
-                <p className="text-[11px] leading-[1.45] text-neutral-900">Recovery efficiency after dips.</p>
-              </div>
-            </div>
-          </div>
-
-          <div className="rounded-2xl border border-black/10 p-4">
-            <p className="text-[11px] font-semibold uppercase tracking-wide text-neutral-900">
-              Distributions (Return / Pressure / Stability)
-            </p>
-            <div className="mt-3 space-y-3 text-[13px] leading-[1.45]">
-              <MetricDistribution
-                metricLabel="Return"
-                segments={[
-                  { label: "Positive", value: returnDistribution.positive, colorClass: "bg-emerald-500" },
-                  { label: "Neutral", value: returnDistribution.neutral, colorClass: "bg-muted" },
-                  { label: "Negative", value: returnDistribution.negative, colorClass: "bg-rose-500" },
-                ]}
-              />
-              <MetricDistribution
-                metricLabel="Pressure"
-                segments={[
-                  { label: "Pressured", value: pressureDistribution.positive, colorClass: "bg-amber-500" },
-                  { label: "Neutral", value: pressureDistribution.neutral, colorClass: "bg-muted" },
-                  { label: "Calm", value: pressureDistribution.negative, colorClass: "bg-sky-500" },
-                ]}
-              />
-              <MetricDistribution
-                metricLabel="Stability"
-                segments={[
-                  { label: "Stable", value: stabilityDistribution.positive, colorClass: "bg-emerald-600" },
-                  { label: "Neutral", value: stabilityDistribution.neutral, colorClass: "bg-muted" },
-                  { label: "Fragile", value: stabilityDistribution.negative, colorClass: "bg-rose-500" },
-                ]}
-              />
-            </div>
-          </div>
-        </div>
-      </section>
-
-      <section className="print-section print-page-break space-y-4">
-        <div className="flex flex-wrap items-start justify-between gap-2">
-          <div className="space-y-1">
-            <p className="text-[11px] font-semibold uppercase tracking-wide text-neutral-900">What to do</p>
-            <h2 className="text-lg font-semibold tracking-tight text-neutral-900">Action priorities for the next orbit</h2>
-          </div>
-          <span className="text-[11px] text-neutral-900">Action page</span>
-        </div>
-
-        <Callout label="SYSTEM DIRECTIVE" className="print-full-width">
+        <Callout label="SYSTEM DIRECTIVE" className="print-full-width print-avoid-break">
           <div className="space-y-2">
             {systemDirective.map((paragraph) => (
               <p key={paragraph}>{paragraph}</p>
@@ -241,7 +237,9 @@ export function ReportPrintView({
             Apply this by logging new decisions in the categories below.
           </p>
         </Callout>
+      </section>
 
+      <section className="print-section print-page-break grid gap-6 lg:grid-cols-[minmax(0,1.2fr)_minmax(0,1fr)]">
         <div className="rounded-2xl border border-black/10 p-5">
           <div className="flex items-start justify-between gap-2">
             <div className="space-y-0.5">
@@ -303,53 +301,52 @@ export function ReportPrintView({
             ))}
           </div>
         </div>
-      </section>
-
-      <section className="print-section print-page-break rounded-2xl border border-black/10 p-5">
-        <div className="space-y-1">
-          <p className="text-[11px] font-semibold uppercase tracking-wide text-neutral-900">
-            Archetype Fingerprint — {periodLabel}
-          </p>
-          <p className="text-[13px] leading-[1.45] text-neutral-900">
-            <span className="inline-flex flex-wrap items-center gap-2">
-              <span>Primary:</span>
+        <div className="rounded-2xl border border-black/10 p-5">
+          <div className="space-y-1">
+            <p className="text-[11px] font-semibold uppercase tracking-wide text-neutral-900">
+              Archetype Fingerprint — {periodLabel}
+            </p>
+            <p className="text-[13px] leading-[1.45] text-neutral-900">
               <span className="inline-flex flex-wrap items-center gap-2">
-                <span>{primaryArchetype?.archetype ?? "N/A"}</span>
-                {primaryArchetype && <ArchetypeRpsChips archetype={primaryArchetype.archetype} />}
+                <span>Primary:</span>
+                <span className="inline-flex flex-wrap items-center gap-2">
+                  <span>{primaryArchetype?.archetype ?? "N/A"}</span>
+                  {primaryArchetype && <ArchetypeRpsChips archetype={primaryArchetype.archetype} />}
+                </span>
+                <span>· Secondary:</span>
+                <span className="inline-flex flex-wrap items-center gap-2">
+                  <span>{secondaryArchetype?.archetype ?? "N/A"}</span>
+                  {secondaryArchetype && <ArchetypeRpsChips archetype={secondaryArchetype.archetype} />}
+                </span>
               </span>
-              <span>· Secondary:</span>
-              <span className="inline-flex flex-wrap items-center gap-2">
-                <span>{secondaryArchetype?.archetype ?? "N/A"}</span>
-                {secondaryArchetype && <ArchetypeRpsChips archetype={secondaryArchetype.archetype} />}
-              </span>
-            </span>
-          </p>
-        </div>
+            </p>
+          </div>
 
-        <div className="mt-4 overflow-hidden rounded-2xl border border-black/10">
-          <table className="w-full text-[13px] leading-[1.45]">
-            <thead className="bg-black/[0.04] text-[11px] uppercase tracking-wide text-neutral-900">
-              <tr>
-                <th className="px-3 py-2 text-left font-semibold">Archetype</th>
-                <th className="px-3 py-2 text-right font-semibold">Decisions</th>
-                <th className="px-3 py-2 text-right font-semibold">Share</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-black/10 bg-white">
-              {archetypeRows.map((entry) => (
-                <tr key={entry.archetype}>
-                  <td className="px-3 py-2 font-medium text-neutral-900">
-                    <div className="flex flex-wrap items-center gap-2">
-                      <span>{entry.archetype}</span>
-                      <ArchetypeRpsChips archetype={entry.archetype} />
-                    </div>
-                  </td>
-                  <td className="px-3 py-2 text-right text-neutral-900">{entry.count}</td>
-                  <td className="px-3 py-2 text-right text-neutral-900">{getArchetypeShare(entry.count)}%</td>
+          <div className="mt-4 overflow-hidden rounded-2xl border border-black/10">
+            <table className="w-full text-[13px] leading-[1.45]">
+              <thead className="bg-black/[0.04] text-[11px] uppercase tracking-wide text-neutral-900">
+                <tr>
+                  <th className="px-3 py-2 text-left font-semibold">Archetype</th>
+                  <th className="px-3 py-2 text-right font-semibold">Decisions</th>
+                  <th className="px-3 py-2 text-right font-semibold">Share</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+              <tbody className="divide-y divide-black/10 bg-white">
+                {archetypeRows.map((entry) => (
+                  <tr key={entry.archetype}>
+                    <td className="px-3 py-2 font-medium text-neutral-900">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <span>{entry.archetype}</span>
+                        <ArchetypeRpsChips archetype={entry.archetype} />
+                      </div>
+                    </td>
+                    <td className="px-3 py-2 text-right text-neutral-900">{entry.count}</td>
+                    <td className="px-3 py-2 text-right text-neutral-900">{getArchetypeShare(entry.count)}%</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         </div>
       </section>
     </div>
