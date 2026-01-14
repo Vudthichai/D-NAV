@@ -593,6 +593,8 @@ body.exporting-report .report-card {
     margin: 0 auto;
     padding: 24px 32px;
     box-shadow: none;
+    --print-scale: 1.06;
+    --print-heading-scale: calc(1 + (var(--print-scale) - 1) * 0.83);
   }
 
   .print\:hidden {
@@ -605,18 +607,18 @@ body.exporting-report .report-card {
 
   .report-print-page h1,
   .report-print-page h2 {
-    font-size: 18px;
+    font-size: calc(18px * var(--print-heading-scale));
     line-height: 1.4;
   }
 
   .report-print-page h3 {
-    font-size: 14px;
+    font-size: calc(14px * var(--print-heading-scale));
     line-height: 1.4;
   }
 
   .report-print-page p,
   .report-print-page li {
-    font-size: 11px;
+    font-size: calc(11px * var(--print-scale));
     line-height: 1.45;
   }
 }
@@ -665,6 +667,8 @@ body.exporting-report .report-card {
     max-width: none !important;
     padding: 0 !important;
     margin: 0 auto !important;
+    --print-scale: 1.06;
+    --print-heading-scale: calc(1 + (var(--print-scale) - 1) * 0.83);
   }
 
   .printPage {
@@ -715,24 +719,36 @@ body.exporting-report .report-card {
   }
 
   .print-root h1 {
-    font-size: 19px;
+    font-size: calc(19px * var(--print-heading-scale));
     line-height: 1.35;
   }
 
   .print-root h2 {
-    font-size: 17px;
+    font-size: calc(17px * var(--print-heading-scale));
     line-height: 1.35;
   }
 
   .print-root h3 {
-    font-size: 14px;
+    font-size: calc(14px * var(--print-heading-scale));
     line-height: 1.35;
   }
 
   .print-root p,
   .print-root li {
-    font-size: 11.5px;
+    font-size: calc(11.5px * var(--print-scale));
     line-height: 1.4;
+  }
+
+  .print-root .print-category-title {
+    font-size: calc(13px * var(--print-heading-scale));
+  }
+
+  .print-root .print-category-label {
+    font-size: calc(11px * var(--print-heading-scale));
+  }
+
+  .print-root .print-category-label-sm {
+    font-size: calc(10px * var(--print-heading-scale));
   }
 
   .print-root > :not([hidden]) ~ :not([hidden]) {
