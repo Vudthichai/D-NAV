@@ -17,7 +17,7 @@ export function getSystemDirective({
 
   const systemDirective = [
     "This decision system is operating with stable footing and low overall pressure, favoring repeatable execution over high-variance bets.",
-    "The one thing we must protect right now is Stability — improve results by increasing Impact selectively, without adding stress that weakens the base.",
+    "The one thing the dataset must protect right now is Stability — improve results by increasing Impact selectively, without adding stress that weakens the base.",
     "Most upside will come from concentration, not acceleration.",
   ];
 
