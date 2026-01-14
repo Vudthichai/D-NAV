@@ -7,6 +7,7 @@ import { useSearchParams } from "next/navigation";
 
 import { ReportPrintView } from "@/components/reports/ReportPrintView";
 import { useDataset } from "@/components/DatasetProvider";
+import { getCategoryActionInsight } from "@/lib/categoryActionInsight";
 import {
   buildCompanyPeriodSnapshot,
   type CompanyPeriodSnapshot,
@@ -52,6 +53,7 @@ function PrintReportPageContent() {
     archetypes,
     learning,
     stats,
+    filteredDecisions,
   } = useReportsData({ timeframe: selectedTimeframe, datasetId: resolvedDatasetId });
 
   const timeframeConfig = useMemo(
@@ -89,6 +91,39 @@ function PrintReportPageContent() {
     [categories],
   );
 
+  const categoryInsightMap = useMemo(() => {
+    const totals = new Map<
+      string,
+      { count: number; returnNeg: number; pressureHigh: number; stabilityNeg: number }
+    >();
+
+    filteredDecisions.forEach((decision) => {
+      const key = decision.category ?? "Uncategorized";
+      const entry = totals.get(key) ?? { count: 0, returnNeg: 0, pressureHigh: 0, stabilityNeg: 0 };
+      entry.count += 1;
+      if (decision.return < 0) entry.returnNeg += 1;
+      if (decision.pressure > 0) entry.pressureHigh += 1;
+      if (decision.stability < 0) entry.stabilityNeg += 1;
+      totals.set(key, entry);
+    });
+
+    const distribution = new Map<
+      string,
+      { returnNegPct: number; pressureHighPct: number; stabilityNegPct: number }
+    >();
+
+    totals.forEach((entry, key) => {
+      const total = Math.max(entry.count, 1);
+      distribution.set(key, {
+        returnNegPct: (entry.returnNeg / total) * 100,
+        pressureHighPct: (entry.pressureHigh / total) * 100,
+        stabilityNegPct: (entry.stabilityNeg / total) * 100,
+      });
+    });
+
+    return distribution;
+  }, [filteredDecisions]);
+
   const archetypeProfile = useMemo(() => archetypes, [archetypes]);
 
   const learningStats = useMemo(
@@ -119,8 +154,25 @@ function PrintReportPageContent() {
     () =>
       [...categoryProfile]
         .sort((a, b) => b.decisionCount - a.decisionCount)
-        .slice(0, 3),
-    [categoryProfile],
+        .slice(0, 3)
+        .map((category) => {
+          const distribution = categoryInsightMap.get(category.name);
+          const insight = getCategoryActionInsight({
+            count: category.decisionCount,
+            avgR: category.avgR,
+            avgP: category.avgP,
+            avgS: category.avgS,
+            returnNegPct: distribution?.returnNegPct ?? 0,
+            pressureHighPct: distribution?.pressureHighPct ?? 0,
+            stabilityNegPct: distribution?.stabilityNegPct ?? 0,
+          });
+
+          return {
+            ...category,
+            insight,
+          };
+        }),
+    [categoryInsightMap, categoryProfile],
   );
 
   const sortedArchetypes = useMemo(

@@ -41,6 +41,7 @@ import {
   mapTimeframeToDays,
 } from "@/hooks/useReportsData";
 import { type DecisionEntry } from "@/lib/storage";
+import { type CategoryActionInsightResult, getCategoryActionInsight } from "@/lib/categoryActionInsight";
 import { cn } from "@/lib/utils";
 import { buildCohortSummary, runCompare } from "@/lib/compare/engine";
 import {
@@ -319,6 +320,7 @@ function ReportsPageContent() {
     learning,
     stats,
     allDecisions,
+    filteredDecisions,
   } = useReportsData({ timeframe: selectedTimeframe, datasetId });
 
   const timeframeConfig = useMemo(
@@ -358,6 +360,39 @@ function ReportsPageContent() {
     [categories],
   );
 
+  const categoryInsightMap = useMemo(() => {
+    const totals = new Map<
+      string,
+      { count: number; returnNeg: number; pressureHigh: number; stabilityNeg: number }
+    >();
+
+    filteredDecisions.forEach((decision) => {
+      const key = decision.category ?? "Uncategorized";
+      const entry = totals.get(key) ?? { count: 0, returnNeg: 0, pressureHigh: 0, stabilityNeg: 0 };
+      entry.count += 1;
+      if (decision.return < 0) entry.returnNeg += 1;
+      if (decision.pressure > 0) entry.pressureHigh += 1;
+      if (decision.stability < 0) entry.stabilityNeg += 1;
+      totals.set(key, entry);
+    });
+
+    const distribution = new Map<
+      string,
+      { returnNegPct: number; pressureHighPct: number; stabilityNegPct: number }
+    >();
+
+    totals.forEach((entry, key) => {
+      const total = Math.max(entry.count, 1);
+      distribution.set(key, {
+        returnNegPct: (entry.returnNeg / total) * 100,
+        pressureHighPct: (entry.pressureHigh / total) * 100,
+        stabilityNegPct: (entry.stabilityNeg / total) * 100,
+      });
+    });
+
+    return distribution;
+  }, [filteredDecisions]);
+
   const archetypeProfile = useMemo(() => archetypes, [archetypes]);
 
   const learningStats = useMemo(
@@ -388,8 +423,25 @@ function ReportsPageContent() {
     () =>
       [...categoryProfile]
         .sort((a, b) => b.decisionCount - a.decisionCount)
-        .slice(0, 3),
-    [categoryProfile],
+        .slice(0, 3)
+        .map((category) => {
+          const distribution = categoryInsightMap.get(category.name);
+          const insight = getCategoryActionInsight({
+            count: category.decisionCount,
+            avgR: category.avgR,
+            avgP: category.avgP,
+            avgS: category.avgS,
+            returnNegPct: distribution?.returnNegPct ?? 0,
+            pressureHighPct: distribution?.pressureHighPct ?? 0,
+            stabilityNegPct: distribution?.stabilityNegPct ?? 0,
+          });
+
+          return {
+            ...category,
+            insight,
+          };
+        }),
+    [categoryInsightMap, categoryProfile],
   );
 
   const sortedArchetypes = useMemo(
@@ -755,6 +807,7 @@ type TopCategory = {
   avgP: number;
   avgS: number;
   dominantFactor: string | null;
+  insight: CategoryActionInsightResult;
 };
 
 type ArchetypeSummary = {
@@ -855,6 +908,11 @@ function OnePageReport({
 }: OnePageReportProps) {
   const { companyName, periodLabel, rpsBaseline } = snapshot;
   const { returnDistribution, pressureDistribution, stabilityDistribution } = baselineDistributions;
+  const signalToneStyles = {
+    strong: "bg-emerald-100 text-emerald-700",
+    medium: "bg-amber-100 text-amber-700",
+    weak: "bg-muted text-neutral-600",
+  };
 
   const primaryArchetype = sortedArchetypes[0];
   const secondaryArchetype = sortedArchetypes[1];
@@ -1026,44 +1084,68 @@ function OnePageReport({
           <div className="mt-4 space-y-4">
             {topCategories.map((category) => (
               <div key={category.name} className="rounded-2xl border border-black/10 bg-white p-3">
-                <div className="flex flex-wrap items-center justify-between gap-2 text-[13px] font-semibold">
-                  <div className="space-y-1">
-                    <span>{category.name}</span>
-                    <div>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        className="h-7 px-2 text-[11px] text-neutral-700 print:hidden"
-                        asChild
-                      >
-                        <Link href={`/log?category=${encodeURIComponent(category.name)}`}>
-                          Log decision in this category
-                        </Link>
-                      </Button>
+                <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
+                  <div className="flex-1 space-y-3">
+                    <div className="flex flex-wrap items-center justify-between gap-2 text-[13px] font-semibold">
+                      <span>{category.name}</span>
+                      <span className="text-[11px] text-neutral-900">{category.decisionCount} decisions</span>
                     </div>
+
+                    <div className="rounded-2xl border border-orange-100 border-l-4 border-l-orange-500 bg-orange-50/70 px-4 py-3">
+                      <div className="flex flex-wrap items-center gap-2 text-[11px] font-semibold uppercase tracking-wide text-neutral-600">
+                        <span>Category Action Insight</span>
+                        <Badge
+                          variant="secondary"
+                          className={cn("text-[10px] font-semibold", signalToneStyles[category.insight.signalStrength])}
+                        >
+                          {category.insight.signalStrength === "strong"
+                            ? "Strong signal"
+                            : category.insight.signalStrength === "medium"
+                              ? "Medium signal"
+                              : "Weak signal"}
+                        </Badge>
+                      </div>
+                      <p className="mt-1 text-[13px] leading-[1.45] text-neutral-900">
+                        {category.insight.insightText}
+                      </p>
+                      {category.insight.logMoreHint && (
+                        <p className="mt-2 text-[11px] text-neutral-600">{category.insight.logMoreHint}</p>
+                      )}
+                    </div>
+
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="h-7 px-2 text-[11px] text-neutral-700 print:hidden"
+                      asChild
+                    >
+                      <Link href={`/log?category=${encodeURIComponent(category.name)}`}>
+                        Log decision in this category
+                      </Link>
+                    </Button>
                   </div>
-                  <span className="text-[11px] text-neutral-900">{category.decisionCount} decisions</span>
-                </div>
-                <div className="mt-2 grid grid-cols-2 gap-3 text-[11px] leading-[1.45] text-neutral-900 sm:grid-cols-4">
-                  <div className="space-y-1">
-                    <p className="text-[11px] uppercase">Share of volume</p>
-                    <p className="text-[13px] font-semibold text-neutral-900">{formatPct(category.share)}</p>
-                  </div>
-                  <div className="space-y-1">
-                    <p className="text-[11px] uppercase">Avg D-NAV</p>
-                    <p className="text-[13px] font-semibold text-neutral-900">{category.avgDnav.toFixed(1)}</p>
-                  </div>
-                  <div className="space-y-1">
-                    <p className="text-[11px] uppercase">R / P / S</p>
-                    <p className="text-[13px] font-semibold text-neutral-900">
-                      {category.avgR.toFixed(1)} / {category.avgP.toFixed(1)} / {category.avgS.toFixed(1)}
-                    </p>
-                  </div>
-                  <div className="space-y-1">
-                    <p className="text-[11px] uppercase">Dominant factor</p>
-                    <p className="text-[13px] font-semibold text-neutral-900">
-                      {category.dominantFactor ?? "Balanced"}
-                    </p>
+
+                  <div className="grid w-full grid-cols-2 gap-3 text-[11px] leading-[1.45] text-neutral-900 md:w-56 md:grid-cols-1">
+                    <div className="space-y-1">
+                      <p className="text-[11px] uppercase">Share of volume</p>
+                      <p className="text-[13px] font-semibold text-neutral-900">{formatPct(category.share)}</p>
+                    </div>
+                    <div className="space-y-1">
+                      <p className="text-[11px] uppercase">Avg D-NAV</p>
+                      <p className="text-[13px] font-semibold text-neutral-900">{category.avgDnav.toFixed(1)}</p>
+                    </div>
+                    <div className="space-y-1">
+                      <p className="text-[11px] uppercase">R / P / S</p>
+                      <p className="text-[13px] font-semibold text-neutral-900">
+                        {category.avgR.toFixed(1)} / {category.avgP.toFixed(1)} / {category.avgS.toFixed(1)}
+                      </p>
+                    </div>
+                    <div className="space-y-1">
+                      <p className="text-[11px] uppercase">Dominant factor</p>
+                      <p className="text-[13px] font-semibold text-neutral-900">
+                        {category.dominantFactor ?? "Balanced"}
+                      </p>
+                    </div>
                   </div>
                 </div>
               </div>
