@@ -96,15 +96,17 @@ export function ReportPrintView({
     <div className="print-root space-y-6 text-neutral-900">
       <header className="print-section flex flex-col gap-2 border-b border-black/10 pb-4 sm:flex-row sm:items-baseline sm:justify-between">
         <div>
-          <p className="text-[11px] font-semibold uppercase tracking-wide text-neutral-900">D-NAV Executive Readout</p>
+          <p className="text-[11px] font-semibold uppercase tracking-wide text-neutral-900 print:text-[10.5px]">
+            D-NAV Executive Readout
+          </p>
           <h1 className="text-xl font-semibold tracking-tight">
             {companyName} · Decision Orbit {periodLabel}
           </h1>
-          <p className="text-[13px] leading-[1.45] text-neutral-900">
+          <p className="text-[13px] leading-[1.45] text-neutral-900 print:text-[12.5px]">
             System-level RPS profile across {rpsBaseline.totalDecisions} logged decisions
           </p>
         </div>
-        <div className="text-[13px] leading-[1.45] text-neutral-900 sm:text-right">
+        <div className="text-[13px] leading-[1.45] text-neutral-900 print:text-[12.5px] sm:text-right">
           <p className="font-semibold text-neutral-900">R · P · S baseline · Learning · Terrain · Archetypes</p>
           <p>Executive decision intelligence view</p>
         </div>
@@ -114,36 +116,38 @@ export function ReportPrintView({
         <div className="grid gap-6 lg:grid-cols-[minmax(0,2fr)_minmax(0,1.1fr)]">
           <div className="space-y-4">
             <div className="space-y-2">
-              <p className="text-[11px] font-semibold uppercase tracking-wide text-neutral-900">Executive Overview</p>
+              <p className="text-[11px] font-semibold uppercase tracking-wide text-neutral-900 print:text-[10.5px]">
+                Executive Overview
+              </p>
               <h2 className="text-lg font-semibold tracking-tight text-neutral-900">
                 {companyName} · Decision Orbit {periodLabel}
               </h2>
-              <p className="text-[13px] leading-[1.45] text-neutral-900">
+              <p className="text-[13px] leading-[1.45] text-neutral-900 print:text-[12.5px]">
                 System-level RPS profile across {rpsBaseline.totalDecisions} logged decisions
               </p>
             </div>
 
-            <div className="space-y-3 text-[13px] leading-[1.45] text-neutral-900">
+            <div className="space-y-3 text-[13px] leading-[1.45] text-neutral-900 print:text-[12.5px]">
               <div className="space-y-1">
-                <h3 className="text-[13px] font-semibold text-neutral-900">
+                <h3 className="text-[13px] font-semibold text-neutral-900 print:text-[12.5px]">
                   RPS Baseline — Calm, repeatable execution
                 </h3>
                 <p>{interpretation.rpsSummary}</p>
               </div>
               <div className="space-y-1">
-                <h3 className="text-[13px] font-semibold text-neutral-900">
+                <h3 className="text-[13px] font-semibold text-neutral-900 print:text-[12.5px]">
                   Category Profile — Where judgment actually lives
                 </h3>
                 <p>{interpretation.categorySummary}</p>
               </div>
               <div className="space-y-1">
-                <h3 className="text-[13px] font-semibold text-neutral-900">
+                <h3 className="text-[13px] font-semibold text-neutral-900 print:text-[12.5px]">
                   Archetype Profile — Behavioral fingerprint
                 </h3>
                 <p>{interpretation.archetypeSummary}</p>
               </div>
               <div className="space-y-1">
-                <h3 className="text-[13px] font-semibold text-neutral-900">
+                <h3 className="text-[13px] font-semibold text-neutral-900 print:text-[12.5px]">
                   Learning &amp; Recovery — Decision debt &amp; correction
                 </h3>
                 <p>{interpretation.learningSummary}</p>
@@ -155,49 +159,59 @@ export function ReportPrintView({
             <div className="rounded-2xl border border-black/10 p-4">
               <div className="flex flex-wrap items-start justify-between gap-2">
                 <div>
-                  <p className="text-[11px] font-semibold uppercase tracking-wide text-neutral-900">
+                  <p className="text-[11px] font-semibold uppercase tracking-wide text-neutral-900 print:text-[10.5px]">
                     Key Metrics Snapshot
                   </p>
-                  <p className="text-[11px] text-neutral-900">Period: {periodLabel}</p>
+                  <p className="text-[11px] text-neutral-900 print:text-[10.5px]">Period: {periodLabel}</p>
                 </div>
-                <span className="text-[11px] text-neutral-900">R · P · S averages</span>
+                <span className="text-[11px] text-neutral-900 print:text-[10.5px]">R · P · S averages</span>
               </div>
-              <div className="mt-3 grid grid-cols-2 gap-3 text-[13px] leading-[1.45]">
+              <div className="mt-3 grid grid-cols-2 gap-3 text-[13px] leading-[1.45] print:text-[12.5px]">
                 <div>
-                  <p className="text-[11px] uppercase text-neutral-900">Average D-NAV</p>
+                  <p className="text-[11px] uppercase text-neutral-900 print:text-[10.5px]">Average D-NAV</p>
                   <p className="text-base font-semibold text-neutral-900">{rpsBaseline.avgDnav.toFixed(1)}</p>
-                  <p className="text-[11px] leading-[1.45] text-neutral-900">
+                  <p className="text-[11px] leading-[1.45] text-neutral-900 print:text-[10.5px]">
                     Average judgment quality in this window after cost.
                   </p>
                 </div>
                 <div>
-                  <p className="text-[11px] uppercase text-neutral-900">Avg Return (R)</p>
+                  <p className="text-[11px] uppercase text-neutral-900 print:text-[10.5px]">Avg Return (R)</p>
                   <p className="text-base font-semibold text-neutral-900">{rpsBaseline.avgReturn.toFixed(1)}</p>
-                  <p className="text-[11px] leading-[1.45] text-neutral-900">Net value creation per decision.</p>
+                  <p className="text-[11px] leading-[1.45] text-neutral-900 print:text-[10.5px]">
+                    Net value creation per decision.
+                  </p>
                 </div>
                 <div>
-                  <p className="text-[11px] uppercase text-neutral-900">Avg Pressure (P)</p>
+                  <p className="text-[11px] uppercase text-neutral-900 print:text-[10.5px]">Avg Pressure (P)</p>
                   <p className="text-base font-semibold text-neutral-900">{rpsBaseline.avgPressure.toFixed(1)}</p>
-                  <p className="text-[11px] leading-[1.45] text-neutral-900">Execution stress posture.</p>
+                  <p className="text-[11px] leading-[1.45] text-neutral-900 print:text-[10.5px]">
+                    Execution stress posture.
+                  </p>
                 </div>
                 <div>
-                  <p className="text-[11px] uppercase text-neutral-900">Avg Stability (S)</p>
+                  <p className="text-[11px] uppercase text-neutral-900 print:text-[10.5px]">Avg Stability (S)</p>
                   <p className="text-base font-semibold text-neutral-900">{rpsBaseline.avgStability.toFixed(1)}</p>
-                  <p className="text-[11px] leading-[1.45] text-neutral-900">How safe decisions leave the system.</p>
+                  <p className="text-[11px] leading-[1.45] text-neutral-900 print:text-[10.5px]">
+                    How safe decisions leave the system.
+                  </p>
                 </div>
                 <div>
-                  <p className="text-[11px] uppercase text-neutral-900">Learning Curve Index</p>
+                  <p className="text-[11px] uppercase text-neutral-900 print:text-[10.5px]">
+                    Learning Curve Index
+                  </p>
                   <p className="text-base font-semibold text-neutral-900">{learningStats.lci.toFixed(1)}</p>
-                  <p className="text-[11px] leading-[1.45] text-neutral-900">Recovery efficiency after dips.</p>
+                  <p className="text-[11px] leading-[1.45] text-neutral-900 print:text-[10.5px]">
+                    Recovery efficiency after dips.
+                  </p>
                 </div>
               </div>
             </div>
 
             <div className="rounded-2xl border border-black/10 p-4">
-              <p className="text-[11px] font-semibold uppercase tracking-wide text-neutral-900">
+              <p className="text-[11px] font-semibold uppercase tracking-wide text-neutral-900 print:text-[10.5px]">
                 Distributions (Return / Pressure / Stability)
               </p>
-              <div className="mt-3 space-y-3 text-[13px] leading-[1.45]">
+              <div className="mt-3 space-y-3 text-[13px] leading-[1.45] print:text-[12.5px]">
                 <MetricDistribution
                   metricLabel="Return"
                   segments={[
@@ -224,19 +238,21 @@ export function ReportPrintView({
                 />
               </div>
             </div>
+
+            <Callout label="SYSTEM DIRECTIVE" className="mt-4 print-avoid-break">
+              <div className="space-y-2">
+                {systemDirective.map((paragraph) => (
+                  <p key={paragraph} className="print:text-[12.5px]">
+                    {paragraph}
+                  </p>
+                ))}
+              </div>
+              <p className="mt-2 text-[11px] text-neutral-600 print:text-[10.5px]">
+                Apply this by logging new decisions in the categories below.
+              </p>
+            </Callout>
           </div>
         </div>
-
-        <Callout label="SYSTEM DIRECTIVE" className="print-full-width print-avoid-break">
-          <div className="space-y-2">
-            {systemDirective.map((paragraph) => (
-              <p key={paragraph}>{paragraph}</p>
-            ))}
-          </div>
-          <p className="mt-2 text-[11px] text-neutral-600">
-            Apply this by logging new decisions in the categories below.
-          </p>
-        </Callout>
       </section>
 
       <section className="print-section print-page-break grid gap-6 lg:grid-cols-[minmax(0,1.2fr)_minmax(0,1fr)]">
@@ -246,18 +262,22 @@ export function ReportPrintView({
               <h3 className="text-[15px] font-semibold tracking-wide text-neutral-900">
                 DECISION TERRAIN — TOP JUDGMENT ARENAS
               </h3>
-              <p className="text-[11px] text-neutral-500">Where judgment volume concentrates</p>
+              <p className="text-[11px] text-neutral-500 print:text-[10.5px]">
+                Where judgment volume concentrates
+              </p>
             </div>
-            <span className="text-[11px] text-neutral-900">Top 3 categories</span>
+            <span className="text-[11px] text-neutral-900 print:text-[10.5px]">Top 3 categories</span>
           </div>
           <div className="mt-4 space-y-4">
             {topCategories.map((category) => (
               <div key={category.name} className="print-avoid-break rounded-2xl border border-black/10 p-3">
                 <div className="space-y-3">
                   <div className="flex flex-wrap items-start gap-3">
-                    <div className="flex flex-wrap items-center gap-2 text-[13px] font-semibold">
+                    <div className="flex flex-wrap items-center gap-2 text-[13px] font-semibold print:text-[12.5px]">
                       <span>{category.name}</span>
-                      <span className="text-[11px] text-neutral-900">{category.decisionCount} decisions</span>
+                      <span className="text-[11px] text-neutral-900 print:text-[10.5px]">
+                        {category.decisionCount} decisions
+                      </span>
                     </div>
                     <div className="ml-auto flex flex-wrap items-center justify-end gap-2">
                       <Badge variant="secondary" className={neutralStatPillClass}>
@@ -276,11 +296,14 @@ export function ReportPrintView({
                   </div>
 
                   <div className="rounded-2xl border border-orange-100 border-l-4 border-l-orange-500 bg-orange-50/70 px-4 py-3">
-                    <div className="flex flex-wrap items-center gap-2 text-[11px] font-semibold uppercase tracking-wide text-neutral-600">
+                    <div className="flex flex-wrap items-center gap-2 text-[11px] font-semibold uppercase tracking-wide text-neutral-600 print:text-[10.5px]">
                       <span>Category Action Insight</span>
                       <Badge
                         variant="secondary"
-                        className={cn("text-[10px] font-semibold", signalToneStyles[category.insight.signalStrength])}
+                        className={cn(
+                          "text-[10px] font-semibold print:text-[9.5px]",
+                          signalToneStyles[category.insight.signalStrength],
+                        )}
                       >
                         {category.insight.signalStrength === "strong"
                           ? "Strong signal"
@@ -289,11 +312,13 @@ export function ReportPrintView({
                             : "Weak signal"}
                       </Badge>
                     </div>
-                    <p className="mt-1 text-[13px] leading-[1.45] text-neutral-900">
+                    <p className="mt-1 text-[13px] leading-[1.45] text-neutral-900 print:text-[12.5px]">
                       {category.insight.insightText}
                     </p>
                     {category.insight.logMoreHint && (
-                      <p className="mt-2 text-[11px] text-neutral-600">{category.insight.logMoreHint}</p>
+                      <p className="mt-2 text-[11px] text-neutral-600 print:text-[10.5px]">
+                        {category.insight.logMoreHint}
+                      </p>
                     )}
                   </div>
                 </div>
@@ -303,10 +328,10 @@ export function ReportPrintView({
         </div>
         <div className="rounded-2xl border border-black/10 p-5">
           <div className="space-y-1">
-            <p className="text-[11px] font-semibold uppercase tracking-wide text-neutral-900">
+            <p className="text-[11px] font-semibold uppercase tracking-wide text-neutral-900 print:text-[10.5px]">
               Archetype Fingerprint — {periodLabel}
             </p>
-            <p className="text-[13px] leading-[1.45] text-neutral-900">
+            <p className="text-[13px] leading-[1.45] text-neutral-900 print:text-[12.5px]">
               <span className="inline-flex flex-wrap items-center gap-2">
                 <span>Primary:</span>
                 <span className="inline-flex flex-wrap items-center gap-2">
@@ -323,8 +348,8 @@ export function ReportPrintView({
           </div>
 
           <div className="mt-4 overflow-hidden rounded-2xl border border-black/10">
-            <table className="w-full text-[13px] leading-[1.45]">
-              <thead className="bg-black/[0.04] text-[11px] uppercase tracking-wide text-neutral-900">
+            <table className="w-full text-[13px] leading-[1.45] print:text-[12.5px]">
+              <thead className="bg-black/[0.04] text-[11px] uppercase tracking-wide text-neutral-900 print:text-[10.5px]">
                 <tr>
                   <th className="px-3 py-2 text-left font-semibold">Archetype</th>
                   <th className="px-3 py-2 text-right font-semibold">Decisions</th>
