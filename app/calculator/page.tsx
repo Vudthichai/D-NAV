@@ -20,6 +20,7 @@ import {
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { getArchetype } from "@/lib/calculations";
 import { CompanyPeriodSnapshot, generateFullInterpretation } from "@/lib/dnavSummaryEngine";
+import { buildCategoryActionInsight, type CategoryActionInsight } from "@/lib/insights";
 import { useNetlifyIdentity } from "@/hooks/use-netlify-identity";
 import {
   Download,
@@ -402,42 +403,10 @@ const buildCategoryRollupRow = (
   };
 };
 
-const getSignalStrength = (count: number) => {
-  if (count >= 10) {
-    return { label: "Strong", className: "bg-emerald-500/10 text-emerald-500 border-emerald-500/30" };
-  }
-  if (count >= 5) {
-    return { label: "Emerging", className: "bg-amber-500/10 text-amber-500 border-amber-500/30" };
-  }
-  return { label: "Weak", className: "bg-muted text-muted-foreground border-border" };
-};
-
-const buildCategoryInsight = (row: CategoryHeatmapRow) => {
-  if (row.avgP - row.avgConfidence >= 1) {
-    return {
-      summary: "Pressure runs ahead of confidence in this category.",
-      action: "Reduce commitment speed until confidence matches the risk being taken.",
-    };
-  }
-
-  if (row.avgR < 0 && row.avgP > 0.5) {
-    return {
-      summary: "Risk is elevated without corresponding return in this category.",
-      action: "Action: Tighten criteria or scale down exposure until return improves.",
-    };
-  }
-
-  if (row.avgR > 0 && row.avgS < -0.5) {
-    return {
-      summary: "Returns are positive, but stability is lagging in this category.",
-      action: "Action: Add stabilizers before scaling commitments further.",
-    };
-  }
-
-  return {
-    summary: "The category shows a balanced profile with manageable pressure and steady outcomes.",
-    action: "Maintain current discipline and monitor for pressure drift as volume increases.",
-  };
+const signalBadgeStyles: Record<CategoryActionInsight["signal"], string> = {
+  Strong: "bg-emerald-500/10 text-emerald-500 border-emerald-500/30",
+  Mixed: "bg-amber-500/10 text-amber-500 border-amber-500/30",
+  Weak: "bg-muted text-muted-foreground border-border",
 };
 
 const segmentsToDistribution = (segments: { metricKey: string; value: number; label: string }[]) => ({
@@ -944,16 +913,43 @@ export default function TheDNavPage() {
     };
   }, [categoryDecisions, selectedCategory]);
 
-  const categoryInsight = useMemo(
-    () => (selectedCategory ? buildCategoryInsight(selectedCategory.row) : null),
-    [selectedCategory],
+  const categoryInsights = useMemo(() => {
+    const baselineMetrics = {
+      avgDnav: baseline.avgDnav,
+      avgR: baseline.avgReturn,
+      avgP: baseline.avgPressure,
+      avgS: baseline.avgStability,
+    };
+    const rows = [...categories, ...(miscCategoryRow ? [miscCategoryRow] : [])];
+    return new Map(
+      rows.map((row) => [
+        row.category,
+        buildCategoryActionInsight(
+          {
+            shareOfVolume: row.percent,
+            avgDnav: row.avgDnav,
+            avgR: row.avgR,
+            avgP: row.avgP,
+            avgS: row.avgS,
+            dominantFactor: row.dominantVariable,
+          },
+          baselineMetrics,
+        ),
+      ]),
+    );
+  }, [
+    baseline.avgDnav,
+    baseline.avgPressure,
+    baseline.avgReturn,
+    baseline.avgStability,
+    categories,
+    miscCategoryRow,
+  ]);
+  const selectedCategoryInsight = useMemo(
+    () => (selectedCategory ? categoryInsights.get(selectedCategory.row.category) ?? null : null),
+    [categoryInsights, selectedCategory],
   );
   const categoryDecisionCount = categoryDecisions.length;
-
-  const categorySignal = useMemo(
-    () => (selectedCategory ? getSignalStrength(selectedCategory.row.decisionCount) : null),
-    [selectedCategory],
-  );
 
   const handleCategorySort = (key: CategorySortKey) => {
     setCategorySort((prev) =>
@@ -1619,26 +1615,51 @@ export default function TheDNavPage() {
                           </DialogClose>
                         </div>
 
-                        {selectedCategory && categorySignal && categoryInsight && (
+                        {selectedCategory && selectedCategoryInsight && (
                           <>
                             <div className="space-y-4 border-b bg-card/60 px-6 py-4">
                               <div className="flex flex-wrap items-start justify-between gap-3">
                                 <div className="space-y-3 max-w-2xl">
                                   <div className="flex flex-wrap items-center justify-between gap-2">
                                     <p className="text-sm font-semibold text-foreground">Category Action Insight</p>
-                                    <Badge variant="outline" className={cn("text-xs", categorySignal.className)}>
-                                      {categorySignal.label} signal
+                                    <Badge
+                                      variant="outline"
+                                      className={cn("text-xs", signalBadgeStyles[selectedCategoryInsight.signal])}
+                                    >
+                                      {selectedCategoryInsight.signal} signal
                                     </Badge>
                                   </div>
                                   <div
                                     className={cn(
-                                      "space-y-1 text-sm",
+                                      "space-y-2 text-sm",
                                       selectedCategory.row.decisionCount < 5 && "text-muted-foreground",
                                     )}
                                   >
-                                    <p>{categoryInsight.summary}</p>
-                                    <p className="font-medium">{categoryInsight.action}</p>
+                                    <p>{selectedCategoryInsight.posture}</p>
+                                    <p className="text-xs text-muted-foreground">
+                                      Primary lever:{" "}
+                                      <span className="font-semibold text-foreground">
+                                        {selectedCategoryInsight.leverage.primary}
+                                      </span>{" "}
+                                      · {selectedCategoryInsight.leverage.reason}
+                                    </p>
                                   </div>
+                                  {selectedCategoryInsight.risks.length > 0 && (
+                                    <div className="flex flex-wrap gap-1.5">
+                                      {selectedCategoryInsight.risks.map((risk) => (
+                                        <Badge key={risk} variant="secondary" className="text-xs font-medium">
+                                          {risk}
+                                        </Badge>
+                                      ))}
+                                    </div>
+                                  )}
+                                  {selectedCategoryInsight.guidance.length > 0 && (
+                                    <ul className="list-disc space-y-1 pl-4 text-xs text-muted-foreground">
+                                      {selectedCategoryInsight.guidance.map((line) => (
+                                        <li key={line}>{line}</li>
+                                      ))}
+                                    </ul>
+                                  )}
                                   {selectedCategory.row.decisionCount < 5 && (
                                     <p className="text-xs text-muted-foreground">
                                       Signal is weak at N={selectedCategory.row.decisionCount}. Log more decisions to
