@@ -12,18 +12,26 @@ export function getSystemDirective({
   avgStability,
   pressurePressuredPct = 0,
   stabilityFragilePct = 0,
-}: SystemDirectiveInput) {
+}: SystemDirectiveInput): string[] {
+  void _avgReturn;
+
+  const systemDirective = [
+    "This decision system is operating with stable footing and low overall pressure, favoring repeatable execution over high-variance bets.",
+    "The one thing we must protect right now is Stability — improve results by increasing Impact selectively, without adding stress that weakens the base.",
+    "Most upside will come from concentration, not acceleration.",
+  ];
+
   if (avgPressure <= -1 && avgStability >= 1) {
-    return "This dataset is operating under low pressure with stable footing. Use the category results below to choose where to act: increase Impact (or reduce Cost) in the highest-return categories first, and avoid changes that reduce Stability.";
+    return systemDirective;
   }
 
   if (avgPressure > 1 || pressurePressuredPct >= 20) {
-    return "This dataset is under high pressure — reduce execution strain first (lower Cost / lower Urgency), then raise Impact selectively in the categories that already perform.";
+    return systemDirective;
   }
 
   if (avgStability < 1 || stabilityFragilePct >= 15) {
-    return "This dataset’s stability is thin — protect stable footing first (lower Risk / lower Cost), then raise Impact selectively in the categories that can absorb it.";
+    return systemDirective;
   }
 
-  return "This dataset is in a neutral posture — use the category results below to focus effort: improve Return by raising Impact or reducing Cost where outcomes are already consistent, and keep Stability steady.";
+  return systemDirective;
 }

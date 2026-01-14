@@ -78,6 +78,8 @@ export function ReportPrintView({
   const primaryArchetype = sortedArchetypes[0];
   const secondaryArchetype = sortedArchetypes[1];
   const archetypeRows = sortedArchetypes.slice(0, 4);
+  const neutralStatPillClass =
+    "rounded-full px-2 py-0.5 text-[10px] font-medium bg-muted/60 text-muted-foreground";
 
   const getArchetypeShare = (count: number) =>
     rpsBaseline.totalDecisions > 0 ? ((count / rpsBaseline.totalDecisions) * 100).toFixed(1) : "0.0";
@@ -143,8 +145,12 @@ export function ReportPrintView({
             </div>
           </div>
 
-          <Callout label="System Directive">
-            <p>{systemDirective}</p>
+          <Callout label="SYSTEM DIRECTIVE">
+            <div className="space-y-2">
+              {systemDirective.map((paragraph) => (
+                <p key={paragraph}>{paragraph}</p>
+              ))}
+            </div>
             <p className="mt-2 text-[11px] text-neutral-600">
               Apply this by logging new decisions in the categories below.
             </p>
@@ -247,16 +253,16 @@ export function ReportPrintView({
                     <span className="text-[11px] text-neutral-900">{category.decisionCount} decisions</span>
                   </div>
                   <div className="ml-auto flex flex-wrap items-center justify-end gap-2">
-                    <Badge variant="secondary" className="rounded-full px-2 py-0.5 text-[10px] font-medium">
+                    <Badge variant="secondary" className={neutralStatPillClass}>
                       Volume: {formatPct(category.share)}
                     </Badge>
-                    <Badge variant="secondary" className="rounded-full px-2 py-0.5 text-[10px] font-medium">
+                    <Badge variant="secondary" className={neutralStatPillClass}>
                       Avg D-NAV: {category.avgDnav.toFixed(1)}
                     </Badge>
-                    <Badge variant="secondary" className="rounded-full px-2 py-0.5 text-[10px] font-medium">
+                    <Badge variant="secondary" className={neutralStatPillClass}>
                       R / P / S: {category.avgR.toFixed(1)} / {category.avgP.toFixed(1)} / {category.avgS.toFixed(1)}
                     </Badge>
-                    <Badge variant="secondary" className="rounded-full px-2 py-0.5 text-[10px] font-medium">
+                    <Badge variant="secondary" className={neutralStatPillClass}>
                       Dominant: {category.dominantFactor ?? "Balanced"}
                     </Badge>
                   </div>
