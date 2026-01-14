@@ -9,23 +9,18 @@ import { Badge } from "@/components/ui/badge";
 import { GlassCard } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Callout } from "@/components/ui/Callout";
-import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { Checkbox } from "@/components/ui/checkbox";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import Term from "@/components/ui/Term";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { MetricDistribution, type MetricDistributionSegment } from "@/components/reports/MetricDistribution";
 import { getSessionActionInsight } from "@/lib/sessionActionInsight";
-import { ChevronDown, Pencil } from "lucide-react";
+import { computeMetrics, type DecisionVariables } from "@/lib/calculations";
+import ExtractedDecisionReviewPanel, {
+  type ExtractedDecisionCandidate,
+} from "@/components/stress-test/ExtractedDecisionReviewPanel";
+import { ChevronDown } from "lucide-react";
 import Link from "next/link";
-import { useCallback, useEffect, useMemo, useRef, useState, type MouseEvent } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 type BaselineBucketKey = "intent" | "constraints" | "actions" | "movement";
 
@@ -40,13 +35,6 @@ interface BaselineBucketConfig {
 interface BaselineBucketState {
   text: string;
   file: File | null;
-}
-
-interface ExtractedDecision {
-  id: string;
-  text: string;
-  category: string;
-  included: boolean;
 }
 
 interface SessionDecision {
@@ -96,21 +84,16 @@ const BASELINE_BUCKETS: BaselineBucketConfig[] = [
   },
 ];
 
-const DEFAULT_DECISIONS = [
-  "Created a new product",
-  "Hired a new sales team",
-  "Raised funding late last year",
-  "Prioritized regulatory alignment",
-  "Consolidated suppliers",
-  "Reduced marketing spend",
-  "Expanded into a new geography",
-  "Repriced core offering",
-  "Migrated systems/infrastructure",
-  "Changed go-to-market focus",
-];
-
 const DECISION_CATEGORIES = ["Uncategorized", "Growth", "Operations", "Finance", "Risk", "People", "Product", "Market"];
 const SESSION_DECISIONS_KEY = "dnav:stressTest:sessionDecisions";
+const EXTRACTED_DECISIONS_KEY = "dnav:stressTest:extractedDecisions";
+const DEFAULT_DECISION_VARIABLES: DecisionVariables = {
+  impact: 1,
+  cost: 1,
+  risk: 1,
+  urgency: 1,
+  confidence: 1,
+};
 
 const isSessionDecisionSnapshot = (value: unknown): value is SessionDecision => {
   if (!value || typeof value !== "object") return false;
@@ -134,7 +117,8 @@ export default function StressTestPage() {
     movement: { text: "", file: null },
   });
   const [isExtracting, setIsExtracting] = useState(false);
-  const [extractedDecisions, setExtractedDecisions] = useState<ExtractedDecision[]>([]);
+  const [extractedDecisions, setExtractedDecisions] = useState<ExtractedDecisionCandidate[]>([]);
+  const [hasExtractedDecisions, setHasExtractedDecisions] = useState(false);
   const [sessionDecisions, setSessionDecisions] = useState<SessionDecision[]>(() => {
     if (typeof window === "undefined") return [];
     try {
@@ -146,11 +130,11 @@ export default function StressTestPage() {
       return [];
     }
   });
-  const [editingDecisionId, setEditingDecisionId] = useState<string | null>(null);
   const [isBaselineOpen, setIsBaselineOpen] = useState(false);
   const [isSessionAnalysisOpen, setIsSessionAnalysisOpen] = useState(false);
   const calculatorRef = useRef<StressTestCalculatorHandle>(null);
   const sessionAnalysisRef = useRef<HTMLDivElement>(null);
+  const sessionLogRef = useRef<HTMLDivElement>(null);
 
   const { openDefinitions } = useDefinitionsPanel();
 
@@ -168,24 +152,30 @@ export default function StressTestPage() {
     if (isExtracting) return;
     setIsExtracting(true);
 
-    const typedActions = baselineBuckets.actions.text
-      .split("\n")
-      .map((entry) => entry.trim())
-      .filter(Boolean);
+    const typedActions = Object.values(baselineBuckets)
+      .flatMap((bucket) =>
+        bucket.text
+          .split("\n")
+          .map((entry) => entry.trim())
+          .filter(Boolean),
+      )
+      .slice(0, 30);
 
-    const decisionsSource = typedActions.length > 0 ? typedActions.slice(0, 20) : DEFAULT_DECISIONS;
-    const decisions: ExtractedDecision[] = decisionsSource.map((text, index) => ({
-      id: `decision-${index}`,
+    const decisions: ExtractedDecisionCandidate[] = typedActions.map((text, index) => ({
+      id: `decision-${Date.now()}-${index}`,
       text,
       category: "Uncategorized",
-      included: true,
+      confirmed: true,
+      discarded: false,
+      confidence: text.length > 80 ? "med" : text.length > 30 ? "high" : "low",
     }));
 
     window.setTimeout(() => {
       setExtractedDecisions(decisions);
+      setHasExtractedDecisions(true);
       setIsExtracting(false);
     }, 900);
-  }, [baselineBuckets.actions.text, isExtracting]);
+  }, [baselineBuckets, isExtracting]);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -199,6 +189,44 @@ export default function StressTestPage() {
       console.error("Failed to persist stress test session decisions.", error);
     }
   }, [sessionDecisions]);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    try {
+      const stored = window.localStorage.getItem(EXTRACTED_DECISIONS_KEY);
+      if (!stored) return;
+      const parsed = JSON.parse(stored) as {
+        candidates?: ExtractedDecisionCandidate[];
+        hasExtracted?: boolean;
+      };
+      if (Array.isArray(parsed?.candidates)) {
+        const sanitized = parsed.candidates.filter(
+          (candidate) => candidate && typeof candidate.id === "string" && typeof candidate.text === "string",
+        );
+        setExtractedDecisions(sanitized);
+        if (sanitized.length > 0 && typeof parsed?.hasExtracted !== "boolean") {
+          setHasExtractedDecisions(true);
+        }
+      }
+      if (typeof parsed?.hasExtracted === "boolean") {
+        setHasExtractedDecisions(parsed.hasExtracted);
+      }
+    } catch (error) {
+      console.error("Failed to load extracted decisions.", error);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    try {
+      window.localStorage.setItem(
+        EXTRACTED_DECISIONS_KEY,
+        JSON.stringify({ candidates: extractedDecisions, hasExtracted: hasExtractedDecisions }),
+      );
+    } catch (error) {
+      console.error("Failed to persist extracted decisions.", error);
+    }
+  }, [extractedDecisions, hasExtractedDecisions]);
 
   const handleSaveSessionDecision = useCallback((decision: StressTestDecisionSnapshot) => {
     const title = decision.name?.trim() || "Untitled decision";
@@ -220,17 +248,32 @@ export default function StressTestPage() {
     setSessionDecisions((prev) => [sessionDecision, ...prev]);
   }, []);
 
-  const handleDecisionSelect = useCallback((decision: ExtractedDecision) => {
-    calculatorRef.current?.selectDecision({ name: decision.text, category: decision.category });
-  }, []);
-
-  const handleDecisionContainerClick = useCallback(
-    (event: MouseEvent<HTMLDivElement>, decision: ExtractedDecision) => {
-      const target = event.target as HTMLElement;
-      if (target.closest("button, input, textarea, [data-slot='select-trigger']")) return;
-      handleDecisionSelect(decision);
+  const handleAddConfirmedDecisions = useCallback(
+    (candidates: ExtractedDecisionCandidate[]) => {
+      if (candidates.length === 0) return;
+      const metrics = computeMetrics(DEFAULT_DECISION_VARIABLES);
+      const createdAt = Date.now();
+      const additions: SessionDecision[] = candidates.map((candidate, index) => ({
+        id: `${createdAt}-${index}-${Math.random().toString(36).slice(2, 8)}`,
+        title: candidate.text.trim() || "Untitled decision",
+        category: candidate.category ?? "Uncategorized",
+        impact: DEFAULT_DECISION_VARIABLES.impact,
+        cost: DEFAULT_DECISION_VARIABLES.cost,
+        risk: DEFAULT_DECISION_VARIABLES.risk,
+        urgency: DEFAULT_DECISION_VARIABLES.urgency,
+        confidence: DEFAULT_DECISION_VARIABLES.confidence,
+        r: metrics.return,
+        p: metrics.pressure,
+        s: metrics.stability,
+        dnav: metrics.dnav,
+        createdAt: createdAt + index,
+      }));
+      setSessionDecisions((prev) => [...additions, ...prev]);
+      requestAnimationFrame(() => {
+        sessionLogRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+      });
     },
-    [handleDecisionSelect],
+    [setSessionDecisions],
   );
 
   const decisionCount = sessionDecisions.length;
@@ -475,7 +518,10 @@ export default function StressTestPage() {
 
             <StressTestCalculator ref={calculatorRef} saveLabel="Save decision" onSaveDecision={handleSaveSessionDecision} />
 
-            <div className="flex flex-col gap-2 rounded-lg border border-border/60 bg-muted/10 px-3 py-2 text-xs text-muted-foreground">
+            <div
+              ref={sessionLogRef}
+              className="flex flex-col gap-2 rounded-lg border border-border/60 bg-muted/10 px-3 py-2 text-xs text-muted-foreground"
+            >
               <div className="flex flex-wrap items-center justify-between gap-2 text-xs font-semibold text-foreground">
                 <span>
                   {decisionCount >= 10
@@ -785,117 +831,13 @@ export default function StressTestPage() {
                         </div>
                       ) : null}
 
-                      {extractedDecisions.length > 0 ? (
-                        <div className="space-y-3">
-                          <div className="space-y-1">
-                            <h3 className="text-base font-semibold text-foreground">Detected Decisions</h3>
-                            <p className="text-sm text-muted-foreground">
-                              Do these reflect how you see your actions? Edit anything before scoring.
-                            </p>
-                            {extractedDecisions.length < 10 ? (
-                              <p className="text-xs text-muted-foreground">
-                                We found {extractedDecisions.length}. Add more actions or upload a document to reveal
-                                patterns.
-                              </p>
-                            ) : null}
-                          </div>
-                          <div className="space-y-3">
-                            {extractedDecisions.map((decision) => (
-                              <div
-                                key={decision.id}
-                                className="flex w-full flex-col gap-3 rounded-2xl border border-border/40 bg-muted/10 px-4 py-3 shadow-sm transition hover:border-border/70"
-                                onClick={(event) => handleDecisionContainerClick(event, decision)}
-                              >
-                                <div className="flex flex-wrap items-center gap-3">
-                                  <Checkbox
-                                    checked={decision.included}
-                                    onCheckedChange={(value) => {
-                                      setExtractedDecisions((prev) =>
-                                        prev.map((item) =>
-                                          item.id === decision.id
-                                            ? { ...item, included: value === true }
-                                            : item,
-                                        ),
-                                      );
-                                    }}
-                                  />
-                                  <div className="flex-1">
-                                    {editingDecisionId === decision.id ? (
-                                      <Input
-                                        value={decision.text}
-                                        onChange={(event) => {
-                                          const nextValue = event.target.value;
-                                          setExtractedDecisions((prev) =>
-                                            prev.map((item) =>
-                                              item.id === decision.id ? { ...item, text: nextValue } : item,
-                                            ),
-                                          );
-                                        }}
-                                        onBlur={() => setEditingDecisionId(null)}
-                                        onKeyDown={(event) => {
-                                          if (event.key === "Enter") {
-                                            event.currentTarget.blur();
-                                          }
-                                        }}
-                                        className="h-8 text-sm"
-                                        autoFocus
-                                      />
-                                    ) : (
-                                      <p className="text-sm font-medium text-foreground">{decision.text}</p>
-                                    )}
-                                  </div>
-                                  <Button
-                                    variant="ghost"
-                                    size="icon-sm"
-                                    onClick={(event) => {
-                                      event.stopPropagation();
-                                      setEditingDecisionId(decision.id);
-                                    }}
-                                    className="h-8 w-8"
-                                    aria-label="Edit decision"
-                                  >
-                                    <Pencil className="h-4 w-4" />
-                                  </Button>
-                                </div>
-                                <div className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
-                                  <Select
-                                    value={decision.category}
-                                    onValueChange={(value) => {
-                                      setExtractedDecisions((prev) =>
-                                        prev.map((item) =>
-                                          item.id === decision.id ? { ...item, category: value } : item,
-                                        ),
-                                      );
-                                    }}
-                                  >
-                                    <SelectTrigger className="h-8 w-full md:w-44">
-                                      <SelectValue />
-                                    </SelectTrigger>
-                                    <SelectContent>
-                                      {DECISION_CATEGORIES.map((category) => (
-                                        <SelectItem key={category} value={category}>
-                                          {category}
-                                        </SelectItem>
-                                      ))}
-                                    </SelectContent>
-                                  </Select>
-                                  <Button
-                                    variant="secondary"
-                                    size="sm"
-                                    className="h-8 px-3 text-xs font-semibold uppercase tracking-wide"
-                                    onClick={(event) => {
-                                      event.stopPropagation();
-                                      handleDecisionSelect(decision);
-                                    }}
-                                  >
-                                    Score this
-                                  </Button>
-                                </div>
-                              </div>
-                            ))}
-                          </div>
-                        </div>
-                      ) : null}
+                      <ExtractedDecisionReviewPanel
+                        candidates={extractedDecisions}
+                        setCandidates={setExtractedDecisions}
+                        categories={DECISION_CATEGORIES}
+                        hasExtracted={hasExtractedDecisions}
+                        onAddConfirmed={handleAddConfirmedDecisions}
+                      />
                     </div>
                   </section>
                 ) : null}
