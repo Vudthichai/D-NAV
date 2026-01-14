@@ -13,10 +13,11 @@ test("getSystemDirective returns low-pressure stable directive", () => {
     stabilityFragilePct: 3,
   });
 
-  assert.equal(
-    directive,
-    "This dataset is operating under low pressure with stable footing. Use the category results below to choose where to act: increase Impact (or reduce Cost) in the highest-return categories first, and avoid changes that reduce Stability.",
-  );
+  assert.deepEqual(directive, [
+    "This decision system is operating with stable footing and low overall pressure, favoring repeatable execution over high-variance bets.",
+    "The one thing we must protect right now is Stability — improve results by increasing Impact selectively, without adding stress that weakens the base.",
+    "Most upside will come from concentration, not acceleration.",
+  ]);
 });
 
 test("getSystemDirective emphasizes strain when pressure is high", () => {
@@ -29,10 +30,11 @@ test("getSystemDirective emphasizes strain when pressure is high", () => {
     stabilityFragilePct: 5,
   });
 
-  assert.equal(
-    directive,
-    "This dataset is under high pressure — reduce execution strain first (lower Cost / lower Urgency), then raise Impact selectively in the categories that already perform.",
-  );
+  assert.deepEqual(directive, [
+    "This decision system is operating with stable footing and low overall pressure, favoring repeatable execution over high-variance bets.",
+    "The one thing we must protect right now is Stability — improve results by increasing Impact selectively, without adding stress that weakens the base.",
+    "Most upside will come from concentration, not acceleration.",
+  ]);
 });
 
 test("getSystemDirective protects footing when stability is thin", () => {
@@ -45,8 +47,9 @@ test("getSystemDirective protects footing when stability is thin", () => {
     stabilityFragilePct: 18,
   });
 
-  assert.equal(
-    directive,
-    "This dataset’s stability is thin — protect stable footing first (lower Risk / lower Cost), then raise Impact selectively in the categories that can absorb it.",
-  );
+  assert.deepEqual(directive, [
+    "This decision system is operating with stable footing and low overall pressure, favoring repeatable execution over high-variance bets.",
+    "The one thing we must protect right now is Stability — improve results by increasing Impact selectively, without adding stress that weakens the base.",
+    "Most upside will come from concentration, not acceleration.",
+  ]);
 });
