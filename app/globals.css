@@ -665,6 +665,35 @@ body.exporting-report .report-card {
     margin: 0 auto !important;
   }
 
+  .print-root h1 {
+    font-size: 19px;
+    line-height: 1.35;
+  }
+
+  .print-root h2 {
+    font-size: 17px;
+    line-height: 1.35;
+  }
+
+  .print-root h3 {
+    font-size: 14px;
+    line-height: 1.35;
+  }
+
+  .print-root p,
+  .print-root li {
+    font-size: 12px;
+    line-height: 1.4;
+  }
+
+  .print-root > :not([hidden]) ~ :not([hidden]) {
+    margin-top: 1.25rem;
+  }
+
+  .print-root .print-section > :not([hidden]) ~ :not([hidden]) {
+    margin-top: 0.75rem;
+  }
+
   .print-section {
     break-inside: avoid;
     page-break-inside: avoid;
