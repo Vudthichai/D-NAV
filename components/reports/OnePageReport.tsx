@@ -205,7 +205,10 @@ export default function OnePageReport({
       <section className="grid grid-cols-12 gap-4 mt-4">
         {/* Decision terrain */}
         <div className="col-span-12 border rounded-md p-3 md:col-span-6">
-          <h2 className="text-sm font-semibold text-slate-700 mb-2">Decision Terrain — Top Judgment Arenas</h2>
+          <div className="space-y-0.5 mb-2">
+            <h2 className="text-sm font-semibold text-slate-700">DECISION TERRAIN — TOP JUDGMENT ARENAS</h2>
+            <p className="text-[11px] text-slate-500">Where judgment volume concentrates</p>
+          </div>
           <div className="grid grid-cols-1 gap-2 text-xs sm:grid-cols-2 lg:grid-cols-3">
             {topCategories.map((cat) => (
               <div key={cat.name} className="border rounded-md p-2">
