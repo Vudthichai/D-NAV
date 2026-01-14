@@ -247,11 +247,11 @@ function EntityCompareSection() {
         <div className="grid gap-10 lg:gap-16 md:grid-cols-2 md:items-center">
           <div className="relative flex justify-center md:justify-start lg:justify-start">
             <Image
-              src="/mockups/compentity.png"
+              src="/mockups/Computer-Entity.png"
               alt="D-NAV Entity Compare"
-              width={1480}
-              height={960}
-              className="relative z-10 w-full max-w-[1100px] h-auto md:w-[115%] lg:w-[135%] lg:-translate-x-10 lg:-ml-16 drop-shadow-[0_32px_120px_rgba(0,0,0,0.45)]"
+              width={1000}
+              height={1000}
+              className="relative z-10 w-full max-w-[950px] h-auto md:w-[115%] lg:w-[125%] lg:-translate-x-10 lg:-ml-12 drop-shadow-[0_32px_120px_rgba(0,0,0,0.45)]"
               priority
             />
           </div>
