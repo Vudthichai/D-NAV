@@ -7,7 +7,7 @@ import StressTestCalculator from "@/components/stress-test/StressTestCalculator"
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Dialog, DialogClose, DialogContent, DialogTitle } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import {
   Select,
@@ -31,7 +31,6 @@ import {
   Info,
   ArrowLeft,
   ArrowRight,
-  X,
 } from "lucide-react";
 import jsPDF from "jspdf";
 import html2canvas from "html2canvas";
@@ -296,16 +295,6 @@ const DistributionCard = ({ title, segments, tooltip }: DistributionCardProps) =
   );
 };
 
-const getSignalStrength = (count: number) => {
-  if (count >= 10) {
-    return { label: "Strong signal", tone: "green" as const };
-  }
-  if (count >= 5) {
-    return { label: "Medium signal", tone: "amber" as const };
-  }
-  return { label: "Weak signal", tone: "gray" as const };
-};
-
 const getLogMoreHint = (count: number) => {
   if (count >= 10) return null;
   const remaining = Math.max(0, 10 - count);
@@ -360,6 +349,11 @@ const CompactMetric = ({
 const buildDistributionSegments = (
   values: number[],
   palette: { positive: string; neutral: string; negative: string },
+  labels: { positive: string; neutral: string; negative: string } = {
+    positive: "Positive",
+    neutral: "Neutral",
+    negative: "Negative",
+  },
 ): DistributionSegment[] => {
   const counts = values.reduce(
     (acc, value) => {
@@ -374,9 +368,9 @@ const buildDistributionSegments = (
   const total = Math.max(values.length, 1);
 
   return [
-    { label: "Positive", value: (counts.positive / total) * 100, color: palette.positive, metricKey: "positive" },
-    { label: "Neutral", value: (counts.neutral / total) * 100, color: palette.neutral, metricKey: "neutral" },
-    { label: "Negative", value: (counts.negative / total) * 100, color: palette.negative, metricKey: "negative" },
+    { label: labels.positive, value: (counts.positive / total) * 100, color: palette.positive, metricKey: "positive" },
+    { label: labels.neutral, value: (counts.neutral / total) * 100, color: palette.neutral, metricKey: "neutral" },
+    { label: labels.negative, value: (counts.negative / total) * 100, color: palette.negative, metricKey: "negative" },
   ];
 };
 
@@ -511,7 +505,6 @@ export default function TheDNavPage() {
   );
   const [selectedArchetype, setSelectedArchetype] = useState<ArchetypePatternRow | null>(null);
   const [selectedCategory, setSelectedCategory] = useState<CategorySelection | null>(null);
-  const [showCategoryInsightDetails, setShowCategoryInsightDetails] = useState(false);
   const [archetypeTableSort, setArchetypeTableSort] = useState<{
     key: ArchetypeTableSortKey;
     direction: "asc" | "desc";
@@ -760,7 +753,6 @@ export default function TheDNavPage() {
         : kind === "misc"
           ? smallCategoryDecisions
           : [];
-    setShowCategoryInsightDetails(false);
     setSelectedCategory({
       kind,
       row,
@@ -890,11 +882,19 @@ export default function TheDNavPage() {
           neutral: "#eab308",
           negative: "#ef4444",
         }),
-        pressureSegments: buildDistributionSegments(pressures, {
-          positive: "#ef4444",
-          neutral: "#eab308",
-          negative: "#22c55e",
-        }),
+        pressureSegments: buildDistributionSegments(
+          pressures,
+          {
+            positive: "#ef4444",
+            neutral: "#eab308",
+            negative: "#22c55e",
+          },
+          {
+            positive: "High",
+            neutral: "Neutral",
+            negative: "Low",
+          },
+        ),
         stabilitySegments: buildDistributionSegments(stabilities, {
           positive: "#22c55e",
           neutral: "#eab308",
@@ -918,11 +918,19 @@ export default function TheDNavPage() {
         neutral: "#eab308",
         negative: "#ef4444",
       }),
-      pressureSegments: buildDistributionSegments(pressures, {
-        positive: "#ef4444",
-        neutral: "#eab308",
-        negative: "#22c55e",
-      }),
+      pressureSegments: buildDistributionSegments(
+        pressures,
+        {
+          positive: "#ef4444",
+          neutral: "#eab308",
+          negative: "#22c55e",
+        },
+        {
+          positive: "High",
+          neutral: "Neutral",
+          negative: "Low",
+        },
+      ),
       stabilitySegments: buildDistributionSegments(stabilities, {
         positive: "#22c55e",
         neutral: "#eab308",
@@ -931,66 +939,34 @@ export default function TheDNavPage() {
     };
   }, [categoryDecisions, selectedCategory]);
 
-  const categoryInsights = useMemo(() => {
-    const baselineMetrics = {
-      avgDnav: baseline.avgDnav,
-      avgR: baseline.avgReturn,
-      avgP: baseline.avgPressure,
-      avgS: baseline.avgStability,
-    };
-    const rows = [...categories, ...(miscCategoryRow ? [miscCategoryRow] : [])];
-    return new Map(
-      rows.map((row) => [
-        row.category,
-        buildCategoryActionInsight(
-          {
-            shareOfVolume: row.percent,
-            avgDnav: row.avgDnav,
-            avgR: row.avgR,
-            avgP: row.avgP,
-            avgS: row.avgS,
-            dominantFactor: row.dominantVariable,
-          },
-          baselineMetrics,
-        ),
-      ]),
-    );
-  }, [
-    baseline.avgDnav,
-    baseline.avgPressure,
-    baseline.avgReturn,
-    baseline.avgStability,
-    categories,
-    miscCategoryRow,
-  ]);
-  const selectedCategoryInsight = useMemo(
-    () => (selectedCategory ? categoryInsights.get(selectedCategory.row.category) ?? null : null),
-    [categoryInsights, selectedCategory],
-  );
+  const categoryDecisionCount = categoryDecisions.length;
+  const selectedCategoryInsight = useMemo(() => {
+    if (!selectedCategory) return null;
+    const returnDistribution = segmentsToDistribution(categoryDistributions?.returnSegments ?? []);
+    const pressureDistribution = segmentsToDistribution(categoryDistributions?.pressureSegments ?? []);
+    const stabilityDistribution = segmentsToDistribution(categoryDistributions?.stabilitySegments ?? []);
+    return buildCategoryActionInsight({
+      count: categoryDecisionCount,
+      avgR: selectedCategory.row.avgR,
+      avgP: selectedCategory.row.avgP,
+      avgS: selectedCategory.row.avgS,
+      returnNegPct: returnDistribution.negativePct,
+      pressureHighPct: pressureDistribution.positivePct,
+      stabilityNegPct: stabilityDistribution.negativePct,
+    });
+  }, [categoryDecisionCount, categoryDistributions, selectedCategory]);
   const categoryInsightSummary = useMemo(() => {
     if (!selectedCategoryInsight) return null;
-    const posture = selectedCategoryInsight.posture.trim();
-    const postureSentence = posture.endsWith(".") ? posture : `${posture}.`;
-    const adjustment = selectedCategoryInsight.guidance[0]?.trim();
-    if (!adjustment) {
-      return postureSentence;
-    }
-    const adjustmentSentence = adjustment.replace(/\.$/, "");
-    const watchOut = selectedCategoryInsight.risks[0];
-    const directive = watchOut
-      ? `${adjustmentSentence} and watch for ${watchOut}`
-      : adjustmentSentence;
-    return `${postureSentence} ${directive}.`;
+    return selectedCategoryInsight.watch
+      ? `${selectedCategoryInsight.summary} ${selectedCategoryInsight.watch}`
+      : selectedCategoryInsight.summary;
   }, [selectedCategoryInsight]);
-  const categoryInsightDetails = useMemo(() => {
-    if (!selectedCategoryInsight) return null;
-    const leverageLine = `Leverage: ${selectedCategoryInsight.leverage.primary}`;
-    const watchItems = selectedCategoryInsight.risks.slice(0, 2);
-    const watchLine = watchItems.length ? `Watch: ${watchItems.join("; ")}` : null;
-    return { leverageLine, watchLine };
+  const categorySignal = useMemo(() => {
+    const signal = selectedCategoryInsight?.signal ?? "weak";
+    if (signal === "strong") return { label: "Strong signal", tone: "green" as const };
+    if (signal === "medium") return { label: "Medium signal", tone: "amber" as const };
+    return { label: "Weak signal", tone: "gray" as const };
   }, [selectedCategoryInsight]);
-  const categoryDecisionCount = categoryDecisions.length;
-  const categorySignal = useMemo(() => getSignalStrength(categoryDecisionCount), [categoryDecisionCount]);
   const categoryLogHint = useMemo(() => getLogMoreHint(categoryDecisionCount), [categoryDecisionCount]);
   const signalToneStyles = {
     green: "bg-emerald-100 text-emerald-700 dark:bg-emerald-500/20 dark:text-emerald-200",
@@ -1656,10 +1632,6 @@ export default function TheDNavPage() {
                               </span>
                             )}
                           </DialogTitle>
-                          <DialogClose className="rounded-md opacity-70 ring-offset-background transition-opacity hover:opacity-100 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2">
-                            <X className="h-4 w-4" />
-                            <span className="sr-only">Close</span>
-                          </DialogClose>
                         </div>
 
                         {selectedCategory && selectedCategoryInsight && (
@@ -1667,39 +1639,24 @@ export default function TheDNavPage() {
                             <div className="space-y-4 border-b bg-card/60 px-6 py-4">
                               <div className="flex flex-wrap items-start justify-between gap-3">
                                 <div className="space-y-2 max-w-2xl">
-                                  <div className="flex flex-wrap items-center gap-2">
-                                    <p className="text-sm font-semibold text-foreground">Category Action Insight</p>
-                                    <Badge
-                                      variant="secondary"
-                                      className={cn("text-[11px] font-semibold", signalToneStyles[categorySignal.tone])}
-                                    >
-                                      {categorySignal.label}
-                                    </Badge>
+                                  <div className="rounded-2xl border border-orange-100 border-l-4 border-l-orange-500 bg-orange-50/70 px-4 py-3">
+                                    <div className="flex flex-wrap items-center gap-2 text-xs font-semibold uppercase tracking-wide text-orange-900/70">
+                                      <span>Category Action Insight</span>
+                                      <Badge
+                                        variant="secondary"
+                                        className={cn("text-[11px] font-semibold", signalToneStyles[categorySignal.tone])}
+                                      >
+                                        {categorySignal.label}
+                                      </Badge>
+                                    </div>
+                                    {categoryInsightSummary && (
+                                      <p className="mt-1 text-sm text-foreground leading-snug">
+                                        {categoryInsightSummary}
+                                      </p>
+                                    )}
                                   </div>
-                                  {categoryInsightSummary && (
-                                    <p className="text-sm text-muted-foreground leading-snug">
-                                      {categoryInsightSummary}
-                                    </p>
-                                  )}
                                   {categoryLogHint && (
                                     <p className="text-xs text-muted-foreground">{categoryLogHint}</p>
-                                  )}
-                                  {categoryInsightDetails && (
-                                    <Button
-                                      type="button"
-                                      variant="ghost"
-                                      size="sm"
-                                      className="h-auto px-0 text-xs text-muted-foreground"
-                                      onClick={() => setShowCategoryInsightDetails((prev) => !prev)}
-                                    >
-                                      {showCategoryInsightDetails ? "Hide details" : "Show details"}
-                                    </Button>
-                                  )}
-                                  {showCategoryInsightDetails && categoryInsightDetails && (
-                                    <div className="space-y-1 text-xs text-muted-foreground">
-                                      <p>{categoryInsightDetails.leverageLine}</p>
-                                      {categoryInsightDetails.watchLine && <p>{categoryInsightDetails.watchLine}</p>}
-                                    </div>
                                   )}
                                 </div>
                                 <div className="flex flex-col items-start gap-3 md:items-end">
@@ -1880,10 +1837,6 @@ export default function TheDNavPage() {
                           <DialogTitle className="text-lg font-semibold">
                             {selectedArchetype ? `${selectedArchetype.archetype} decisions` : "Archetype decisions"}
                           </DialogTitle>
-                          <DialogClose className="rounded-md opacity-70 ring-offset-background transition-opacity hover:opacity-100 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2">
-                            <X className="h-4 w-4" />
-                            <span className="sr-only">Close</span>
-                          </DialogClose>
                         </div>
 
                         {selectedArchetype && (
