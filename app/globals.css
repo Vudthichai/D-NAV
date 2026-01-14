@@ -477,7 +477,7 @@ body {
 /* D-NAV one-pager print layout */
 @media print {
   @page {
-    size: Letter;
+    size: letter;
     margin: 0.5in;
   }
 
@@ -651,7 +651,9 @@ body.exporting-report .report-card {
 @media print {
   html,
   body {
+    width: 8.5in;
     background: #ffffff !important;
+    -webkit-text-size-adjust: 100%;
   }
 
   .print-page {
@@ -663,6 +665,38 @@ body.exporting-report .report-card {
     max-width: none !important;
     padding: 0 !important;
     margin: 0 auto !important;
+  }
+
+  .printPage {
+    break-after: page;
+    page-break-after: always;
+  }
+
+  .printPage:last-child {
+    break-after: auto;
+    page-break-after: auto;
+  }
+
+  .print-two-column {
+    display: flex;
+    align-items: flex-start;
+    gap: 0.35in;
+  }
+
+  .print-two-column__left {
+    flex: 1 1 auto;
+    min-width: 0;
+  }
+
+  .print-two-column__right {
+    flex: 0 0 2.8in;
+    min-width: 0;
+  }
+
+  .print-two-column__left > *,
+  .print-two-column__right > * {
+    width: 100%;
+    min-width: 0;
   }
 
   .print-root h1 {
@@ -682,7 +716,7 @@ body.exporting-report .report-card {
 
   .print-root p,
   .print-root li {
-    font-size: 12px;
+    font-size: 11.5px;
     line-height: 1.4;
   }
 
@@ -717,5 +751,13 @@ body.exporting-report .report-card {
   .print-root .rounded-xl,
   .print-root .rounded-lg {
     border-radius: 0 !important;
+  }
+}
+
+@media print {
+  *,
+  *::before,
+  *::after {
+    box-sizing: border-box;
   }
 }
