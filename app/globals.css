@@ -683,6 +683,14 @@ body.exporting-report .report-card {
     gap: 0.35in;
   }
 
+  .print-page2-stack {
+    display: block !important;
+  }
+
+  .print-page2-stack > * + * {
+    margin-top: 0.35in;
+  }
+
   .print-two-column__left {
     flex: 1 1 auto;
     min-width: 0;
@@ -691,6 +699,13 @@ body.exporting-report .report-card {
   .print-two-column__right {
     flex: 0 0 2.8in;
     min-width: 0;
+  }
+
+  .print-page2-stack .print-two-column__left,
+  .print-page2-stack .print-two-column__right {
+    flex: 1 1 auto !important;
+    width: 100% !important;
+    max-width: none !important;
   }
 
   .print-two-column__left > *,
