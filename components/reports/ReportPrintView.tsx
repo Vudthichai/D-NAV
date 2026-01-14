@@ -79,7 +79,7 @@ export function ReportPrintView({
   const secondaryArchetype = sortedArchetypes[1];
   const archetypeRows = sortedArchetypes.slice(0, 4);
   const neutralStatPillClass =
-    "rounded-full px-2 py-0.5 text-[10px] font-medium bg-muted/60 text-muted-foreground border border-transparent";
+    "rounded-full px-2 py-0.5 text-[10px] font-medium bg-muted/40 text-muted-foreground border border-muted/60";
 
   const getArchetypeShare = (count: number) =>
     rpsBaseline.totalDecisions > 0 ? ((count / rpsBaseline.totalDecisions) * 100).toFixed(1) : "0.0";
@@ -110,8 +110,8 @@ export function ReportPrintView({
         </div>
       </header>
 
-      <section className="print-section space-y-4">
-        <div className="grid gap-6 lg:grid-cols-[minmax(0,2fr)_minmax(0,1.1fr)]">
+      <section className="print-section">
+        <div className="grid gap-6 lg:grid-cols-[minmax(0,2fr)_minmax(0,1.1fr)] print:gap-5 print:grid-cols-[minmax(0,2fr)_minmax(0,1.1fr)]">
           <div className="space-y-4">
             <div className="space-y-2">
               <p className="text-[11px] font-semibold uppercase tracking-wide text-neutral-900">Executive Overview</p>
@@ -225,28 +225,31 @@ export function ReportPrintView({
               </div>
             </div>
           </div>
-        </div>
 
-        <Callout label="SYSTEM DIRECTIVE" className="print-full-width print-avoid-break">
-          <div className="space-y-2">
-            {systemDirective.map((paragraph) => (
-              <p key={paragraph}>{paragraph}</p>
-            ))}
-          </div>
-          <p className="mt-2 text-[11px] text-neutral-600">
-            Apply this by logging new decisions in the categories below.
-          </p>
-        </Callout>
+          <Callout
+            label="SYSTEM DIRECTIVE"
+            className="print-full-width print-avoid-break lg:col-span-2 print:col-span-2"
+          >
+            <div className="space-y-2">
+              {systemDirective.map((paragraph) => (
+                <p key={paragraph}>{paragraph}</p>
+              ))}
+            </div>
+            <p className="mt-2 text-[11px] text-neutral-600">
+              Apply this by logging new decisions in the categories below.
+            </p>
+          </Callout>
+        </div>
       </section>
 
       <section className="print-section print-page-break grid gap-6 lg:grid-cols-[minmax(0,1.2fr)_minmax(0,1fr)]">
-        <div className="rounded-2xl border border-black/10 p-5">
+        <div className="print-avoid-break rounded-2xl border border-black/10 p-5">
           <div className="flex items-start justify-between gap-2">
             <div className="space-y-0.5">
-              <h3 className="text-[15px] font-semibold tracking-wide text-neutral-900">
+              <h3 className="text-[16px] font-bold tracking-wide text-neutral-900">
                 DECISION TERRAIN — TOP JUDGMENT ARENAS
               </h3>
-              <p className="text-[11px] text-neutral-500">Where judgment volume concentrates</p>
+              <p className="text-[10px] text-neutral-400">Where judgment volume concentrates</p>
             </div>
             <span className="text-[11px] text-neutral-900">Top 3 categories</span>
           </div>
@@ -301,7 +304,7 @@ export function ReportPrintView({
             ))}
           </div>
         </div>
-        <div className="rounded-2xl border border-black/10 p-5">
+        <div className="print-avoid-break rounded-2xl border border-black/10 p-5">
           <div className="space-y-1">
             <p className="text-[11px] font-semibold uppercase tracking-wide text-neutral-900">
               Archetype Fingerprint — {periodLabel}

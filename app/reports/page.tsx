@@ -916,7 +916,7 @@ function OnePageReport({
   const secondaryArchetype = sortedArchetypes[1];
   const archetypeRows = sortedArchetypes.slice(0, 4);
   const neutralStatPillClass =
-    "rounded-full px-2 py-0.5 text-[10px] font-medium bg-muted/60 text-muted-foreground border border-transparent";
+    "rounded-full px-2 py-0.5 text-[10px] font-medium bg-muted/40 text-muted-foreground border border-muted/60";
 
   const getArchetypeShare = (count: number) =>
     rpsBaseline.totalDecisions > 0 ? ((count / rpsBaseline.totalDecisions) * 100).toFixed(1) : "0.0";
@@ -1076,10 +1076,10 @@ function OnePageReport({
           </Callout>
           <div className="flex items-start justify-between gap-2">
             <div className="space-y-0.5">
-              <h3 className="text-base font-semibold text-neutral-900">
+              <h3 className="text-[16px] font-bold text-neutral-900">
                 DECISION TERRAIN — TOP JUDGMENT ARENAS
               </h3>
-              <p className="text-xs text-muted-foreground">Where judgment volume concentrates</p>
+              <p className="text-[10px] text-neutral-400">Where judgment volume concentrates</p>
             </div>
             <span className="text-[11px] text-neutral-900">Top 3 categories</span>
           </div>
