@@ -245,7 +245,7 @@ export function ReportPrintView({
       </div>
 
       <div className="printPage">
-        <section className="print-section print-two-column grid gap-6 lg:grid-cols-[minmax(0,1.2fr)_minmax(0,1fr)]">
+        <section className="print-section print-two-column print-page2-stack grid gap-6 lg:grid-cols-[minmax(0,1.2fr)_minmax(0,1fr)]">
           <div className="print-two-column__left print-avoid-break rounded-2xl border border-black/10 p-5">
           <div className="flex items-start justify-between gap-2">
             <div className="space-y-0.5">
