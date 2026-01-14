@@ -296,6 +296,28 @@ const DistributionCard = ({ title, segments, tooltip }: DistributionCardProps) =
   );
 };
 
+const getSignalStrength = (count: number) => {
+  if (count >= 10) {
+    return { label: "Strong signal", tone: "green" as const };
+  }
+  if (count >= 5) {
+    return { label: "Medium signal", tone: "amber" as const };
+  }
+  return { label: "Weak signal", tone: "gray" as const };
+};
+
+const getLogMoreHint = (count: number) => {
+  if (count >= 10) return null;
+  const remaining = Math.max(0, 10 - count);
+  if (count >= 5) {
+    return `Log ${remaining} more decisions in this category to strengthen the signal.`;
+  }
+  if (count >= 3) {
+    return `Signal is thin — log ${remaining} more decisions here before trusting patterns.`;
+  }
+  return `Not enough data — log ${remaining} more decisions here to form a usable signal.`;
+};
+
 const CompactMetric = ({
   label,
   value,
@@ -968,6 +990,13 @@ export default function TheDNavPage() {
     return { leverageLine, watchLine };
   }, [selectedCategoryInsight]);
   const categoryDecisionCount = categoryDecisions.length;
+  const categorySignal = useMemo(() => getSignalStrength(categoryDecisionCount), [categoryDecisionCount]);
+  const categoryLogHint = useMemo(() => getLogMoreHint(categoryDecisionCount), [categoryDecisionCount]);
+  const signalToneStyles = {
+    green: "bg-emerald-100 text-emerald-700 dark:bg-emerald-500/20 dark:text-emerald-200",
+    amber: "bg-amber-100 text-amber-700 dark:bg-amber-500/20 dark:text-amber-200",
+    gray: "bg-muted text-muted-foreground",
+  };
 
   const handleCategorySort = (key: CategorySortKey) => {
     setCategorySort((prev) =>
@@ -1638,11 +1667,22 @@ export default function TheDNavPage() {
                             <div className="space-y-4 border-b bg-card/60 px-6 py-4">
                               <div className="flex flex-wrap items-start justify-between gap-3">
                                 <div className="space-y-2 max-w-2xl">
-                                  <p className="text-sm font-semibold text-foreground">Category Action Insight</p>
+                                  <div className="flex flex-wrap items-center gap-2">
+                                    <p className="text-sm font-semibold text-foreground">Category Action Insight</p>
+                                    <Badge
+                                      variant="secondary"
+                                      className={cn("text-[11px] font-semibold", signalToneStyles[categorySignal.tone])}
+                                    >
+                                      {categorySignal.label}
+                                    </Badge>
+                                  </div>
                                   {categoryInsightSummary && (
                                     <p className="text-sm text-muted-foreground leading-snug">
                                       {categoryInsightSummary}
                                     </p>
+                                  )}
+                                  {categoryLogHint && (
+                                    <p className="text-xs text-muted-foreground">{categoryLogHint}</p>
                                   )}
                                   {categoryInsightDetails && (
                                     <Button
