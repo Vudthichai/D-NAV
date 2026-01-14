@@ -247,66 +247,70 @@ export function ReportPrintView({
       <div className="printPage">
         <section className="print-section print-two-column print-page2-stack grid gap-6 lg:grid-cols-[minmax(0,1.2fr)_minmax(0,1fr)]">
           <div className="print-two-column__left print-avoid-break rounded-2xl border border-black/10 p-5">
-          <div className="flex items-start justify-between gap-2">
-            <div className="space-y-0.5">
-              <h3 className="text-[16px] font-bold tracking-wide text-neutral-900">
-                DECISION TERRAIN — TOP JUDGMENT ARENAS
-              </h3>
-              <p className="text-[10px] text-neutral-400">Where judgment volume concentrates</p>
+            <div className="flex items-start justify-between gap-2">
+              <div className="space-y-0.5">
+                <h3 className="text-[16px] font-bold tracking-wide text-neutral-900">
+                  DECISION TERRAIN — TOP JUDGMENT ARENAS
+                </h3>
+                <p className="print-category-label-sm text-[10px] text-neutral-400">
+                  Where judgment volume concentrates
+                </p>
+              </div>
+              <span className="print-category-label text-[11px] text-neutral-900">Top 3 categories</span>
             </div>
-            <span className="text-[11px] text-neutral-900">Top 3 categories</span>
-          </div>
-          <div className="mt-4 space-y-4">
-            {topCategories.map((category) => (
-              <div key={category.name} className="print-avoid-break rounded-2xl border border-black/10 p-3">
-                <div className="space-y-3">
-                  <div className="flex flex-wrap items-start gap-3">
-                    <div className="flex flex-wrap items-center gap-2 text-[13px] font-semibold">
-                      <span>{category.name}</span>
-                      <span className="text-[11px] text-neutral-900">{category.decisionCount} decisions</span>
+            <div className="mt-4 space-y-4">
+              {topCategories.map((category) => (
+                <div key={category.name} className="print-avoid-break rounded-2xl border border-black/10 p-3">
+                  <div className="space-y-3">
+                    <div className="flex flex-wrap items-start gap-3">
+                      <div className="flex flex-wrap items-center gap-2 text-[13px] font-semibold">
+                        <span className="print-category-title">{category.name}</span>
+                        <span className="print-category-label text-[11px] text-neutral-900">
+                          {category.decisionCount} decisions
+                        </span>
+                      </div>
+                      <div className="ml-auto flex flex-wrap items-center justify-end gap-2">
+                        <Badge variant="secondary" className={neutralStatPillClass}>
+                          Volume: {formatPct(category.share)}
+                        </Badge>
+                        <Badge variant="secondary" className={neutralStatPillClass}>
+                          Avg D-NAV: {category.avgDnav.toFixed(1)}
+                        </Badge>
+                        <Badge variant="secondary" className={neutralStatPillClass}>
+                          R / P / S: {category.avgR.toFixed(1)} / {category.avgP.toFixed(1)} / {category.avgS.toFixed(1)}
+                        </Badge>
+                        <Badge variant="secondary" className={neutralStatPillClass}>
+                          Dominant: {category.dominantFactor ?? "Balanced"}
+                        </Badge>
+                      </div>
                     </div>
-                    <div className="ml-auto flex flex-wrap items-center justify-end gap-2">
-                      <Badge variant="secondary" className={neutralStatPillClass}>
-                        Volume: {formatPct(category.share)}
-                      </Badge>
-                      <Badge variant="secondary" className={neutralStatPillClass}>
-                        Avg D-NAV: {category.avgDnav.toFixed(1)}
-                      </Badge>
-                      <Badge variant="secondary" className={neutralStatPillClass}>
-                        R / P / S: {category.avgR.toFixed(1)} / {category.avgP.toFixed(1)} / {category.avgS.toFixed(1)}
-                      </Badge>
-                      <Badge variant="secondary" className={neutralStatPillClass}>
-                        Dominant: {category.dominantFactor ?? "Balanced"}
-                      </Badge>
-                    </div>
-                  </div>
 
-                  <div className="rounded-2xl border border-orange-100 border-l-4 border-l-orange-500 bg-orange-50/70 px-4 py-3">
-                    <div className="flex flex-wrap items-center gap-2 text-[11px] font-semibold uppercase tracking-wide text-neutral-600">
-                      <span>Category Action Insight</span>
-                      <Badge
-                        variant="secondary"
-                        className={cn("text-[10px] font-semibold", signalToneStyles[category.insight.signalStrength])}
-                      >
-                        {category.insight.signalStrength === "strong"
-                          ? "Strong signal"
-                          : category.insight.signalStrength === "medium"
-                            ? "Medium signal"
-                            : "Weak signal"}
-                      </Badge>
+                    <div className="rounded-2xl border border-orange-100 border-l-4 border-l-orange-500 bg-orange-50/70 px-4 py-3">
+                      <div className="print-category-label flex flex-wrap items-center gap-2 text-[11px] font-semibold uppercase tracking-wide text-neutral-600">
+                        <span>Category Action Insight</span>
+                        <Badge
+                          variant="secondary"
+                          className={cn("text-[10px] font-semibold", signalToneStyles[category.insight.signalStrength])}
+                        >
+                          {category.insight.signalStrength === "strong"
+                            ? "Strong signal"
+                            : category.insight.signalStrength === "medium"
+                              ? "Medium signal"
+                              : "Weak signal"}
+                        </Badge>
+                      </div>
+                      <p className="mt-1 text-[13px] leading-[1.45] text-neutral-900">
+                        {category.insight.insightText}
+                      </p>
+                      {category.insight.logMoreHint && (
+                        <p className="mt-2 text-[11px] text-neutral-600">{category.insight.logMoreHint}</p>
+                      )}
                     </div>
-                    <p className="mt-1 text-[13px] leading-[1.45] text-neutral-900">
-                      {category.insight.insightText}
-                    </p>
-                    {category.insight.logMoreHint && (
-                      <p className="mt-2 text-[11px] text-neutral-600">{category.insight.logMoreHint}</p>
-                    )}
                   </div>
                 </div>
-              </div>
-            ))}
+              ))}
+            </div>
           </div>
-        </div>
           <div className="print-two-column__right print-avoid-break rounded-2xl border border-black/10 p-5">
             <div className="space-y-1">
               <p className="text-[11px] font-semibold uppercase tracking-wide text-neutral-900">
