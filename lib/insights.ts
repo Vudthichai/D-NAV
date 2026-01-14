@@ -39,18 +39,13 @@ const addUnique = (list: string[], value: string) => {
   }
 };
 
-const getVolumePrefix = (shareOfVolume?: number) => {
-  if (typeof shareOfVolume !== "number") return "";
-  if (shareOfVolume >= 25) return "High-volume, ";
-  if (shareOfVolume >= 10) return "Mid-volume, ";
-  return "Low-volume, ";
-};
+const getVolumePrefix = () => "";
 
 const getPosture = (
   input: CategoryActionInsightInput,
   baseline: CategoryActionInsightBaseline,
 ) => {
-  const prefix = getVolumePrefix(input.shareOfVolume);
+  const prefix = getVolumePrefix();
   const isStable = input.avgS >= baseline.avgS;
   const isCalm = input.avgP <= baseline.avgP;
   const isHighReturn = input.avgR >= baseline.avgR;
