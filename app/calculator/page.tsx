@@ -20,7 +20,7 @@ import {
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { getArchetype } from "@/lib/calculations";
 import { CompanyPeriodSnapshot, generateFullInterpretation } from "@/lib/dnavSummaryEngine";
-import { buildCategoryActionInsight } from "@/lib/insights";
+import { getCategoryActionInsight } from "@/lib/categoryActionInsight";
 import { useNetlifyIdentity } from "@/hooks/use-netlify-identity";
 import {
   Download,
@@ -293,18 +293,6 @@ const DistributionCard = ({ title, segments, tooltip }: DistributionCardProps) =
       </CardContent>
     </Card>
   );
-};
-
-const getLogMoreHint = (count: number) => {
-  if (count >= 10) return null;
-  const remaining = Math.max(0, 10 - count);
-  if (count >= 5) {
-    return `Log ${remaining} more decisions in this category to strengthen the signal.`;
-  }
-  if (count >= 3) {
-    return `Signal is thin — log ${remaining} more decisions here before trusting patterns.`;
-  }
-  return `Not enough data — log ${remaining} more decisions here to form a usable signal.`;
 };
 
 const CompactMetric = ({
@@ -945,7 +933,7 @@ export default function TheDNavPage() {
     const returnDistribution = segmentsToDistribution(categoryDistributions?.returnSegments ?? []);
     const pressureDistribution = segmentsToDistribution(categoryDistributions?.pressureSegments ?? []);
     const stabilityDistribution = segmentsToDistribution(categoryDistributions?.stabilitySegments ?? []);
-    return buildCategoryActionInsight({
+    return getCategoryActionInsight({
       count: categoryDecisionCount,
       avgR: selectedCategory.row.avgR,
       avgP: selectedCategory.row.avgP,
@@ -957,17 +945,15 @@ export default function TheDNavPage() {
   }, [categoryDecisionCount, categoryDistributions, selectedCategory]);
   const categoryInsightSummary = useMemo(() => {
     if (!selectedCategoryInsight) return null;
-    return selectedCategoryInsight.watch
-      ? `${selectedCategoryInsight.summary} ${selectedCategoryInsight.watch}`
-      : selectedCategoryInsight.summary;
+    return selectedCategoryInsight.insightText;
   }, [selectedCategoryInsight]);
   const categorySignal = useMemo(() => {
-    const signal = selectedCategoryInsight?.signal ?? "weak";
+    const signal = selectedCategoryInsight?.signalStrength ?? "weak";
     if (signal === "strong") return { label: "Strong signal", tone: "green" as const };
     if (signal === "medium") return { label: "Medium signal", tone: "amber" as const };
     return { label: "Weak signal", tone: "gray" as const };
   }, [selectedCategoryInsight]);
-  const categoryLogHint = useMemo(() => getLogMoreHint(categoryDecisionCount), [categoryDecisionCount]);
+  const categoryLogHint = useMemo(() => selectedCategoryInsight?.logMoreHint ?? null, [selectedCategoryInsight]);
   const signalToneStyles = {
     green: "bg-emerald-100 text-emerald-700 dark:bg-emerald-500/20 dark:text-emerald-200",
     amber: "bg-amber-100 text-amber-700 dark:bg-amber-500/20 dark:text-amber-200",
