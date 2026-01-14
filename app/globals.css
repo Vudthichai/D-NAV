@@ -659,15 +659,30 @@ body.exporting-report .report-card {
   }
 
   .print-root {
-    width: auto !important;
+    width: 7.5in !important;
     max-width: none !important;
     padding: 0 !important;
-    margin: 0 !important;
+    margin: 0 auto !important;
   }
 
   .print-section {
     break-inside: avoid;
     page-break-inside: avoid;
+  }
+
+  .print-page-break {
+    break-before: page;
+    page-break-before: always;
+  }
+
+  .print-avoid-break {
+    break-inside: avoid;
+    page-break-inside: avoid;
+  }
+
+  .print-full-width {
+    width: 100%;
+    max-width: none;
   }
 
   .print-root .rounded-xl,
