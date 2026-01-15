@@ -11,6 +11,7 @@ import ExtractedDecisionReviewPanel, {
 import { Badge } from "@/components/ui/badge";
 import { GlassCard } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { AccentSliver } from "@/components/ui/AccentSliver";
 import { Callout } from "@/components/ui/Callout";
 import { Textarea } from "@/components/ui/textarea";
 import Term from "@/components/ui/Term";
@@ -678,10 +679,15 @@ export default function StressTestPage() {
                   </Button>
                 </div>
                 <Callout
-                  label="Session Insight"
-                  labelClassName="text-muted-foreground"
+                  label={
+                    <>
+                      <AccentSliver />
+                      <span>Session Insight</span>
+                    </>
+                  }
+                  labelClassName="flex items-center gap-2 text-muted-foreground"
                   bodyClassName="text-foreground"
-                  className="dnav-dark-glass-surface dnav-insight-callout dark:after:absolute dark:after:bottom-0 dark:after:left-0 dark:after:top-0 dark:after:z-[1] dark:after:w-[3px] dark:after:rounded-full dark:after:bg-[hsl(var(--primary))] dark:after:content-['']"
+                  className="dnav-dark-glass-surface dnav-insight-callout"
                 >
                   <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
                     <div className="space-y-1">

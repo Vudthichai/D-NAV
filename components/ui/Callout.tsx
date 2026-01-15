@@ -3,7 +3,7 @@ import * as React from "react"
 import { cn } from "@/lib/utils"
 
 type CalloutProps = {
-  label: string
+  label: React.ReactNode
   children: React.ReactNode
   className?: string
   labelClassName?: string
@@ -18,9 +18,7 @@ function Callout({ label, children, className, labelClassName, bodyClassName }: 
         className
       )}
     >
-      <p className={cn("text-[11px] font-semibold uppercase tracking-wide text-neutral-600", labelClassName)}>
-        {label}
-      </p>
+      <p className={cn("text-[11px] font-semibold uppercase tracking-wide text-neutral-600", labelClassName)}>{label}</p>
       <div className={cn("mt-1 text-[13px] leading-[1.45] text-neutral-900", bodyClassName)}>{children}</div>
     </div>
   )
