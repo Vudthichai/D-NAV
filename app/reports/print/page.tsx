@@ -206,7 +206,7 @@ function PrintReportPageContent() {
   }, [stats.totalDecisions]);
 
   return (
-    <div className="print-page bg-white">
+    <div className="report-deliverable print-page bg-white">
       <ReportPrintView
         snapshot={snapshot}
         interpretation={interpretation}

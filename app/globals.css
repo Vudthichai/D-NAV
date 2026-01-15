@@ -474,6 +474,36 @@ body {
   padding: 2rem 1.5rem;
 }
 
+.report-deliverable {
+  color-scheme: light;
+  background: #ffffff;
+  --background: oklch(0.967 0.0082 91.4829);
+  --foreground: oklch(0.2962 0.01 260.7091);
+  --card: oklch(0.9875 0.0026 106.4475);
+  --card-foreground: oklch(0.2962 0.01 260.7091);
+  --popover: oklch(0.9875 0.0026 106.4475);
+  --popover-foreground: oklch(0.2962 0.01 260.7091);
+  --primary: oklch(0.7442 0.1812 56.4585);
+  --primary-foreground: oklch(0.9875 0.0026 106.4475);
+  --secondary: oklch(0.4571 0.0366 258.9044);
+  --secondary-foreground: oklch(0.9875 0.0026 106.4475);
+  --muted: oklch(0.8857 0.0294 82.5907);
+  --muted-foreground: oklch(0.6291 0.0279 255.6182);
+  --accent: oklch(0.8857 0.0294 82.5907);
+  --accent-foreground: oklch(0.2962 0.01 260.7091);
+  --destructive: oklch(0.6358 0.2088 25.4126);
+  --destructive-foreground: oklch(0.9875 0.0026 106.4475);
+  --border: oklch(0.915 0.0138 78.2593);
+  --input: oklch(0.915 0.0138 78.2593);
+  --ring: oklch(0.3282 0.0685 253.2006);
+}
+
+.report-deliverable,
+.report-deliverable * {
+  -webkit-print-color-adjust: exact;
+  print-color-adjust: exact;
+}
+
 /* D-NAV one-pager print layout */
 @media print {
   @page {
@@ -482,6 +512,11 @@ body {
   }
 
   body {
+    background: #ffffff;
+  }
+
+  .report-deliverable {
+    color-scheme: light;
     background: #ffffff;
   }
 
