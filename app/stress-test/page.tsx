@@ -681,7 +681,7 @@ export default function StressTestPage() {
                   label="Session Insight"
                   labelClassName="text-muted-foreground"
                   bodyClassName="text-foreground"
-                  className="dnav-dark-glass-surface dnav-insight-callout"
+                  className="dnav-dark-glass-surface dnav-insight-callout dark:after:absolute dark:after:bottom-0 dark:after:left-0 dark:after:top-0 dark:after:z-[1] dark:after:w-[3px] dark:after:rounded-full dark:after:bg-[hsl(var(--primary))] dark:after:content-['']"
                 >
                   <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
                     <div className="space-y-1">
