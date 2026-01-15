@@ -18,9 +18,9 @@ const personas: Persona[] = [
   {
     title: "Managers & Team Leads",
     label: "Planning & Alignment",
-    description: "Run meetings on shared numbers — not opinions — so teams align on the next move quickly.",
+    description: "Run decision reviews on shared numbers — not opinions — so teams align on the next move quickly.",
     highlights: [
-      "Use the Stress Test live to get to a decision in one screen.",
+      "Use the Stress Test in a facilitated review to reach a defensible decision in one screen.",
       "Expose where urgency or confidence is distorting the plan before work starts.",
       "Set a repeatable language for risk, return, and stability across updates.",
     ],
@@ -30,8 +30,8 @@ const personas: Persona[] = [
     label: "Execution under constraints",
     description: "Keep work survivable when timelines compress and pressure climbs.",
     highlights: [
-      "Model return, pressure, and stability before committing resources.",
-      "Spot which lever to move — reduce cost, slow urgency, or raise confidence — in minutes.",
+      "Model return, pressure, and stability in a guided review before committing resources.",
+      "Spot which lever to move — reduce cost, slow urgency, or raise confidence — during the review.",
       "Use the same language in check-ins so scope stays aligned to reality.",
     ],
   },
@@ -40,7 +40,7 @@ const personas: Persona[] = [
     label: "Performance & review loops",
     description: "Translate messy decision stories into a shared grammar that athletes and clients can use every week.",
     highlights: [
-      "Run a quick Stress Test before or after sessions to see the true blocker.",
+      "Run a quick Stress Test in session to surface the true blocker.",
       "Turn confidence vs. risk into a simple coaching target.",
       "Build decision memory so progress is measured by better judgment, not volume.",
     ],
@@ -52,7 +52,7 @@ const personas: Persona[] = [
     highlights: [
       "Surface pressure and stability before investor, hiring, or GTM bets go live.",
       "Trade scope and speed without losing the return story.",
-      "Align boards, partners, and teams with one shared stress test.",
+      "Align boards, partners, and teams with one shared stress-test review.",
     ],
   },
 ];
@@ -71,8 +71,8 @@ export default function UseCasesPage() {
             </Badge>
             <h1 className="text-3xl font-bold leading-tight md:text-4xl">Use Cases</h1>
             <p className="mx-auto max-w-3xl text-lg text-slate-600 dark:text-slate-200">
-              D-NAV is built for people who have to decide fast under pressure. Use the Stress Test as the meeting
-              language, then expand to audits and consulting when the stakes rise.
+              D-NAV is built for people who have to decide fast under pressure. Use the Stress Test as the facilitated
+              review language, then expand to audits and consulting when the stakes rise.
             </p>
             <div className="flex flex-wrap items-center justify-center gap-3">
               <Button asChild className="bg-amber-500 text-black hover:bg-amber-400">

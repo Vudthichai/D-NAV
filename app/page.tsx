@@ -83,7 +83,7 @@ function HeroSection() {
 
           <div className="space-y-6 md:space-y-7 w-full max-w-4xl">
             <h1 className="text-4xl md:text-6xl font-black leading-tight tracking-tight text-white">Decisions fail long before execution. D-NAV shows you where.</h1>
-            <p className="text-xl text-slate-200 max-w-3xl">D-NAV helps you see the pressure, return, and stability behind decisions—before momentum locks in.</p>
+            <p className="text-xl text-slate-200 max-w-3xl">D-NAV helps leadership teams surface the pressure, return, and stability behind decisions—before momentum locks in.</p>
             <div className="space-y-2">
               <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:gap-4">
                 <Button
@@ -105,7 +105,7 @@ function HeroSection() {
                   <Link href="/contact">Request a pre-commitment review</Link>
                 </Button>
               </div>
-              <p className="text-sm text-slate-400">One decision. Five variables. Immediate clarity.</p>
+              <p className="text-sm text-slate-400">One decision. Five variables. A facilitated decision readout.</p>
             </div>
             <p className="text-lg text-slate-300 max-w-3xl">
               Decisions rarely collapse because of effort. They fail because pressure, risk, and stability were never surfaced before commitment. D-NAV makes that friction visible early, so execution teams inherit a plan that has already survived scrutiny.
@@ -137,7 +137,7 @@ function HeroSection() {
 
         <div className="mt-10 md:mt-12 lg:mt-14 animate-fade-up" style={{ "--delay": "0.08s" } as CSSProperties}>
           <div className="rounded-2xl border border-white/10 bg-white/5 p-6 md:p-7 shadow-[0_18px_50px_-42px_rgba(0,0,0,0.9)] space-y-4">
-            <h2 className="text-base md:text-lg font-semibold text-white uppercase tracking-[0.18em]">When D-NAV is the right tool</h2>
+            <h2 className="text-base md:text-lg font-semibold text-white uppercase tracking-[0.18em]">When D-NAV is the right engagement</h2>
             <div className="grid gap-4 md:grid-cols-2">
               <div className="space-y-2 text-slate-200">
                 <p className="text-base text-slate-200">
@@ -146,7 +146,7 @@ function HeroSection() {
               </div>
               <div className="rounded-xl border border-white/10 bg-black/30 p-4 space-y-2 text-slate-200">
                 <p className="text-base text-slate-200">
-                  D-NAV surfaces the pressure, return, and stability dynamics already shaping the outcome.
+                  A D-NAV review surfaces the pressure, return, and stability dynamics already shaping the outcome.
                 </p>
               </div>
             </div>
@@ -279,7 +279,7 @@ function UnderTheHoodSection() {
         <SectionHeading title="Under the hood: RPS + D-NAV" align="left" eyebrow="System grammar" />
 
         <p className="text-slate-300 text-base max-w-3xl animate-fade-up" style={{ "--delay": "0.04s" } as CSSProperties}>
-          D-NAV doesn&apos;t tell you what to decide. It shows you how your decisions behave under pressure.
+          D-NAV doesn&apos;t hand you answers. It shows you how your decisions behave under pressure.
         </p>
         <p className="text-slate-300 text-base max-w-3xl animate-fade-up" style={{ "--delay": "0.06s" } as CSSProperties}>
           Return, Pressure, and Stability describe the geometry of a decision—not its outcome.
@@ -350,9 +350,9 @@ function UnderTheHoodSection() {
               <div className="flex items-center justify-between gap-2">
                 <div className="space-y-2">
                   <p className="text-xs uppercase tracking-[0.2em] text-amber-200">D-NAV Score</p>
-                  <h3 className="text-xl font-semibold text-white">See the score before the market does.</h3>
-                </div>
-                <div className="rounded-full border border-white/10 bg-white/5 px-3 py-1 text-xs text-slate-200">Live</div>
+              <h3 className="text-xl font-semibold text-white">See the readout before commitments harden.</h3>
+            </div>
+                <div className="rounded-full border border-white/10 bg-white/5 px-3 py-1 text-xs text-slate-200">Facilitated</div>
               </div>
               <p className="text-slate-300">
                 D-NAV is the consulting readout. Merit = Impact − Cost − Risk. Energy = Urgency × Confidence. Pressure and Stability show where Energy strains the plan. Together, they reveal whether the Merit holds and whether the team can carry it.
@@ -415,7 +415,7 @@ function UnderTheHoodSection() {
                 Contrast
               </div>
               <h3 className="text-xl font-semibold text-white">Compare</h3>
-              <p className="text-slate-300">Side-by-side stress tests show where plans break under pressure before commitment.</p>
+              <p className="text-slate-300">Side-by-side stress tests in review show where plans break under pressure before commitment.</p>
               <div className="grid grid-cols-2 gap-3 text-sm text-slate-200">
                 <div className="rounded-xl border border-white/5 bg-black/30 px-3 py-2">
                   <p className="text-xs uppercase tracking-[0.16em] text-amber-200">Entity</p>

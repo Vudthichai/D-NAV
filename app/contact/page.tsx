@@ -37,7 +37,7 @@ export default function ContactPage() {
       <section className="space-y-4">
         <h1 className="text-3xl font-bold tracking-tight">Contact &amp; Inquiries</h1>
         <p className="text-muted-foreground">
-          Ready to explore D-NAV for your team or organization? Choose the path that fits
+          Ready to engage D-NAV for your team or organization? Choose the path that fits
           best and we&apos;ll follow up with next steps right away.
         </p>
       </section>
@@ -47,7 +47,7 @@ export default function ContactPage() {
           <CardHeader>
             <CardTitle>Book a Workshop</CardTitle>
             <CardDescription>
-              Facilitate a live D-NAV session for your team. We&apos;ll align on outcomes,
+              Facilitate a live D-NAV decision review session for your team. We&apos;ll align on outcomes,
               timing, and customization options.
             </CardDescription>
           </CardHeader>
@@ -67,7 +67,7 @@ export default function ContactPage() {
           <CardHeader>
             <CardTitle>Consulting Inquiry</CardTitle>
             <CardDescription>
-              Partner with us on ongoing decision-making support. We&apos;ll design a roadmap
+              Partner with us on ongoing decision review support. We&apos;ll design a roadmap
               tailored to your organization.
             </CardDescription>
           </CardHeader>

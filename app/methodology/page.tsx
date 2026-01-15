@@ -7,7 +7,7 @@ export default function MethodologyPage() {
             <h1 className="text-3xl font-bold tracking-tight">Methodology</h1>
             <p className="text-muted-foreground">
               A plain-language guide to what D-NAV measures, how inputs are scaled, and how regime
-              labels are assigned.
+              labels are assigned in a consulting readout.
             </p>
           </header>
 
@@ -15,7 +15,8 @@ export default function MethodologyPage() {
             <h2 className="text-xl font-semibold">What D-NAV measures</h2>
             <p className="text-muted-foreground">
               D-NAV focuses on judgment quality — the balance of return potential, pressure, and
-              stability behind a decision — rather than the final outcome alone.
+              stability behind a decision — rather than the final outcome alone. It is designed to
+              support pre-commitment decision reviews, not provide answers.
             </p>
           </section>
 
@@ -47,7 +48,7 @@ export default function MethodologyPage() {
             <h2 className="text-xl font-semibold">Regimes</h2>
             <p className="text-muted-foreground">
               Regime labels are applied after scores are computed. They summarize the dominant
-              decision posture in plain language for fast scanning.
+              decision posture in plain language for fast scanning during a review.
             </p>
           </section>
 
