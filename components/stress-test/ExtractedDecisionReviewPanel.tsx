@@ -36,6 +36,8 @@ export default function ExtractedDecisionReviewPanel({
   categories,
   onAddToLog,
 }: ExtractedDecisionReviewPanelProps) {
+  const safeCandidates = useMemo(() => (Array.isArray(candidates) ? candidates : []), [candidates]);
+  const safeCategories = useMemo(() => (Array.isArray(categories) ? categories : []), [categories]);
   const [showDiscarded, setShowDiscarded] = useState(false);
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [bulkCategory, setBulkCategory] = useState("");
@@ -43,16 +45,16 @@ export default function ExtractedDecisionReviewPanel({
   const categoryListId = useId();
 
   const categoryOptions = useMemo(() => {
-    const base = categories.map((category) => category.trim()).filter(Boolean);
-    const fromCandidates = candidates
+    const base = safeCategories.map((category) => category.trim()).filter(Boolean);
+    const fromCandidates = safeCandidates
       .map((candidate) => candidate.category?.trim())
       .filter((value): value is string => Boolean(value));
     return Array.from(new Set([...base, ...fromCandidates]));
-  }, [categories, candidates]);
+  }, [safeCategories, safeCandidates]);
 
   const visibleCandidates = useMemo(
-    () => (showDiscarded ? candidates : candidates.filter((candidate) => !candidate.discarded)),
-    [candidates, showDiscarded],
+    () => (showDiscarded ? safeCandidates : safeCandidates.filter((candidate) => !candidate.discarded)),
+    [safeCandidates, showDiscarded],
   );
 
   const visibleActiveCandidates = useMemo(
@@ -61,18 +63,18 @@ export default function ExtractedDecisionReviewPanel({
   );
 
   const confirmedCount = useMemo(
-    () => candidates.filter((candidate) => candidate.confirmed && !candidate.discarded).length,
-    [candidates],
+    () => safeCandidates.filter((candidate) => candidate.confirmed && !candidate.discarded).length,
+    [safeCandidates],
   );
 
   const discardedCount = useMemo(
-    () => candidates.filter((candidate) => candidate.discarded).length,
-    [candidates],
+    () => safeCandidates.filter((candidate) => candidate.discarded).length,
+    [safeCandidates],
   );
 
   const validSelectedIds = useMemo(
-    () => selectedIds.filter((id) => candidates.some((candidate) => candidate.id === id)),
-    [selectedIds, candidates],
+    () => selectedIds.filter((id) => safeCandidates.some((candidate) => candidate.id === id)),
+    [selectedIds, safeCandidates],
   );
 
   const selectedVisibleIds = useMemo(
@@ -121,7 +123,7 @@ export default function ExtractedDecisionReviewPanel({
   };
 
   const handleAddConfirmed = () => {
-    const confirmedCandidates = candidates.filter((candidate) => candidate.confirmed && !candidate.discarded);
+    const confirmedCandidates = safeCandidates.filter((candidate) => candidate.confirmed && !candidate.discarded);
     if (confirmedCandidates.length === 0) return;
     const addedCount = onAddToLog(confirmedCandidates);
     if (addedCount > 0) {
@@ -192,7 +194,7 @@ export default function ExtractedDecisionReviewPanel({
 
       {statusMessage ? <p className="text-xs font-semibold text-emerald-600">{statusMessage}</p> : null}
 
-      {candidates.length === 0 ? (
+      {safeCandidates.length === 0 ? (
         <div className="rounded-lg border border-dashed border-border/60 bg-muted/20 px-3 py-2 text-xs text-muted-foreground">
           No decisions found. Try shorter bullets and include verbs like decide / approve / commit / choose / hire /
           pause.
@@ -281,7 +283,7 @@ export default function ExtractedDecisionReviewPanel({
 
       <div className="flex flex-wrap items-center justify-between gap-2 text-xs">
         <span className="text-muted-foreground">
-          {confirmedCount} confirmed • {candidates.length} total
+          {confirmedCount} confirmed • {safeCandidates.length} total
         </span>
         <Button
           className="h-9 px-4 text-xs font-semibold uppercase tracking-wide"

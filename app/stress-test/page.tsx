@@ -734,7 +734,7 @@ export default function StressTestPage() {
                   </div>
                 </div>
                 <a
-                  href="/mockups/John-Smith's-Company.pdf"
+                  href="/mockups/John-Smith%27s-Company.pdf"
                   target="_blank"
                   rel="noreferrer"
                   className="mt-1 block rounded-md text-left transition duration-150 ease-out hover:-translate-y-0.5 hover:shadow-sm focus-visible:-translate-y-0.5 focus-visible:shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-500/40 focus-visible:ring-offset-2 focus-visible:ring-offset-background"
