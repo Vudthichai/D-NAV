@@ -653,7 +653,7 @@ export default function StressTestPage() {
             {canOpenSessionAnalysis && isSessionAnalysisOpen ? (
               <div
                 ref={sessionAnalysisRef}
-                className="space-y-4 rounded-2xl border border-border/60 bg-white/70 p-4 shadow-sm dark:bg-black/20 dark:bg-gradient-to-br dark:from-white/10 dark:via-white/5 dark:to-transparent dark:shadow-[inset_0_1px_0_rgba(255,255,255,0.08)]"
+                className="dnav-dark-glass-surface space-y-4 rounded-2xl border border-border/60 bg-white/70 p-4 shadow-sm"
               >
                 <div className="flex flex-wrap items-start justify-between gap-3">
                   <div className="space-y-1">
@@ -681,6 +681,7 @@ export default function StressTestPage() {
                   label="Session Insight"
                   labelClassName="text-muted-foreground"
                   bodyClassName="text-foreground"
+                  className="dnav-dark-glass-surface dnav-insight-callout"
                 >
                   <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
                     <div className="space-y-1">

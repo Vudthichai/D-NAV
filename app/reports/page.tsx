@@ -1108,8 +1108,8 @@ function OnePageReport({
                     </div>
                   </div>
 
-                  <div className="rounded-2xl border border-orange-100 border-l-4 border-l-orange-500 bg-orange-50/70 px-4 py-3">
-                    <div className="flex flex-wrap items-center gap-2 text-[11px] font-semibold uppercase tracking-wide text-neutral-600">
+                  <div className="dnav-dark-glass-surface dnav-insight-callout rounded-2xl border border-orange-100 border-l-4 border-l-orange-500 bg-orange-50/70 px-4 py-3">
+                    <div className="flex flex-wrap items-center gap-2 text-[11px] font-semibold uppercase tracking-wide text-neutral-600 dark:text-muted-foreground">
                       <span>Category Action Insight</span>
                       <Badge
                         variant="secondary"
@@ -1122,11 +1122,13 @@ function OnePageReport({
                             : "Weak signal"}
                       </Badge>
                     </div>
-                    <p className="mt-1 text-[13px] leading-[1.45] text-neutral-900">
+                    <p className="mt-1 text-[13px] leading-[1.45] text-neutral-900 dark:text-foreground">
                       {category.insight.insightText}
                     </p>
                     {category.insight.logMoreHint && (
-                      <p className="mt-2 text-[11px] text-neutral-600">{category.insight.logMoreHint}</p>
+                      <p className="mt-2 text-[11px] text-neutral-600 dark:text-muted-foreground">
+                        {category.insight.logMoreHint}
+                      </p>
                     )}
                   </div>
                 </div>

@@ -1625,8 +1625,8 @@ export default function TheDNavPage() {
                             <div className="space-y-4 border-b bg-card/60 px-6 py-4">
                               <div className="flex flex-wrap items-start justify-between gap-3">
                                 <div className="space-y-2 max-w-2xl">
-                                  <div className="rounded-2xl border border-orange-100 border-l-4 border-l-orange-500 bg-orange-50/70 px-4 py-3">
-                                    <div className="flex flex-wrap items-center gap-2 text-xs font-semibold uppercase tracking-wide text-orange-900/70">
+                                  <div className="dnav-dark-glass-surface dnav-insight-callout rounded-2xl border border-orange-100 border-l-4 border-l-orange-500 bg-orange-50/70 px-4 py-3">
+                                    <div className="flex flex-wrap items-center gap-2 text-xs font-semibold uppercase tracking-wide text-orange-900/70 dark:text-muted-foreground">
                                       <span>Category Action Insight</span>
                                       <Badge
                                         variant="secondary"
