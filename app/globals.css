@@ -110,6 +110,10 @@
   --shadow-lg: 0px 2px 4px 0px hsl(0 0% 0% / 0.1), 0px 4px 6px -1px hsl(0 0% 0% / 0.1);
   --shadow-xl: 0px 2px 4px 0px hsl(0 0% 0% / 0.1), 0px 8px 10px -1px hsl(0 0% 0% / 0.1);
   --shadow-2xl: 0px 2px 4px 0px hsl(0 0% 0% / 0.25);
+  --dn-surface-dark: linear-gradient(180deg, #12161a 0%, #0b0e11 100%);
+  --dn-border-dark: rgba(255, 255, 255, 0.12);
+  --dn-gloss-dark: radial-gradient(120% 80% at 20% 0%, rgba(255, 255, 255, 0.1) 0%, rgba(255, 255, 255, 0) 55%);
+  --dn-glass-shadow: 0 10px 30px rgba(0, 0, 0, 0.35), inset 0 1px 0 rgba(255, 255, 255, 0.08);
 }
 
 .dark [data-slot="card"] {
@@ -221,6 +225,37 @@
 
 .dark .dnav-card-surface .text-muted-foreground {
   color: hsl(var(--muted-foreground));
+}
+
+.dark .dnav-dark-glass-surface {
+  position: relative;
+  overflow: hidden;
+  border: 1px solid var(--dn-border-dark);
+  background: var(--dn-surface-dark);
+  box-shadow: var(--dn-glass-shadow);
+}
+
+.dark .dnav-dark-glass-surface::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background: var(--dn-gloss-dark);
+  opacity: 0.08;
+  pointer-events: none;
+  z-index: 0;
+}
+
+.dark .dnav-dark-glass-surface > * {
+  position: relative;
+  z-index: 1;
+}
+
+.dark .dnav-insight-callout {
+  border-left-width: 3px;
+  border-left-style: solid;
+  border-left-color: hsl(var(--primary));
+  box-shadow: var(--dn-glass-shadow), inset 3px 0 8px hsl(var(--primary) / 0.18);
 }
 
 @theme inline {
