@@ -90,8 +90,8 @@ export default function ScenariosPage() {
           <p className="text-xs uppercase tracking-[0.3em] text-amber-700 dark:text-amber-200">Field Guide</p>
           <h1 className="text-3xl font-bold leading-tight md:text-4xl">Scenarios</h1>
           <p className="mx-auto max-w-3xl text-base text-slate-600 dark:text-slate-200">
-            Real-world decision physics in plain language. Use these as fast translations of Return, Pressure, and
-            Stability before you act.
+            Real-world decision physics in plain language. Use these as shared translations of Return, Pressure, and
+            Stability during a decision review before you act.
           </p>
           <div className="flex flex-wrap items-center justify-center gap-3">
             <Button asChild className="bg-amber-500 text-black hover:bg-amber-400">

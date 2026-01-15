@@ -528,8 +528,8 @@ export default function StressTestPage() {
               <div className="flex flex-wrap items-start justify-between gap-3">
                 <div className="space-y-1">
                   <h1 className="text-xl font-semibold text-foreground">Stress Test</h1>
-                  <p className="text-sm font-semibold text-foreground">See the shape of your decision.</p>
-                  <p className="text-sm text-muted-foreground">Run a fast diagnostic on a decision and capture the signal.</p>
+                  <p className="text-sm font-semibold text-foreground">See the shape of your decision in review.</p>
+                  <p className="text-sm text-muted-foreground">Run a guided diagnostic on a decision and capture the signal.</p>
                 </div>
                 <div className="flex flex-col items-end gap-1">
                   <div className="flex flex-wrap items-center gap-2">
@@ -575,7 +575,7 @@ export default function StressTestPage() {
                       </span>
                     </TooltipTrigger>
                     <TooltipContent side="bottom" className="max-w-[240px]">
-                      Session Analysis shows how your decisions behave under pressure before hindsight distorts them.
+                      Session Analysis shows how your decisions behave under pressure during review, before hindsight distorts them.
                     </TooltipContent>
                   </Tooltip>
                 </div>
@@ -597,7 +597,7 @@ export default function StressTestPage() {
                 <div className="overflow-x-auto">
                   <div className="min-w-[720px] space-y-1">
                     <p className="text-[11px] text-muted-foreground">
-                      These are live decisions captured in-the-moment — before outcomes rewrite the story.
+                      These are live decisions captured in-the-moment for review — before outcomes rewrite the story.
                     </p>
                     <div className="grid grid-cols-[minmax(180px,1.6fr)_repeat(5,minmax(48px,0.5fr))_repeat(3,minmax(40px,0.4fr))_minmax(56px,0.5fr)] items-center gap-2 rounded-lg border border-border/40 bg-muted/20 px-3 py-1 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
                       <span>Decision</span>
