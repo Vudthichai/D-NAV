@@ -1,6 +1,7 @@
 'use client';
 
 import { DecisionMetrics, JudgmentSignal, getArchetype, getReadoutLines } from "@/lib/calculations";
+import { AccentSliver } from "@/components/ui/AccentSliver";
 import Term from "@/components/ui/Term";
 import { cn } from "@/lib/utils";
 import { useMemo } from "react";
@@ -70,16 +71,18 @@ export default function SummaryCard({
             </div>
           </div>
           <div className={cn("dnav-glass-panel", compact ? "px-3 py-2" : "px-3 py-2.5")}>
-            <p
-              className={cn(
-                compact
-                  ? "text-[10px] font-medium uppercase tracking-wide text-muted-foreground/70"
-                  : "text-[11px] font-semibold uppercase tracking-wider text-muted-foreground",
-                "relative pl-3 before:absolute before:left-0 before:top-1/2 before:h-2.5 before:w-[2px] before:-translate-y-1/2 before:rounded-full before:bg-orange-500/70 dark:before:bg-orange-400/80",
-              )}
-            >
-              Action
-            </p>
+            <div className="flex items-center gap-2">
+              <AccentSliver />
+              <p
+                className={cn(
+                  compact
+                    ? "text-[10px] font-medium uppercase tracking-wide text-muted-foreground/70"
+                    : "text-[11px] font-semibold uppercase tracking-wider text-muted-foreground",
+                )}
+              >
+                Action
+              </p>
+            </div>
             <p
               className={cn(
                 "text-foreground",
