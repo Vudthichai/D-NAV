@@ -8,28 +8,40 @@ export interface UploadedDoc {
 
 export interface SourceRef {
   docId: string;
-  fileName: string;
-  pageNumber: number;
+  docName: string;
+  pageNumber?: number | null;
   excerpt: string;
-  chunkId: string;
 }
 
-export interface DecisionCandidate {
+export const DECISION_DOMAINS = [
+  "Strategy",
+  "Capital",
+  "Ops",
+  "Product",
+  "People",
+  "Risk",
+  "Real Estate",
+  "Other",
+  "Uncategorized",
+] as const;
+
+export type DecisionDomain = (typeof DECISION_DOMAINS)[number];
+
+export interface ExtractedDecisionCandidate {
   id: string;
+  docId: string;
+  docName: string;
+  page?: number | null;
+  excerpt: string;
   decisionText: string;
-  category: string;
-  scores: {
-    impact?: number;
-    cost?: number;
-    risk?: number;
-    urgency?: number;
-    confidence?: number;
-  };
-  timeAnchor?: {
-    raw: string;
-    type: "ExactDate" | "Quarter" | "FiscalYear" | "Dependency";
-    verified: "Explicit" | "Unverified";
-  };
-  source: SourceRef;
   keep: boolean;
+  domain: DecisionDomain;
+  scores: {
+    impact: number;
+    cost: number;
+    risk: number;
+    urgency: number;
+    confidence: number;
+  };
+  createdAt: string;
 }

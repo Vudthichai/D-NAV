@@ -10,6 +10,7 @@ interface PdfDropzoneFile {
   id: string;
   name: string;
   sizeBytes: number;
+  status: "idle" | "uploaded" | "extracting" | "extracted";
   progress?: number;
   warning?: string;
 }
@@ -108,6 +109,9 @@ export function PdfDropzone({ files, onFilesAdded, onRemoveFile, disabled }: Pdf
               </div>
             </div>
             <div className="flex items-center gap-2">
+              <span className="rounded-full border border-border/60 bg-muted/40 px-2 py-0.5 text-[10px] font-semibold uppercase text-muted-foreground">
+                {file.status}
+              </span>
               {typeof file.progress === "number" ? (
                 <div className="h-2 w-24 overflow-hidden rounded-full bg-muted/40">
                   <div className="h-full rounded-full bg-primary/70" style={{ width: `${file.progress}%` }} />

@@ -5,24 +5,28 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Minus, Plus } from "lucide-react";
-import { useMemo, useState } from "react";
-import type { DecisionCandidate } from "@/components/stress-test/decision-intake-types";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { HelpCircle, Minus, Pencil, Plus } from "lucide-react";
+import { useEffect, useMemo, useState } from "react";
+import type { DecisionDomain, ExtractedDecisionCandidate } from "@/components/stress-test/decision-intake-types";
 import { SourceCollapse } from "@/components/stress-test/SourceCollapse";
 
 interface CandidateReviewTableProps {
-  candidates: DecisionCandidate[];
-  categories: string[];
-  onCandidatesChange: (candidates: DecisionCandidate[]) => void;
+  candidates: ExtractedDecisionCandidate[];
+  domains: DecisionDomain[];
+  onCandidatesChange: (candidates: ExtractedDecisionCandidate[]) => void;
 }
 
 interface BulkScoreState {
-  value: string;
+  impact: number;
+  cost: number;
+  risk: number;
+  urgency: number;
+  confidence: number;
 }
 
 const scoreKeys = ["impact", "cost", "risk", "urgency", "confidence"] as const;
-
-type ScoreKey = (typeof scoreKeys)[number];
 
 const clampScore = (value: number) => Math.min(10, Math.max(1, value));
 
@@ -70,33 +74,70 @@ function ScoreStepper({
   );
 }
 
-export function CandidateReviewTable({ candidates, categories, onCandidatesChange }: CandidateReviewTableProps) {
-  const [bulkCategory, setBulkCategory] = useState<string>("Uncategorized");
-  const [bulkScore, setBulkScore] = useState<BulkScoreState>({ value: "" });
+export function CandidateReviewTable({ candidates, domains, onCandidatesChange }: CandidateReviewTableProps) {
+  const [bulkDomain, setBulkDomain] = useState<DecisionDomain>("Uncategorized");
+  const [bulkScore, setBulkScore] = useState<BulkScoreState>({
+    impact: 5,
+    cost: 5,
+    risk: 5,
+    urgency: 5,
+    confidence: 5,
+  });
+  const [selectedIds, setSelectedIds] = useState<string[]>([]);
+  const [openSourceId, setOpenSourceId] = useState<string | null>(null);
+  const [expandedSourceId, setExpandedSourceId] = useState<string | null>(null);
+  const [isScoreModalOpen, setIsScoreModalOpen] = useState(false);
+  const [draftText, setDraftText] = useState<Record<string, string>>({});
 
   const keptCount = useMemo(() => candidates.filter((candidate) => candidate.keep).length, [candidates]);
+  const selectedCount = useMemo(() => selectedIds.length, [selectedIds]);
+  const allSelected = useMemo(
+    () => candidates.length > 0 && selectedIds.length === candidates.length,
+    [candidates.length, selectedIds.length],
+  );
 
-  const applyToKept = (updater: (candidate: DecisionCandidate) => DecisionCandidate) => {
-    onCandidatesChange(candidates.map((candidate) => (candidate.keep ? updater(candidate) : candidate)));
+  useEffect(() => {
+    setSelectedIds((prev) => prev.filter((id) => candidates.some((candidate) => candidate.id === id)));
+  }, [candidates]);
+
+  const applyToSelected = (updater: (candidate: ExtractedDecisionCandidate) => ExtractedDecisionCandidate) => {
+    if (selectedIds.length === 0) return;
+    const selected = new Set(selectedIds);
+    onCandidatesChange(candidates.map((candidate) => (selected.has(candidate.id) ? updater(candidate) : candidate)));
   };
 
   return (
     <div className="space-y-3">
       <div className="space-y-1">
-        <h3 className="text-sm font-semibold text-foreground">Do these match real commitments?</h3>
+        <h3 className="text-sm font-semibold text-foreground">Review Queue — {candidates.length} candidates</h3>
         <p className="text-xs text-muted-foreground">
-          Keep only statements that reduce optionality (money, time, talent, public promise).
+          Keep only commitments that reduce future optionality (money, time, talent, or public promise).
         </p>
+        <div className="space-y-0.5 text-[11px] text-muted-foreground">
+          <p>All variables start neutral (5). Adjust only when evidence justifies deviation.</p>
+          <p>Score as if outcomes are unknown — this breaks if hindsight enters.</p>
+        </div>
       </div>
 
       <div className="flex flex-wrap items-center gap-2 rounded-lg border border-border/60 bg-background/90 px-3 py-2 text-xs">
         <span className="text-[11px] font-semibold text-muted-foreground">Bulk actions</span>
+        <div className="flex items-center gap-2">
+          <Checkbox
+            checked={allSelected ? true : selectedCount > 0 ? "indeterminate" : false}
+            onCheckedChange={(checked) => {
+              setSelectedIds(checked === true ? candidates.map((candidate) => candidate.id) : []);
+            }}
+            aria-label="Select all candidates"
+          />
+          <span className="text-[11px] text-muted-foreground">Select all</span>
+        </div>
         <Button
           type="button"
           variant="outline"
           size="sm"
           className="h-7 px-2 text-[11px]"
-          onClick={() => onCandidatesChange(candidates.map((candidate) => ({ ...candidate, keep: true })))}
+          onClick={() => applyToSelected((candidate) => ({ ...candidate, keep: true }))}
+          disabled={selectedIds.length === 0}
         >
           Keep selected
         </Button>
@@ -105,19 +146,20 @@ export function CandidateReviewTable({ candidates, categories, onCandidatesChang
           variant="outline"
           size="sm"
           className="h-7 px-2 text-[11px]"
-          onClick={() => onCandidatesChange(candidates.map((candidate) => ({ ...candidate, keep: false })))}
+          onClick={() => applyToSelected((candidate) => ({ ...candidate, keep: false }))}
+          disabled={selectedIds.length === 0}
         >
           Reject selected
         </Button>
         <div className="flex items-center gap-2">
-          <Select value={bulkCategory} onValueChange={setBulkCategory}>
+          <Select value={bulkDomain} onValueChange={(value) => setBulkDomain(value as DecisionDomain)}>
             <SelectTrigger className="h-7 w-[150px] text-[11px]">
-              <SelectValue placeholder="Set category" />
+              <SelectValue placeholder="Set domain" />
             </SelectTrigger>
             <SelectContent>
-              {categories.map((category) => (
-                <SelectItem key={category} value={category} className="text-xs">
-                  {category}
+              {domains.map((domain) => (
+                <SelectItem key={domain} value={domain} className="text-xs">
+                  {domain}
                 </SelectItem>
               ))}
             </SelectContent>
@@ -127,45 +169,35 @@ export function CandidateReviewTable({ candidates, categories, onCandidatesChang
             variant="outline"
             size="sm"
             className="h-7 px-2 text-[11px]"
-            onClick={() => applyToKept((candidate) => ({ ...candidate, category: bulkCategory }))}
+            onClick={() => applyToSelected((candidate) => ({ ...candidate, domain: bulkDomain }))}
+            disabled={selectedIds.length === 0}
           >
-            Set category for selected
+            Set domain for selected
           </Button>
         </div>
         <div className="flex items-center gap-2">
-          <Input
-            type="number"
-            min={1}
-            max={10}
-            value={bulkScore.value}
-            onChange={(event) => setBulkScore({ value: event.target.value })}
-            placeholder="Score"
-            className="h-7 w-16 px-2 text-[11px]"
-          />
           <Button
             type="button"
             variant="outline"
             size="sm"
             className="h-7 px-2 text-[11px]"
-            onClick={() => {
-              const value = Number(bulkScore.value);
-              if (!Number.isFinite(value)) return;
-              const nextScore = clampScore(value);
-              applyToKept((candidate) => ({
-                ...candidate,
-                scores: {
-                  impact: nextScore,
-                  cost: nextScore,
-                  risk: nextScore,
-                  urgency: nextScore,
-                  confidence: nextScore,
-                },
-              }));
-            }}
+            onClick={() => setIsScoreModalOpen(true)}
+            disabled={selectedIds.length === 0}
           >
             Set scores for selected
           </Button>
         </div>
+        <Button
+          type="button"
+          variant="ghost"
+          size="sm"
+          className="h-7 px-2 text-[11px]"
+          onClick={() => setSelectedIds([])}
+          disabled={selectedIds.length === 0}
+        >
+          Clear selection
+        </Button>
+        <span className="text-[11px] text-muted-foreground">Selected: {selectedCount}</span>
         <span className="text-[11px] text-muted-foreground">Kept: {keptCount}</span>
       </div>
 
@@ -175,12 +207,40 @@ export function CandidateReviewTable({ candidates, categories, onCandidatesChang
             <TableRow>
               <TableHead className="w-[80px]">Keep?</TableHead>
               <TableHead>Decision</TableHead>
-              <TableHead className="w-[160px]">Category</TableHead>
+              <TableHead className="w-[170px]">
+                <div className="flex items-center gap-1">
+                  <span>Decision Domain</span>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <button type="button" className="text-muted-foreground">
+                        <HelpCircle className="h-3.5 w-3.5" />
+                      </button>
+                    </TooltipTrigger>
+                    <TooltipContent className="max-w-[220px] text-xs">
+                      Stable lens — not AI generated.
+                    </TooltipContent>
+                  </Tooltip>
+                </div>
+              </TableHead>
               <TableHead className="text-center">Impact</TableHead>
               <TableHead className="text-center">Cost</TableHead>
               <TableHead className="text-center">Risk</TableHead>
               <TableHead className="text-center">Urgency</TableHead>
-              <TableHead className="text-center">Confidence</TableHead>
+              <TableHead className="text-center">
+                <div className="flex items-center justify-center gap-1">
+                  <span>Confidence</span>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <button type="button" className="text-muted-foreground">
+                        <HelpCircle className="h-3.5 w-3.5" />
+                      </button>
+                    </TooltipTrigger>
+                    <TooltipContent className="max-w-[240px] text-xs">
+                      Confidence = clarity at decision time, not probability of success.
+                    </TooltipContent>
+                  </Tooltip>
+                </div>
+              </TableHead>
               <TableHead className="w-[140px]">Source ▸</TableHead>
             </TableRow>
           </TableHeader>
@@ -188,51 +248,71 @@ export function CandidateReviewTable({ candidates, categories, onCandidatesChang
             {candidates.map((candidate) => (
               <TableRow key={candidate.id} className={candidate.keep ? "" : "opacity-60"}>
                 <TableCell>
-                  <div className="flex items-center gap-2">
-                    <Checkbox
-                      checked={candidate.keep}
-                      onCheckedChange={(checked) =>
-                        onCandidatesChange(
-                          candidates.map((item) =>
-                            item.id === candidate.id ? { ...item, keep: Boolean(checked) } : item,
-                          ),
-                        )
-                      }
-                    />
-                    <span className="text-[11px] text-muted-foreground">Keep</span>
+                  <div className="flex flex-col gap-1">
+                    <label className="flex items-center gap-2 text-[11px] text-muted-foreground">
+                      <Checkbox
+                        checked={candidate.keep}
+                        onCheckedChange={(checked) =>
+                          onCandidatesChange(
+                            candidates.map((item) =>
+                              item.id === candidate.id ? { ...item, keep: checked === true } : item,
+                            ),
+                          )
+                        }
+                      />
+                      Keep
+                    </label>
+                    <label className="flex items-center gap-2 text-[11px] text-muted-foreground">
+                      <Checkbox
+                        checked={selectedIds.includes(candidate.id)}
+                        onCheckedChange={(checked) => {
+                          setSelectedIds((prev) =>
+                            checked === true ? [...prev, candidate.id] : prev.filter((id) => id !== candidate.id),
+                          );
+                        }}
+                      />
+                      Select
+                    </label>
                   </div>
                 </TableCell>
                 <TableCell className="min-w-[260px]">
-                  <Input
-                    value={candidate.decisionText}
-                    onChange={(event) =>
-                      onCandidatesChange(
-                        candidates.map((item) =>
-                          item.id === candidate.id ? { ...item, decisionText: event.target.value } : item,
-                        ),
-                      )
-                    }
-                    className="h-8 text-xs"
-                  />
+                  <div className="relative">
+                    <Input
+                      value={draftText[candidate.id] ?? candidate.decisionText}
+                      onChange={(event) =>
+                        setDraftText((prev) => ({ ...prev, [candidate.id]: event.target.value }))
+                      }
+                      onBlur={(event) => {
+                        const value = event.target.value;
+                        onCandidatesChange(
+                          candidates.map((item) =>
+                            item.id === candidate.id ? { ...item, decisionText: value } : item,
+                          ),
+                        );
+                      }}
+                      className="h-7 pr-7 text-xs"
+                    />
+                    <Pencil className="pointer-events-none absolute right-2 top-1/2 h-3 w-3 -translate-y-1/2 text-muted-foreground" />
+                  </div>
                 </TableCell>
                 <TableCell>
                   <Select
-                    value={candidate.category}
+                    value={candidate.domain}
                     onValueChange={(value) =>
                       onCandidatesChange(
                         candidates.map((item) =>
-                          item.id === candidate.id ? { ...item, category: value } : item,
+                          item.id === candidate.id ? { ...item, domain: value as DecisionDomain } : item,
                         ),
                       )
                     }
                   >
-                    <SelectTrigger className="h-8 text-xs">
+                    <SelectTrigger className="h-7 text-xs">
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
-                      {categories.map((category) => (
-                        <SelectItem key={category} value={category} className="text-xs">
-                          {category}
+                      {domains.map((domain) => (
+                        <SelectItem key={domain} value={domain} className="text-xs">
+                          {domain}
                         </SelectItem>
                       ))}
                     </SelectContent>
@@ -261,13 +341,73 @@ export function CandidateReviewTable({ candidates, categories, onCandidatesChang
                   </TableCell>
                 ))}
                 <TableCell>
-                  <SourceCollapse source={candidate.source} />
+                  <SourceCollapse
+                    source={{
+                      docId: candidate.docId,
+                      docName: candidate.docName,
+                      pageNumber: candidate.page ?? null,
+                      excerpt: candidate.excerpt,
+                    }}
+                    isOpen={openSourceId === candidate.id}
+                    isExpanded={expandedSourceId === candidate.id}
+                    onToggle={() => {
+                      setExpandedSourceId(null);
+                      setOpenSourceId((prev) => (prev === candidate.id ? null : candidate.id));
+                    }}
+                    onToggleExpanded={() =>
+                      setExpandedSourceId((prev) => (prev === candidate.id ? null : candidate.id))
+                    }
+                  />
                 </TableCell>
               </TableRow>
             ))}
           </TableBody>
         </Table>
       </div>
+
+      <Dialog open={isScoreModalOpen} onOpenChange={setIsScoreModalOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Set scores for selected</DialogTitle>
+          </DialogHeader>
+          <div className="grid gap-3 text-xs">
+            {scoreKeys.map((key) => (
+              <div key={key} className="flex items-center justify-between gap-3">
+                <span className="capitalize text-muted-foreground">{key}</span>
+                <ScoreStepper
+                  value={bulkScore[key]}
+                  onChange={(next) =>
+                    setBulkScore((prev) => ({
+                      ...prev,
+                      [key]: next ?? 5,
+                    }))
+                  }
+                />
+              </div>
+            ))}
+          </div>
+          <DialogFooter>
+            <Button
+              type="button"
+              onClick={() => {
+                applyToSelected((candidate) => ({
+                  ...candidate,
+                  scores: {
+                    impact: clampScore(bulkScore.impact),
+                    cost: clampScore(bulkScore.cost),
+                    risk: clampScore(bulkScore.risk),
+                    urgency: clampScore(bulkScore.urgency),
+                    confidence: clampScore(bulkScore.confidence),
+                  },
+                }));
+                setIsScoreModalOpen(false);
+              }}
+            >
+              Apply scores
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

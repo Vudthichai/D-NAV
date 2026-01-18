@@ -9,12 +9,14 @@ import { CandidateReviewTable } from "@/components/stress-test/CandidateReviewTa
 import { ExcelExportButton } from "@/components/stress-test/ExcelExportButton";
 import { PdfDropzone, type PdfDropzoneFile } from "@/components/stress-test/PdfDropzone";
 import type {
-  DecisionCandidate,
+  ExtractedDecisionCandidate,
   SourceRef,
   UploadedDoc,
 } from "@/components/stress-test/decision-intake-types";
+import { DECISION_DOMAINS } from "@/components/stress-test/decision-intake-types";
 import { Button } from "@/components/ui/button";
 import { AccentSliver } from "@/components/ui/AccentSliver";
+import { Badge } from "@/components/ui/badge";
 import { Callout } from "@/components/ui/Callout";
 import { Textarea } from "@/components/ui/textarea";
 import Term from "@/components/ui/Term";
@@ -36,6 +38,7 @@ interface IntakeFile {
   sizeBytes: number;
   uploadedAt: number;
   progress?: number;
+  status: "idle" | "uploaded" | "extracting" | "extracted";
 }
 
 interface SessionDecision {
@@ -55,17 +58,6 @@ interface SessionDecision {
   source?: SourceRef;
 }
 
-const EXTRACTED_DECISION_CATEGORIES = [
-  "Uncategorized",
-  "Strategy",
-  "Capital",
-  "Ops",
-  "People",
-  "Real Estate",
-  "Risk",
-  "Product",
-  "Other",
-];
 const SESSION_DECISIONS_KEY = "dnav:stressTest:sessionDecisions";
 const DEFAULT_REVIEW_VARIABLES = {
   impact: 5,
@@ -180,7 +172,7 @@ const buildDecisionText = (constraint?: string, commitment?: string, impact?: st
 
 // Future: swap buildCandidates with an LLM-backed extractor that uses intentContext/constraintContext as prompts.
 const buildCandidates = (docs: UploadedDoc[]) => {
-  const candidates: DecisionCandidate[] = [];
+  const candidates: ExtractedDecisionCandidate[] = [];
   docs.forEach((doc) => {
     doc.pages.forEach((page) => {
       chunkText(page.text).forEach((chunk, index) => {
@@ -189,21 +181,17 @@ const buildCandidates = (docs: UploadedDoc[]) => {
         const commitment = extractCommitment(chunk);
         const constraint = extractConstraint(chunk, timeAnchor);
         const impact = extractImpact(chunk);
-        const source: SourceRef = {
-          docId: doc.id,
-          fileName: doc.fileName,
-          pageNumber: page.pageNumber,
-          excerpt: chunk,
-          chunkId: `${doc.id}-p${page.pageNumber}-c${index}`,
-        };
         candidates.push({
           id: `${doc.id}-${page.pageNumber}-${index}`,
+          docId: doc.id,
+          docName: doc.fileName,
+          page: page.pageNumber,
+          excerpt: chunk,
           decisionText: buildDecisionText(constraint, commitment, impact),
-          category: "Uncategorized",
-          scores: { ...DEFAULT_REVIEW_VARIABLES },
-          timeAnchor,
-          source,
           keep: true,
+          domain: "Uncategorized",
+          scores: { ...DEFAULT_REVIEW_VARIABLES },
+          createdAt: new Date().toISOString(),
         });
       });
     });
@@ -227,10 +215,12 @@ const isSessionDecisionSnapshot = (value: unknown): value is SessionDecision => 
 
 export default function StressTestPage() {
   const [intakeFiles, setIntakeFiles] = useState<IntakeFile[]>([]);
-  const [decisionCandidates, setDecisionCandidates] = useState<DecisionCandidate[]>([]);
+  const [decisionCandidates, setDecisionCandidates] = useState<ExtractedDecisionCandidate[]>([]);
   const [intakeStatus, setIntakeStatus] = useState<DecisionIntakeStatus>("idle");
   const [isParsing, setIsParsing] = useState(false);
   const [intakeError, setIntakeError] = useState<string | null>(null);
+  const [intakeSuccess, setIntakeSuccess] = useState<string | null>(null);
+  const [extractionSummary, setExtractionSummary] = useState({ candidates: 0, documents: 0 });
   const [intentContext, setIntentContext] = useState("");
   const [constraintContext, setConstraintContext] = useState("");
   const [sessionDecisions, setSessionDecisions] = useState<SessionDecision[]>(() => {
@@ -252,6 +242,10 @@ export default function StressTestPage() {
 
   const { openDefinitions } = useDefinitionsPanel();
 
+  const updateFileStatus = useCallback((id: string, status: IntakeFile["status"]) => {
+    setIntakeFiles((prev) => prev.map((file) => (file.id === id ? { ...file, status } : file)));
+  }, []);
+
   const updateFileProgress = useCallback((id: string, progress: number) => {
     setIntakeFiles((prev) =>
       prev.map((file) => (file.id === id ? { ...file, progress: Math.min(100, progress) } : file)),
@@ -266,6 +260,7 @@ export default function StressTestPage() {
 
     const docs: UploadedDoc[] = [];
     for (const file of files) {
+      updateFileStatus(file.id, "extracting");
       updateFileProgress(file.id, 15);
       const arrayBuffer = await file.file.arrayBuffer();
       updateFileProgress(file.id, 35);
@@ -289,9 +284,10 @@ export default function StressTestPage() {
         pages,
       });
       updateFileProgress(file.id, 100);
+      updateFileStatus(file.id, "extracted");
     }
     return docs;
-  }, [updateFileProgress]);
+  }, [updateFileProgress, updateFileStatus]);
 
   const handleExtractDecisions = useCallback(async () => {
     if (isParsing) return;
@@ -302,10 +298,15 @@ export default function StressTestPage() {
 
     setIsParsing(true);
     setIntakeError(null);
+    setIntakeSuccess(null);
     setIntakeStatus("parsing");
+    setIntakeFiles((prev) =>
+      prev.map((file) => (file.status === "idle" ? { ...file, status: "uploaded" } : file)),
+    );
     try {
       const docs = await parsePdfDocuments(intakeFiles);
       const candidates = buildCandidates(docs);
+      setExtractionSummary({ candidates: candidates.length, documents: docs.length });
       if (candidates.length === 0) {
         setDecisionCandidates([]);
         setIntakeError("No candidates found — try another file or paste text.");
@@ -315,6 +316,7 @@ export default function StressTestPage() {
       }
       setDecisionCandidates(candidates);
       setIntakeStatus("candidates_ready");
+      setIntakeSuccess(`Extracted ${candidates.length} candidates from ${docs.length} document(s).`);
       requestAnimationFrame(() => {
         reviewPanelRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
       });
@@ -360,7 +362,7 @@ export default function StressTestPage() {
     setSessionDecisions((prev) => [sessionDecision, ...prev]);
   }, []);
 
-  const handleAddCandidatesToLog = useCallback((candidates: DecisionCandidate[]) => {
+  const handleAddCandidatesToLog = useCallback((candidates: ExtractedDecisionCandidate[]) => {
     if (candidates.length === 0) return 0;
     const createdAt = Date.now();
     const nextDecisions: SessionDecision[] = candidates.map((candidate, index) => {
@@ -375,7 +377,7 @@ export default function StressTestPage() {
       return {
         id: `${createdAt}-${index}-${Math.random().toString(36).slice(2, 8)}`,
         title: candidate.decisionText.trim() || "Untitled decision",
-        category: candidate.category?.trim() || "Other",
+        category: candidate.domain ?? "Uncategorized",
         impact: scores.impact,
         cost: scores.cost,
         risk: scores.risk,
@@ -386,11 +388,15 @@ export default function StressTestPage() {
         s: metrics.stability,
         dnav: metrics.dnav,
         createdAt: createdAt + index,
-        source: candidate.source,
+        source: {
+          docId: candidate.docId,
+          docName: candidate.docName,
+          pageNumber: candidate.page ?? null,
+          excerpt: candidate.excerpt,
+        },
       };
     });
     setSessionDecisions((prev) => [...nextDecisions, ...prev]);
-    setDecisionCandidates([]);
     setIntakeStatus("committed");
     return nextDecisions.length;
   }, []);
@@ -402,6 +408,7 @@ export default function StressTestPage() {
       return;
     }
     setIntakeError(null);
+    setIntakeSuccess(null);
     setIntakeFiles((prev) => [
       ...prev,
       ...pdfFiles.map((file) => ({
@@ -411,6 +418,7 @@ export default function StressTestPage() {
         sizeBytes: file.size,
         uploadedAt: Date.now(),
         progress: 0,
+        status: "idle",
       })),
     ]);
     setIntakeStatus("doc_selected");
@@ -424,7 +432,7 @@ export default function StressTestPage() {
       }
       return next;
     });
-    setDecisionCandidates((prev) => prev.filter((candidate) => candidate.source.docId !== id));
+    setDecisionCandidates((prev) => prev.filter((candidate) => candidate.docId !== id));
   }, []);
 
   const dropzoneFiles = useMemo<PdfDropzoneFile[]>(
@@ -434,6 +442,7 @@ export default function StressTestPage() {
         name: file.fileName,
         sizeBytes: file.sizeBytes,
         progress: file.progress,
+        status: file.status,
         warning:
           file.sizeBytes > SOFT_FILE_LIMIT_MB * 1024 * 1024
             ? `Over ${SOFT_FILE_LIMIT_MB}MB — parsing may be slow.`
@@ -924,8 +933,8 @@ export default function StressTestPage() {
                 </button>
 
                 {isBaselineOpen ? (
-                  <section className="space-y-4">
-                    <div className="grid gap-4 lg:grid-cols-[1.3fr_0.7fr]">
+                  <section className="space-y-3">
+                    <div className="grid gap-3 lg:grid-cols-[1.3fr_0.7fr]">
                       <div className="space-y-3 rounded-xl border border-border/60 bg-background/90 p-4 shadow-sm">
                         <div className="space-y-1">
                           <h3 className="text-sm font-semibold text-foreground">Decision Intake</h3>
@@ -944,6 +953,11 @@ export default function StressTestPage() {
                             {intakeError}
                           </div>
                         ) : null}
+                        {intakeSuccess ? (
+                          <div className="rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-xs text-emerald-700">
+                            {intakeSuccess}
+                          </div>
+                        ) : null}
                         <div className="flex flex-wrap items-center gap-3">
                           <Button
                             onClick={handleExtractDecisions}
@@ -952,15 +966,22 @@ export default function StressTestPage() {
                           >
                             {isParsing ? "Extracting…" : "Extract Decision Candidates"}
                           </Button>
-                          <span className="text-xs text-muted-foreground">
-                            Status: {intakeStatus.replace(/_/g, " ")}
-                          </span>
+                          <Badge variant="secondary" className="text-[11px] uppercase">
+                            {intakeStatus.replace(/_/g, " ")}
+                          </Badge>
                         </div>
+                        <p className="text-[11px] text-muted-foreground">
+                          Extracted {extractionSummary.candidates} candidates from {extractionSummary.documents} documents.
+                        </p>
                       </div>
                       <div className="rounded-xl border border-border/60 bg-background/90 p-4 shadow-sm">
                         <details className="group">
                           <summary className="cursor-pointer text-sm font-semibold text-foreground">
                             Context (optional)
+                            <span className="ml-2 text-[11px] font-normal text-muted-foreground">
+                              Optional. Use only to bias extraction toward a known objective (e.g., cash preservation,
+                              capacity expansion).
+                            </span>
                           </summary>
                           <div className="mt-3 space-y-3 text-xs text-muted-foreground">
                             <div className="space-y-1">
@@ -991,15 +1012,15 @@ export default function StressTestPage() {
 
                     {decisionCandidates.length > 0 ? (
                       <div ref={reviewPanelRef} className="space-y-3">
-                        {decisionCandidates.length < 10 ? (
+                        {keptCandidates.length < 10 ? (
                           <p className="text-xs text-muted-foreground">
-                            We found {decisionCandidates.length}. Add more documents to reach 10–20 commitments.
+                            Add more documents to reach 10–20 commitments for a clearer signal.
                           </p>
                         ) : null}
                         <CandidateReviewTable
                           candidates={decisionCandidates}
                           onCandidatesChange={setDecisionCandidates}
-                          categories={EXTRACTED_DECISION_CATEGORIES}
+                          domains={DECISION_DOMAINS}
                         />
                         <div className="flex flex-wrap items-center gap-2">
                           <Button
@@ -1007,16 +1028,32 @@ export default function StressTestPage() {
                             className="h-9 px-4 text-xs font-semibold uppercase tracking-wide"
                             disabled={keptCandidates.length === 0}
                           >
-                            Add kept decisions to session
+                            Add kept decisions to session ({keptCandidates.length})
                           </Button>
                           <ExcelExportButton
-                            decisions={sessionDecisions}
+                            decisions={keptCandidates}
                             className="h-9 px-4 text-xs font-semibold uppercase tracking-wide"
                           />
                           {intakeStatus === "committed" ? (
                             <span className="text-xs text-muted-foreground">Added to session.</span>
                           ) : null}
+                          {intakeStatus === "committed" ? (
+                            <Button
+                              variant="ghost"
+                              className="h-9 px-3 text-xs font-semibold uppercase tracking-wide"
+                              onClick={() => {
+                                setDecisionCandidates([]);
+                                setIntakeSuccess(null);
+                                setIntakeStatus(intakeFiles.length > 0 ? "doc_selected" : "idle");
+                              }}
+                            >
+                              Clear review queue
+                            </Button>
+                          ) : null}
                         </div>
+                        <p className="text-[11px] text-muted-foreground">
+                          Patterns stabilize after ~15 decisions. Fewer than 10 is mostly noise.
+                        </p>
                       </div>
                     ) : null}
                   </section>
