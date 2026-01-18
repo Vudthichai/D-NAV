@@ -4,6 +4,7 @@
 
 [build.environment]
   BASELINE_BROWSER_MAPPING_IGNORE_OLD_DATA = "true"
+  BROWSERSLIST_IGNORE_OLD_DATA = "true"
 
 [functions]
   directory = "netlify/functions"
