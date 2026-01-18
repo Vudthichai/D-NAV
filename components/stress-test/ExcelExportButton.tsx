@@ -19,6 +19,8 @@ interface ExcelExportButtonProps {
   className?: string;
 }
 
+const DECISION_EXPORT_CAP = 200;
+
 const downloadBlob = (blob: Blob, filename: string) => {
   const link = document.createElement("a");
   link.href = URL.createObjectURL(blob);
@@ -30,6 +32,12 @@ const downloadBlob = (blob: Blob, filename: string) => {
 };
 
 export function ExcelExportButton({ decisions, className }: ExcelExportButtonProps) {
+  const capDecision = (text: string) => {
+    const trimmed = text.trim();
+    if (trimmed.length <= DECISION_EXPORT_CAP) return trimmed;
+    return `${trimmed.slice(0, DECISION_EXPORT_CAP - 1).trimEnd()}…`;
+  };
+
   return (
     <Button
       type="button"
@@ -49,7 +57,7 @@ export function ExcelExportButton({ decisions, className }: ExcelExportButtonPro
         ];
         const rows = decisions.map((decision) => [
           new Date(decision.createdAt).toLocaleDateString(),
-          decision.title,
+          capDecision(decision.title),
           decision.category,
           decision.impact,
           decision.cost,

@@ -3,6 +3,7 @@
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Minus, Plus } from "lucide-react";
@@ -174,7 +175,8 @@ export function CandidateReviewTable({ candidates, categories, onCandidatesChang
           <TableHeader>
             <TableRow>
               <TableHead className="w-[80px]">Keep?</TableHead>
-              <TableHead>Decision</TableHead>
+              <TableHead>Decision Summary</TableHead>
+              <TableHead className="w-[140px]">Timing</TableHead>
               <TableHead className="w-[160px]">Category</TableHead>
               <TableHead className="text-center">Impact</TableHead>
               <TableHead className="text-center">Cost</TableHead>
@@ -203,15 +205,47 @@ export function CandidateReviewTable({ candidates, categories, onCandidatesChang
                   </div>
                 </TableCell>
                 <TableCell className="min-w-[260px]">
+                  <div className="space-y-2">
+                    <Input
+                      value={candidate.decisionSummary}
+                      onChange={(event) =>
+                        onCandidatesChange(
+                          candidates.map((item) =>
+                            item.id === candidate.id ? { ...item, decisionSummary: event.target.value } : item,
+                          ),
+                        )
+                      }
+                      className="h-8 text-xs"
+                    />
+                    <details className="text-[11px] text-muted-foreground">
+                      <summary className="cursor-pointer">Full text</summary>
+                      <Textarea
+                        value={candidate.decisionText}
+                        onChange={(event) =>
+                          onCandidatesChange(
+                            candidates.map((item) =>
+                              item.id === candidate.id ? { ...item, decisionText: event.target.value } : item,
+                            ),
+                          )
+                        }
+                        className="mt-2 min-h-[70px] text-xs"
+                      />
+                    </details>
+                  </div>
+                </TableCell>
+                <TableCell>
                   <Input
-                    value={candidate.decisionText}
+                    value={candidate.timingText ?? ""}
                     onChange={(event) =>
                       onCandidatesChange(
                         candidates.map((item) =>
-                          item.id === candidate.id ? { ...item, decisionText: event.target.value } : item,
+                          item.id === candidate.id
+                            ? { ...item, timingText: event.target.value || null, timingNormalized: undefined }
+                            : item,
                         ),
                       )
                     }
+                    placeholder="e.g., Q3 2025"
                     className="h-8 text-xs"
                   />
                 </TableCell>

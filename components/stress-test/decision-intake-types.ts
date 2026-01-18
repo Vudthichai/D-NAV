@@ -16,6 +16,7 @@ export interface SourceRef {
 
 export interface DecisionCandidate {
   id: string;
+  decisionSummary: string;
   decisionText: string;
   category: string;
   scores: {
@@ -25,10 +26,11 @@ export interface DecisionCandidate {
     urgency?: number;
     confidence?: number;
   };
-  timeAnchor?: {
-    raw: string;
-    type: "ExactDate" | "Quarter" | "FiscalYear" | "Dependency";
-    verified: "Explicit" | "Unverified";
+  timingText: string | null;
+  timingNormalized?: {
+    start?: string;
+    end?: string;
+    precision: "day" | "month" | "quarter" | "year" | "relative" | "unknown";
   };
   source: SourceRef;
   keep: boolean;

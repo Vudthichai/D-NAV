@@ -150,6 +150,62 @@ const detectTimeAnchor = (text: string) => {
   return undefined;
 };
 
+const buildDecisionSummary = (decisionText: string) => {
+  const firstSentence = decisionText.match(/[^.!?]+[.!?]?/)?.[0] ?? decisionText;
+  const trimmed = firstSentence.trim();
+  if (trimmed.length <= 120) return trimmed;
+  return `${trimmed.slice(0, 117).trimEnd()}…`;
+};
+
+const normalizeTiming = (anchor?: { raw: string; type: "ExactDate" | "Quarter" | "FiscalYear" | "Dependency" }) => {
+  if (!anchor) return { timingText: null, timingNormalized: undefined };
+  if (anchor.type === "ExactDate") {
+    const parsed = new Date(anchor.raw);
+    return {
+      timingText: anchor.raw,
+      timingNormalized: {
+        start: Number.isNaN(parsed.valueOf()) ? undefined : parsed.toISOString(),
+        precision: "day",
+      },
+    };
+  }
+  if (anchor.type === "Quarter") {
+    const match = anchor.raw.match(/Q([1-4])\s?(\d{4})/i);
+    if (!match) return { timingText: anchor.raw, timingNormalized: { precision: "quarter" } };
+    const quarter = Number(match[1]);
+    const year = Number(match[2]);
+    const start = new Date(year, (quarter - 1) * 3, 1);
+    const end = new Date(year, quarter * 3, 0);
+    return {
+      timingText: anchor.raw,
+      timingNormalized: {
+        start: start.toISOString(),
+        end: end.toISOString(),
+        precision: "quarter",
+      },
+    };
+  }
+  if (anchor.type === "FiscalYear") {
+    const match = anchor.raw.match(/FY\s?(\d{4})/i);
+    if (!match) return { timingText: anchor.raw, timingNormalized: { precision: "year" } };
+    const year = Number(match[1]);
+    return {
+      timingText: anchor.raw,
+      timingNormalized: {
+        start: new Date(year, 0, 1).toISOString(),
+        end: new Date(year, 11, 31).toISOString(),
+        precision: "year",
+      },
+    };
+  }
+  return {
+    timingText: anchor.raw,
+    timingNormalized: {
+      precision: "relative",
+    },
+  };
+};
+
 const extractCommitment = (text: string) => {
   const sentence = text.split(/[.!?]/)[0] ?? text;
   const matched = COMMITMENT_TERMS.find((term) => sentence.toLowerCase().includes(term));
@@ -189,6 +245,9 @@ const buildCandidates = (docs: UploadedDoc[]) => {
         const commitment = extractCommitment(chunk);
         const constraint = extractConstraint(chunk, timeAnchor);
         const impact = extractImpact(chunk);
+        const decisionText = buildDecisionText(constraint, commitment, impact);
+        const decisionSummary = buildDecisionSummary(decisionText);
+        const { timingText, timingNormalized } = normalizeTiming(timeAnchor);
         const source: SourceRef = {
           docId: doc.id,
           fileName: doc.fileName,
@@ -198,12 +257,14 @@ const buildCandidates = (docs: UploadedDoc[]) => {
         };
         candidates.push({
           id: `${doc.id}-${page.pageNumber}-${index}`,
-          decisionText: buildDecisionText(constraint, commitment, impact),
+          decisionSummary,
+          decisionText,
           category: "Uncategorized",
           scores: { ...DEFAULT_REVIEW_VARIABLES },
-          timeAnchor,
+          timingText,
+          timingNormalized,
           source,
-          keep: true,
+          keep: false,
         });
       });
     });
@@ -364,6 +425,7 @@ export default function StressTestPage() {
     if (candidates.length === 0) return 0;
     const createdAt = Date.now();
     const nextDecisions: SessionDecision[] = candidates.map((candidate, index) => {
+      const title = candidate.decisionSummary.trim() || buildDecisionSummary(candidate.decisionText);
       const scores = {
         impact: candidate.scores.impact ?? DEFAULT_REVIEW_VARIABLES.impact,
         cost: candidate.scores.cost ?? DEFAULT_REVIEW_VARIABLES.cost,
@@ -374,7 +436,7 @@ export default function StressTestPage() {
       const metrics = computeMetrics(scores);
       return {
         id: `${createdAt}-${index}-${Math.random().toString(36).slice(2, 8)}`,
-        title: candidate.decisionText.trim() || "Untitled decision",
+        title: title || "Untitled decision",
         category: candidate.category?.trim() || "Other",
         impact: scores.impact,
         cost: scores.cost,
