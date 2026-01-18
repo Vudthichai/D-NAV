@@ -3,9 +3,8 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "baseline:update": "baseline-browser-mapping update",
+    "baseline:refresh": "npm i -D baseline-browser-mapping@latest",
     "dev": "next dev",
-    "prebuild": "npm run baseline:update",
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
