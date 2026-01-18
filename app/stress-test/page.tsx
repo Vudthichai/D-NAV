@@ -22,6 +22,7 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/comp
 import { MetricDistribution, type MetricDistributionSegment } from "@/components/reports/MetricDistribution";
 import { computeMetrics } from "@/lib/calculations";
 import { getSessionActionInsight } from "@/lib/sessionActionInsight";
+import { normalizePrecision } from "@/utils/timingPrecision";
 import { ChevronDown } from "lucide-react";
 import Link from "next/link";
 import * as pdfjs from "pdfjs-dist";
@@ -54,6 +55,10 @@ interface SessionDecision {
   createdAt: number;
   source?: SourceRef;
 }
+
+type TimingNormalizedInput = Record<string, unknown> & {
+  precision?: unknown;
+};
 
 const EXTRACTED_DECISION_CATEGORIES = [
   "Uncategorized",
@@ -305,7 +310,18 @@ export default function StressTestPage() {
     setIntakeStatus("parsing");
     try {
       const docs = await parsePdfDocuments(intakeFiles);
-      const candidates = buildCandidates(docs);
+      const candidates = buildCandidates(docs).map((candidate) => {
+        const timingNormalizedInput = (candidate as { timingNormalized?: TimingNormalizedInput | null })
+          .timingNormalized;
+        if (!timingNormalizedInput) return candidate;
+        return {
+          ...candidate,
+          timingNormalized: {
+            ...timingNormalizedInput,
+            precision: normalizePrecision(timingNormalizedInput.precision),
+          },
+        };
+      });
       if (candidates.length === 0) {
         setDecisionCandidates([]);
         setIntakeError("No candidates found — try another file or paste text.");
