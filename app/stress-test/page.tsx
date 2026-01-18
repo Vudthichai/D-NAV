@@ -5,11 +5,14 @@ import StressTestCalculator, {
   type StressTestDecisionSnapshot,
 } from "@/components/stress-test/StressTestCalculator";
 import { useDefinitionsPanel } from "@/components/definitions/DefinitionsPanelProvider";
-import ExtractedDecisionReviewPanel, {
-  type ExtractedDecisionCandidate,
-} from "@/components/stress-test/ExtractedDecisionReviewPanel";
-import { Badge } from "@/components/ui/badge";
-import { GlassCard } from "@/components/ui/card";
+import { CandidateReviewTable } from "@/components/stress-test/CandidateReviewTable";
+import { ExcelExportButton } from "@/components/stress-test/ExcelExportButton";
+import { PdfDropzone, type PdfDropzoneFile } from "@/components/stress-test/PdfDropzone";
+import type {
+  DecisionCandidate,
+  SourceRef,
+  UploadedDoc,
+} from "@/components/stress-test/decision-intake-types";
 import { Button } from "@/components/ui/button";
 import { AccentSliver } from "@/components/ui/AccentSliver";
 import { Callout } from "@/components/ui/Callout";
@@ -21,21 +24,18 @@ import { computeMetrics } from "@/lib/calculations";
 import { getSessionActionInsight } from "@/lib/sessionActionInsight";
 import { ChevronDown } from "lucide-react";
 import Link from "next/link";
+import * as pdfjs from "pdfjs-dist";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
-type BaselineBucketKey = "intent" | "constraints" | "actions" | "movement";
+type DecisionIntakeStatus = "idle" | "doc_selected" | "parsing" | "candidates_ready" | "committed" | "export";
 
-interface BaselineBucketConfig {
-  key: BaselineBucketKey;
-  title: string;
-  prompt: string;
-  helper: string;
-  examples: string[];
-}
-
-interface BaselineBucketState {
-  text: string;
-  file: File | null;
+interface IntakeFile {
+  id: string;
+  file: File;
+  fileName: string;
+  sizeBytes: number;
+  uploadedAt: number;
+  progress?: number;
 }
 
 interface SessionDecision {
@@ -52,53 +52,11 @@ interface SessionDecision {
   s: number;
   dnav: number;
   createdAt: number;
+  source?: SourceRef;
 }
 
-const BASELINE_BUCKETS: BaselineBucketConfig[] = [
-  {
-    key: "intent",
-    title: "Strategic Intent",
-    prompt: "What are you trying to move, protect, or avoid?",
-    helper: "Use short statements or bullet fragments.",
-    examples: ["Grow enterprise revenue", "Extend cash runway", "Reduce regulatory exposure", "Stabilize ops volatility"],
-  },
-  {
-    key: "constraints",
-    title: "Constraints",
-    prompt: "What limits your options right now?",
-    helper: "List the hard limits shaping the decision.",
-    examples: ["Time", "Capital", "Regulation", "Headcount", "Infrastructure", "Market timing"],
-  },
-  {
-    key: "actions",
-    title: "Committed Actions",
-    prompt: "What have you already committed to doing?",
-    helper: "Include anything already set in motion.",
-    examples: ["Hired a sales team", "Cut marketing spend", "Raised funding", "Consolidated suppliers"],
-  },
-  {
-    key: "movement",
-    title: "Observed Movement",
-    prompt: "What changed after those actions?",
-    helper: "Capture the latest outcomes you can see.",
-    examples: ["Revenue up, margin down", "Churn flattened", "Burn stabilized", "Compliance costs rose"],
-  },
-];
-
-const DEFAULT_DECISIONS = [
-  "Created a new product",
-  "Hired a new sales team",
-  "Raised funding late last year",
-  "Prioritized regulatory alignment",
-  "Consolidated suppliers",
-  "Reduced marketing spend",
-  "Expanded into a new geography",
-  "Repriced core offering",
-  "Migrated systems/infrastructure",
-  "Changed go-to-market focus",
-];
-
 const EXTRACTED_DECISION_CATEGORIES = [
+  "Uncategorized",
   "Strategy",
   "Capital",
   "Ops",
@@ -108,14 +66,149 @@ const EXTRACTED_DECISION_CATEGORIES = [
   "Product",
   "Other",
 ];
-const EXTRACTED_CANDIDATES_KEY = "dnav_stress_test_extracted_candidates_v1";
 const SESSION_DECISIONS_KEY = "dnav:stressTest:sessionDecisions";
 const DEFAULT_REVIEW_VARIABLES = {
-  impact: 1,
-  cost: 1,
-  risk: 1,
-  urgency: 1,
-  confidence: 1,
+  impact: 5,
+  cost: 5,
+  risk: 5,
+  urgency: 5,
+  confidence: 5,
+};
+const MAX_CANDIDATES = 30;
+const SOFT_FILE_LIMIT_MB = 25;
+
+const COMMITMENT_TERMS = [
+  "will",
+  "have",
+  "approved",
+  "plan to",
+  "committed",
+  "intend to",
+  "launch",
+  "expand",
+  "increase",
+  "reduce",
+  "accelerate",
+  "delay",
+];
+const CONSTRAINT_TERMS = [
+  "by",
+  "before",
+  "deadline",
+  "pending approval",
+  "regulatory",
+  "capacity",
+  "capital",
+  "margin",
+  "cost",
+  "q1",
+  "q2",
+  "q3",
+  "q4",
+  "fy",
+];
+const EXPOSURE_TERMS = ["risk", "uncertain", "subject to", "may", "could"];
+const VAGUE_TIME_TERMS = ["soon", "near-term", "shortly", "asap", "imminent"];
+
+const normalizeText = (text: string) =>
+  text
+    .replace(/\s+/g, " ")
+    .replace(/•/g, "• ")
+    .trim();
+
+const chunkText = (text: string) => {
+  const cleaned = text.replace(/\r/g, "\n");
+  const blocks = cleaned.split(/\n{2,}/g).flatMap((block) => block.split(/\n[-•]\s+/g));
+  return blocks.map((block) => normalizeText(block)).filter((block) => block.length > 30);
+};
+
+const countSignals = (text: string) => {
+  const haystack = text.toLowerCase();
+  const countMatches = (terms: string[]) => terms.reduce((acc, term) => (haystack.includes(term) ? acc + 1 : acc), 0);
+  return countMatches(COMMITMENT_TERMS) + countMatches(CONSTRAINT_TERMS) + countMatches(EXPOSURE_TERMS);
+};
+
+const detectTimeAnchor = (text: string) => {
+  const dateMatch = text.match(
+    /\b(\d{1,2}\/\d{1,2}\/\d{2,4}|(?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Sept|Oct|Nov|Dec)[a-z]*\s+\d{1,2}(?:,\s*\d{2,4})?)\b/i,
+  );
+  if (dateMatch) {
+    return { raw: dateMatch[0], type: "ExactDate" as const, verified: "Explicit" as const };
+  }
+  const quarterMatch = text.match(/\bQ[1-4]\s?20\d{2}\b/i);
+  if (quarterMatch) {
+    return { raw: quarterMatch[0], type: "Quarter" as const, verified: "Explicit" as const };
+  }
+  const fyMatch = text.match(/\bFY\s?20\d{2}\b/i);
+  if (fyMatch) {
+    return { raw: fyMatch[0], type: "FiscalYear" as const, verified: "Explicit" as const };
+  }
+  const vagueMatch = VAGUE_TIME_TERMS.find((term) => text.toLowerCase().includes(term));
+  if (vagueMatch) {
+    return { raw: vagueMatch, type: "Dependency" as const, verified: "Unverified" as const };
+  }
+  return undefined;
+};
+
+const extractCommitment = (text: string) => {
+  const sentence = text.split(/[.!?]/)[0] ?? text;
+  const matched = COMMITMENT_TERMS.find((term) => sentence.toLowerCase().includes(term));
+  if (!matched) return undefined;
+  return sentence.trim();
+};
+
+const extractConstraint = (text: string, timeAnchor?: { raw: string }) => {
+  if (timeAnchor?.raw) return `by ${timeAnchor.raw}`;
+  const sentence = text.split(/[.!?]/)[0] ?? text;
+  const matched = CONSTRAINT_TERMS.find((term) => sentence.toLowerCase().includes(term));
+  if (!matched) return undefined;
+  return sentence.trim();
+};
+
+const extractImpact = (text: string) => {
+  const toMatch = text.match(/\bto\s+([^.;]+)/i);
+  if (!toMatch) return undefined;
+  return toMatch[1].trim();
+};
+
+const buildDecisionText = (constraint?: string, commitment?: string, impact?: string) => {
+  const constraintText = constraint || "[constraint]";
+  const commitmentText = commitment || "[commitment]";
+  const impactText = impact || "[intended impact]";
+  return `Despite ${constraintText}, Tesla chose to ${commitmentText} to ${impactText}.`;
+};
+
+// Future: swap buildCandidates with an LLM-backed extractor that uses intentContext/constraintContext as prompts.
+const buildCandidates = (docs: UploadedDoc[]) => {
+  const candidates: DecisionCandidate[] = [];
+  docs.forEach((doc) => {
+    doc.pages.forEach((page) => {
+      chunkText(page.text).forEach((chunk, index) => {
+        if (countSignals(chunk) < 2) return;
+        const timeAnchor = detectTimeAnchor(chunk);
+        const commitment = extractCommitment(chunk);
+        const constraint = extractConstraint(chunk, timeAnchor);
+        const impact = extractImpact(chunk);
+        const source: SourceRef = {
+          docId: doc.id,
+          fileName: doc.fileName,
+          pageNumber: page.pageNumber,
+          excerpt: chunk,
+          chunkId: `${doc.id}-p${page.pageNumber}-c${index}`,
+        };
+        candidates.push({
+          id: `${doc.id}-${page.pageNumber}-${index}`,
+          decisionText: buildDecisionText(constraint, commitment, impact),
+          category: "Uncategorized",
+          scores: { ...DEFAULT_REVIEW_VARIABLES },
+          timeAnchor,
+          source,
+          keep: true,
+        });
+      });
+    });
+  });
+  return candidates.slice(0, MAX_CANDIDATES);
 };
 
 const isSessionDecisionSnapshot = (value: unknown): value is SessionDecision => {
@@ -133,50 +226,13 @@ const isSessionDecisionSnapshot = (value: unknown): value is SessionDecision => 
 };
 
 export default function StressTestPage() {
-  const initialExtractedCandidates = useMemo(() => {
-    if (typeof window === "undefined") return [];
-    try {
-      const stored = window.localStorage.getItem(EXTRACTED_CANDIDATES_KEY);
-      const parsed = stored ? JSON.parse(stored) : null;
-      if (!Array.isArray(parsed)) return [];
-      return parsed
-        .map((item: Partial<ExtractedDecisionCandidate>, index: number) => {
-          if (!item || typeof item !== "object") return null;
-          const text = typeof item.text === "string" ? item.text.trim() : "";
-          if (!text) return null;
-          const source = typeof item.source === "string" ? item.source : undefined;
-          const confidence =
-            item.confidence === "high" || item.confidence === "med" || item.confidence === "low"
-              ? item.confidence
-              : undefined;
-          const category = typeof item.category === "string" ? item.category : undefined;
-          return {
-            id: typeof item.id === "string" ? item.id : `candidate-${index}`,
-            text,
-            confirmed: item.confirmed !== false,
-            discarded: item.discarded === true,
-            ...(source ? { source } : {}),
-            ...(confidence ? { confidence } : {}),
-            ...(category ? { category } : {}),
-          };
-        })
-        .filter((item): item is ExtractedDecisionCandidate => Boolean(item));
-    } catch (error) {
-      console.error("Failed to load extracted decisions from storage.", error);
-      return [];
-    }
-  }, []);
-  const [baselineBuckets, setBaselineBuckets] = useState<Record<BaselineBucketKey, BaselineBucketState>>({
-    intent: { text: "", file: null },
-    constraints: { text: "", file: null },
-    actions: { text: "", file: null },
-    movement: { text: "", file: null },
-  });
-  const [isExtracting, setIsExtracting] = useState(false);
-  const [extractedCandidates, setExtractedCandidates] = useState<ExtractedDecisionCandidate[]>(
-    initialExtractedCandidates,
-  );
-  const [hasRunExtraction, setHasRunExtraction] = useState(initialExtractedCandidates.length > 0);
+  const [intakeFiles, setIntakeFiles] = useState<IntakeFile[]>([]);
+  const [decisionCandidates, setDecisionCandidates] = useState<DecisionCandidate[]>([]);
+  const [intakeStatus, setIntakeStatus] = useState<DecisionIntakeStatus>("idle");
+  const [isParsing, setIsParsing] = useState(false);
+  const [intakeError, setIntakeError] = useState<string | null>(null);
+  const [intentContext, setIntentContext] = useState("");
+  const [constraintContext, setConstraintContext] = useState("");
   const [sessionDecisions, setSessionDecisions] = useState<SessionDecision[]>(() => {
     if (typeof window === "undefined") return [];
     try {
@@ -196,45 +252,80 @@ export default function StressTestPage() {
 
   const { openDefinitions } = useDefinitionsPanel();
 
-  const updateBaselineBucket = useCallback((key: BaselineBucketKey, update: Partial<BaselineBucketState>) => {
-    setBaselineBuckets((prev) => ({
-      ...prev,
-      [key]: {
-        ...prev[key],
-        ...update,
-      },
-    }));
+  const updateFileProgress = useCallback((id: string, progress: number) => {
+    setIntakeFiles((prev) =>
+      prev.map((file) => (file.id === id ? { ...file, progress: Math.min(100, progress) } : file)),
+    );
   }, []);
 
-  const handleExtractDecisions = useCallback(() => {
-    if (isExtracting) return;
-    setIsExtracting(true);
+  const parsePdfDocuments = useCallback(async (files: IntakeFile[]): Promise<UploadedDoc[]> => {
+    pdfjs.GlobalWorkerOptions.workerSrc = new URL(
+      "pdfjs-dist/build/pdf.worker.min.mjs",
+      import.meta.url,
+    ).toString();
 
-    const typedActions = baselineBuckets.actions.text
-      .split("\n")
-      .map((entry) => entry.trim())
-      .filter(Boolean);
+    const docs: UploadedDoc[] = [];
+    for (const file of files) {
+      updateFileProgress(file.id, 15);
+      const arrayBuffer = await file.file.arrayBuffer();
+      updateFileProgress(file.id, 35);
+      const loadingTask = pdfjs.getDocument({ data: arrayBuffer });
+      const pdf = await loadingTask.promise;
+      const pages: UploadedDoc["pages"] = [];
+      for (let pageNumber = 1; pageNumber <= pdf.numPages; pageNumber += 1) {
+        const page = await pdf.getPage(pageNumber);
+        const content = await page.getTextContent();
+        const pageText = content.items
+          .map((item) => ("str" in item ? String(item.str) : ""))
+          .join(" ");
+        pages.push({ pageNumber, text: pageText });
+      }
+      updateFileProgress(file.id, 90);
+      docs.push({
+        id: file.id,
+        fileName: file.fileName,
+        sizeBytes: file.sizeBytes,
+        uploadedAt: file.uploadedAt,
+        pages,
+      });
+      updateFileProgress(file.id, 100);
+    }
+    return docs;
+  }, [updateFileProgress]);
 
-    const decisionsSource = typedActions.length > 0 ? typedActions.slice(0, 20) : DEFAULT_DECISIONS;
-    const decisions = decisionsSource
-      .map((text) => text.trim())
-      .filter(Boolean)
-      .map((text, index) => ({
-        id: `decision-${Date.now()}-${index}`,
-        text,
-        confirmed: true,
-        discarded: false,
-      }));
+  const handleExtractDecisions = useCallback(async () => {
+    if (isParsing) return;
+    if (intakeFiles.length === 0) {
+      setIntakeError("Upload a PDF to extract decision candidates.");
+      return;
+    }
 
-    window.setTimeout(() => {
-      setExtractedCandidates(decisions);
-      setHasRunExtraction(true);
-      setIsExtracting(false);
+    setIsParsing(true);
+    setIntakeError(null);
+    setIntakeStatus("parsing");
+    try {
+      const docs = await parsePdfDocuments(intakeFiles);
+      const candidates = buildCandidates(docs);
+      if (candidates.length === 0) {
+        setDecisionCandidates([]);
+        setIntakeError("No candidates found — try another file or paste text.");
+        setIntakeStatus("doc_selected");
+        setIsParsing(false);
+        return;
+      }
+      setDecisionCandidates(candidates);
+      setIntakeStatus("candidates_ready");
       requestAnimationFrame(() => {
         reviewPanelRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
       });
-    }, 900);
-  }, [baselineBuckets.actions.text, isExtracting]);
+    } catch (error) {
+      console.error("Failed to parse PDF intake.", error);
+      setIntakeError("PDF parse failed. Please try another file.");
+      setIntakeStatus("doc_selected");
+    } finally {
+      setIsParsing(false);
+    }
+  }, [intakeFiles, isParsing, parsePdfDocuments]);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -248,19 +339,6 @@ export default function StressTestPage() {
       console.error("Failed to persist stress test session decisions.", error);
     }
   }, [sessionDecisions]);
-
-  useEffect(() => {
-    if (typeof window === "undefined") return;
-    try {
-      if (extractedCandidates.length === 0) {
-        window.localStorage.removeItem(EXTRACTED_CANDIDATES_KEY);
-      } else {
-        window.localStorage.setItem(EXTRACTED_CANDIDATES_KEY, JSON.stringify(extractedCandidates));
-      }
-    } catch (error) {
-      console.error("Failed to persist extracted candidates.", error);
-    }
-  }, [extractedCandidates]);
 
   const handleSaveSessionDecision = useCallback((decision: StressTestDecisionSnapshot) => {
     const title = decision.name?.trim() || "Untitled decision";
@@ -282,29 +360,92 @@ export default function StressTestPage() {
     setSessionDecisions((prev) => [sessionDecision, ...prev]);
   }, []);
 
-  const handleAddCandidatesToLog = useCallback((candidates: ExtractedDecisionCandidate[]) => {
+  const handleAddCandidatesToLog = useCallback((candidates: DecisionCandidate[]) => {
     if (candidates.length === 0) return 0;
-    const metrics = computeMetrics(DEFAULT_REVIEW_VARIABLES);
     const createdAt = Date.now();
-    const nextDecisions: SessionDecision[] = candidates.map((candidate, index) => ({
-      id: `${createdAt}-${index}-${Math.random().toString(36).slice(2, 8)}`,
-      title: candidate.text.trim() || "Untitled decision",
-      category: candidate.category?.trim() || "Other",
-      impact: DEFAULT_REVIEW_VARIABLES.impact,
-      cost: DEFAULT_REVIEW_VARIABLES.cost,
-      risk: DEFAULT_REVIEW_VARIABLES.risk,
-      urgency: DEFAULT_REVIEW_VARIABLES.urgency,
-      confidence: DEFAULT_REVIEW_VARIABLES.confidence,
-      r: metrics.return,
-      p: metrics.pressure,
-      s: metrics.stability,
-      dnav: metrics.dnav,
-      createdAt: createdAt + index,
-    }));
+    const nextDecisions: SessionDecision[] = candidates.map((candidate, index) => {
+      const scores = {
+        impact: candidate.scores.impact ?? DEFAULT_REVIEW_VARIABLES.impact,
+        cost: candidate.scores.cost ?? DEFAULT_REVIEW_VARIABLES.cost,
+        risk: candidate.scores.risk ?? DEFAULT_REVIEW_VARIABLES.risk,
+        urgency: candidate.scores.urgency ?? DEFAULT_REVIEW_VARIABLES.urgency,
+        confidence: candidate.scores.confidence ?? DEFAULT_REVIEW_VARIABLES.confidence,
+      };
+      const metrics = computeMetrics(scores);
+      return {
+        id: `${createdAt}-${index}-${Math.random().toString(36).slice(2, 8)}`,
+        title: candidate.decisionText.trim() || "Untitled decision",
+        category: candidate.category?.trim() || "Other",
+        impact: scores.impact,
+        cost: scores.cost,
+        risk: scores.risk,
+        urgency: scores.urgency,
+        confidence: scores.confidence,
+        r: metrics.return,
+        p: metrics.pressure,
+        s: metrics.stability,
+        dnav: metrics.dnav,
+        createdAt: createdAt + index,
+        source: candidate.source,
+      };
+    });
     setSessionDecisions((prev) => [...nextDecisions, ...prev]);
-    setExtractedCandidates([]);
+    setDecisionCandidates([]);
+    setIntakeStatus("committed");
     return nextDecisions.length;
   }, []);
+
+  const handleFilesAdded = useCallback((files: File[]) => {
+    const pdfFiles = files.filter((file) => file.type === "application/pdf" || file.name.toLowerCase().endsWith(".pdf"));
+    if (pdfFiles.length === 0) {
+      setIntakeError("Only PDF files are supported right now.");
+      return;
+    }
+    setIntakeError(null);
+    setIntakeFiles((prev) => [
+      ...prev,
+      ...pdfFiles.map((file) => ({
+        id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+        file,
+        fileName: file.name,
+        sizeBytes: file.size,
+        uploadedAt: Date.now(),
+        progress: 0,
+      })),
+    ]);
+    setIntakeStatus("doc_selected");
+  }, []);
+
+  const handleRemoveFile = useCallback((id: string) => {
+    setIntakeFiles((prev) => {
+      const next = prev.filter((file) => file.id !== id);
+      if (next.length === 0) {
+        setIntakeStatus("idle");
+      }
+      return next;
+    });
+    setDecisionCandidates((prev) => prev.filter((candidate) => candidate.source.docId !== id));
+  }, []);
+
+  const dropzoneFiles = useMemo<PdfDropzoneFile[]>(
+    () =>
+      intakeFiles.map((file) => ({
+        id: file.id,
+        name: file.fileName,
+        sizeBytes: file.sizeBytes,
+        progress: file.progress,
+        warning:
+          file.sizeBytes > SOFT_FILE_LIMIT_MB * 1024 * 1024
+            ? `Over ${SOFT_FILE_LIMIT_MB}MB — parsing may be slow.`
+            : undefined,
+      })),
+    [intakeFiles],
+  );
+
+  const keptCandidates = useMemo(
+    () => decisionCandidates.filter((candidate) => candidate.keep),
+    [decisionCandidates],
+  );
 
   const decisionCount = sessionDecisions.length;
   const progressCount = Math.min(decisionCount, 10);
@@ -773,114 +914,111 @@ export default function StressTestPage() {
                   className="flex w-full items-center justify-between gap-4 rounded-lg border border-border/60 bg-muted/10 px-4 py-3 text-left"
                 >
                   <div className="space-y-1">
-                    <h2 className="text-sm font-semibold text-foreground">Extract decisions from notes or documents</h2>
-                    <p className="text-xs text-muted-foreground">Fastest way to get to 10–20.</p>
+                    <h2 className="text-sm font-semibold text-foreground">Decision Intake</h2>
+                    <p className="text-xs text-muted-foreground">Upload PDFs, extract candidates, review, and commit.</p>
                   </div>
                   <div className="flex items-center gap-2 text-xs font-semibold text-muted-foreground">
-                    <span>Have documents?</span>
+                    <span>Upload PDF</span>
                     <ChevronDown className={`h-4 w-4 transition ${isBaselineOpen ? "rotate-180" : ""}`} />
                   </div>
                 </button>
 
                 {isBaselineOpen ? (
                   <section className="space-y-4">
-                    <div className="space-y-2">
-                      <div className="space-y-1">
-                        <h2 className="text-lg font-semibold text-foreground">Strategic Baseline</h2>
-                        <p className="text-sm text-muted-foreground">
-                          Load context so we can extract decisions before scoring them.
-                        </p>
+                    <div className="grid gap-4 lg:grid-cols-[1.3fr_0.7fr]">
+                      <div className="space-y-3 rounded-xl border border-border/60 bg-background/90 p-4 shadow-sm">
+                        <div className="space-y-1">
+                          <h3 className="text-sm font-semibold text-foreground">Decision Intake</h3>
+                          <p className="text-xs text-muted-foreground">
+                            Drag in PDFs and keep only the commitments you want scored.
+                          </p>
+                        </div>
+                        <PdfDropzone
+                          files={dropzoneFiles}
+                          onFilesAdded={handleFilesAdded}
+                          onRemoveFile={handleRemoveFile}
+                          disabled={isParsing}
+                        />
+                        {intakeError ? (
+                          <div className="rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-xs text-rose-600">
+                            {intakeError}
+                          </div>
+                        ) : null}
+                        <div className="flex flex-wrap items-center gap-3">
+                          <Button
+                            onClick={handleExtractDecisions}
+                            className="h-10 px-4 text-sm font-semibold"
+                            disabled={isParsing || intakeFiles.length === 0}
+                          >
+                            {isParsing ? "Extracting…" : "Extract Decision Candidates"}
+                          </Button>
+                          <span className="text-xs text-muted-foreground">
+                            Status: {intakeStatus.replace(/_/g, " ")}
+                          </span>
+                        </div>
                       </div>
-                      <p className="text-xs text-muted-foreground">
-                        Upload plans, memos, meeting notes, investor updates, or public filings. Plain text works best.
-                      </p>
-                    </div>
-
-                    <div className="grid gap-4 md:grid-cols-2">
-                      {BASELINE_BUCKETS.map((bucket) => {
-                        const bucketState = baselineBuckets[bucket.key];
-                        const fileId = `baseline-${bucket.key}-file`;
-                        return (
-                          <GlassCard key={bucket.key} className="flex h-full flex-col gap-3 p-4">
+                      <div className="rounded-xl border border-border/60 bg-background/90 p-4 shadow-sm">
+                        <details className="group">
+                          <summary className="cursor-pointer text-sm font-semibold text-foreground">
+                            Context (optional)
+                          </summary>
+                          <div className="mt-3 space-y-3 text-xs text-muted-foreground">
                             <div className="space-y-1">
-                              <h3 className="text-sm font-semibold text-foreground">{bucket.title}</h3>
-                              <p className="text-xs text-muted-foreground">{bucket.prompt}</p>
-                            </div>
-                            <Textarea
-                              value={bucketState.text}
-                              onChange={(event) => updateBaselineBucket(bucket.key, { text: event.target.value })}
-                              placeholder="Type notes or paste excerpts"
-                              className="min-h-[120px] text-sm"
-                            />
-                            <div className="flex flex-wrap items-center gap-2">
-                              <input
-                                id={fileId}
-                                type="file"
-                                accept=".pdf,.docx,.txt"
-                                className="hidden"
-                                onChange={(event) => {
-                                  updateBaselineBucket(bucket.key, { file: event.target.files?.[0] ?? null });
-                                }}
+                              <p className="text-xs font-semibold text-foreground">Strategic intent</p>
+                              <Textarea
+                                value={intentContext}
+                                onChange={(event) => setIntentContext(event.target.value)}
+                                placeholder="Why this document matters / desired outcomes"
+                                className="min-h-[90px] text-xs"
                               />
-                              <Button asChild variant="outline" size="sm" className="h-8 px-3 text-xs">
-                                <label htmlFor={fileId}>Upload</label>
-                              </Button>
-                              <span className="text-xs text-muted-foreground">
-                                {bucketState.file?.name ?? "PDF, DOCX, TXT"}
-                              </span>
                             </div>
-                            <p className="text-xs text-muted-foreground">{bucket.helper}</p>
-                            <div className="flex flex-wrap gap-1.5">
-                              {bucket.examples.map((example) => (
-                                <Badge key={example} variant="outline" className="text-[10px] font-medium">
-                                  {example}
-                                </Badge>
-                              ))}
+                            <div className="space-y-1">
+                              <p className="text-xs font-semibold text-foreground">Constraints</p>
+                              <Textarea
+                                value={constraintContext}
+                                onChange={(event) => setConstraintContext(event.target.value)}
+                                placeholder="Hard limits, dependencies, timing"
+                                className="min-h-[90px] text-xs"
+                              />
                             </div>
-                          </GlassCard>
-                        );
-                      })}
-                    </div>
-
-                    <div className="flex flex-col gap-3">
-                      <Button
-                        onClick={handleExtractDecisions}
-                        className="h-10 w-full max-w-xs text-sm font-semibold"
-                        disabled={isExtracting}
-                      >
-                        {isExtracting ? "Extracting…" : "Extract Decisions"}
-                      </Button>
-
-                      {isExtracting ? (
-                        <div className="dnav-glass-panel space-y-3 px-4 py-3">
-                          <div className="h-2 w-full overflow-hidden rounded-full bg-muted/30">
-                            <div className="h-full w-1/2 animate-pulse rounded-full bg-primary/70" />
-                          </div>
-                          <div className="grid gap-2">
-                            {[...Array(3)].map((_, index) => (
-                              <div key={`scan-${index}`} className="h-10 w-full animate-pulse rounded-full bg-muted/20" />
-                            ))}
-                          </div>
-                        </div>
-                      ) : null}
-
-                      {hasRunExtraction ? (
-                        <div ref={reviewPanelRef} className="space-y-2">
-                          {extractedCandidates.length < 10 && extractedCandidates.length > 0 ? (
-                            <p className="text-xs text-muted-foreground">
-                              We found {extractedCandidates.length}. Add more actions or upload a document to reveal
-                              patterns.
+                            <p className="text-[11px] text-muted-foreground">
+                              Context will be used later to refine extraction.
                             </p>
-                          ) : null}
-                          <ExtractedDecisionReviewPanel
-                            candidates={extractedCandidates}
-                            onCandidatesChange={setExtractedCandidates}
-                            categories={EXTRACTED_DECISION_CATEGORIES}
-                            onAddToLog={handleAddCandidatesToLog}
-                          />
-                        </div>
-                      ) : null}
+                          </div>
+                        </details>
+                      </div>
                     </div>
+
+                    {decisionCandidates.length > 0 ? (
+                      <div ref={reviewPanelRef} className="space-y-3">
+                        {decisionCandidates.length < 10 ? (
+                          <p className="text-xs text-muted-foreground">
+                            We found {decisionCandidates.length}. Add more documents to reach 10–20 commitments.
+                          </p>
+                        ) : null}
+                        <CandidateReviewTable
+                          candidates={decisionCandidates}
+                          onCandidatesChange={setDecisionCandidates}
+                          categories={EXTRACTED_DECISION_CATEGORIES}
+                        />
+                        <div className="flex flex-wrap items-center gap-2">
+                          <Button
+                            onClick={() => handleAddCandidatesToLog(keptCandidates)}
+                            className="h-9 px-4 text-xs font-semibold uppercase tracking-wide"
+                            disabled={keptCandidates.length === 0}
+                          >
+                            Add kept decisions to session
+                          </Button>
+                          <ExcelExportButton
+                            decisions={sessionDecisions}
+                            className="h-9 px-4 text-xs font-semibold uppercase tracking-wide"
+                          />
+                          {intakeStatus === "committed" ? (
+                            <span className="text-xs text-muted-foreground">Added to session.</span>
+                          ) : null}
+                        </div>
+                      </div>
+                    ) : null}
                   </section>
                 ) : null}
               </div>
