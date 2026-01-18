@@ -1,3 +1,5 @@
+import type { TimingPrecision } from "@/utils/timingPrecision";
+
 export interface UploadedDoc {
   id: string;
   fileName: string;
@@ -12,6 +14,11 @@ export interface SourceRef {
   pageNumber: number;
   excerpt: string;
   chunkId: string;
+}
+
+export interface TimingNormalized {
+  precision: TimingPrecision;
+  [key: string]: unknown;
 }
 
 export interface DecisionCandidate {
@@ -30,6 +37,7 @@ export interface DecisionCandidate {
     type: "ExactDate" | "Quarter" | "FiscalYear" | "Dependency";
     verified: "Explicit" | "Unverified";
   };
+  timingNormalized?: TimingNormalized;
   source: SourceRef;
   keep: boolean;
 }
