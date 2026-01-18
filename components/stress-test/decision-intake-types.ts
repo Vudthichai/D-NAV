@@ -25,9 +25,15 @@ export interface DecisionCandidate {
     urgency?: number;
     confidence?: number;
   };
+  candidateScore: number;
+  isMetric: boolean;
+  hasCommitment: boolean;
+  hasConstraint: boolean;
+  hasExposure: boolean;
+  hasTimeAnchor: boolean;
   timeAnchor?: {
     raw: string;
-    type: "ExactDate" | "Quarter" | "FiscalYear" | "Dependency";
+    type: "ExactDate" | "Quarter" | "FiscalYear" | "HalfYear" | "Dependency";
     verified: "Explicit" | "Unverified";
   };
   source: SourceRef;

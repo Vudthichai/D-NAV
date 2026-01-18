@@ -17,6 +17,7 @@ interface ExportDecision {
 interface ExcelExportButtonProps {
   decisions: ExportDecision[];
   className?: string;
+  label?: string;
 }
 
 const downloadBlob = (blob: Blob, filename: string) => {
@@ -29,7 +30,7 @@ const downloadBlob = (blob: Blob, filename: string) => {
   URL.revokeObjectURL(link.href);
 };
 
-export function ExcelExportButton({ decisions, className }: ExcelExportButtonProps) {
+export function ExcelExportButton({ decisions, className, label }: ExcelExportButtonProps) {
   return (
     <Button
       type="button"
@@ -71,7 +72,7 @@ export function ExcelExportButton({ decisions, className }: ExcelExportButtonPro
       }}
       disabled={decisions.length === 0}
     >
-      Download Excel (Template)
+      {label ?? "Download Excel (Template)"}
     </Button>
   );
 }

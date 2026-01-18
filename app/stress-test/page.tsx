@@ -16,6 +16,8 @@ import type {
 import { Button } from "@/components/ui/button";
 import { AccentSliver } from "@/components/ui/AccentSliver";
 import { Callout } from "@/components/ui/Callout";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
 import Term from "@/components/ui/Term";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
@@ -59,11 +61,17 @@ const EXTRACTED_DECISION_CATEGORIES = [
   "Uncategorized",
   "Strategy",
   "Capital",
-  "Ops",
-  "People",
-  "Real Estate",
-  "Risk",
   "Product",
+  "Operations",
+  "AI/Autonomy",
+  "Manufacturing",
+  "Supply Chain",
+  "Sales/Marketing",
+  "People",
+  "Regulatory",
+  "Real Estate",
+  "Energy",
+  "Finance",
   "Other",
 ];
 const SESSION_DECISIONS_KEY = "dnav:stressTest:sessionDecisions";
@@ -74,41 +82,42 @@ const DEFAULT_REVIEW_VARIABLES = {
   urgency: 5,
   confidence: 5,
 };
-const MAX_CANDIDATES = 30;
+const REVIEW_SCORE_KEYS = ["impact", "cost", "risk", "urgency", "confidence"] as const;
+const MAX_CANDIDATES_OPTIONS = [15, 30, 50];
 const SOFT_FILE_LIMIT_MB = 25;
 
 const COMMITMENT_TERMS = [
   "will",
-  "have",
   "approved",
   "plan to",
   "committed",
-  "intend to",
+  "intend",
   "launch",
   "expand",
-  "increase",
   "reduce",
   "accelerate",
   "delay",
 ];
 const CONSTRAINT_TERMS = [
-  "by",
-  "before",
-  "deadline",
-  "pending approval",
   "regulatory",
   "capacity",
-  "capital",
+  "capex",
   "margin",
-  "cost",
-  "q1",
-  "q2",
-  "q3",
-  "q4",
-  "fy",
+  "supply",
+  "headcount",
+  "deadline",
+  "pending approval",
 ];
 const EXPOSURE_TERMS = ["risk", "uncertain", "subject to", "may", "could"];
 const VAGUE_TIME_TERMS = ["soon", "near-term", "shortly", "asap", "imminent"];
+const METRIC_MARKERS = [
+  "in millions",
+  "gaap",
+  "reconciliation",
+  "automotive gross margin",
+  "eps",
+  "cash flow",
+];
 
 const normalizeText = (text: string) =>
   text
@@ -122,11 +131,8 @@ const chunkText = (text: string) => {
   return blocks.map((block) => normalizeText(block)).filter((block) => block.length > 30);
 };
 
-const countSignals = (text: string) => {
-  const haystack = text.toLowerCase();
-  const countMatches = (terms: string[]) => terms.reduce((acc, term) => (haystack.includes(term) ? acc + 1 : acc), 0);
-  return countMatches(COMMITMENT_TERMS) + countMatches(CONSTRAINT_TERMS) + countMatches(EXPOSURE_TERMS);
-};
+const hasTerm = (text: string, terms: string[]) =>
+  terms.some((term) => text.toLowerCase().includes(term));
 
 const detectTimeAnchor = (text: string) => {
   const dateMatch = text.match(
@@ -138,6 +144,10 @@ const detectTimeAnchor = (text: string) => {
   const quarterMatch = text.match(/\bQ[1-4]\s?20\d{2}\b/i);
   if (quarterMatch) {
     return { raw: quarterMatch[0], type: "Quarter" as const, verified: "Explicit" as const };
+  }
+  const halfMatch = text.match(/\bH[1-2]\s?20\d{2}\b/i);
+  if (halfMatch) {
+    return { raw: halfMatch[0], type: "HalfYear" as const, verified: "Explicit" as const };
   }
   const fyMatch = text.match(/\bFY\s?20\d{2}\b/i);
   if (fyMatch) {
@@ -184,8 +194,22 @@ const buildCandidates = (docs: UploadedDoc[]) => {
   docs.forEach((doc) => {
     doc.pages.forEach((page) => {
       chunkText(page.text).forEach((chunk, index) => {
-        if (countSignals(chunk) < 2) return;
+        const lowerChunk = chunk.toLowerCase();
+        const hasCommitment = hasTerm(lowerChunk, COMMITMENT_TERMS);
+        const hasConstraint = hasTerm(lowerChunk, CONSTRAINT_TERMS);
+        const hasExposure = hasTerm(lowerChunk, EXPOSURE_TERMS);
+        const hasMetrics = hasTerm(lowerChunk, METRIC_MARKERS);
         const timeAnchor = detectTimeAnchor(chunk);
+        const hasTimeAnchor = timeAnchor?.verified === "Explicit";
+
+        if (!hasCommitment && !hasConstraint && !hasExposure && !hasTimeAnchor) return;
+
+        let candidateScore = 0;
+        if (hasCommitment) candidateScore += 2;
+        if (hasTimeAnchor) candidateScore += 2;
+        if (hasConstraint) candidateScore += 1;
+        if (hasMetrics && !hasCommitment) candidateScore -= 3;
+
         const commitment = extractCommitment(chunk);
         const constraint = extractConstraint(chunk, timeAnchor);
         const impact = extractImpact(chunk);
@@ -200,7 +224,13 @@ const buildCandidates = (docs: UploadedDoc[]) => {
           id: `${doc.id}-${page.pageNumber}-${index}`,
           decisionText: buildDecisionText(constraint, commitment, impact),
           category: "Uncategorized",
-          scores: { ...DEFAULT_REVIEW_VARIABLES },
+          scores: {},
+          candidateScore,
+          isMetric: hasMetrics,
+          hasCommitment,
+          hasConstraint,
+          hasExposure,
+          hasTimeAnchor: Boolean(hasTimeAnchor),
           timeAnchor,
           source,
           keep: true,
@@ -208,7 +238,7 @@ const buildCandidates = (docs: UploadedDoc[]) => {
       });
     });
   });
-  return candidates.slice(0, MAX_CANDIDATES);
+  return candidates;
 };
 
 const isSessionDecisionSnapshot = (value: unknown): value is SessionDecision => {
@@ -233,6 +263,9 @@ export default function StressTestPage() {
   const [intakeError, setIntakeError] = useState<string | null>(null);
   const [intentContext, setIntentContext] = useState("");
   const [constraintContext, setConstraintContext] = useState("");
+  const [strictModeEnabled, setStrictModeEnabled] = useState(true);
+  const [showMetrics, setShowMetrics] = useState(false);
+  const [maxCandidates, setMaxCandidates] = useState(30);
   const [sessionDecisions, setSessionDecisions] = useState<SessionDecision[]>(() => {
     if (typeof window === "undefined") return [];
     try {
@@ -427,6 +460,13 @@ export default function StressTestPage() {
     setDecisionCandidates((prev) => prev.filter((candidate) => candidate.source.docId !== id));
   }, []);
 
+  const handleCandidateUpdates = useCallback((updatedCandidates: DecisionCandidate[]) => {
+    setDecisionCandidates((prev) => {
+      const updateMap = new Map(updatedCandidates.map((candidate) => [candidate.id, candidate]));
+      return prev.map((candidate) => updateMap.get(candidate.id) ?? candidate);
+    });
+  }, []);
+
   const dropzoneFiles = useMemo<PdfDropzoneFile[]>(
     () =>
       intakeFiles.map((file) => ({
@@ -442,9 +482,42 @@ export default function StressTestPage() {
     [intakeFiles],
   );
 
+  const filteredCandidates = useMemo(() => {
+    let filtered = decisionCandidates;
+    if (!showMetrics) {
+      filtered = filtered.filter((candidate) => !candidate.isMetric);
+    }
+    if (strictModeEnabled) {
+      filtered = filtered.filter(
+        (candidate) => candidate.hasCommitment && (candidate.hasConstraint || candidate.hasExposure),
+      );
+    }
+    const sorted = [...filtered].sort((a, b) => b.candidateScore - a.candidateScore);
+    const isTruncated = sorted.length > maxCandidates;
+    return {
+      candidates: sorted.slice(0, maxCandidates),
+      totalCount: sorted.length,
+      isTruncated,
+    };
+  }, [decisionCandidates, maxCandidates, showMetrics, strictModeEnabled]);
+
   const keptCandidates = useMemo(
-    () => decisionCandidates.filter((candidate) => candidate.keep),
-    [decisionCandidates],
+    () => filteredCandidates.candidates.filter((candidate) => candidate.keep),
+    [filteredCandidates.candidates],
+  );
+
+  const uncategorizedCount = useMemo(
+    () =>
+      keptCandidates.filter((candidate) => candidate.category === "Uncategorized" || !candidate.category).length,
+    [keptCandidates],
+  );
+
+  const unscoredCount = useMemo(
+    () =>
+      keptCandidates.filter((candidate) =>
+        REVIEW_SCORE_KEYS.some((key) => candidate.scores[key] === undefined),
+      ).length,
+    [keptCandidates],
   );
 
   const decisionCount = sessionDecisions.length;
@@ -806,6 +879,9 @@ export default function StressTestPage() {
                       A pattern-level readout of how you make decisions before outcomes intervene.
                     </p>
                     <p className="text-[11px] text-muted-foreground">
+                      This is a mirror of judgment under pressure — not a recommendation engine.
+                    </p>
+                    <p className="text-[11px] text-muted-foreground">
                       In guided consulting sessions, we review many decisions to surface the real variables — and
                       understand the physics of judgment under pressure.
                     </p>
@@ -915,7 +991,9 @@ export default function StressTestPage() {
                 >
                   <div className="space-y-1">
                     <h2 className="text-sm font-semibold text-foreground">Decision Intake</h2>
-                    <p className="text-xs text-muted-foreground">Upload PDFs, extract candidates, review, and commit.</p>
+                    <p className="text-xs text-muted-foreground">
+                      Upload a PDF, keep only real commitments, then score.
+                    </p>
                   </div>
                   <div className="flex items-center gap-2 text-xs font-semibold text-muted-foreground">
                     <span>Upload PDF</span>
@@ -930,7 +1008,7 @@ export default function StressTestPage() {
                         <div className="space-y-1">
                           <h3 className="text-sm font-semibold text-foreground">Decision Intake</h3>
                           <p className="text-xs text-muted-foreground">
-                            Drag in PDFs and keep only the commitments you want scored.
+                            Upload a PDF, keep only real commitments, then score.
                           </p>
                         </div>
                         <PdfDropzone
@@ -939,6 +1017,10 @@ export default function StressTestPage() {
                           onRemoveFile={handleRemoveFile}
                           disabled={isParsing}
                         />
+                        <p className="text-[11px] text-muted-foreground">
+                          Optional. Leave blank for first pass. Use only to bias extraction toward a known objective or
+                          constraint.
+                        </p>
                         {intakeError ? (
                           <div className="rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-xs text-rose-600">
                             {intakeError}
@@ -991,32 +1073,91 @@ export default function StressTestPage() {
 
                     {decisionCandidates.length > 0 ? (
                       <div ref={reviewPanelRef} className="space-y-3">
-                        {decisionCandidates.length < 10 ? (
+                        {filteredCandidates.totalCount < 10 ? (
                           <p className="text-xs text-muted-foreground">
-                            We found {decisionCandidates.length}. Add more documents to reach 10–20 commitments.
+                            We found {filteredCandidates.totalCount}. Add more documents to reach 10–20 commitments.
+                          </p>
+                        ) : null}
+                        <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-border/60 bg-background/90 px-3 py-2 text-xs">
+                          <div className="flex items-center gap-2 text-[11px] font-semibold text-muted-foreground">
+                            <span>Quality Gate</span>
+                          </div>
+                          <div className="flex flex-wrap items-center gap-4">
+                            <label className="flex items-center gap-2 text-[11px] text-muted-foreground">
+                              <span>Strict mode</span>
+                              <Switch checked={strictModeEnabled} onCheckedChange={setStrictModeEnabled} />
+                            </label>
+                            <label className="flex items-center gap-2 text-[11px] text-muted-foreground">
+                              <span>Show metrics</span>
+                              <Switch checked={showMetrics} onCheckedChange={setShowMetrics} />
+                            </label>
+                            <div className="flex items-center gap-2 text-[11px] text-muted-foreground">
+                              <span>Max candidates</span>
+                              <Select
+                                value={String(maxCandidates)}
+                                onValueChange={(value) => setMaxCandidates(Number(value))}
+                              >
+                                <SelectTrigger className="h-7 w-[90px] text-[11px]">
+                                  <SelectValue />
+                                </SelectTrigger>
+                                <SelectContent>
+                                  {MAX_CANDIDATES_OPTIONS.map((option) => (
+                                    <SelectItem key={option} value={String(option)} className="text-xs">
+                                      {option}
+                                    </SelectItem>
+                                  ))}
+                                </SelectContent>
+                              </Select>
+                            </div>
+                          </div>
+                        </div>
+                        {filteredCandidates.isTruncated ? (
+                          <p className="text-[11px] text-muted-foreground">
+                            Showing top {maxCandidates} highest-signal candidates. Adjust to view more.
                           </p>
                         ) : null}
                         <CandidateReviewTable
-                          candidates={decisionCandidates}
-                          onCandidatesChange={setDecisionCandidates}
+                          candidates={filteredCandidates.candidates}
+                          onCandidatesChange={handleCandidateUpdates}
                           categories={EXTRACTED_DECISION_CATEGORIES}
                         />
-                        <div className="flex flex-wrap items-center gap-2">
-                          <Button
-                            onClick={() => handleAddCandidatesToLog(keptCandidates)}
-                            className="h-9 px-4 text-xs font-semibold uppercase tracking-wide"
-                            disabled={keptCandidates.length === 0}
-                          >
-                            Add kept decisions to session
-                          </Button>
-                          <ExcelExportButton
-                            decisions={sessionDecisions}
-                            className="h-9 px-4 text-xs font-semibold uppercase tracking-wide"
-                          />
-                          {intakeStatus === "committed" ? (
-                            <span className="text-xs text-muted-foreground">Added to session.</span>
-                          ) : null}
+                        <div className="flex flex-wrap items-center justify-between gap-3">
+                          <div className="flex flex-wrap items-center gap-2">
+                            <Button
+                              onClick={() => handleAddCandidatesToLog(keptCandidates)}
+                              className="h-9 px-4 text-xs font-semibold uppercase tracking-wide"
+                              disabled={keptCandidates.length === 0}
+                            >
+                              Add kept decisions to session
+                            </Button>
+                            <ExcelExportButton
+                              decisions={keptCandidates.map((candidate) => ({
+                                createdAt: Date.now(),
+                                title: candidate.decisionText,
+                                category: candidate.category || "Uncategorized",
+                                impact: candidate.scores.impact ?? DEFAULT_REVIEW_VARIABLES.impact,
+                                cost: candidate.scores.cost ?? DEFAULT_REVIEW_VARIABLES.cost,
+                                risk: candidate.scores.risk ?? DEFAULT_REVIEW_VARIABLES.risk,
+                                urgency: candidate.scores.urgency ?? DEFAULT_REVIEW_VARIABLES.urgency,
+                                confidence: candidate.scores.confidence ?? DEFAULT_REVIEW_VARIABLES.confidence,
+                              }))}
+                              label="Download Excel (Kept only)"
+                              className="h-9 px-4 text-xs font-semibold uppercase tracking-wide"
+                            />
+                          </div>
+                          <div className="text-[11px] text-muted-foreground">
+                            Kept: {keptCandidates.length} • Uncategorized: {uncategorizedCount} • Unscored:{" "}
+                            {unscoredCount}
+                          </div>
                         </div>
+                        {keptCandidates.length > 0 && unscoredCount > 0 ? (
+                          <p className="text-[11px] text-muted-foreground">
+                            Some kept decisions are unscored. You can still commit, but insight improves once tuned.
+                          </p>
+                        ) : null}
+                        {intakeStatus === "committed" ? (
+                          <span className="text-xs text-muted-foreground">Added to session.</span>
+                        ) : null}
                       </div>
                     ) : null}
                   </section>

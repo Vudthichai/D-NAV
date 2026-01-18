@@ -5,6 +5,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { Minus, Plus } from "lucide-react";
 import { useMemo, useState } from "react";
 import type { DecisionCandidate } from "@/components/stress-test/decision-intake-types";
@@ -50,9 +51,14 @@ function ScoreStepper({
         type="number"
         min={1}
         max={10}
-        value={numeric}
+        value={value ?? ""}
         onChange={(event) => {
-          const next = Number(event.target.value);
+          const rawValue = event.target.value;
+          if (rawValue === "") {
+            onChange(undefined);
+            return;
+          }
+          const next = Number(rawValue);
           onChange(Number.isFinite(next) ? clampScore(next) : undefined);
         }}
         className="h-7 w-12 px-1 text-center text-xs"
@@ -73,6 +79,7 @@ function ScoreStepper({
 export function CandidateReviewTable({ candidates, categories, onCandidatesChange }: CandidateReviewTableProps) {
   const [bulkCategory, setBulkCategory] = useState<string>("Uncategorized");
   const [bulkScore, setBulkScore] = useState<BulkScoreState>({ value: "" });
+  const [expandedSourceId, setExpandedSourceId] = useState<string | null>(null);
 
   const keptCount = useMemo(() => candidates.filter((candidate) => candidate.keep).length, [candidates]);
 
@@ -81,13 +88,38 @@ export function CandidateReviewTable({ candidates, categories, onCandidatesChang
   };
 
   return (
-    <div className="space-y-3">
-      <div className="space-y-1">
-        <h3 className="text-sm font-semibold text-foreground">Do these match real commitments?</h3>
-        <p className="text-xs text-muted-foreground">
-          Keep only statements that reduce optionality (money, time, talent, public promise).
-        </p>
-      </div>
+    <TooltipProvider>
+      <div className="space-y-3">
+        <div className="space-y-1">
+          <div className="flex flex-wrap items-center gap-2">
+            <h3 className="text-sm font-semibold text-foreground">Do these match real commitments?</h3>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  className="h-6 px-2 text-[11px] font-semibold text-muted-foreground"
+                >
+                  What counts?
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent side="bottom" className="max-w-[220px] text-[11px]">
+                <div className="space-y-1">
+                  <p>✅ A commitment with tradeoff or constraint.</p>
+                  <p>❌ A performance metric or accounting table.</p>
+                  <p>❌ Aspirational language without an anchor (“soon”, “near-term”).</p>
+                </div>
+              </TooltipContent>
+            </Tooltip>
+          </div>
+          <p className="text-xs text-muted-foreground">
+            Keep only statements that reduce optionality (money, time, talent, public promise).
+          </p>
+          <p className="text-xs text-muted-foreground">
+            Scores start Neutral (5). Change only when evidence justifies deviation.
+          </p>
+        </div>
 
       <div className="flex flex-wrap items-center gap-2 rounded-lg border border-border/60 bg-background/90 px-3 py-2 text-xs">
         <span className="text-[11px] font-semibold text-muted-foreground">Bulk actions</span>
@@ -112,7 +144,7 @@ export function CandidateReviewTable({ candidates, categories, onCandidatesChang
         <div className="flex items-center gap-2">
           <Select value={bulkCategory} onValueChange={setBulkCategory}>
             <SelectTrigger className="h-7 w-[150px] text-[11px]">
-              <SelectValue placeholder="Set category" />
+              <SelectValue placeholder="Set domain" />
             </SelectTrigger>
             <SelectContent>
               {categories.map((category) => (
@@ -129,7 +161,7 @@ export function CandidateReviewTable({ candidates, categories, onCandidatesChang
             className="h-7 px-2 text-[11px]"
             onClick={() => applyToKept((candidate) => ({ ...candidate, category: bulkCategory }))}
           >
-            Set category for selected
+            Set domain for selected
           </Button>
         </div>
         <div className="flex items-center gap-2">
@@ -166,6 +198,26 @@ export function CandidateReviewTable({ candidates, categories, onCandidatesChang
             Set scores for selected
           </Button>
         </div>
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          className="h-7 px-2 text-[11px]"
+          onClick={() =>
+            applyToKept((candidate) => ({
+              ...candidate,
+              scores: {
+                impact: 5,
+                cost: 5,
+                risk: 5,
+                urgency: 5,
+                confidence: 5,
+              },
+            }))
+          }
+        >
+          Fill Neutral (5) for kept
+        </Button>
         <span className="text-[11px] text-muted-foreground">Kept: {keptCount}</span>
       </div>
 
@@ -175,13 +227,13 @@ export function CandidateReviewTable({ candidates, categories, onCandidatesChang
             <TableRow>
               <TableHead className="w-[80px]">Keep?</TableHead>
               <TableHead>Decision</TableHead>
-              <TableHead className="w-[160px]">Category</TableHead>
+              <TableHead className="w-[180px]">Decision Domain</TableHead>
               <TableHead className="text-center">Impact</TableHead>
               <TableHead className="text-center">Cost</TableHead>
               <TableHead className="text-center">Risk</TableHead>
               <TableHead className="text-center">Urgency</TableHead>
               <TableHead className="text-center">Confidence</TableHead>
-              <TableHead className="w-[140px]">Source ▸</TableHead>
+              <TableHead className="w-[140px]">Source</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -261,13 +313,18 @@ export function CandidateReviewTable({ candidates, categories, onCandidatesChang
                   </TableCell>
                 ))}
                 <TableCell>
-                  <SourceCollapse source={candidate.source} />
+                  <SourceCollapse
+                    source={candidate.source}
+                    isOpen={expandedSourceId === candidate.id}
+                    onToggle={() => setExpandedSourceId((prev) => (prev === candidate.id ? null : candidate.id))}
+                  />
                 </TableCell>
               </TableRow>
             ))}
           </TableBody>
         </Table>
       </div>
-    </div>
+      </div>
+    </TooltipProvider>
   );
 }
