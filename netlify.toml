@@ -1,6 +1,9 @@
 [build]
-  command = "npm run baseline:update && npm run build"
+  command = "npm run build"
   publish = ".next"
+
+[build.environment]
+  BASELINE_BROWSER_MAPPING_IGNORE_OLD_DATA = "true"
 
 [functions]
   directory = "netlify/functions"

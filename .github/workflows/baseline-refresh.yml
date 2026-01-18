@@ -1,0 +1,45 @@
+name: Refresh baseline-browser-mapping
+
+on:
+  schedule:
+    - cron: "0 3 * * 1"
+  workflow_dispatch: {}
+
+jobs:
+  refresh:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Refresh baseline-browser-mapping
+        run: npm i -D baseline-browser-mapping@latest
+
+      - name: Lint
+        run: npm run lint --if-present
+
+      - name: Test
+        run: npm test --if-present
+
+      - name: Create pull request
+        uses: peter-evans/create-pull-request@v7
+        with:
+          commit-message: "chore: refresh baseline-browser-mapping"
+          title: "chore: refresh baseline-browser-mapping"
+          body: |
+            - Refresh baseline-browser-mapping to the latest release.
+            - Run lint and tests where available.
+          branch: chore/refresh-baseline-browser-mapping
+          delete-branch: true
