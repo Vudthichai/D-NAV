@@ -18,6 +18,9 @@ export interface SourceRef {
 
 export interface TimingNormalized {
   precision: TimingPrecision;
+  start?: string;
+  end?: string;
+  rawText?: string;
   [key: string]: unknown;
 }
 

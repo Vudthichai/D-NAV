@@ -8,7 +8,8 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Minus, Plus } from "lucide-react";
 import { useMemo, useState } from "react";
 import type { DecisionCandidate } from "@/components/stress-test/decision-intake-types";
-import { SourceCollapse } from "@/components/stress-test/SourceCollapse";
+import { SourceCell } from "@/components/stress-test/SourceCell";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 
 interface CandidateReviewTableProps {
   candidates: DecisionCandidate[];
@@ -73,11 +74,23 @@ function ScoreStepper({
 export function CandidateReviewTable({ candidates, categories, onCandidatesChange }: CandidateReviewTableProps) {
   const [bulkCategory, setBulkCategory] = useState<string>("Uncategorized");
   const [bulkScore, setBulkScore] = useState<BulkScoreState>({ value: "" });
+  const [openSourceRowId, setOpenSourceRowId] = useState<string | null>(null);
 
   const keptCount = useMemo(() => candidates.filter((candidate) => candidate.keep).length, [candidates]);
 
   const applyToKept = (updater: (candidate: DecisionCandidate) => DecisionCandidate) => {
     onCandidatesChange(candidates.map((candidate) => (candidate.keep ? updater(candidate) : candidate)));
+  };
+
+  const formatTiming = (timing?: DecisionCandidate["timingNormalized"]) => {
+    if (!timing || typeof timing !== "object") return "";
+    if (typeof timing.rawText === "string" && timing.rawText.trim()) {
+      return timing.rawText.trim();
+    }
+    const start = typeof timing.start === "string" ? timing.start : "";
+    const end = typeof timing.end === "string" ? timing.end : "";
+    if (start && end) return `${start} – ${end}`;
+    return start || end || "";
   };
 
   return (
@@ -175,13 +188,14 @@ export function CandidateReviewTable({ candidates, categories, onCandidatesChang
             <TableRow>
               <TableHead className="w-[80px]">Keep?</TableHead>
               <TableHead>Decision</TableHead>
+              <TableHead className="w-[160px]">Timing</TableHead>
               <TableHead className="w-[160px]">Category</TableHead>
               <TableHead className="text-center">Impact</TableHead>
               <TableHead className="text-center">Cost</TableHead>
               <TableHead className="text-center">Risk</TableHead>
               <TableHead className="text-center">Urgency</TableHead>
               <TableHead className="text-center">Confidence</TableHead>
-              <TableHead className="w-[140px]">Source ▸</TableHead>
+              <TableHead className="w-[260px]">Source</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -214,6 +228,22 @@ export function CandidateReviewTable({ candidates, categories, onCandidatesChang
                     }
                     className="h-8 text-xs"
                   />
+                </TableCell>
+                <TableCell className="align-top">
+                  {(() => {
+                    const timingLabel = formatTiming(candidate.timingNormalized);
+                    if (!timingLabel) return null;
+                    return (
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <span className="text-[11px] text-muted-foreground">Timing: {timingLabel}</span>
+                        </TooltipTrigger>
+                        <TooltipContent side="top" className="max-w-[200px] text-xs">
+                          Extracted from document; verify if important.
+                        </TooltipContent>
+                      </Tooltip>
+                    );
+                  })()}
                 </TableCell>
                 <TableCell>
                   <Select
@@ -260,8 +290,17 @@ export function CandidateReviewTable({ candidates, categories, onCandidatesChang
                     />
                   </TableCell>
                 ))}
-                <TableCell>
-                  <SourceCollapse source={candidate.source} />
+                <TableCell className="w-[260px] max-w-[260px] align-top">
+                  <SourceCell
+                    rowId={candidate.id}
+                    source={{
+                      docName: candidate.source.fileName,
+                      page: candidate.source.pageNumber,
+                      excerpt: candidate.source.excerpt,
+                    }}
+                    openRowId={openSourceRowId}
+                    setOpenRowId={setOpenSourceRowId}
+                  />
                 </TableCell>
               </TableRow>
             ))}
