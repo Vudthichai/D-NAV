@@ -8,7 +8,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Minus, Plus } from "lucide-react";
 import { useMemo, useState } from "react";
 import type { DecisionCandidate } from "@/components/stress-test/decision-intake-types";
-import { SourceCollapse } from "@/components/stress-test/SourceCollapse";
+import { SourceCell } from "@/components/stress-test/SourceCell";
 
 interface CandidateReviewTableProps {
   candidates: DecisionCandidate[];
@@ -73,7 +73,7 @@ function ScoreStepper({
 export function CandidateReviewTable({ candidates, categories, onCandidatesChange }: CandidateReviewTableProps) {
   const [bulkCategory, setBulkCategory] = useState<string>("Uncategorized");
   const [bulkScore, setBulkScore] = useState<BulkScoreState>({ value: "" });
-  const [openSourceId, setOpenSourceId] = useState<string | null>(null);
+  const [openEvidenceId, setOpenEvidenceId] = useState<string | null>(null);
 
   const keptCount = useMemo(() => candidates.filter((candidate) => candidate.keep).length, [candidates]);
 
@@ -182,7 +182,7 @@ export function CandidateReviewTable({ candidates, categories, onCandidatesChang
               <TableHead className="text-center">Risk</TableHead>
               <TableHead className="text-center">Urgency</TableHead>
               <TableHead className="text-center">Confidence</TableHead>
-              <TableHead className="w-[140px]">Source ▸</TableHead>
+              <TableHead className="w-[140px]">Evidence</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -262,11 +262,10 @@ export function CandidateReviewTable({ candidates, categories, onCandidatesChang
                   </TableCell>
                 ))}
                 <TableCell>
-                  <SourceCollapse
-                    key={`${candidate.id}-${openSourceId === candidate.id ? "open" : "closed"}`}
+                  <SourceCell
                     source={candidate.source}
-                    isOpen={openSourceId === candidate.id}
-                    onOpenChange={(nextOpen) => setOpenSourceId(nextOpen ? candidate.id : null)}
+                    isOpen={openEvidenceId === candidate.id}
+                    onOpenChange={(nextOpen) => setOpenEvidenceId(nextOpen ? candidate.id : null)}
                   />
                 </TableCell>
               </TableRow>
