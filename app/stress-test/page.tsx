@@ -56,9 +56,11 @@ interface SessionDecision {
   source?: SourceRef;
 }
 
-type TimingNormalizedInput = Record<string, unknown> & {
-  precision?: unknown;
-};
+type TimingNormalizedInput = {
+  start?: string;
+  end?: string;
+  precision?: string;
+} | undefined;
 
 const EXTRACTED_DECISION_CATEGORIES = [
   "Uncategorized",
@@ -120,6 +122,11 @@ const normalizeText = (text: string) =>
     .replace(/\s+/g, " ")
     .replace(/•/g, "• ")
     .trim();
+
+const asOptionalString = (value: unknown): string | undefined => (typeof value === "string" ? value : undefined);
+
+const isRecord = (value: unknown): value is Record<string, unknown> =>
+  typeof value === "object" && value !== null;
 
 const chunkText = (text: string) => {
   const cleaned = text.replace(/\r/g, "\n");
@@ -314,12 +321,16 @@ export default function StressTestPage() {
         const timingNormalizedInput = (candidate as { timingNormalized?: TimingNormalizedInput | null })
           .timingNormalized;
         if (!timingNormalizedInput) return candidate;
+        const timingBase = isRecord(timingNormalizedInput) ? timingNormalizedInput : {};
+        const precisionRaw = asOptionalString(timingBase.precision);
+        const timingNormalized = {
+          start: asOptionalString(timingBase.start),
+          end: asOptionalString(timingBase.end),
+          precision: normalizePrecision(precisionRaw),
+        };
         return {
           ...candidate,
-          timingNormalized: {
-            ...timingNormalizedInput,
-            precision: normalizePrecision(timingNormalizedInput.precision),
-          },
+          timingNormalized,
         };
       });
       if (candidates.length === 0) {
