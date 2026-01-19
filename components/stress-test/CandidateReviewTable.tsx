@@ -5,6 +5,14 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Textarea } from "@/components/ui/textarea";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
 import { Minus, Plus } from "lucide-react";
 import { useMemo, useState } from "react";
 import type { DecisionCandidate } from "@/components/stress-test/decision-intake-types";
@@ -21,8 +29,6 @@ interface BulkScoreState {
 }
 
 const scoreKeys = ["impact", "cost", "risk", "urgency", "confidence"] as const;
-
-type ScoreKey = (typeof scoreKeys)[number];
 
 const clampScore = (value: number) => Math.min(10, Math.max(1, value));
 
@@ -74,6 +80,7 @@ export function CandidateReviewTable({ candidates, categories, onCandidatesChang
   const [bulkCategory, setBulkCategory] = useState<string>("Uncategorized");
   const [bulkScore, setBulkScore] = useState<BulkScoreState>({ value: "" });
   const [openEvidenceId, setOpenEvidenceId] = useState<string | null>(null);
+  const [openEditId, setOpenEditId] = useState<string | null>(null);
 
   const keptCount = useMemo(() => candidates.filter((candidate) => candidate.keep).length, [candidates]);
 
@@ -176,7 +183,7 @@ export function CandidateReviewTable({ candidates, categories, onCandidatesChang
             <TableRow>
               <TableHead className="w-[80px]">Keep?</TableHead>
               <TableHead>Decision</TableHead>
-              <TableHead className="w-[160px]">Category</TableHead>
+              <TableHead className="w-[180px]">Decision Domain</TableHead>
               <TableHead className="text-center">Impact</TableHead>
               <TableHead className="text-center">Cost</TableHead>
               <TableHead className="text-center">Risk</TableHead>
@@ -204,22 +211,78 @@ export function CandidateReviewTable({ candidates, categories, onCandidatesChang
                   </div>
                 </TableCell>
                 <TableCell className="min-w-[260px]">
-                  <div className="space-y-1">
-                    <Input
-                      value={candidate.decisionText}
-                      onChange={(event) =>
-                        onCandidatesChange(
-                          candidates.map((item) =>
-                            item.id === candidate.id ? { ...item, decisionText: event.target.value } : item,
-                          ),
-                        )
-                      }
-                      className="h-8 text-xs"
-                    />
-                    {candidate.tableNoise ? (
-                      <span className="text-[10px] font-semibold text-amber-600">Likely table noise</span>
-                    ) : null}
-                  </div>
+                  <Dialog open={openEditId === candidate.id} onOpenChange={(open) => setOpenEditId(open ? candidate.id : null)}>
+                    <DialogTrigger asChild>
+                      <button type="button" className="w-full text-left">
+                        <div className="space-y-1">
+                          <p className="line-clamp-1 text-xs font-semibold text-foreground">
+                            {candidate.decisionTitle}
+                          </p>
+                          <p className="line-clamp-1 text-[11px] text-muted-foreground">
+                            {candidate.decisionStatement}
+                          </p>
+                          {candidate.tableNoise ? (
+                            <span className="text-[10px] font-semibold text-amber-600">Likely table noise</span>
+                          ) : null}
+                        </div>
+                      </button>
+                    </DialogTrigger>
+                    <DialogContent className="max-w-lg">
+                      <DialogHeader>
+                        <DialogTitle>Edit Decision</DialogTitle>
+                      </DialogHeader>
+                      <div className="space-y-4 text-xs">
+                        <div className="space-y-2">
+                          <label className="text-[11px] font-semibold text-muted-foreground">Decision title</label>
+                          <Input
+                            value={candidate.decisionTitle}
+                            onChange={(event) =>
+                              onCandidatesChange(
+                                candidates.map((item) =>
+                                  item.id === candidate.id
+                                    ? { ...item, decisionTitle: event.target.value }
+                                    : item,
+                                ),
+                              )
+                            }
+                            className="h-9 text-xs"
+                          />
+                        </div>
+                        <div className="space-y-2">
+                          <label className="text-[11px] font-semibold text-muted-foreground">Decision statement</label>
+                          <Textarea
+                            value={candidate.decisionStatement}
+                            onChange={(event) =>
+                              onCandidatesChange(
+                                candidates.map((item) =>
+                                  item.id === candidate.id
+                                    ? { ...item, decisionStatement: event.target.value }
+                                    : item,
+                                ),
+                              )
+                            }
+                            rows={3}
+                            className="text-xs"
+                          />
+                        </div>
+                        <div className="space-y-2 rounded-md border border-border/60 bg-muted/20 p-3 text-[11px] text-muted-foreground">
+                          <div className="flex flex-wrap items-center gap-2">
+                            <span className="max-w-[240px] truncate text-xs font-semibold text-foreground">
+                              {candidate.evidence.docName}
+                            </span>
+                            {candidate.evidence.pageNumber ? (
+                              <span className="rounded-full bg-muted px-2 py-0.5 text-[10px] font-semibold">
+                                Page {candidate.evidence.pageNumber}
+                              </span>
+                            ) : null}
+                          </div>
+                          <div className="mt-2 line-clamp-3 whitespace-pre-wrap">
+                            {candidate.evidence.excerpt}
+                          </div>
+                        </div>
+                      </div>
+                    </DialogContent>
+                  </Dialog>
                 </TableCell>
                 <TableCell>
                   <Select
@@ -268,7 +331,7 @@ export function CandidateReviewTable({ candidates, categories, onCandidatesChang
                 ))}
                 <TableCell>
                   <SourceCell
-                    source={candidate.source}
+                    source={candidate.evidence}
                     isOpen={openEvidenceId === candidate.id}
                     onOpenChange={(nextOpen) => setOpenEvidenceId(nextOpen ? candidate.id : null)}
                   />

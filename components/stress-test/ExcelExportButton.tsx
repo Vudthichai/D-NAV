@@ -5,13 +5,19 @@ import * as XLSX from "xlsx";
 
 interface ExportDecision {
   createdAt: number;
-  title: string;
+  decisionTitle: string;
+  decisionStatement?: string;
   category: string;
   impact: number;
   cost: number;
   risk: number;
   urgency: number;
   confidence: number;
+  evidence?: {
+    docName: string;
+    pageNumber?: number | null;
+    excerpt: string;
+  };
 }
 
 interface ExcelExportButtonProps {
@@ -36,27 +42,35 @@ export function ExcelExportButton({ decisions, className }: ExcelExportButtonPro
       variant="outline"
       className={className}
       onClick={() => {
-        const cleanDecisions = decisions.filter((decision) => decision.title.trim().length > 0);
+        const cleanDecisions = decisions.filter((decision) => decision.decisionTitle.trim().length > 0);
         if (cleanDecisions.length === 0) return;
         const header = [
           "Date",
           "Decision",
+          "Decision Statement",
           "Category",
           "Impact",
           "Cost",
           "Risk",
           "Urgency",
           "Confidence",
+          "Doc",
+          "Page",
+          "Evidence",
         ];
         const rows = cleanDecisions.map((decision) => [
           new Date(decision.createdAt).toLocaleDateString(),
-          decision.title,
+          decision.decisionTitle,
+          decision.decisionStatement ?? "",
           decision.category,
           decision.impact,
           decision.cost,
           decision.risk,
           decision.urgency,
           decision.confidence,
+          decision.evidence?.docName ?? "",
+          decision.evidence?.pageNumber ?? "",
+          decision.evidence?.excerpt ? decision.evidence.excerpt.slice(0, 200) : "",
         ]);
         const worksheet = XLSX.utils.aoa_to_sheet([
           ["Directions: Keep row 1 as a guide, then enter decisions below."],
@@ -67,12 +81,12 @@ export function ExcelExportButton({ decisions, className }: ExcelExportButtonPro
         XLSX.utils.book_append_sheet(workbook, worksheet, "Decisions");
         const arrayBuffer = XLSX.write(workbook, { bookType: "xlsx", type: "array" });
         const blob = new Blob([arrayBuffer], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" });
-        const filename = `dnav-decision-intake-${new Date().toISOString().split("T")[0]}.xlsx`;
+        const filename = `dnav-decisions-export-${new Date().toISOString().split("T")[0]}.xlsx`;
         downloadBlob(blob, filename);
       }}
       disabled={decisions.length === 0}
     >
-      Download Excel (Template)
+      Export Decisions (Excel)
     </Button>
   );
 }
