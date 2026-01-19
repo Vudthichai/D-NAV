@@ -40,4 +40,5 @@ export interface DecisionCandidate {
   timingNormalized?: TimingNormalized;
   source: SourceRef;
   keep: boolean;
+  tableNoise?: boolean;
 }

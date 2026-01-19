@@ -204,17 +204,22 @@ export function CandidateReviewTable({ candidates, categories, onCandidatesChang
                   </div>
                 </TableCell>
                 <TableCell className="min-w-[260px]">
-                  <Input
-                    value={candidate.decisionText}
-                    onChange={(event) =>
-                      onCandidatesChange(
-                        candidates.map((item) =>
-                          item.id === candidate.id ? { ...item, decisionText: event.target.value } : item,
-                        ),
-                      )
-                    }
-                    className="h-8 text-xs"
-                  />
+                  <div className="space-y-1">
+                    <Input
+                      value={candidate.decisionText}
+                      onChange={(event) =>
+                        onCandidatesChange(
+                          candidates.map((item) =>
+                            item.id === candidate.id ? { ...item, decisionText: event.target.value } : item,
+                          ),
+                        )
+                      }
+                      className="h-8 text-xs"
+                    />
+                    {candidate.tableNoise ? (
+                      <span className="text-[10px] font-semibold text-amber-600">Likely table noise</span>
+                    ) : null}
+                  </div>
                 </TableCell>
                 <TableCell>
                   <Select

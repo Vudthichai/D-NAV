@@ -6,6 +6,7 @@ import StressTestCalculator, {
 } from "@/components/stress-test/StressTestCalculator";
 import { useDefinitionsPanel } from "@/components/definitions/DefinitionsPanelProvider";
 import { CandidateReviewTable } from "@/components/stress-test/CandidateReviewTable";
+import { isTableNoise, normalizeDecisionText } from "@/components/stress-test/decision-intake-utils";
 import { ExcelExportButton } from "@/components/stress-test/ExcelExportButton";
 import { PdfDropzone, type PdfDropzoneFile } from "@/components/stress-test/PdfDropzone";
 import type {
@@ -201,6 +202,12 @@ const buildCandidates = (docs: UploadedDoc[]) => {
         const commitment = extractCommitment(chunk);
         const constraint = extractConstraint(chunk, timeAnchor);
         const impact = extractImpact(chunk);
+        const rawDecisionText = chunk;
+        const fallbackShortSnippet =
+          normalizeDecisionText(buildDecisionText(constraint, commitment, impact)) ||
+          buildDecisionText(constraint, commitment, impact);
+        const normalizedDecisionText = normalizeDecisionText(rawDecisionText) || fallbackShortSnippet;
+        const tableNoise = isTableNoise(rawDecisionText);
         const source: SourceRef = {
           docId: doc.id,
           fileName: doc.fileName,
@@ -210,12 +217,13 @@ const buildCandidates = (docs: UploadedDoc[]) => {
         };
         candidates.push({
           id: `${doc.id}-${page.pageNumber}-${index}`,
-          decisionText: buildDecisionText(constraint, commitment, impact),
+          decisionText: normalizedDecisionText,
           category: "Uncategorized",
           scores: { ...DEFAULT_REVIEW_VARIABLES },
           timeAnchor,
           source,
-          keep: true,
+          keep: Boolean(normalizedDecisionText) && !tableNoise,
+          tableNoise,
         });
       });
     });
@@ -388,9 +396,10 @@ export default function StressTestPage() {
   }, []);
 
   const handleAddCandidatesToLog = useCallback((candidates: DecisionCandidate[]) => {
-    if (candidates.length === 0) return 0;
+    const validCandidates = candidates.filter((candidate) => candidate.decisionText.trim().length > 0);
+    if (validCandidates.length === 0) return 0;
     const createdAt = Date.now();
-    const nextDecisions: SessionDecision[] = candidates.map((candidate, index) => {
+    const nextDecisions: SessionDecision[] = validCandidates.map((candidate, index) => {
       const scores = {
         impact: candidate.scores.impact ?? DEFAULT_REVIEW_VARIABLES.impact,
         cost: candidate.scores.cost ?? DEFAULT_REVIEW_VARIABLES.cost,
