@@ -5,6 +5,7 @@ import { cn } from "@/lib/utils";
 import { FileText, Upload } from "lucide-react";
 import type { DragEvent } from "react";
 import { useCallback, useRef, useState } from "react";
+import type { IntakeFileStatus } from "@/components/stress-test/decision-intake-types";
 
 interface PdfDropzoneFile {
   id: string;
@@ -12,6 +13,7 @@ interface PdfDropzoneFile {
   sizeBytes: number;
   progress?: number;
   warning?: string;
+  status?: IntakeFileStatus;
 }
 
 interface PdfDropzoneProps {
@@ -108,6 +110,20 @@ export function PdfDropzone({ files, onFilesAdded, onRemoveFile, disabled }: Pdf
               </div>
             </div>
             <div className="flex items-center gap-2">
+              {file.status ? (
+                <span
+                  className={cn(
+                    "rounded-full border px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide",
+                    file.status === "extracted"
+                      ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-700"
+                      : file.status === "extracting"
+                        ? "border-amber-500/30 bg-amber-500/10 text-amber-700"
+                        : "border-border/60 bg-muted/20 text-muted-foreground",
+                  )}
+                >
+                  {file.status}
+                </span>
+              ) : null}
               {typeof file.progress === "number" ? (
                 <div className="h-2 w-24 overflow-hidden rounded-full bg-muted/40">
                   <div className="h-full rounded-full bg-primary/70" style={{ width: `${file.progress}%` }} />

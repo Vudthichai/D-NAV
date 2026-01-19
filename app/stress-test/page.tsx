@@ -8,10 +8,12 @@ import { useDefinitionsPanel } from "@/components/definitions/DefinitionsPanelPr
 import { CandidateReviewTable } from "@/components/stress-test/CandidateReviewTable";
 import { ExcelExportButton } from "@/components/stress-test/ExcelExportButton";
 import { PdfDropzone, type PdfDropzoneFile } from "@/components/stress-test/PdfDropzone";
-import type {
-  DecisionCandidate,
-  SourceRef,
-  UploadedDoc,
+import {
+  DecisionDomain,
+  IntakeFileStatus,
+  type ExtractedDecisionCandidate,
+  type SourceRef,
+  type UploadedDoc,
 } from "@/components/stress-test/decision-intake-types";
 import { Button } from "@/components/ui/button";
 import { AccentSliver } from "@/components/ui/AccentSliver";
@@ -28,7 +30,14 @@ import Link from "next/link";
 import * as pdfjs from "pdfjs-dist";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
-type DecisionIntakeStatus = "idle" | "doc_selected" | "parsing" | "candidates_ready" | "committed" | "export";
+enum DecisionIntakeStatus {
+  Idle = "idle",
+  DocSelected = "doc_selected",
+  Parsing = "parsing",
+  CandidatesReady = "candidates_ready",
+  Committed = "committed",
+  Export = "export",
+}
 
 interface IntakeFile {
   id: string;
@@ -37,6 +46,7 @@ interface IntakeFile {
   sizeBytes: number;
   uploadedAt: number;
   progress?: number;
+  status: IntakeFileStatus;
 }
 
 interface SessionDecision {
@@ -60,17 +70,7 @@ type TimingNormalizedInput = Record<string, unknown> & {
   precision?: unknown;
 };
 
-const EXTRACTED_DECISION_CATEGORIES = [
-  "Uncategorized",
-  "Strategy",
-  "Capital",
-  "Ops",
-  "People",
-  "Real Estate",
-  "Risk",
-  "Product",
-  "Other",
-];
+const DECISION_DOMAINS = Object.values(DecisionDomain);
 const SESSION_DECISIONS_KEY = "dnav:stressTest:sessionDecisions";
 const DEFAULT_REVIEW_VARIABLES = {
   impact: 5,
@@ -185,7 +185,7 @@ const buildDecisionText = (constraint?: string, commitment?: string, impact?: st
 
 // Future: swap buildCandidates with an LLM-backed extractor that uses intentContext/constraintContext as prompts.
 const buildCandidates = (docs: UploadedDoc[]) => {
-  const candidates: DecisionCandidate[] = [];
+  const candidates: ExtractedDecisionCandidate[] = [];
   docs.forEach((doc) => {
     doc.pages.forEach((page) => {
       chunkText(page.text).forEach((chunk, index) => {
@@ -194,21 +194,18 @@ const buildCandidates = (docs: UploadedDoc[]) => {
         const commitment = extractCommitment(chunk);
         const constraint = extractConstraint(chunk, timeAnchor);
         const impact = extractImpact(chunk);
-        const source: SourceRef = {
-          docId: doc.id,
-          fileName: doc.fileName,
-          pageNumber: page.pageNumber,
-          excerpt: chunk,
-          chunkId: `${doc.id}-p${page.pageNumber}-c${index}`,
-        };
+        const createdAt = new Date().toISOString();
         candidates.push({
           id: `${doc.id}-${page.pageNumber}-${index}`,
+          docId: doc.id,
+          docName: doc.fileName,
+          page: page.pageNumber,
+          excerpt: chunk,
           decisionText: buildDecisionText(constraint, commitment, impact),
-          category: "Uncategorized",
+          domain: DecisionDomain.Uncategorized,
           scores: { ...DEFAULT_REVIEW_VARIABLES },
-          timeAnchor,
-          source,
           keep: true,
+          createdAt,
         });
       });
     });
@@ -232,8 +229,8 @@ const isSessionDecisionSnapshot = (value: unknown): value is SessionDecision => 
 
 export default function StressTestPage() {
   const [intakeFiles, setIntakeFiles] = useState<IntakeFile[]>([]);
-  const [decisionCandidates, setDecisionCandidates] = useState<DecisionCandidate[]>([]);
-  const [intakeStatus, setIntakeStatus] = useState<DecisionIntakeStatus>("idle");
+  const [decisionCandidates, setDecisionCandidates] = useState<ExtractedDecisionCandidate[]>([]);
+  const [intakeStatus, setIntakeStatus] = useState<DecisionIntakeStatus>(DecisionIntakeStatus.Idle);
   const [isParsing, setIsParsing] = useState(false);
   const [intakeError, setIntakeError] = useState<string | null>(null);
   const [intentContext, setIntentContext] = useState("");
@@ -253,7 +250,6 @@ export default function StressTestPage() {
   const [isSessionAnalysisOpen, setIsSessionAnalysisOpen] = useState(false);
   const calculatorRef = useRef<StressTestCalculatorHandle>(null);
   const sessionAnalysisRef = useRef<HTMLDivElement>(null);
-  const reviewPanelRef = useRef<HTMLDivElement>(null);
 
   const { openDefinitions } = useDefinitionsPanel();
 
@@ -261,6 +257,10 @@ export default function StressTestPage() {
     setIntakeFiles((prev) =>
       prev.map((file) => (file.id === id ? { ...file, progress: Math.min(100, progress) } : file)),
     );
+  }, []);
+
+  const updateFileStatuses = useCallback((status: IntakeFileStatus) => {
+    setIntakeFiles((prev) => prev.map((file) => ({ ...file, status })));
   }, []);
 
   const parsePdfDocuments = useCallback(async (files: IntakeFile[]): Promise<UploadedDoc[]> => {
@@ -307,7 +307,8 @@ export default function StressTestPage() {
 
     setIsParsing(true);
     setIntakeError(null);
-    setIntakeStatus("parsing");
+    setIntakeStatus(DecisionIntakeStatus.Parsing);
+    updateFileStatuses(IntakeFileStatus.Extracting);
     try {
       const docs = await parsePdfDocuments(intakeFiles);
       const candidates = buildCandidates(docs).map((candidate) => {
@@ -325,23 +326,23 @@ export default function StressTestPage() {
       if (candidates.length === 0) {
         setDecisionCandidates([]);
         setIntakeError("No candidates found — try another file or paste text.");
-        setIntakeStatus("doc_selected");
+        setIntakeStatus(DecisionIntakeStatus.DocSelected);
+        updateFileStatuses(IntakeFileStatus.Extracted);
         setIsParsing(false);
         return;
       }
       setDecisionCandidates(candidates);
-      setIntakeStatus("candidates_ready");
-      requestAnimationFrame(() => {
-        reviewPanelRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
-      });
+      setIntakeStatus(DecisionIntakeStatus.CandidatesReady);
+      updateFileStatuses(IntakeFileStatus.Extracted);
     } catch (error) {
       console.error("Failed to parse PDF intake.", error);
       setIntakeError("PDF parse failed. Please try another file.");
-      setIntakeStatus("doc_selected");
+      setIntakeStatus(DecisionIntakeStatus.DocSelected);
+      updateFileStatuses(IntakeFileStatus.Uploaded);
     } finally {
       setIsParsing(false);
     }
-  }, [intakeFiles, isParsing, parsePdfDocuments]);
+  }, [intakeFiles, isParsing, parsePdfDocuments, updateFileStatuses]);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -376,7 +377,7 @@ export default function StressTestPage() {
     setSessionDecisions((prev) => [sessionDecision, ...prev]);
   }, []);
 
-  const handleAddCandidatesToLog = useCallback((candidates: DecisionCandidate[]) => {
+  const handleAddCandidatesToLog = useCallback((candidates: ExtractedDecisionCandidate[]) => {
     if (candidates.length === 0) return 0;
     const createdAt = Date.now();
     const nextDecisions: SessionDecision[] = candidates.map((candidate, index) => {
@@ -391,7 +392,7 @@ export default function StressTestPage() {
       return {
         id: `${createdAt}-${index}-${Math.random().toString(36).slice(2, 8)}`,
         title: candidate.decisionText.trim() || "Untitled decision",
-        category: candidate.category?.trim() || "Other",
+        category: candidate.domain,
         impact: scores.impact,
         cost: scores.cost,
         risk: scores.risk,
@@ -402,12 +403,17 @@ export default function StressTestPage() {
         s: metrics.stability,
         dnav: metrics.dnav,
         createdAt: createdAt + index,
-        source: candidate.source,
+        source: {
+          docId: candidate.docId,
+          docName: candidate.docName,
+          page: candidate.page,
+          excerpt: candidate.excerpt,
+          chunkId: candidate.id,
+        },
       };
     });
     setSessionDecisions((prev) => [...nextDecisions, ...prev]);
-    setDecisionCandidates([]);
-    setIntakeStatus("committed");
+    setIntakeStatus(DecisionIntakeStatus.Committed);
     return nextDecisions.length;
   }, []);
 
@@ -427,20 +433,21 @@ export default function StressTestPage() {
         sizeBytes: file.size,
         uploadedAt: Date.now(),
         progress: 0,
+        status: IntakeFileStatus.Uploaded,
       })),
     ]);
-    setIntakeStatus("doc_selected");
+    setIntakeStatus(DecisionIntakeStatus.DocSelected);
   }, []);
 
   const handleRemoveFile = useCallback((id: string) => {
     setIntakeFiles((prev) => {
       const next = prev.filter((file) => file.id !== id);
       if (next.length === 0) {
-        setIntakeStatus("idle");
+        setIntakeStatus(DecisionIntakeStatus.Idle);
       }
       return next;
     });
-    setDecisionCandidates((prev) => prev.filter((candidate) => candidate.source.docId !== id));
+    setDecisionCandidates((prev) => prev.filter((candidate) => candidate.docId !== id));
   }, []);
 
   const dropzoneFiles = useMemo<PdfDropzoneFile[]>(
@@ -450,6 +457,7 @@ export default function StressTestPage() {
         name: file.fileName,
         sizeBytes: file.sizeBytes,
         progress: file.progress,
+        status: file.status,
         warning:
           file.sizeBytes > SOFT_FILE_LIMIT_MB * 1024 * 1024
             ? `Over ${SOFT_FILE_LIMIT_MB}MB — parsing may be slow.`
@@ -462,6 +470,8 @@ export default function StressTestPage() {
     () => decisionCandidates.filter((candidate) => candidate.keep),
     [decisionCandidates],
   );
+  const extractedSummaryVisible =
+    intakeStatus === DecisionIntakeStatus.CandidatesReady || intakeStatus === DecisionIntakeStatus.Committed;
 
   const decisionCount = sessionDecisions.length;
   const progressCount = Math.min(decisionCount, 10);
@@ -675,6 +685,15 @@ export default function StressTestPage() {
       console.error("Failed to clear stress test session decisions.", error);
     }
   }, []);
+
+  const handleClearReviewQueue = useCallback(() => {
+    setDecisionCandidates([]);
+    if (intakeFiles.length === 0) {
+      setIntakeStatus(DecisionIntakeStatus.Idle);
+    } else {
+      setIntakeStatus(DecisionIntakeStatus.DocSelected);
+    }
+  }, [intakeFiles.length]);
 
   return (
     <TooltipProvider>
@@ -921,9 +940,9 @@ export default function StressTestPage() {
               </div>
             ) : null}
 
-            <div className="mt-5 space-y-4">
+            <div className="mt-4 space-y-3">
               <div className="h-px w-full bg-border/40" />
-              <div className="flex flex-col gap-4">
+              <div className="flex flex-col gap-3">
                 <button
                   type="button"
                   onClick={() => setIsBaselineOpen((prev) => !prev)}
@@ -931,7 +950,9 @@ export default function StressTestPage() {
                 >
                   <div className="space-y-1">
                     <h2 className="text-sm font-semibold text-foreground">Decision Intake</h2>
-                    <p className="text-xs text-muted-foreground">Upload PDFs, extract candidates, review, and commit.</p>
+                    <p className="text-xs text-muted-foreground">
+                      Upload → Extract → Review → Score → Add to Session → Analyze
+                    </p>
                   </div>
                   <div className="flex items-center gap-2 text-xs font-semibold text-muted-foreground">
                     <span>Upload PDF</span>
@@ -940,7 +961,7 @@ export default function StressTestPage() {
                 </button>
 
                 {isBaselineOpen ? (
-                  <section className="space-y-4">
+                  <section className="space-y-3">
                     <div className="grid gap-4 lg:grid-cols-[1.3fr_0.7fr]">
                       <div className="space-y-3 rounded-xl border border-border/60 bg-background/90 p-4 shadow-sm">
                         <div className="space-y-1">
@@ -968,15 +989,24 @@ export default function StressTestPage() {
                           >
                             {isParsing ? "Extracting…" : "Extract Decision Candidates"}
                           </Button>
-                          <span className="text-xs text-muted-foreground">
-                            Status: {intakeStatus.replace(/_/g, " ")}
+                          <span className="rounded-full border border-border/60 bg-muted/10 px-2 py-1 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+                            {intakeStatus.replace(/_/g, " ")}
                           </span>
                         </div>
+                        {extractedSummaryVisible ? (
+                          <p className="text-xs text-muted-foreground">
+                            Extracted {decisionCandidates.length} candidates from {intakeFiles.length} documents.
+                          </p>
+                        ) : null}
                       </div>
                       <div className="rounded-xl border border-border/60 bg-background/90 p-4 shadow-sm">
                         <details className="group">
                           <summary className="cursor-pointer text-sm font-semibold text-foreground">
                             Context (optional)
+                            <span className="mt-1 block text-[11px] font-normal text-muted-foreground">
+                              Optional. Use only to bias extraction toward a known objective (e.g., cash preservation,
+                              capacity expansion).
+                            </span>
                           </summary>
                           <div className="mt-3 space-y-3 text-xs text-muted-foreground">
                             <div className="space-y-1">
@@ -998,7 +1028,7 @@ export default function StressTestPage() {
                               />
                             </div>
                             <p className="text-[11px] text-muted-foreground">
-                              Context will be used later to refine extraction.
+                              Context can bias future extraction, but extraction does not depend on this.
                             </p>
                           </div>
                         </details>
@@ -1006,16 +1036,11 @@ export default function StressTestPage() {
                     </div>
 
                     {decisionCandidates.length > 0 ? (
-                      <div ref={reviewPanelRef} className="space-y-3">
-                        {decisionCandidates.length < 10 ? (
-                          <p className="text-xs text-muted-foreground">
-                            We found {decisionCandidates.length}. Add more documents to reach 10–20 commitments.
-                          </p>
-                        ) : null}
+                      <div className="space-y-3">
                         <CandidateReviewTable
                           candidates={decisionCandidates}
                           onCandidatesChange={setDecisionCandidates}
-                          categories={EXTRACTED_DECISION_CATEGORIES}
+                          domains={DECISION_DOMAINS}
                         />
                         <div className="flex flex-wrap items-center gap-2">
                           <Button
@@ -1023,16 +1048,30 @@ export default function StressTestPage() {
                             className="h-9 px-4 text-xs font-semibold uppercase tracking-wide"
                             disabled={keptCandidates.length === 0}
                           >
-                            Add kept decisions to session
+                            Add kept decisions to session ({keptCandidates.length})
                           </Button>
                           <ExcelExportButton
-                            decisions={sessionDecisions}
+                            decisions={keptCandidates}
                             className="h-9 px-4 text-xs font-semibold uppercase tracking-wide"
                           />
-                          {intakeStatus === "committed" ? (
+                          {intakeStatus === DecisionIntakeStatus.Committed ? (
                             <span className="text-xs text-muted-foreground">Added to session.</span>
                           ) : null}
+                          {intakeStatus === DecisionIntakeStatus.Committed ? (
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="sm"
+                              className="h-9 px-3 text-xs"
+                              onClick={handleClearReviewQueue}
+                            >
+                              Clear review queue
+                            </Button>
+                          ) : null}
                         </div>
+                        <p className="text-[11px] text-muted-foreground">
+                          Patterns stabilize after ~15 decisions. Fewer than 10 is mostly noise.
+                        </p>
                       </div>
                     ) : null}
                   </section>
