@@ -23,7 +23,8 @@ export interface TimingNormalized {
 
 export interface DecisionCandidate {
   id: string;
-  decisionText: string;
+  decisionTitle: string;
+  decisionDetail?: string;
   category: string;
   scores: {
     impact?: number;
@@ -39,5 +40,6 @@ export interface DecisionCandidate {
   };
   timingNormalized?: TimingNormalized;
   source: SourceRef;
+  duplicates?: SourceRef[];
   keep: boolean;
 }

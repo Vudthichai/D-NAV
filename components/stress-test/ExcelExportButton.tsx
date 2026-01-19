@@ -1,21 +1,11 @@
 "use client";
 
 import { Button } from "@/components/ui/button";
+import type { DecisionCandidate } from "@/components/stress-test/decision-intake-types";
 import * as XLSX from "xlsx";
 
-interface ExportDecision {
-  createdAt: number;
-  title: string;
-  category: string;
-  impact: number;
-  cost: number;
-  risk: number;
-  urgency: number;
-  confidence: number;
-}
-
 interface ExcelExportButtonProps {
-  decisions: ExportDecision[];
+  decisions: DecisionCandidate[];
   className?: string;
 }
 
@@ -40,22 +30,32 @@ export function ExcelExportButton({ decisions, className }: ExcelExportButtonPro
         const header = [
           "Date",
           "Decision",
-          "Category",
+          "Detail",
+          "Domain/Category",
           "Impact",
           "Cost",
           "Risk",
           "Urgency",
           "Confidence",
+          "SourceDoc",
+          "SourcePage",
+          "Evidence (raw)",
         ];
         const rows = decisions.map((decision) => [
-          new Date(decision.createdAt).toLocaleDateString(),
-          decision.title,
+          "",
+          decision.decisionTitle,
+          decision.decisionDetail ?? "",
           decision.category,
-          decision.impact,
-          decision.cost,
-          decision.risk,
-          decision.urgency,
-          decision.confidence,
+          decision.scores.impact ?? "",
+          decision.scores.cost ?? "",
+          decision.scores.risk ?? "",
+          decision.scores.urgency ?? "",
+          decision.scores.confidence ?? "",
+          decision.source.fileName,
+          decision.source.pageNumber ?? "",
+          decision.source.excerpt.length > 200
+            ? `${decision.source.excerpt.slice(0, 200).trim()}…`
+            : decision.source.excerpt,
         ]);
         const worksheet = XLSX.utils.aoa_to_sheet([
           ["Directions: Keep row 1 as a guide, then enter decisions below."],
@@ -66,12 +66,12 @@ export function ExcelExportButton({ decisions, className }: ExcelExportButtonPro
         XLSX.utils.book_append_sheet(workbook, worksheet, "Decisions");
         const arrayBuffer = XLSX.write(workbook, { bookType: "xlsx", type: "array" });
         const blob = new Blob([arrayBuffer], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" });
-        const filename = `dnav-decision-intake-${new Date().toISOString().split("T")[0]}.xlsx`;
+        const filename = `dnav-decisions-export-${new Date().toISOString().split("T")[0]}.xlsx`;
         downloadBlob(blob, filename);
       }}
       disabled={decisions.length === 0}
     >
-      Download Excel (Template)
+      Export decisions
     </Button>
   );
 }

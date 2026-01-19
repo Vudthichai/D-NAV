@@ -23,6 +23,10 @@ import { MetricDistribution, type MetricDistributionSegment } from "@/components
 import { computeMetrics } from "@/lib/calculations";
 import { getSessionActionInsight } from "@/lib/sessionActionInsight";
 import { normalizePrecision } from "@/utils/timingPrecision";
+import {
+  deduplicateDecisionCandidates,
+  normalizeDecisionCandidate,
+} from "@/components/stress-test/decisionCandidateUtils";
 import { ChevronDown } from "lucide-react";
 import Link from "next/link";
 import * as pdfjs from "pdfjs-dist";
@@ -155,34 +159,6 @@ const detectTimeAnchor = (text: string) => {
   return undefined;
 };
 
-const extractCommitment = (text: string) => {
-  const sentence = text.split(/[.!?]/)[0] ?? text;
-  const matched = COMMITMENT_TERMS.find((term) => sentence.toLowerCase().includes(term));
-  if (!matched) return undefined;
-  return sentence.trim();
-};
-
-const extractConstraint = (text: string, timeAnchor?: { raw: string }) => {
-  if (timeAnchor?.raw) return `by ${timeAnchor.raw}`;
-  const sentence = text.split(/[.!?]/)[0] ?? text;
-  const matched = CONSTRAINT_TERMS.find((term) => sentence.toLowerCase().includes(term));
-  if (!matched) return undefined;
-  return sentence.trim();
-};
-
-const extractImpact = (text: string) => {
-  const toMatch = text.match(/\bto\s+([^.;]+)/i);
-  if (!toMatch) return undefined;
-  return toMatch[1].trim();
-};
-
-const buildDecisionText = (constraint?: string, commitment?: string, impact?: string) => {
-  const constraintText = constraint || "[constraint]";
-  const commitmentText = commitment || "[commitment]";
-  const impactText = impact || "[intended impact]";
-  return `Despite ${constraintText}, Tesla chose to ${commitmentText} to ${impactText}.`;
-};
-
 // Future: swap buildCandidates with an LLM-backed extractor that uses intentContext/constraintContext as prompts.
 const buildCandidates = (docs: UploadedDoc[]) => {
   const candidates: DecisionCandidate[] = [];
@@ -191,9 +167,6 @@ const buildCandidates = (docs: UploadedDoc[]) => {
       chunkText(page.text).forEach((chunk, index) => {
         if (countSignals(chunk) < 2) return;
         const timeAnchor = detectTimeAnchor(chunk);
-        const commitment = extractCommitment(chunk);
-        const constraint = extractConstraint(chunk, timeAnchor);
-        const impact = extractImpact(chunk);
         const source: SourceRef = {
           docId: doc.id,
           fileName: doc.fileName,
@@ -203,12 +176,13 @@ const buildCandidates = (docs: UploadedDoc[]) => {
         };
         candidates.push({
           id: `${doc.id}-${page.pageNumber}-${index}`,
-          decisionText: buildDecisionText(constraint, commitment, impact),
+          decisionTitle: "",
+          decisionDetail: "",
           category: "Uncategorized",
           scores: { ...DEFAULT_REVIEW_VARIABLES },
           timeAnchor,
           source,
-          keep: true,
+          keep: false,
         });
       });
     });
@@ -310,26 +284,29 @@ export default function StressTestPage() {
     setIntakeStatus("parsing");
     try {
       const docs = await parsePdfDocuments(intakeFiles);
-      const candidates = buildCandidates(docs).map((candidate) => {
-        const timingNormalizedInput = (candidate as { timingNormalized?: TimingNormalizedInput | null })
-          .timingNormalized;
-        if (!timingNormalizedInput) return candidate;
-        return {
-          ...candidate,
-          timingNormalized: {
-            ...timingNormalizedInput,
-            precision: normalizePrecision(timingNormalizedInput.precision),
-          },
-        };
-      });
-      if (candidates.length === 0) {
+      const candidates = buildCandidates(docs)
+        .map(normalizeDecisionCandidate)
+        .map((candidate) => {
+          const timingNormalizedInput = (candidate as { timingNormalized?: TimingNormalizedInput | null })
+            .timingNormalized;
+          if (!timingNormalizedInput) return candidate;
+          return {
+            ...candidate,
+            timingNormalized: {
+              ...timingNormalizedInput,
+              precision: normalizePrecision(timingNormalizedInput.precision),
+            },
+          };
+        });
+      const dedupedCandidates = deduplicateDecisionCandidates(candidates);
+      if (dedupedCandidates.length === 0) {
         setDecisionCandidates([]);
         setIntakeError("No candidates found — try another file or paste text.");
         setIntakeStatus("doc_selected");
         setIsParsing(false);
         return;
       }
-      setDecisionCandidates(candidates);
+      setDecisionCandidates(dedupedCandidates);
       setIntakeStatus("candidates_ready");
       requestAnimationFrame(() => {
         reviewPanelRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
@@ -390,7 +367,7 @@ export default function StressTestPage() {
       const metrics = computeMetrics(scores);
       return {
         id: `${createdAt}-${index}-${Math.random().toString(36).slice(2, 8)}`,
-        title: candidate.decisionText.trim() || "Untitled decision",
+        title: candidate.decisionTitle.trim() || "Untitled decision",
         category: candidate.category?.trim() || "Other",
         impact: scores.impact,
         cost: scores.cost,
@@ -1026,7 +1003,7 @@ export default function StressTestPage() {
                             Add kept decisions to session
                           </Button>
                           <ExcelExportButton
-                            decisions={sessionDecisions}
+                            decisions={keptCandidates}
                             className="h-9 px-4 text-xs font-semibold uppercase tracking-wide"
                           />
                           {intakeStatus === "committed" ? (

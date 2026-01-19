@@ -5,10 +5,12 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Minus, Plus } from "lucide-react";
+import { Info, Minus, RefreshCcw, Plus } from "lucide-react";
 import { useMemo, useState } from "react";
 import type { DecisionCandidate } from "@/components/stress-test/decision-intake-types";
 import { SourceCell } from "@/components/stress-test/SourceCell";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+import { buildNormalizedDecisionText } from "@/components/stress-test/decisionCandidateUtils";
 
 interface CandidateReviewTableProps {
   candidates: DecisionCandidate[];
@@ -21,8 +23,6 @@ interface BulkScoreState {
 }
 
 const scoreKeys = ["impact", "cost", "risk", "urgency", "confidence"] as const;
-
-type ScoreKey = (typeof scoreKeys)[number];
 
 const clampScore = (value: number) => Math.min(10, Math.max(1, value));
 
@@ -175,7 +175,7 @@ export function CandidateReviewTable({ candidates, categories, onCandidatesChang
           <TableHeader>
             <TableRow>
               <TableHead className="w-[80px]">Keep?</TableHead>
-              <TableHead>Decision</TableHead>
+              <TableHead className="min-w-[320px] w-[360px]">Decision</TableHead>
               <TableHead className="w-[160px]">Category</TableHead>
               <TableHead className="text-center">Impact</TableHead>
               <TableHead className="text-center">Cost</TableHead>
@@ -204,17 +204,50 @@ export function CandidateReviewTable({ candidates, categories, onCandidatesChang
                   </div>
                 </TableCell>
                 <TableCell className="min-w-[260px]">
-                  <Input
-                    value={candidate.decisionText}
-                    onChange={(event) =>
-                      onCandidatesChange(
-                        candidates.map((item) =>
-                          item.id === candidate.id ? { ...item, decisionText: event.target.value } : item,
-                        ),
-                      )
-                    }
-                    className="h-8 text-xs"
-                  />
+                  <div className="flex items-center gap-1">
+                    <Input
+                      value={candidate.decisionTitle}
+                      onChange={(event) =>
+                        onCandidatesChange(
+                          candidates.map((item) =>
+                            item.id === candidate.id ? { ...item, decisionTitle: event.target.value } : item,
+                          ),
+                        )
+                      }
+                      className="h-8 flex-1 truncate text-xs"
+                    />
+                    {candidate.decisionDetail ? (
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <Button type="button" variant="ghost" size="icon" className="h-8 w-8">
+                            <Info className="h-3.5 w-3.5" />
+                          </Button>
+                        </TooltipTrigger>
+                        <TooltipContent side="top" className="max-w-[240px] text-xs leading-snug">
+                          {candidate.decisionDetail}
+                        </TooltipContent>
+                      </Tooltip>
+                    ) : null}
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon"
+                      className="h-8 w-8"
+                      onClick={() => {
+                        const nextText = buildNormalizedDecisionText(candidate.source.excerpt);
+                        onCandidatesChange(
+                          candidates.map((item) =>
+                            item.id === candidate.id
+                              ? { ...item, ...nextText }
+                              : item,
+                          ),
+                        );
+                      }}
+                      aria-label="Regenerate decision text"
+                    >
+                      <RefreshCcw className="h-3.5 w-3.5" />
+                    </Button>
+                  </div>
                 </TableCell>
                 <TableCell>
                   <Select
@@ -264,6 +297,7 @@ export function CandidateReviewTable({ candidates, categories, onCandidatesChang
                 <TableCell>
                   <SourceCell
                     source={candidate.source}
+                    duplicates={candidate.duplicates}
                     isOpen={openEvidenceId === candidate.id}
                     onOpenChange={(nextOpen) => setOpenEvidenceId(nextOpen ? candidate.id : null)}
                   />

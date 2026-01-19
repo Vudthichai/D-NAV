@@ -1,4 +1,4 @@
-export const PERMITTED_PRECISIONS = [
+export const TIMING_PRECISIONS = [
   "relative",
   "month",
   "unknown",
@@ -7,9 +7,9 @@ export const PERMITTED_PRECISIONS = [
   "year",
 ] as const;
 
-export type TimingPrecision = (typeof PERMITTED_PRECISIONS)[number];
+export type TimingPrecision = (typeof TIMING_PRECISIONS)[number];
 
-export const normalizePrecision = (value: unknown): TimingPrecision => {
-  if (typeof value !== "string") return "unknown";
-  return PERMITTED_PRECISIONS.includes(value as TimingPrecision) ? (value as TimingPrecision) : "unknown";
+export const normalizePrecision = (input?: string): TimingPrecision => {
+  if (!input) return "unknown";
+  return TIMING_PRECISIONS.includes(input as TimingPrecision) ? (input as TimingPrecision) : "unknown";
 };
