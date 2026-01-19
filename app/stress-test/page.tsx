@@ -6,12 +6,12 @@ import StressTestCalculator, {
 } from "@/components/stress-test/StressTestCalculator";
 import { useDefinitionsPanel } from "@/components/definitions/DefinitionsPanelProvider";
 import { CandidateReviewTable } from "@/components/stress-test/CandidateReviewTable";
-import { isTableNoise, normalizeDecisionText } from "@/components/stress-test/decision-intake-utils";
+import { isTableNoise } from "@/components/stress-test/decision-intake-utils";
 import { ExcelExportButton } from "@/components/stress-test/ExcelExportButton";
 import { PdfDropzone, type PdfDropzoneFile } from "@/components/stress-test/PdfDropzone";
 import type {
   DecisionCandidate,
-  SourceRef,
+  EvidenceRef,
   UploadedDoc,
 } from "@/components/stress-test/decision-intake-types";
 import { Button } from "@/components/ui/button";
@@ -22,6 +22,14 @@ import Term from "@/components/ui/Term";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { MetricDistribution, type MetricDistributionSegment } from "@/components/reports/MetricDistribution";
 import { computeMetrics } from "@/lib/calculations";
+import {
+  cleanExcerpt,
+  dedupeKey,
+  extractTiming,
+  isDecisionCandidate,
+  toDecisionStatement,
+  toDecisionTitle,
+} from "@/lib/decisionText";
 import { getSessionActionInsight } from "@/lib/sessionActionInsight";
 import { normalizePrecision } from "@/utils/timingPrecision";
 import { ChevronDown } from "lucide-react";
@@ -42,7 +50,8 @@ interface IntakeFile {
 
 interface SessionDecision {
   id: string;
-  title: string;
+  decisionTitle: string;
+  decisionStatement: string;
   category: string;
   impact: number;
   cost: number;
@@ -54,7 +63,7 @@ interface SessionDecision {
   s: number;
   dnav: number;
   createdAt: number;
-  source?: SourceRef;
+  evidence?: EvidenceRef;
 }
 
 type TimingNormalizedInput = {
@@ -85,39 +94,6 @@ const DEFAULT_REVIEW_VARIABLES = {
 const MAX_CANDIDATES = 30;
 const SOFT_FILE_LIMIT_MB = 25;
 
-const COMMITMENT_TERMS = [
-  "will",
-  "have",
-  "approved",
-  "plan to",
-  "committed",
-  "intend to",
-  "launch",
-  "expand",
-  "increase",
-  "reduce",
-  "accelerate",
-  "delay",
-];
-const CONSTRAINT_TERMS = [
-  "by",
-  "before",
-  "deadline",
-  "pending approval",
-  "regulatory",
-  "capacity",
-  "capital",
-  "margin",
-  "cost",
-  "q1",
-  "q2",
-  "q3",
-  "q4",
-  "fy",
-];
-const EXPOSURE_TERMS = ["risk", "uncertain", "subject to", "may", "could"];
-const VAGUE_TIME_TERMS = ["soon", "near-term", "shortly", "asap", "imminent"];
-
 const normalizeText = (text: string) =>
   text
     .replace(/\s+/g, " ")
@@ -135,94 +111,53 @@ const chunkText = (text: string) => {
   return blocks.map((block) => normalizeText(block)).filter((block) => block.length > 30);
 };
 
-const countSignals = (text: string) => {
-  const haystack = text.toLowerCase();
-  const countMatches = (terms: string[]) => terms.reduce((acc, term) => (haystack.includes(term) ? acc + 1 : acc), 0);
-  return countMatches(COMMITMENT_TERMS) + countMatches(CONSTRAINT_TERMS) + countMatches(EXPOSURE_TERMS);
-};
-
-const detectTimeAnchor = (text: string) => {
-  const dateMatch = text.match(
-    /\b(\d{1,2}\/\d{1,2}\/\d{2,4}|(?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Sept|Oct|Nov|Dec)[a-z]*\s+\d{1,2}(?:,\s*\d{2,4})?)\b/i,
-  );
-  if (dateMatch) {
-    return { raw: dateMatch[0], type: "ExactDate" as const, verified: "Explicit" as const };
-  }
-  const quarterMatch = text.match(/\bQ[1-4]\s?20\d{2}\b/i);
-  if (quarterMatch) {
-    return { raw: quarterMatch[0], type: "Quarter" as const, verified: "Explicit" as const };
-  }
-  const fyMatch = text.match(/\bFY\s?20\d{2}\b/i);
-  if (fyMatch) {
-    return { raw: fyMatch[0], type: "FiscalYear" as const, verified: "Explicit" as const };
-  }
-  const vagueMatch = VAGUE_TIME_TERMS.find((term) => text.toLowerCase().includes(term));
-  if (vagueMatch) {
-    return { raw: vagueMatch, type: "Dependency" as const, verified: "Unverified" as const };
-  }
-  return undefined;
-};
-
-const extractCommitment = (text: string) => {
-  const sentence = text.split(/[.!?]/)[0] ?? text;
-  const matched = COMMITMENT_TERMS.find((term) => sentence.toLowerCase().includes(term));
-  if (!matched) return undefined;
-  return sentence.trim();
-};
-
-const extractConstraint = (text: string, timeAnchor?: { raw: string }) => {
-  if (timeAnchor?.raw) return `by ${timeAnchor.raw}`;
-  const sentence = text.split(/[.!?]/)[0] ?? text;
-  const matched = CONSTRAINT_TERMS.find((term) => sentence.toLowerCase().includes(term));
-  if (!matched) return undefined;
-  return sentence.trim();
-};
-
-const extractImpact = (text: string) => {
-  const toMatch = text.match(/\bto\s+([^.;]+)/i);
-  if (!toMatch) return undefined;
-  return toMatch[1].trim();
-};
-
-const buildDecisionText = (constraint?: string, commitment?: string, impact?: string) => {
-  const constraintText = constraint || "[constraint]";
-  const commitmentText = commitment || "[commitment]";
-  const impactText = impact || "[intended impact]";
-  return `Despite ${constraintText}, Tesla chose to ${commitmentText} to ${impactText}.`;
-};
-
 // Future: swap buildCandidates with an LLM-backed extractor that uses intentContext/constraintContext as prompts.
 const buildCandidates = (docs: UploadedDoc[]) => {
   const candidates: DecisionCandidate[] = [];
+  const seenKeys = new Set<string>();
   docs.forEach((doc) => {
     doc.pages.forEach((page) => {
       chunkText(page.text).forEach((chunk, index) => {
-        if (countSignals(chunk) < 2) return;
-        const timeAnchor = detectTimeAnchor(chunk);
-        const commitment = extractCommitment(chunk);
-        const constraint = extractConstraint(chunk, timeAnchor);
-        const impact = extractImpact(chunk);
-        const rawDecisionText = chunk;
-        const fallbackShortSnippet =
-          normalizeDecisionText(buildDecisionText(constraint, commitment, impact)) ||
-          buildDecisionText(constraint, commitment, impact);
-        const normalizedDecisionText = normalizeDecisionText(rawDecisionText) || fallbackShortSnippet;
-        const tableNoise = isTableNoise(rawDecisionText);
-        const source: SourceRef = {
+        const cleanedExcerpt = cleanExcerpt(chunk);
+        if (!isDecisionCandidate(cleanedExcerpt)) return;
+        const timing = extractTiming(cleanedExcerpt);
+        const decisionStatement = toDecisionStatement(cleanedExcerpt);
+        const decisionTitle = toDecisionTitle(cleanedExcerpt);
+        if (!decisionTitle || !decisionStatement) return;
+        const duplicateKey = dedupeKey(decisionTitle, decisionStatement);
+        if (duplicateKey && seenKeys.has(duplicateKey)) return;
+        seenKeys.add(duplicateKey);
+        const tableNoise = isTableNoise(cleanedExcerpt);
+        const evidence: EvidenceRef = {
           docId: doc.id,
-          fileName: doc.fileName,
+          docName: doc.fileName,
           pageNumber: page.pageNumber,
-          excerpt: chunk,
+          excerpt: cleanedExcerpt,
           chunkId: `${doc.id}-p${page.pageNumber}-c${index}`,
         };
         candidates.push({
           id: `${doc.id}-${page.pageNumber}-${index}`,
-          decisionText: normalizedDecisionText,
+          decisionTitle,
+          decisionStatement,
           category: "Uncategorized",
           scores: { ...DEFAULT_REVIEW_VARIABLES },
-          timeAnchor,
-          source,
-          keep: Boolean(normalizedDecisionText) && !tableNoise,
+          timeAnchor: timing.text
+            ? {
+                raw: timing.text,
+                type:
+                  timing.normalized.precision === "day"
+                    ? "ExactDate"
+                    : timing.normalized.precision === "quarter"
+                      ? "Quarter"
+                      : timing.normalized.precision === "year"
+                        ? "FiscalYear"
+                        : "Dependency",
+                verified: "Explicit",
+              }
+            : undefined,
+          timingNormalized: timing.normalized,
+          evidence,
+          keep: Boolean(decisionTitle) && !tableNoise,
           tableNoise,
         });
       });
@@ -236,7 +171,7 @@ const isSessionDecisionSnapshot = (value: unknown): value is SessionDecision => 
   const candidate = value as Partial<SessionDecision>;
   return (
     typeof candidate.id === "string" &&
-    typeof candidate.title === "string" &&
+    typeof candidate.decisionTitle === "string" &&
     typeof candidate.category === "string" &&
     typeof candidate.r === "number" &&
     typeof candidate.p === "number" &&
@@ -379,7 +314,8 @@ export default function StressTestPage() {
     const title = decision.name?.trim() || "Untitled decision";
     const sessionDecision: SessionDecision = {
       id: decision.id,
-      title,
+      decisionTitle: title,
+      decisionStatement: decision.name?.trim() || title,
       category: decision.category,
       impact: decision.impact,
       cost: decision.cost,
@@ -396,7 +332,7 @@ export default function StressTestPage() {
   }, []);
 
   const handleAddCandidatesToLog = useCallback((candidates: DecisionCandidate[]) => {
-    const validCandidates = candidates.filter((candidate) => candidate.decisionText.trim().length > 0);
+    const validCandidates = candidates.filter((candidate) => candidate.decisionTitle.trim().length > 0);
     if (validCandidates.length === 0) return 0;
     const createdAt = Date.now();
     const nextDecisions: SessionDecision[] = validCandidates.map((candidate, index) => {
@@ -410,7 +346,8 @@ export default function StressTestPage() {
       const metrics = computeMetrics(scores);
       return {
         id: `${createdAt}-${index}-${Math.random().toString(36).slice(2, 8)}`,
-        title: candidate.decisionText.trim() || "Untitled decision",
+        decisionTitle: candidate.decisionTitle.trim() || "Untitled decision",
+        decisionStatement: candidate.decisionStatement.trim() || candidate.decisionTitle.trim(),
         category: candidate.category?.trim() || "Other",
         impact: scores.impact,
         cost: scores.cost,
@@ -422,7 +359,7 @@ export default function StressTestPage() {
         s: metrics.stability,
         dnav: metrics.dnav,
         createdAt: createdAt + index,
-        source: candidate.source,
+        evidence: candidate.evidence,
       };
     });
     setSessionDecisions((prev) => [...nextDecisions, ...prev]);
@@ -460,7 +397,7 @@ export default function StressTestPage() {
       }
       return next;
     });
-    setDecisionCandidates((prev) => prev.filter((candidate) => candidate.source.docId !== id));
+    setDecisionCandidates((prev) => prev.filter((candidate) => candidate.evidence.docId !== id));
   }, []);
 
   const dropzoneFiles = useMemo<PdfDropzoneFile[]>(
@@ -794,7 +731,7 @@ export default function StressTestPage() {
                         className="grid grid-cols-[minmax(180px,1.6fr)_repeat(5,minmax(48px,0.5fr))_repeat(3,minmax(40px,0.4fr))_minmax(56px,0.5fr)] items-center gap-2 rounded-lg border border-border/40 bg-muted/10 px-3 py-1 text-[11px] text-muted-foreground"
                       >
                         <div className="min-w-0">
-                          <p className="truncate font-semibold text-foreground">{decision.title}</p>
+                          <p className="truncate font-semibold text-foreground">{decision.decisionTitle}</p>
                           <p className="truncate text-[10px] text-muted-foreground">{decision.category}</p>
                         </div>
                         <span className="text-center tabular-nums">{formatCompact(decision.impact)}</span>

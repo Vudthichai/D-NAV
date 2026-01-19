@@ -1,15 +1,14 @@
 "use client";
 
 import { useState } from "react";
-import { ChevronDown } from "lucide-react";
-import type { SourceRef } from "@/components/stress-test/decision-intake-types";
+import type { EvidenceRef } from "@/components/stress-test/decision-intake-types";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { cn } from "@/lib/utils";
 
 interface SourceCellProps {
-  source: SourceRef;
+  source: EvidenceRef;
   className?: string;
   isOpen: boolean;
   onOpenChange: (nextOpen: boolean) => void;
@@ -37,7 +36,6 @@ export function SourceCell({ source, className, isOpen, onOpenChange }: SourceCe
             className="h-7 px-2 text-[11px] font-semibold"
           >
             <span>Evidence</span>
-            <ChevronDown className={cn("ml-1 h-3.5 w-3.5 transition", isOpen ? "rotate-180" : "")} />
           </Button>
         </PopoverTrigger>
         <PopoverContent
@@ -46,7 +44,7 @@ export function SourceCell({ source, className, isOpen, onOpenChange }: SourceCe
           className="w-[min(520px,80vw)] p-3 text-[11px]"
         >
           <div className="flex flex-wrap items-center gap-2">
-            <span className="max-w-[320px] truncate text-xs font-semibold">{source.fileName}</span>
+            <span className="max-w-[320px] truncate text-xs font-semibold">{source.docName}</span>
             {source.pageNumber ? (
               <Badge variant="secondary" className="text-[10px]">
                 Page {pageLabel}
@@ -76,7 +74,7 @@ export function SourceCell({ source, className, isOpen, onOpenChange }: SourceCe
         </PopoverContent>
       </Popover>
       <div className="flex items-center gap-1 text-[11px] text-muted-foreground">
-        <span className="max-w-[120px] truncate">{source.fileName}</span>
+        <span className="max-w-[120px] truncate">{source.docName}</span>
         <span aria-hidden="true">·</span>
         <span>p.{pageLabel}</span>
       </div>

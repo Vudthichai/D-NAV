@@ -8,10 +8,10 @@ export interface UploadedDoc {
   pages: Array<{ pageNumber: number; text: string }>;
 }
 
-export interface SourceRef {
+export interface EvidenceRef {
   docId: string;
-  fileName: string;
-  pageNumber: number;
+  docName: string;
+  pageNumber?: number | null;
   excerpt: string;
   chunkId: string;
 }
@@ -23,7 +23,8 @@ export interface TimingNormalized {
 
 export interface DecisionCandidate {
   id: string;
-  decisionText: string;
+  decisionTitle: string;
+  decisionStatement: string;
   category: string;
   scores: {
     impact?: number;
@@ -38,7 +39,7 @@ export interface DecisionCandidate {
     verified: "Explicit" | "Unverified";
   };
   timingNormalized?: TimingNormalized;
-  source: SourceRef;
+  evidence: EvidenceRef;
   keep: boolean;
   tableNoise?: boolean;
 }

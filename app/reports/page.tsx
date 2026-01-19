@@ -929,7 +929,10 @@ function OnePageReport({
 
   return (
     <div className="report-page space-y-6">
-      <div className="report-print-page mx-auto max-w-6xl space-y-5 rounded-2xl border border-black/10 bg-white p-6 text-neutral-900 shadow-none print:max-w-none print:border-none print:bg-white">
+      <div
+        className="report-print-page mx-auto max-w-6xl space-y-5 rounded-2xl border border-black/10 bg-white p-6 text-black shadow-none print:max-w-none print:border-none print:bg-white"
+        style={{ colorScheme: "light" }}
+      >
         <header className="flex flex-col gap-2 border-b border-black/10 pb-4 sm:flex-row sm:items-baseline sm:justify-between">
           <div>
             <p className="text-[11px] font-semibold uppercase tracking-wide text-neutral-900">D-NAV Executive Readout</p>
