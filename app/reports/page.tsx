@@ -602,7 +602,7 @@ function ReportsPageContent() {
           <div
             className={cn("space-y-6", !isLoggedIn && "pointer-events-none filter blur-sm opacity-50")}
           >
-            <div id="report-export-root" className="report-export-root" data-report-surface="true">
+            <div id="report-export-root" className="report-export-root report-light" data-report-surface="true">
               <OnePageReport
                 snapshot={snapshot}
                 interpretation={interpretation}

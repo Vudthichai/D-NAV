@@ -108,6 +108,18 @@ npm run build
 npm start
 ```
 
+### Quality Checks
+
+```bash
+npm run check
+```
+
+If your build tooling reports a stale `baseline-browser-mapping`, refresh it with:
+
+```bash
+npm run baseline:refresh
+```
+
 ## Usage
 
 1. **Rate Your Decision**: Use the sliders to rate each variable (1-10) based on your current context

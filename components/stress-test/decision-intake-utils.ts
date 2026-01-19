@@ -105,3 +105,16 @@ export const isTableNoise = (raw: string): boolean => {
   if ((raw.match(/,/g) ?? []).length >= 4 && digitRatio(raw) > 0.15) return true;
   return false;
 };
+
+export const isLikelyTableNoise = (raw: string): boolean => {
+  if (!raw) return false;
+  const lower = raw.toLowerCase();
+  if (digitRatio(raw) > 0.32) return true;
+  if (countQuarterTokens(raw) >= 4) return true;
+  if (countYearTokens(raw) >= 5) return true;
+  if (hasTableKeywordWithNumbers(raw) && digitRatio(raw) > 0.22) return true;
+  if (TABLE_HEADERS.some((header) => lower.includes(header)) && raw.length < 120) return true;
+  if (isAllCapsHeader(raw) && raw.length < 90) return true;
+  if ((raw.match(/,/g) ?? []).length >= 6 && digitRatio(raw) > 0.2) return true;
+  return false;
+};

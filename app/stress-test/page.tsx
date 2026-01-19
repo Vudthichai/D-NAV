@@ -6,7 +6,7 @@ import StressTestCalculator, {
 } from "@/components/stress-test/StressTestCalculator";
 import { useDefinitionsPanel } from "@/components/definitions/DefinitionsPanelProvider";
 import { CandidateReviewTable } from "@/components/stress-test/CandidateReviewTable";
-import { isTableNoise } from "@/components/stress-test/decision-intake-utils";
+import { isLikelyTableNoise } from "@/components/stress-test/decision-intake-utils";
 import { ExcelExportButton } from "@/components/stress-test/ExcelExportButton";
 import { PdfDropzone, type PdfDropzoneFile } from "@/components/stress-test/PdfDropzone";
 import type {
@@ -28,6 +28,7 @@ import {
   extractTiming,
   isDecisionCandidate,
   isSimilarDecisionTitle,
+  normalizeDecisionExcerpt,
   scoreDecisionCandidate,
   toDecisionDetail,
   toDecisionTitle,
@@ -120,12 +121,13 @@ const buildCandidates = (docs: UploadedDoc[]) => {
     doc.pages.forEach((page) => {
       chunkText(page.text).forEach((chunk, index) => {
         const cleanedExcerpt = cleanExcerpt(chunk);
-        if (!isDecisionCandidate(cleanedExcerpt)) return;
-        const timing = extractTiming(cleanedExcerpt);
-        const decisionTitle = toDecisionTitle(cleanedExcerpt);
-        const decisionDetail = toDecisionDetail(cleanedExcerpt);
+        const normalizedExcerpt = normalizeDecisionExcerpt(cleanedExcerpt);
+        if (!normalizedExcerpt || !isDecisionCandidate(normalizedExcerpt)) return;
+        const timing = extractTiming(normalizedExcerpt);
+        const decisionTitle = toDecisionTitle(normalizedExcerpt);
+        const decisionDetail = toDecisionDetail(normalizedExcerpt);
         if (!decisionTitle) return;
-        const tableNoise = isTableNoise(cleanedExcerpt);
+        const tableNoise = isLikelyTableNoise(cleanedExcerpt);
         const evidence: EvidenceRef = {
           docId: doc.id,
           docName: doc.fileName,

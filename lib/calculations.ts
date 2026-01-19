@@ -208,7 +208,9 @@ export function detectJudgmentSignal(vars: DecisionVariables, metrics: DecisionM
 
   if (strongest.severity <= 0) return null;
 
-  const { severity: _severity, priority: _priority, ...signal } = strongest;
+  const { severity, priority, ...signal } = strongest;
+  void severity;
+  void priority;
   return signal;
 }
 
