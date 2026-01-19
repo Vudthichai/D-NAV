@@ -926,7 +926,10 @@ export default function StressTestPage() {
                   </div>
                   <div className="flex items-center gap-2 text-xs font-semibold text-muted-foreground">
                     <span>Upload PDF</span>
-                    <ChevronDown className={`h-4 w-4 transition ${isBaselineOpen ? "rotate-180" : ""}`} />
+                    <ChevronDown
+                      aria-hidden="true"
+                      className={`h-4 w-4 transition ${isBaselineOpen ? "rotate-180" : ""}`}
+                    />
                   </div>
                 </button>
 
