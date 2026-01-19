@@ -12,7 +12,7 @@ export interface EvidenceRef {
   docId: string;
   docName: string;
   pageNumber?: number | null;
-  excerpt: string;
+  rawExcerpt: string;
   chunkId: string;
 }
 
@@ -24,7 +24,7 @@ export interface TimingNormalized {
 export interface DecisionCandidate {
   id: string;
   decisionTitle: string;
-  decisionStatement: string;
+  decisionDetail: string;
   category: string;
   scores: {
     impact?: number;
@@ -42,4 +42,5 @@ export interface DecisionCandidate {
   evidence: EvidenceRef;
   keep: boolean;
   tableNoise?: boolean;
+  duplicateOf?: string;
 }

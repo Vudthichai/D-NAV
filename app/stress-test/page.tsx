@@ -27,7 +27,9 @@ import {
   dedupeKey,
   extractTiming,
   isDecisionCandidate,
-  toDecisionStatement,
+  isSimilarDecisionTitle,
+  scoreDecisionCandidate,
+  toDecisionDetail,
   toDecisionTitle,
 } from "@/lib/decisionText";
 import { getSessionActionInsight } from "@/lib/sessionActionInsight";
@@ -51,7 +53,7 @@ interface IntakeFile {
 interface SessionDecision {
   id: string;
   decisionTitle: string;
-  decisionStatement: string;
+  decisionDetail?: string;
   category: string;
   impact: number;
   cost: number;
@@ -69,7 +71,7 @@ interface SessionDecision {
 type TimingNormalizedInput = {
   start?: string;
   end?: string;
-  precision?: string;
+  precision?: string | undefined;
 } | undefined;
 
 const EXTRACTED_DECISION_CATEGORIES = [
@@ -114,31 +116,27 @@ const chunkText = (text: string) => {
 // Future: swap buildCandidates with an LLM-backed extractor that uses intentContext/constraintContext as prompts.
 const buildCandidates = (docs: UploadedDoc[]) => {
   const candidates: DecisionCandidate[] = [];
-  const seenKeys = new Set<string>();
   docs.forEach((doc) => {
     doc.pages.forEach((page) => {
       chunkText(page.text).forEach((chunk, index) => {
         const cleanedExcerpt = cleanExcerpt(chunk);
         if (!isDecisionCandidate(cleanedExcerpt)) return;
         const timing = extractTiming(cleanedExcerpt);
-        const decisionStatement = toDecisionStatement(cleanedExcerpt);
         const decisionTitle = toDecisionTitle(cleanedExcerpt);
-        if (!decisionTitle || !decisionStatement) return;
-        const duplicateKey = dedupeKey(decisionTitle, decisionStatement);
-        if (duplicateKey && seenKeys.has(duplicateKey)) return;
-        seenKeys.add(duplicateKey);
+        const decisionDetail = toDecisionDetail(cleanedExcerpt);
+        if (!decisionTitle) return;
         const tableNoise = isTableNoise(cleanedExcerpt);
         const evidence: EvidenceRef = {
           docId: doc.id,
           docName: doc.fileName,
           pageNumber: page.pageNumber,
-          excerpt: cleanedExcerpt,
+          rawExcerpt: chunk,
           chunkId: `${doc.id}-p${page.pageNumber}-c${index}`,
         };
         candidates.push({
           id: `${doc.id}-${page.pageNumber}-${index}`,
           decisionTitle,
-          decisionStatement,
+          decisionDetail,
           category: "Uncategorized",
           scores: { ...DEFAULT_REVIEW_VARIABLES },
           timeAnchor: timing.text
@@ -163,7 +161,42 @@ const buildCandidates = (docs: UploadedDoc[]) => {
       });
     });
   });
-  return candidates.slice(0, MAX_CANDIDATES);
+  const deduped = candidates.map((candidate) => ({ ...candidate }));
+  const groups: Array<{ index: number; title: string; key: string }> = [];
+  deduped.forEach((candidate, index) => {
+    const normalizedTitle = dedupeKey(candidate.decisionTitle);
+    const existingGroup = groups.find((group) => {
+      if (normalizedTitle && group.key && normalizedTitle === group.key) return true;
+      return isSimilarDecisionTitle(candidate.decisionTitle, group.title);
+    });
+    if (!existingGroup) {
+      groups.push({ index, title: candidate.decisionTitle, key: normalizedTitle });
+      return;
+    }
+    const currentBest = deduped[existingGroup.index];
+    const candidateScore = scoreDecisionCandidate(candidate.decisionTitle, candidate.decisionDetail);
+    const bestScore = scoreDecisionCandidate(currentBest.decisionTitle, currentBest.decisionDetail);
+    const candidateBetter =
+      candidateScore.score > bestScore.score ||
+      (candidateScore.score === bestScore.score && candidateScore.lengthPenalty < bestScore.lengthPenalty);
+    if (candidateBetter) {
+      deduped[existingGroup.index] = {
+        ...currentBest,
+        keep: false,
+        duplicateOf: candidate.id,
+      };
+      existingGroup.index = index;
+      existingGroup.title = candidate.decisionTitle;
+      existingGroup.key = normalizedTitle;
+    } else {
+      deduped[index] = {
+        ...candidate,
+        keep: false,
+        duplicateOf: currentBest.id,
+      };
+    }
+  });
+  return deduped.slice(0, MAX_CANDIDATES);
 };
 
 const isSessionDecisionSnapshot = (value: unknown): value is SessionDecision => {
@@ -265,11 +298,12 @@ export default function StressTestPage() {
           .timingNormalized;
         if (!timingNormalizedInput) return candidate;
         const timingBase = isRecord(timingNormalizedInput) ? timingNormalizedInput : {};
-        const precisionRaw = asOptionalString(timingBase.precision);
+        const precision =
+          typeof timingNormalizedInput.precision === "string" ? timingNormalizedInput.precision : undefined;
         const timingNormalized = {
           start: asOptionalString(timingBase.start),
           end: asOptionalString(timingBase.end),
-          precision: normalizePrecision(precisionRaw),
+          precision: normalizePrecision(precision),
         };
         return {
           ...candidate,
@@ -315,7 +349,7 @@ export default function StressTestPage() {
     const sessionDecision: SessionDecision = {
       id: decision.id,
       decisionTitle: title,
-      decisionStatement: decision.name?.trim() || title,
+      decisionDetail: "",
       category: decision.category,
       impact: decision.impact,
       cost: decision.cost,
@@ -347,7 +381,7 @@ export default function StressTestPage() {
       return {
         id: `${createdAt}-${index}-${Math.random().toString(36).slice(2, 8)}`,
         decisionTitle: candidate.decisionTitle.trim() || "Untitled decision",
-        decisionStatement: candidate.decisionStatement.trim() || candidate.decisionTitle.trim(),
+        decisionDetail: candidate.decisionDetail.trim(),
         category: candidate.category?.trim() || "Other",
         impact: scores.impact,
         cost: scores.cost,
