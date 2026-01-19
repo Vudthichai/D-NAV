@@ -36,7 +36,8 @@ export function ExcelExportButton({ decisions, className }: ExcelExportButtonPro
       variant="outline"
       className={className}
       onClick={() => {
-        if (decisions.length === 0) return;
+        const cleanDecisions = decisions.filter((decision) => decision.title.trim().length > 0);
+        if (cleanDecisions.length === 0) return;
         const header = [
           "Date",
           "Decision",
@@ -47,7 +48,7 @@ export function ExcelExportButton({ decisions, className }: ExcelExportButtonPro
           "Urgency",
           "Confidence",
         ];
-        const rows = decisions.map((decision) => [
+        const rows = cleanDecisions.map((decision) => [
           new Date(decision.createdAt).toLocaleDateString(),
           decision.title,
           decision.category,
