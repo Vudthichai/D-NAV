@@ -65,7 +65,7 @@ export default function OnePageReport({
   const secondaryArchetype = sortedArchetypes[1];
 
   return (
-    <div className="report-print-page mx-auto max-w-5xl bg-white text-slate-900 p-8 print:p-6 print:max-w-none">
+    <div className="report-print-page reportPrintable mx-auto max-w-5xl bg-white text-slate-900 p-8 print:p-6 print:max-w-none">
       {/* Header */}
       <header className="flex items-baseline justify-between gap-4 border-b pb-3 mb-4">
         <div>

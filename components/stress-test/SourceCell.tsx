@@ -44,7 +44,7 @@ export function SourceCell({ source, className, isOpen, onOpenChange }: SourceCe
           className="w-[min(520px,80vw)] p-3 text-[11px]"
         >
           <div className="flex flex-wrap items-center gap-2">
-            <span className="max-w-[320px] truncate text-xs font-semibold">{source.docName}</span>
+            <span className="max-w-[320px] truncate text-xs font-semibold">{source.fileName}</span>
             {source.pageNumber ? (
               <Badge variant="secondary" className="text-[10px]">
                 Page {pageLabel}
@@ -61,7 +61,7 @@ export function SourceCell({ source, className, isOpen, onOpenChange }: SourceCe
                 showFullExcerpt ? "max-h-40 overflow-auto pr-1" : "line-clamp-2",
               )}
             >
-              {source.rawExcerpt}
+              {source.excerpt}
             </div>
             <button
               type="button"
@@ -74,7 +74,7 @@ export function SourceCell({ source, className, isOpen, onOpenChange }: SourceCe
         </PopoverContent>
       </Popover>
       <div className="flex items-center gap-1 text-[11px] text-muted-foreground">
-        <span className="max-w-[120px] truncate">{source.docName}</span>
+        <span className="max-w-[120px] truncate">{source.fileName}</span>
         <span aria-hidden="true">·</span>
         <span>p.{pageLabel}</span>
       </div>

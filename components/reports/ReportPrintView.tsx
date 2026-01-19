@@ -93,7 +93,7 @@ export function ReportPrintView({
   });
 
   return (
-    <div className="print-root space-y-6 text-neutral-900">
+    <div className="print-root reportPrintable space-y-6 text-neutral-900">
       <div className="printPage space-y-6">
         <header className="print-section flex flex-col gap-2 border-b border-black/10 pb-4 sm:flex-row sm:items-baseline sm:justify-between">
           <div>

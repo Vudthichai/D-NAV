@@ -930,7 +930,7 @@ function OnePageReport({
   return (
     <div className="report-page space-y-6">
       <div
-        className="report-print-page mx-auto max-w-6xl space-y-5 rounded-2xl border border-black/10 bg-white p-6 text-black shadow-none print:max-w-none print:border-none print:bg-white"
+        className="report-print-page reportPrintable mx-auto max-w-6xl space-y-5 rounded-2xl border border-black/10 bg-white p-6 text-black shadow-none print:max-w-none print:border-none print:bg-white"
         style={{ colorScheme: "light" }}
       >
         <header className="flex flex-col gap-2 border-b border-black/10 pb-4 sm:flex-row sm:items-baseline sm:justify-between">

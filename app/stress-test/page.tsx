@@ -6,7 +6,6 @@ import StressTestCalculator, {
 } from "@/components/stress-test/StressTestCalculator";
 import { useDefinitionsPanel } from "@/components/definitions/DefinitionsPanelProvider";
 import { CandidateReviewTable } from "@/components/stress-test/CandidateReviewTable";
-import { isTableNoise } from "@/components/stress-test/decision-intake-utils";
 import { ExcelExportButton } from "@/components/stress-test/ExcelExportButton";
 import { PdfDropzone, type PdfDropzoneFile } from "@/components/stress-test/PdfDropzone";
 import type {
@@ -22,19 +21,10 @@ import Term from "@/components/ui/Term";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { MetricDistribution, type MetricDistributionSegment } from "@/components/reports/MetricDistribution";
 import { computeMetrics } from "@/lib/calculations";
-import {
-  cleanExcerpt,
-  dedupeKey,
-  extractTiming,
-  isDecisionCandidate,
-  isSimilarDecisionTitle,
-  scoreDecisionCandidate,
-  toDecisionDetail,
-  toDecisionTitle,
-} from "@/lib/decisionText";
+import { extractTiming } from "@/lib/decisionText";
+import { normalizeDecisionCandidates } from "@/lib/decisionNormalize";
 import { getSessionActionInsight } from "@/lib/sessionActionInsight";
 import { normalizePrecision } from "@/utils/timingPrecision";
-import { ChevronDown } from "lucide-react";
 import Link from "next/link";
 import * as pdfjs from "pdfjs-dist";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
@@ -52,8 +42,8 @@ interface IntakeFile {
 
 interface SessionDecision {
   id: string;
-  decisionTitle: string;
-  decisionDetail?: string;
+  title: string;
+  detail?: string;
   category: string;
   impact: number;
   cost: number;
@@ -65,14 +55,10 @@ interface SessionDecision {
   s: number;
   dnav: number;
   createdAt: number;
-  evidence?: EvidenceRef;
+  source?: EvidenceRef;
 }
 
-type TimingNormalizedInput = {
-  start?: string;
-  end?: string;
-  precision?: string | undefined;
-} | undefined;
+type TimingNormalizedInput = DecisionCandidate["timingNormalized"];
 
 const EXTRACTED_DECISION_CATEGORIES = [
   "Uncategorized",
@@ -115,88 +101,60 @@ const chunkText = (text: string) => {
 
 // Future: swap buildCandidates with an LLM-backed extractor that uses intentContext/constraintContext as prompts.
 const buildCandidates = (docs: UploadedDoc[]) => {
-  const candidates: DecisionCandidate[] = [];
+  const rawCandidates: Array<{ id: string; text: string; source: EvidenceRef }> = [];
   docs.forEach((doc) => {
     doc.pages.forEach((page) => {
       chunkText(page.text).forEach((chunk, index) => {
-        const cleanedExcerpt = cleanExcerpt(chunk);
-        if (!isDecisionCandidate(cleanedExcerpt)) return;
-        const timing = extractTiming(cleanedExcerpt);
-        const decisionTitle = toDecisionTitle(cleanedExcerpt);
-        const decisionDetail = toDecisionDetail(cleanedExcerpt);
-        if (!decisionTitle) return;
-        const tableNoise = isTableNoise(cleanedExcerpt);
         const evidence: EvidenceRef = {
           docId: doc.id,
-          docName: doc.fileName,
+          fileName: doc.fileName,
           pageNumber: page.pageNumber,
-          rawExcerpt: chunk,
+          excerpt: chunk,
+          rawText: chunk,
           chunkId: `${doc.id}-p${page.pageNumber}-c${index}`,
         };
-        candidates.push({
+        rawCandidates.push({
           id: `${doc.id}-${page.pageNumber}-${index}`,
-          decisionTitle,
-          decisionDetail,
-          category: "Uncategorized",
-          scores: { ...DEFAULT_REVIEW_VARIABLES },
-          timeAnchor: timing.text
-            ? {
-                raw: timing.text,
-                type:
-                  timing.normalized.precision === "day"
-                    ? "ExactDate"
-                    : timing.normalized.precision === "quarter"
-                      ? "Quarter"
-                      : timing.normalized.precision === "year"
-                        ? "FiscalYear"
-                        : "Dependency",
-                verified: "Explicit",
-              }
-            : undefined,
-          timingNormalized: timing.normalized,
-          evidence,
-          keep: Boolean(decisionTitle) && !tableNoise,
-          tableNoise,
+          text: chunk,
+          source: {
+            ...evidence,
+            excerpt: chunk,
+          },
         });
       });
     });
   });
-  const deduped = candidates.map((candidate) => ({ ...candidate }));
-  const groups: Array<{ index: number; title: string; key: string }> = [];
-  deduped.forEach((candidate, index) => {
-    const normalizedTitle = dedupeKey(candidate.decisionTitle);
-    const existingGroup = groups.find((group) => {
-      if (normalizedTitle && group.key && normalizedTitle === group.key) return true;
-      return isSimilarDecisionTitle(candidate.decisionTitle, group.title);
-    });
-    if (!existingGroup) {
-      groups.push({ index, title: candidate.decisionTitle, key: normalizedTitle });
-      return;
-    }
-    const currentBest = deduped[existingGroup.index];
-    const candidateScore = scoreDecisionCandidate(candidate.decisionTitle, candidate.decisionDetail);
-    const bestScore = scoreDecisionCandidate(currentBest.decisionTitle, currentBest.decisionDetail);
-    const candidateBetter =
-      candidateScore.score > bestScore.score ||
-      (candidateScore.score === bestScore.score && candidateScore.lengthPenalty < bestScore.lengthPenalty);
-    if (candidateBetter) {
-      deduped[existingGroup.index] = {
-        ...currentBest,
-        keep: false,
-        duplicateOf: candidate.id,
-      };
-      existingGroup.index = index;
-      existingGroup.title = candidate.decisionTitle;
-      existingGroup.key = normalizedTitle;
-    } else {
-      deduped[index] = {
-        ...candidate,
-        keep: false,
-        duplicateOf: currentBest.id,
-      };
-    }
-  });
-  return deduped.slice(0, MAX_CANDIDATES);
+  const normalized = normalizeDecisionCandidates(rawCandidates);
+  return normalized
+    .map((candidate) => {
+      const timing = extractTiming(candidate.source.excerpt);
+      return {
+        id: candidate.id,
+        title: candidate.title,
+        detail: candidate.detail ?? "",
+        source: candidate.source,
+        flags: candidate.flags,
+        category: "Uncategorized",
+        scores: { ...DEFAULT_REVIEW_VARIABLES },
+        timeAnchor: timing.text
+          ? {
+              raw: timing.text,
+              type:
+                timing.normalized.precision === "day"
+                  ? "ExactDate"
+                  : timing.normalized.precision === "quarter"
+                    ? "Quarter"
+                    : timing.normalized.precision === "year"
+                      ? "FiscalYear"
+                      : "Dependency",
+              verified: "Explicit",
+            }
+          : undefined,
+        timingNormalized: timing.normalized,
+        keep: !candidate.flags.likelyTableNoise && !candidate.flags.duplicateOf,
+      } satisfies DecisionCandidate;
+    })
+    .slice(0, MAX_CANDIDATES);
 };
 
 const isSessionDecisionSnapshot = (value: unknown): value is SessionDecision => {
@@ -204,7 +162,7 @@ const isSessionDecisionSnapshot = (value: unknown): value is SessionDecision => 
   const candidate = value as Partial<SessionDecision>;
   return (
     typeof candidate.id === "string" &&
-    typeof candidate.decisionTitle === "string" &&
+    typeof candidate.title === "string" &&
     typeof candidate.category === "string" &&
     typeof candidate.r === "number" &&
     typeof candidate.p === "number" &&
@@ -294,8 +252,7 @@ export default function StressTestPage() {
     try {
       const docs = await parsePdfDocuments(intakeFiles);
       const candidates = buildCandidates(docs).map((candidate) => {
-        const timingNormalizedInput = (candidate as { timingNormalized?: TimingNormalizedInput | null })
-          .timingNormalized;
+        const timingNormalizedInput: TimingNormalizedInput = candidate.timingNormalized;
         if (!timingNormalizedInput) return candidate;
         const timingBase = isRecord(timingNormalizedInput) ? timingNormalizedInput : {};
         const precision =
@@ -348,8 +305,8 @@ export default function StressTestPage() {
     const title = decision.name?.trim() || "Untitled decision";
     const sessionDecision: SessionDecision = {
       id: decision.id,
-      decisionTitle: title,
-      decisionDetail: "",
+      title,
+      detail: "",
       category: decision.category,
       impact: decision.impact,
       cost: decision.cost,
@@ -366,7 +323,7 @@ export default function StressTestPage() {
   }, []);
 
   const handleAddCandidatesToLog = useCallback((candidates: DecisionCandidate[]) => {
-    const validCandidates = candidates.filter((candidate) => candidate.decisionTitle.trim().length > 0);
+    const validCandidates = candidates.filter((candidate) => candidate.title.trim().length > 0);
     if (validCandidates.length === 0) return 0;
     const createdAt = Date.now();
     const nextDecisions: SessionDecision[] = validCandidates.map((candidate, index) => {
@@ -380,8 +337,8 @@ export default function StressTestPage() {
       const metrics = computeMetrics(scores);
       return {
         id: `${createdAt}-${index}-${Math.random().toString(36).slice(2, 8)}`,
-        decisionTitle: candidate.decisionTitle.trim() || "Untitled decision",
-        decisionDetail: candidate.decisionDetail.trim(),
+        title: candidate.title.trim() || "Untitled decision",
+        detail: candidate.detail?.trim() ?? "",
         category: candidate.category?.trim() || "Other",
         impact: scores.impact,
         cost: scores.cost,
@@ -393,7 +350,7 @@ export default function StressTestPage() {
         s: metrics.stability,
         dnav: metrics.dnav,
         createdAt: createdAt + index,
-        evidence: candidate.evidence,
+        source: candidate.source,
       };
     });
     setSessionDecisions((prev) => [...nextDecisions, ...prev]);
@@ -431,7 +388,7 @@ export default function StressTestPage() {
       }
       return next;
     });
-    setDecisionCandidates((prev) => prev.filter((candidate) => candidate.evidence.docId !== id));
+    setDecisionCandidates((prev) => prev.filter((candidate) => candidate.source.docId !== id));
   }, []);
 
   const dropzoneFiles = useMemo<PdfDropzoneFile[]>(
@@ -765,7 +722,7 @@ export default function StressTestPage() {
                         className="grid grid-cols-[minmax(180px,1.6fr)_repeat(5,minmax(48px,0.5fr))_repeat(3,minmax(40px,0.4fr))_minmax(56px,0.5fr)] items-center gap-2 rounded-lg border border-border/40 bg-muted/10 px-3 py-1 text-[11px] text-muted-foreground"
                       >
                         <div className="min-w-0">
-                          <p className="truncate font-semibold text-foreground">{decision.decisionTitle}</p>
+                          <p className="truncate font-semibold text-foreground">{decision.title}</p>
                           <p className="truncate text-[10px] text-muted-foreground">{decision.category}</p>
                         </div>
                         <span className="text-center tabular-nums">{formatCompact(decision.impact)}</span>

@@ -5,17 +5,18 @@ import * as XLSX from "xlsx";
 
 interface ExportDecision {
   createdAt: number;
-  decisionTitle: string;
-  decisionDetail?: string;
+  title: string;
+  detail?: string;
   category: string;
   impact: number;
   cost: number;
   risk: number;
   urgency: number;
   confidence: number;
-  evidence?: {
-    docName: string;
+  source?: {
+    fileName: string;
     pageNumber?: number | null;
+    excerpt?: string;
   };
 }
 
@@ -41,10 +42,10 @@ export function ExcelExportButton({ decisions, className }: ExcelExportButtonPro
       variant="outline"
       className={className}
       onClick={() => {
-        const cleanDecisions = decisions.filter((decision) => decision.decisionTitle.trim().length > 0);
+        const cleanDecisions = decisions.filter((decision) => decision.title.trim().length > 0);
         if (cleanDecisions.length === 0) return;
         const header = [
-          "Decision",
+          "Title",
           "Detail",
           "Category",
           "Impact",
@@ -52,26 +53,41 @@ export function ExcelExportButton({ decisions, className }: ExcelExportButtonPro
           "Risk",
           "Urgency",
           "Confidence",
-          "SourceDoc",
-          "SourcePage",
+          "Source File",
+          "Source Page",
+          "Source Excerpt",
         ];
         const rows = cleanDecisions.map((decision) => [
-          decision.decisionTitle,
-          decision.decisionDetail ?? "",
+          decision.title,
+          decision.detail ?? "",
           decision.category,
           decision.impact,
           decision.cost,
           decision.risk,
           decision.urgency,
           decision.confidence,
-          decision.evidence?.docName ?? "",
-          decision.evidence?.pageNumber ?? "",
+          decision.source?.fileName ?? "",
+          decision.source?.pageNumber ?? "",
+          decision.source?.excerpt ?? "",
         ]);
         const worksheet = XLSX.utils.aoa_to_sheet([
           ["Directions: Keep row 1 as a guide, then enter decisions below."],
           header,
           ...rows,
         ]);
+        worksheet["!cols"] = [
+          { wch: 42 },
+          { wch: 60 },
+          { wch: 18 },
+          { wch: 8 },
+          { wch: 8 },
+          { wch: 8 },
+          { wch: 10 },
+          { wch: 12 },
+          { wch: 28 },
+          { wch: 12 },
+          { wch: 60 },
+        ];
         const workbook = XLSX.utils.book_new();
         XLSX.utils.book_append_sheet(workbook, worksheet, "Decisions");
         const arrayBuffer = XLSX.write(workbook, { bookType: "xlsx", type: "array" });

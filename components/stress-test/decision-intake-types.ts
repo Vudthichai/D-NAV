@@ -10,21 +10,30 @@ export interface UploadedDoc {
 
 export interface EvidenceRef {
   docId: string;
-  docName: string;
+  fileName: string;
   pageNumber?: number | null;
-  rawExcerpt: string;
+  excerpt: string;
+  rawText?: string;
   chunkId: string;
 }
 
 export interface TimingNormalized {
-  precision: TimingPrecision;
+  start?: string;
+  end?: string;
+  precision?: TimingPrecision;
   [key: string]: unknown;
 }
 
 export interface DecisionCandidate {
   id: string;
-  decisionTitle: string;
-  decisionDetail: string;
+  title: string;
+  detail?: string;
+  source: EvidenceRef;
+  flags: {
+    likelyTableNoise: boolean;
+    lowSignal: boolean;
+    duplicateOf?: string;
+  };
   category: string;
   scores: {
     impact?: number;
@@ -39,8 +48,5 @@ export interface DecisionCandidate {
     verified: "Explicit" | "Unverified";
   };
   timingNormalized?: TimingNormalized;
-  evidence: EvidenceRef;
   keep: boolean;
-  tableNoise?: boolean;
-  duplicateOf?: string;
 }
