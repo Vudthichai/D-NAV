@@ -73,6 +73,7 @@ function ScoreStepper({
 export function CandidateReviewTable({ candidates, categories, onCandidatesChange }: CandidateReviewTableProps) {
   const [bulkCategory, setBulkCategory] = useState<string>("Uncategorized");
   const [bulkScore, setBulkScore] = useState<BulkScoreState>({ value: "" });
+  const [openSourceId, setOpenSourceId] = useState<string | null>(null);
 
   const keptCount = useMemo(() => candidates.filter((candidate) => candidate.keep).length, [candidates]);
 
@@ -261,7 +262,12 @@ export function CandidateReviewTable({ candidates, categories, onCandidatesChang
                   </TableCell>
                 ))}
                 <TableCell>
-                  <SourceCollapse source={candidate.source} />
+                  <SourceCollapse
+                    key={`${candidate.id}-${openSourceId === candidate.id ? "open" : "closed"}`}
+                    source={candidate.source}
+                    isOpen={openSourceId === candidate.id}
+                    onOpenChange={(nextOpen) => setOpenSourceId(nextOpen ? candidate.id : null)}
+                  />
                 </TableCell>
               </TableRow>
             ))}
