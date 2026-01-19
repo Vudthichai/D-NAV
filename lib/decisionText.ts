@@ -3,6 +3,7 @@ import { normalizePrecision, type TimingPrecision } from "@/utils/timingPrecisio
 const FOOTNOTE_NOISE = /\[(?:\d+|[a-z])\]|\(\d+\)/gi;
 const BULLET_PREFIX = /^[•\-\u2022]\s*/gm;
 const MULTI_SPACE = /\s+/g;
+const NEWLINE = /\r\n|\r/g;
 
 const NEGATIVE_PREFIXES = [
   "summary highlights",
@@ -113,6 +114,17 @@ const TABLE_HEADERS = [
   "consolidated results",
 ];
 
+const BOILERPLATE_PATTERNS: RegExp[] = [
+  /forward-looking statements/i,
+  /non-gaap/i,
+  /unaudited/i,
+  /see accompanying/i,
+  /table of contents/i,
+  /safe harbor/i,
+  /dollars in millions/i,
+  /all amounts in/i,
+];
+
 const COMMITMENT_SCORE_TERMS: Array<{ term: string; score: number }> = [
   { term: "committed to", score: 4 },
   { term: "commit to", score: 4 },
@@ -190,6 +202,37 @@ const stripTableJunkSegments = (text: string) => {
     return true;
   });
   return cleanedSegments.join(". ");
+};
+
+const isNumericRow = (text: string) => {
+  if (!text.trim()) return false;
+  if (!/[\d]/.test(text)) return false;
+  if (!/^[\d\s,.$%()\-–—/]+$/.test(text.trim())) return false;
+  return countDigits(text) >= 6;
+};
+
+const isBoilerplateLine = (text: string) =>
+  BOILERPLATE_PATTERNS.some((pattern) => pattern.test(text));
+
+const filterExcerptLines = (text: string) => {
+  const lines = text
+    .replace(NEWLINE, "\n")
+    .split(/\n+/)
+    .map((line) => line.trim())
+    .filter(Boolean);
+  const filtered = lines.filter((line) => {
+    const lower = line.toLowerCase();
+    if (line.length < 12) return false;
+    if (isNumericRow(line)) return false;
+    if (digitRatio(line) > 0.28) return false;
+    if (countQuarterTokens(line) >= 2) return false;
+    if (countYearTokens(line) >= 3) return false;
+    if (TABLE_HEADERS.some((header) => lower.includes(header))) return false;
+    if (isAllCapsHeader(line)) return false;
+    if (isBoilerplateLine(line)) return false;
+    return true;
+  });
+  return filtered.join(" ");
 };
 
 const splitSentences = (text: string) =>
@@ -281,6 +324,15 @@ export const cleanExcerpt = (excerpt: string): string => {
     .trim();
 };
 
+export const normalizeDecisionExcerpt = (excerpt: string): string => {
+  if (!excerpt) return "";
+  const cleaned = cleanExcerpt(excerpt);
+  if (!cleaned) return "";
+  const filtered = filterExcerptLines(cleaned);
+  const stripped = stripTableJunkSegments(filtered || cleaned);
+  return stripped.replace(MULTI_SPACE, " ").trim();
+};
+
 export const extractTiming = (text: string): { text: string; normalized: { precision: TimingPrecision } } => {
   const dateMatch = text.match(
     /\b(\d{1,2}\/\d{1,2}\/\d{2,4}|(?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Sept|Oct|Nov|Dec)[a-z]*\s+\d{1,2}(?:,\s*\d{2,4})?)\b/i,
@@ -334,7 +386,7 @@ export const isDecisionCandidate = (text: string): boolean => {
 };
 
 export const toDecisionDetail = (text: string): string => {
-  const cleaned = stripTableJunkSegments(cleanExcerpt(text));
+  const cleaned = normalizeDecisionExcerpt(text);
   if (!cleaned) return "";
   const sentences = splitSentences(cleaned);
   const detailBase = sentences.slice(0, 2).join(". ").replace(MULTI_SPACE, " ").trim();
@@ -343,7 +395,7 @@ export const toDecisionDetail = (text: string): string => {
 };
 
 export const toDecisionTitle = (text: string): string => {
-  const cleaned = stripTableJunkSegments(cleanExcerpt(text));
+  const cleaned = normalizeDecisionExcerpt(text);
   if (!cleaned) return "";
   const bestSentence = pickCommitmentSentence(cleaned);
   const statement = buildDecisionStatement(bestSentence);
@@ -359,9 +411,17 @@ export const isSimilarDecisionTitle = (title: string, other: string): boolean =>
   const tokens = normalizeTitleTokens(title);
   const otherTokens = normalizeTitleTokens(other);
   if (tokens.length === 0 || otherTokens.length === 0) return false;
+  const prefixSize = 6;
+  if (
+    tokens.length >= prefixSize &&
+    otherTokens.length >= prefixSize &&
+    tokens.slice(0, prefixSize).join(" ") === otherTokens.slice(0, prefixSize).join(" ")
+  ) {
+    return true;
+  }
   const shared = tokens.filter((token) => otherTokens.includes(token));
   const ratio = shared.length / Math.max(tokens.length, otherTokens.length);
-  return ratio >= 0.8;
+  return ratio >= 0.7;
 };
 
 export const scoreDecisionCandidate = (title: string, detail: string) => {
