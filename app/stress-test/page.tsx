@@ -844,7 +844,7 @@ export default function StressTestPage() {
                   }
                   labelClassName="flex items-center gap-2 text-muted-foreground"
                   bodyClassName="text-foreground"
-                  className="dnav-dark-glass-surface dnav-insight-callout"
+                  className="dnav-dark-glass-surface dnav-insight-callout dnav-session-insight-callout"
                 >
                   <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
                     <div className="space-y-1">
