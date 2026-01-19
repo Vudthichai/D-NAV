@@ -1,4 +1,15 @@
 const TABLE_KEYWORDS = ["gaap", "non-gaap", "eps", "diluted", "revenue", "cash flows"];
+const TABLE_HEADERS = [
+  "financial summary",
+  "key metrics",
+  "income statement",
+  "balance sheet",
+  "cash flow",
+  "cash flows",
+  "segment results",
+  "quarterly results",
+  "consolidated results",
+];
 
 const countDigits = (text: string) => (text.match(/\d/g) ?? []).length;
 
@@ -13,6 +24,11 @@ const countQuarterTokens = (text: string) => {
   return matches ? matches.length : 0;
 };
 
+const countYearTokens = (text: string) => {
+  const matches = text.match(/\b20\d{2}\b/g);
+  return matches ? matches.length : 0;
+};
+
 const hasTableKeywordWithNumbers = (text: string) => {
   const lower = text.toLowerCase();
   if (!TABLE_KEYWORDS.some((keyword) => lower.includes(keyword))) return false;
@@ -20,6 +36,12 @@ const hasTableKeywordWithNumbers = (text: string) => {
 };
 
 const removeSpacedCaps = (text: string) => text.replace(/\b(?:[A-Z]\s+){2,}[A-Z]\b/g, " ");
+
+const isAllCapsHeader = (text: string) => {
+  const trimmed = text.replace(/[^A-Z]/g, "");
+  if (trimmed.length < 8) return false;
+  return text === text.toUpperCase() && /^[A-Z\s&-]+$/.test(text.trim());
+};
 
 const removeTableFragments = (text: string) =>
   text
@@ -73,8 +95,13 @@ export const normalizeDecisionText = (raw: string): string => {
 
 export const isTableNoise = (raw: string): boolean => {
   if (!raw) return false;
+  const lower = raw.toLowerCase();
   if (digitRatio(raw) > 0.2) return true;
   if (countQuarterTokens(raw) >= 3) return true;
+  if (countYearTokens(raw) >= 4) return true;
   if (hasTableKeywordWithNumbers(raw)) return true;
+  if (TABLE_HEADERS.some((header) => lower.includes(header))) return true;
+  if (isAllCapsHeader(raw) && raw.length < 80) return true;
+  if ((raw.match(/,/g) ?? []).length >= 4 && digitRatio(raw) > 0.15) return true;
   return false;
 };

@@ -6,7 +6,7 @@ import * as XLSX from "xlsx";
 interface ExportDecision {
   createdAt: number;
   decisionTitle: string;
-  decisionStatement?: string;
+  decisionDetail?: string;
   category: string;
   impact: number;
   cost: number;
@@ -16,7 +16,6 @@ interface ExportDecision {
   evidence?: {
     docName: string;
     pageNumber?: number | null;
-    excerpt: string;
   };
 }
 
@@ -45,23 +44,20 @@ export function ExcelExportButton({ decisions, className }: ExcelExportButtonPro
         const cleanDecisions = decisions.filter((decision) => decision.decisionTitle.trim().length > 0);
         if (cleanDecisions.length === 0) return;
         const header = [
-          "Date",
           "Decision",
-          "Decision Statement",
+          "Detail",
           "Category",
           "Impact",
           "Cost",
           "Risk",
           "Urgency",
           "Confidence",
-          "Doc",
-          "Page",
-          "Evidence",
+          "SourceDoc",
+          "SourcePage",
         ];
         const rows = cleanDecisions.map((decision) => [
-          new Date(decision.createdAt).toLocaleDateString(),
           decision.decisionTitle,
-          decision.decisionStatement ?? "",
+          decision.decisionDetail ?? "",
           decision.category,
           decision.impact,
           decision.cost,
@@ -70,7 +66,6 @@ export function ExcelExportButton({ decisions, className }: ExcelExportButtonPro
           decision.confidence,
           decision.evidence?.docName ?? "",
           decision.evidence?.pageNumber ?? "",
-          decision.evidence?.excerpt ? decision.evidence.excerpt.slice(0, 200) : "",
         ]);
         const worksheet = XLSX.utils.aoa_to_sheet([
           ["Directions: Keep row 1 as a guide, then enter decisions below."],

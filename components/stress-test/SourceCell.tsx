@@ -61,7 +61,7 @@ export function SourceCell({ source, className, isOpen, onOpenChange }: SourceCe
                 showFullExcerpt ? "max-h-40 overflow-auto pr-1" : "line-clamp-2",
               )}
             >
-              {source.excerpt}
+              {source.rawExcerpt}
             </div>
             <button
               type="button"

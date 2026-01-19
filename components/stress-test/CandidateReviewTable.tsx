@@ -13,7 +13,7 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
-import { Minus, Plus } from "lucide-react";
+import { Minus, Pencil, Plus } from "lucide-react";
 import { useMemo, useState } from "react";
 import type { DecisionCandidate } from "@/components/stress-test/decision-intake-types";
 import { SourceCell } from "@/components/stress-test/SourceCell";
@@ -178,17 +178,17 @@ export function CandidateReviewTable({ candidates, categories, onCandidatesChang
       </div>
 
       <div className="rounded-lg border border-border/60 bg-background/90">
-        <Table>
+        <Table className="w-full table-fixed">
           <TableHeader>
             <TableRow>
               <TableHead className="w-[80px]">Keep?</TableHead>
-              <TableHead>Decision</TableHead>
+              <TableHead className="w-[38%] min-w-[280px]">Decision</TableHead>
               <TableHead className="w-[180px]">Decision Domain</TableHead>
-              <TableHead className="text-center">Impact</TableHead>
-              <TableHead className="text-center">Cost</TableHead>
-              <TableHead className="text-center">Risk</TableHead>
-              <TableHead className="text-center">Urgency</TableHead>
-              <TableHead className="text-center">Confidence</TableHead>
+              <TableHead className="w-[96px] text-center">Impact</TableHead>
+              <TableHead className="w-[96px] text-center">Cost</TableHead>
+              <TableHead className="w-[96px] text-center">Risk</TableHead>
+              <TableHead className="w-[96px] text-center">Urgency</TableHead>
+              <TableHead className="w-[96px] text-center">Confidence</TableHead>
               <TableHead className="w-[140px]">Evidence</TableHead>
             </TableRow>
           </TableHeader>
@@ -210,23 +210,40 @@ export function CandidateReviewTable({ candidates, categories, onCandidatesChang
                     <span className="text-[11px] text-muted-foreground">Keep</span>
                   </div>
                 </TableCell>
-                <TableCell className="min-w-[260px]">
-                  <Dialog open={openEditId === candidate.id} onOpenChange={(open) => setOpenEditId(open ? candidate.id : null)}>
-                    <DialogTrigger asChild>
-                      <button type="button" className="w-full text-left">
-                        <div className="space-y-1">
-                          <p className="line-clamp-1 text-xs font-semibold text-foreground">
-                            {candidate.decisionTitle}
+                <TableCell className="min-w-0 align-top whitespace-normal">
+                  <Dialog
+                    open={openEditId === candidate.id}
+                    onOpenChange={(open) => setOpenEditId(open ? candidate.id : null)}
+                  >
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="min-w-0 space-y-1">
+                        <p className="truncate text-xs font-semibold text-foreground">
+                          {candidate.decisionTitle}
+                        </p>
+                        {candidate.decisionDetail ? (
+                          <p className="line-clamp-2 text-[11px] text-muted-foreground">
+                            {candidate.decisionDetail}
                           </p>
-                          <p className="line-clamp-1 text-[11px] text-muted-foreground">
-                            {candidate.decisionStatement}
-                          </p>
-                          {candidate.tableNoise ? (
-                            <span className="text-[10px] font-semibold text-amber-600">Likely table noise</span>
-                          ) : null}
-                        </div>
-                      </button>
-                    </DialogTrigger>
+                        ) : null}
+                        {candidate.duplicateOf ? (
+                          <span className="text-[10px] font-semibold text-amber-600">Duplicate</span>
+                        ) : null}
+                        {!candidate.duplicateOf && candidate.tableNoise ? (
+                          <span className="text-[10px] font-semibold text-amber-600">Likely table noise</span>
+                        ) : null}
+                      </div>
+                      <DialogTrigger asChild>
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="icon"
+                          className="h-7 w-7 shrink-0"
+                          aria-label="Edit decision"
+                        >
+                          <Pencil className="h-3.5 w-3.5" />
+                        </Button>
+                      </DialogTrigger>
+                    </div>
                     <DialogContent className="max-w-lg">
                       <DialogHeader>
                         <DialogTitle>Edit Decision</DialogTitle>
@@ -249,14 +266,14 @@ export function CandidateReviewTable({ candidates, categories, onCandidatesChang
                           />
                         </div>
                         <div className="space-y-2">
-                          <label className="text-[11px] font-semibold text-muted-foreground">Decision statement</label>
+                          <label className="text-[11px] font-semibold text-muted-foreground">Decision detail</label>
                           <Textarea
-                            value={candidate.decisionStatement}
+                            value={candidate.decisionDetail}
                             onChange={(event) =>
                               onCandidatesChange(
                                 candidates.map((item) =>
                                   item.id === candidate.id
-                                    ? { ...item, decisionStatement: event.target.value }
+                                    ? { ...item, decisionDetail: event.target.value }
                                     : item,
                                 ),
                               )
@@ -277,7 +294,7 @@ export function CandidateReviewTable({ candidates, categories, onCandidatesChang
                             ) : null}
                           </div>
                           <div className="mt-2 line-clamp-3 whitespace-pre-wrap">
-                            {candidate.evidence.excerpt}
+                            {candidate.evidence.rawExcerpt}
                           </div>
                         </div>
                       </div>
