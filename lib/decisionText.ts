@@ -294,18 +294,12 @@ const buildDecisionStatement = (text: string) => {
 };
 
 const shortenTitle = (text: string) => {
-  let title = text.replace(/\s*\([^)]*\)/g, "").trim();
-  if (title.length > 80) {
-    title = title.split(",")[0]?.trim() ?? title;
-  }
-  if (title.length > 80) {
-    title = title.slice(0, 80).trim();
-  }
-  const words = title.split(/\s+/).filter(Boolean);
-  if (words.length > 14) {
-    title = words.slice(0, 14).join(" ");
-  }
-  return title;
+  const trimmed = text.replace(/\s*\([^)]*\)/g, "").trim();
+  const withoutComma = trimmed.length > 80 ? trimmed.split(",")[0]?.trim() ?? trimmed : trimmed;
+  const truncated = withoutComma.length > 80 ? withoutComma.slice(0, 80).trim() : withoutComma;
+  const words = truncated.split(/\s+/).filter(Boolean);
+  const shortened = words.length > 14 ? words.slice(0, 14).join(" ") : truncated;
+  return shortened;
 };
 
 const normalizeTitleTokens = (title: string) =>
