@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import type { DecisionCandidate } from "@/components/stress-test/decision-intake-types";
-import { EvidencePopover } from "@/components/stress-test/EvidencePopover";
+import { EvidenceDrawer } from "@/components/stress-test/EvidenceDrawer";
 import { EditDecisionModal } from "@/components/stress-test/EditDecisionModal";
 import { ScoreStepper } from "@/components/stress-test/ScoreStepper";
 import { Badge } from "@/components/ui/badge";
@@ -84,8 +84,9 @@ export function CandidateRow({
             </SelectContent>
           </Select>
           {evidenceAnchors.length > 0 ? (
-            <EvidencePopover
+            <EvidenceDrawer
               evidenceAnchors={evidenceAnchors}
+              decisionTitle={candidate.decisionTitle}
               isOpen={isEvidenceOpen}
               onOpenChange={onEvidenceOpenChange}
             />

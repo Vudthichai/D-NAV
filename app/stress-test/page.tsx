@@ -130,7 +130,7 @@ const buildCandidates = (docs: UploadedDoc[]) => {
 
     return {
       id: canonical.id,
-      decisionTitle: canonical.title,
+      decisionTitle: canonical.decision.canonical_text,
       titleStatus: canonical.titleStatus,
       decisionDetail,
       rawText: bestSource?.rawText,
@@ -144,9 +144,9 @@ const buildCandidates = (docs: UploadedDoc[]) => {
       gate: canonical.gate,
       category: "Uncategorized",
       scores: { ...DEFAULT_REVIEW_VARIABLES },
-      timeAnchor: canonical.timeHintRaw
+      timeAnchor: canonical.decision.constraint_time?.raw
         ? {
-            raw: canonical.timeHintRaw,
+            raw: canonical.decision.constraint_time.raw,
             type:
               canonical.timingNormalized?.precision === "day"
                 ? "ExactDate"

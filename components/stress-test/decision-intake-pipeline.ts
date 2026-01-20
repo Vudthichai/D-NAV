@@ -6,6 +6,8 @@ import type {
   RawCandidate,
   UploadedDoc,
 } from "@/components/stress-test/decision-intake-types";
+import { compileDecisionObject } from "@/lib/decisionCompiler";
+import type { ConstraintTime } from "@/types/decisionCompiler";
 
 type PageTextData = {
   pageTextRaw: string;
@@ -19,6 +21,8 @@ const COMMITMENT_VERBS = [
   "plans to",
   "expects to",
   "expect to",
+  "target",
+  "targets",
   "aims to",
   "aim to",
   "scheduled to",
@@ -39,11 +43,17 @@ const COMMITMENT_VERBS = [
   "exit",
   "invest",
   "hire",
+  "deploy",
+  "open",
+  "discontinue",
+  "acquire",
+  "divest",
 ];
 
 const METRIC_OUTCOME_TERMS = [
   "yoy",
   "qoq",
+  "ebitda",
   "gross margin",
   "operating income",
   "operating profit",
@@ -59,6 +69,7 @@ const METRIC_OUTCOME_TERMS = [
   "profit",
   "margin",
   "loss",
+  "financial summary",
 ];
 
 const WEAK_COMMITMENT_TERMS = ["may", "could", "might", "considering"];
@@ -143,12 +154,6 @@ const VERB_SYNONYMS: Array<{ pattern: RegExp; canonical: string }> = [
   { pattern: /\bstart\s+production\b/i, canonical: "start production" },
 ];
 
-const BOILERPLATE_PREFIXES: RegExp[] = [
-  /^(?:the\s+)?company\s+(?:will|expects to|expect to|plans to|plan to|aims to|aim to|intends to|intend to)\s+/i,
-  /^tesla\s+(?:will|expects to|expect to|plans to|plan to|aims to|aim to|intends to|intend to)\s+/i,
-  /^(?:we|management|board|team)\s+(?:will|expect to|expects to|plan to|plans to|aim to|aims to|intend to|intends to)\s+/i,
-];
-
 const OBJECT_KEYWORDS: Array<{ pattern: RegExp; key: string }> = [
   { pattern: /\brobotaxi\b/i, key: "robotaxi" },
   { pattern: /\bmegafactory shanghai\b/i, key: "megafactory shanghai" },
@@ -195,7 +200,7 @@ const STOPWORDS = new Set([
 ]);
 
 const DEFAULT_SCORE = 5;
-const MAX_TITLE_LENGTH = 120;
+const MAX_TITLE_LENGTH = 160;
 
 const cleanLine = (line: string) => line.replace(/\s+/g, " ").trim();
 
@@ -402,38 +407,6 @@ const extractDateMentions = (text: string) => {
   return Array.from(new Set(matches));
 };
 
-const pickBestTimeCue = (dateMentions: string[], text: string) => {
-  const candidates = dateMentions.length > 0 ? dateMentions : extractDateMentions(text);
-  if (candidates.length === 0) return undefined;
-  const normalized = candidates.map((value) => value.trim());
-  const scoreTimeCue = (cue: string) => {
-    if (/\bQ[1-4]\s?20\d{2}\b/i.test(cue)) return 5;
-    if (/\b[12]H\s?20\d{2}\b/i.test(cue)) return 4;
-    if (/\b(?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Sept|Oct|Nov|Dec)[a-z]*\s+\d{1,2}/i.test(cue)) return 4;
-    if (/\bFY\s?20\d{2}\b/i.test(cue)) return 3;
-    if (/\b20\d{2}\b/.test(cue)) return 2;
-    return 1;
-  };
-  const best = normalized.reduce((acc, cue) => (scoreTimeCue(cue) > scoreTimeCue(acc) ? cue : acc), normalized[0]);
-  const confidence = Math.min(1, 0.5 + scoreTimeCue(best) * 0.1);
-  return { raw: best, confidence };
-};
-
-const normalizeProductNouns = (text: string) =>
-  text
-    .replace(/\bfull self-driving\s*\(supervised\)/gi, "FSD (Supervised)")
-    .replace(/\bfull self-driving\b/gi, "FSD")
-    .replace(/\bmegafactory shanghai\b/gi, "Megafactory Shanghai")
-    .replace(/\bmore affordable models\b/gi, "more affordable models");
-
-const stripBoilerplatePrefix = (text: string) => {
-  let trimmed = text.trim();
-  BOILERPLATE_PREFIXES.forEach((pattern) => {
-    trimmed = trimmed.replace(pattern, "");
-  });
-  return trimmed.trim();
-};
-
 const findActionVerb = (text: string) => {
   const lowered = text.toLowerCase();
   let bestIndex = Number.POSITIVE_INFINITY;
@@ -453,44 +426,6 @@ const findActionVerb = (text: string) => {
     }
   });
   return bestVerb;
-};
-
-const stripTimeFromPhrase = (text: string) =>
-  text
-    .replace(/\bby\b[^,;.]+/gi, "")
-    .replace(/\b(?:in|during|through)\s+Q[1-4]\s?20\d{2}\b/gi, "")
-    .replace(/\b(?:in|during|through)\s+[12]H\s?20\d{2}\b/gi, "")
-    .replace(/\b(?:in|during|through)\s+FY\s?20\d{2}\b/gi, "")
-    .replace(/\b(?:in|during|through)\s+20\d{2}\b/gi, "")
-    .replace(/\b(?:later this year|later this quarter|next quarter|next year|next month)\b/gi, "");
-
-const stripFillerPhrases = (text: string) =>
-  text
-    .replace(/\bwe believe\b/gi, "")
-    .replace(/\bwe continue\b/gi, "")
-    .replace(/\bwe are focused on\b/gi, "")
-    .replace(/\bwe saw\b/gi, "")
-    .replace(/\bwe delivered\b/gi, "")
-    .replace(/\bthe company\b/gi, "")
-    .replace(/\bmanagement\b/gi, "")
-    .replace(/\bboard\b/gi, "")
-    .replace(/\bteam\b/gi, "");
-
-const stripSubordinateClauses = (text: string) =>
-  text
-    .split(/\b(?:due to|as a result|which|that|because|after|before|while|if)\b/i)[0]
-    .split(/[.;]/)[0]
-    .trim();
-
-const detectActorName = (text: string) => {
-  const match = text.match(/\b(Tesla|Company|Management|Board|Team|We)\b/i);
-  if (!match) return "Company";
-  const actor = match[0];
-  if (actor.toLowerCase() === "we" || actor.toLowerCase() === "company") return "Company";
-  if (actor.toLowerCase() === "management") return "Management";
-  if (actor.toLowerCase() === "board") return "Board";
-  if (actor.toLowerCase() === "team") return "Team";
-  return actor;
 };
 
 const normalizeTimingFromHint = (hint?: string | null) => {
@@ -513,54 +448,6 @@ const normalizeTimingFromHint = (hint?: string | null) => {
   return { precision: "unknown" as const };
 };
 
-const enforceTitleLength = (title: string) => {
-  if (title.length <= MAX_TITLE_LENGTH) {
-    return { title: title.trim(), status: "Ok" as const };
-  }
-  let trimmed = title.replace(/\s*\([^)]*\)/g, "").trim();
-  trimmed = trimmed.replace(/\b(?:new|more|additional|first|second|next|major|significant)\b/gi, "").replace(/\s+/g, " ");
-  if (trimmed.length <= MAX_TITLE_LENGTH) return { title: trimmed.trim(), status: "Ok" as const };
-  const clauseIndex = trimmed.search(/[;,]/);
-  if (clauseIndex > 0) {
-    trimmed = trimmed.slice(0, clauseIndex).trim();
-  }
-  if (trimmed.length <= MAX_TITLE_LENGTH) return { title: trimmed.trim(), status: "Ok" as const };
-  return { title: `${trimmed.slice(0, MAX_TITLE_LENGTH - 1).trim()}…`, status: "NeedsRewrite" as const };
-};
-
-const canonicalizeDecisionTitle = (rawText: string, dateMentions: string[], gate?: DecisionQualityGate) => {
-  const cleaned = stripBoilerplatePrefix(stripFillerPhrases(rawText));
-  const actor = detectActorName(cleaned);
-  const commitment = gate?.commitmentVerb ?? detectCommitmentVerb(cleaned).verb;
-  const commitmentNeedsAction =
-    commitment &&
-    ["will", "plan to", "plans to", "expect to", "expects to", "aim to", "aims to", "scheduled to"].includes(
-      commitment,
-    );
-  const verb = (
-    (commitmentNeedsAction ? findActionVerb(cleaned) : commitment) ??
-    findActionVerb(cleaned) ??
-    "commit"
-  ).toLowerCase();
-  const verbIndex = cleaned.toLowerCase().indexOf(verb.toLowerCase());
-  const afterVerb = verbIndex >= 0 ? cleaned.slice(verbIndex + verb.length) : cleaned;
-  const withoutLeadingTo = afterVerb.replace(/^\s*(?:to\s+)?/i, "");
-  const objectPhrase = stripSubordinateClauses(stripTimeFromPhrase(withoutLeadingTo));
-  const baseObject = normalizeProductNouns(objectPhrase).trim();
-  const baseTitle = baseObject ? `${actor} ${verb} ${baseObject}` : `${actor} ${verb}`;
-  const timeCue = pickBestTimeCue(dateMentions, rawText);
-  const timeHintRaw = timeCue?.raw ?? null;
-  const withTime = timeHintRaw ? `${baseTitle} (${timeHintRaw})` : baseTitle;
-  const enforced = enforceTitleLength(withTime);
-  return {
-    title: enforced.title,
-    titleStatus: enforced.status,
-    timeCue,
-    timeHintRaw,
-    timingNormalized: normalizeTimingFromHint(timeHintRaw),
-  };
-};
-
 const extractObjectKey = (text: string) => {
   for (const entry of OBJECT_KEYWORDS) {
     if (entry.pattern.test(text)) return entry.key;
@@ -573,14 +460,15 @@ const extractObjectKey = (text: string) => {
   return tokens.slice(0, 2).join(" ") || "general";
 };
 
-const timeBucketFromCue = (timeCue?: string) => {
-  if (!timeCue) return "unknown";
-  const qMatch = timeCue.match(/\bQ[1-4]\s?20\d{2}\b/i);
-  if (qMatch) return qMatch[0].toUpperCase().replace(/\s+/g, " ");
-  const hMatch = timeCue.match(/\b[12]H\s?20\d{2}\b/i);
-  if (hMatch) return hMatch[0].match(/\b20\d{2}\b/)?.[0] ?? "unknown";
-  const yearMatch = timeCue.match(/\b20\d{2}\b/);
-  if (yearMatch) return yearMatch[0];
+const timeBucketFromConstraint = (constraintTime: ConstraintTime | null) => {
+  if (!constraintTime?.normalized) return "unknown";
+  const normalized = constraintTime.normalized;
+  if (normalized.type === "quarter") return `Q${normalized.quarter} ${normalized.year}`;
+  if (normalized.type === "half") return `${normalized.half}H ${normalized.year}`;
+  if (normalized.type === "fiscalYear") return `FY${normalized.year}`;
+  if (normalized.type === "year") return `${normalized.year}`;
+  if (normalized.type === "date") return normalized.value;
+  if (normalized.type === "relative") return normalized.label;
   return "unknown";
 };
 
@@ -636,7 +524,7 @@ const scoreCandidate = (text: string) => {
   return { score, tableNoise };
 };
 
-const runDecisionQualityGate = (candidate: RawCandidate): DecisionQualityGate => {
+const runDecisionQualityGate = (candidate: RawCandidate, decision: ReturnType<typeof compileDecisionObject>): DecisionQualityGate => {
   const { rawText } = candidate;
   const reasonsIncluded: string[] = [];
   const reasonsExcluded: string[] = [];
@@ -662,7 +550,13 @@ const runDecisionQualityGate = (candidate: RawCandidate): DecisionQualityGate =>
   const passesCommitmentGate = commitment.strength > 0 || (signals.reversalCost > 0 && futureActionImplied);
 
   let bin: DecisionQualityGate["bin"] = "Rejected";
-  if (metricOutcome) {
+  if (decision.triage === "KEEP") {
+    bin = "Decision";
+  } else if (decision.triage === "MAYBE") {
+    bin = "MaybeDecision";
+  } else if (decision.triage === "DROP") {
+    bin = decision.triage_reason.includes("state/reporting") ? "EvidenceOnly" : "Rejected";
+  } else if (metricOutcome) {
     bin = "EvidenceOnly";
   } else if (!tableNoise && passesCommitmentGate) {
     if (optionalityScore >= 0.55) {
@@ -680,6 +574,8 @@ const runDecisionQualityGate = (candidate: RawCandidate): DecisionQualityGate =>
     constraintSignals: signals,
     reasonsIncluded,
     reasonsExcluded,
+    triage: decision.triage,
+    triageReason: decision.triage_reason,
   };
 };
 
@@ -757,8 +653,13 @@ export const buildCanonicalDecisions = (
   rawCandidates: RawCandidate[],
 ): { canonicals: CanonicalDecision[]; diagnostics: DecisionGateDiagnostics } => {
   const gatedCandidates = rawCandidates.map((candidate) => {
-    const gate = runDecisionQualityGate(candidate);
-    return { candidate, gate };
+    const compiledDecision = compileDecisionObject({
+      text: candidate.rawText,
+      evidenceAnchors: candidate.evidence,
+      tableNoise: candidate.knowsItIsTableNoise,
+    });
+    const gate = runDecisionQualityGate(candidate, compiledDecision);
+    return { candidate, gate, decision: compiledDecision };
   });
 
   const diagnostics: DecisionGateDiagnostics = {
@@ -789,24 +690,26 @@ export const buildCanonicalDecisions = (
 
   const candidateUnits = gatedCandidates
     .filter((entry) => entry.gate.bin === "Decision" || entry.gate.bin === "MaybeDecision")
-    .map(({ candidate, gate }) => {
-      const canonical = canonicalizeDecisionTitle(candidate.rawText, candidate.dateMentions ?? [], gate);
-      const actionVerb = findActionVerb(canonical.title) ?? gate.commitmentVerb ?? "commit";
-      const objectKey = extractObjectKey(canonical.title);
-      const timeBucket = timeBucketFromCue(canonical.timeHintRaw ?? undefined);
-      const tokens = new Set(normalizeTokens(candidate.rawText));
+    .map(({ candidate, gate, decision }) => {
+      const actionVerb = decision.action || findActionVerb(decision.canonical_text) || gate.commitmentVerb || "commit";
+      const objectKey = extractObjectKey(decision.object || decision.canonical_text);
+      const timeBucket = timeBucketFromConstraint(decision.constraint_time ?? null);
+      const tokens = new Set(normalizeTokens(decision.canonical_text));
       return {
         candidate,
         gate,
-        title: canonical.title,
-        titleStatus: canonical.titleStatus,
-        timeHintRaw: canonical.timeHintRaw,
-        timingNormalized: canonical.timingNormalized,
+        title: decision.canonical_text,
+        titleStatus: decision.canonical_text.length > MAX_TITLE_LENGTH ? "NeedsRewrite" : "Ok",
+        timeHintRaw: decision.constraint_time?.raw ?? null,
+        timingNormalized: decision.constraint_time?.normalized
+          ? normalizeTimingFromHint(decision.constraint_time.raw)
+          : normalizeTimingFromHint(undefined),
         actionVerb,
         objectKey,
         timeBucket,
-        timeCue: canonical.timeCue,
+        timeCue: decision.constraint_time?.raw ? { raw: decision.constraint_time.raw, confidence: 0.8 } : undefined,
         tokens,
+        decision,
       };
     });
 
@@ -837,16 +740,18 @@ export const buildCanonicalDecisions = (
     const clusterMeta = clusters.map((cluster) => {
       const sortedByScore = [...cluster].sort(
         (a, b) =>
+          Number(Boolean(b.decision.constraint_time)) - Number(Boolean(a.decision.constraint_time)) ||
+          a.title.length - b.title.length ||
+          b.decision.confidence_of_extraction - a.decision.confidence_of_extraction ||
           b.gate.optionalityScore - a.gate.optionalityScore ||
-          b.candidate.extractionScore - a.candidate.extractionScore ||
-          a.title.length - b.title.length,
+          b.candidate.extractionScore - a.candidate.extractionScore,
       );
       const best = sortedByScore[0];
       return {
         cluster,
         best,
         representative: cluster[0],
-        canonicalId: `canon-${best.candidate.id}`,
+        canonicalId: best.decision.id,
       };
     });
 
@@ -889,6 +794,7 @@ export const buildCanonicalDecisions = (
         id: canonicalId,
         docId: best.candidate.docId,
         title: best.title,
+        decision: best.decision,
         titleStatus: best.titleStatus,
         timeHintRaw: best.timeHintRaw ?? null,
         timingNormalized: best.timingNormalized,

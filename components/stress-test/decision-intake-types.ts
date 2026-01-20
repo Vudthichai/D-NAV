@@ -1,4 +1,5 @@
 import type { TimingPrecision } from "@/utils/timingPrecision";
+import type { DecisionObject, DecisionTriage } from "@/types/decisionCompiler";
 
 export interface UploadedDoc {
   id: string;
@@ -58,12 +59,15 @@ export type DecisionQualityGate = {
   constraintSignals: ConstraintSignals;
   reasonsIncluded: string[];
   reasonsExcluded: string[];
+  triage?: DecisionTriage;
+  triageReason?: string;
 };
 
 export type CanonicalDecision = {
   id: string;
   docId: string;
   title: string;
+  decision: DecisionObject;
   titleStatus?: "Ok" | "NeedsRewrite";
   timeHintRaw?: string | null;
   timingNormalized?: TimingNormalized;

@@ -382,6 +382,14 @@ export const isDecisionCandidate = (text: string): boolean => {
     !matchesTerm(COMMITMENT_TERMS);
   if (isBackwardLooking) return false;
 
+  const reportingTerms = ["revenue", "net income", "ebitda", "margin", "cash flow", "earnings per share", "eps", "yoy", "qoq"];
+  if (
+    reportingTerms.some((term) => lower.includes(term)) &&
+    /\b(was|were|reported|delivered|achieved|grew|declined|decreased|increased)\b/i.test(cleaned)
+  ) {
+    return false;
+  }
+
   return true;
 };
 
@@ -400,9 +408,23 @@ export const toDecisionTitle = (text: string): string => {
   const bestSentence = pickCommitmentSentence(cleaned);
   const statement = buildDecisionStatement(bestSentence);
   if (!statement) return "";
-  const title = shortenTitle(statement);
+  let title = statement
+    .replace(/^(?:the\s+)?(?:company|tesla|management|board|team)\s+/i, "")
+    .replace(/^(?:will|plans? to|expects? to|aims? to|intends? to|committed to|commit to)\s+/i, "")
+    .trim();
+  title = title.replace(/\bin\s+(Q[1-4]\s?20\d{2}|FY\s?20\d{2}|20\d{2})\b/i, "by $1");
+  title = shortenTitle(title);
   if (!title) return "";
   return title.charAt(0).toUpperCase() + title.slice(1);
+};
+
+export const toDecisionStatement = (text: string): string => {
+  const cleaned = normalizeDecisionExcerpt(text);
+  if (!cleaned) return "";
+  const bestSentence = pickCommitmentSentence(cleaned);
+  const statement = buildDecisionStatement(bestSentence);
+  if (!statement) return "";
+  return statement.endsWith(".") ? statement : `${statement}.`;
 };
 
 export const dedupeKey = (title: string): string => normalizeTitleTokens(title).join(" ");
