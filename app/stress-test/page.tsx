@@ -6,7 +6,7 @@ import StressTestCalculator, {
 } from "@/components/stress-test/StressTestCalculator";
 import { useDefinitionsPanel } from "@/components/definitions/DefinitionsPanelProvider";
 import { CandidateReviewTable } from "@/components/stress-test/CandidateReviewTable";
-import { buildCanonicalDecisions, buildRawCandidates } from "@/components/stress-test/decision-intake-pipeline";
+import { buildCanonicalDecisions, buildRawCandidates } from "@/lib/decisionCompiler";
 import { ExcelExportButton } from "@/components/stress-test/ExcelExportButton";
 import { PdfDropzone, type PdfDropzoneFile } from "@/components/stress-test/PdfDropzone";
 import type {
@@ -228,7 +228,17 @@ export default function StressTestPage() {
   const reviewPanelRef = useRef<HTMLDivElement>(null);
 
   const { openDefinitions } = useDefinitionsPanel();
-  const showDecisionDebug = process.env.NEXT_PUBLIC_DECISION_DEBUG === "true";
+  const [showDecisionDebug, setShowDecisionDebug] = useState(
+    process.env.NEXT_PUBLIC_DECISION_DEBUG === "true",
+  );
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const params = new URLSearchParams(window.location.search);
+    if (params.get("debug") === "1") {
+      setShowDecisionDebug(true);
+    }
+  }, []);
 
   const updateFileProgress = useCallback((id: string, progress: number) => {
     setIntakeFiles((prev) =>
@@ -1041,6 +1051,7 @@ export default function StressTestPage() {
                           candidates={decisionCandidates}
                           onCandidatesChange={setDecisionCandidates}
                           categories={EXTRACTED_DECISION_CATEGORIES}
+                          showDecisionDebug={showDecisionDebug}
                         />
                         <div className="flex flex-wrap items-center gap-2">
                           <Button

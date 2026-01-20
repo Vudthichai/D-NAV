@@ -21,6 +21,7 @@ interface CandidateRowProps {
   onEvidenceOpenChange: (nextOpen: boolean) => void;
   isEditOpen: boolean;
   onEditOpenChange: (nextOpen: boolean) => void;
+  showDecisionDebug?: boolean;
 }
 
 const scoreLabels: Array<{ key: keyof DecisionCandidate["scores"]; label: string }> = [
@@ -39,6 +40,7 @@ export function CandidateRow({
   onEvidenceOpenChange,
   isEditOpen,
   onEditOpenChange,
+  showDecisionDebug = false,
 }: CandidateRowProps) {
   const [isMergeOpen, setIsMergeOpen] = useState(false);
   const evidenceAnchors = candidate.evidenceAnchors ?? [];
@@ -60,7 +62,7 @@ export function CandidateRow({
             />
             <span className="text-[11px] font-semibold text-muted-foreground">Keep</span>
           </div>
-          <p className="min-w-[180px] flex-1 truncate text-sm font-semibold text-foreground">
+          <p className="min-w-[180px] flex-1 line-clamp-1 text-sm font-semibold text-foreground">
             {candidate.decisionTitle}
           </p>
           {timeBadge ? (
@@ -208,6 +210,39 @@ export function CandidateRow({
             />
           ))}
         </div>
+
+        {showDecisionDebug && candidate.gate ? (
+          <div className="rounded-lg border border-border/60 bg-muted/10 p-3 text-[11px] text-muted-foreground">
+            <div className="flex flex-wrap items-center gap-2">
+              <Badge variant="secondary" className="text-[10px]">
+                {candidate.gate.bin}
+              </Badge>
+              {candidate.gate.reasonsIncluded.map((reason) => (
+                <Badge key={`include-${candidate.id}-${reason}`} variant="secondary" className="text-[10px]">
+                  {reason}
+                </Badge>
+              ))}
+              {candidate.gate.reasonsExcluded.map((reason) => (
+                <Badge key={`exclude-${candidate.id}-${reason}`} variant="destructive" className="text-[10px]">
+                  {reason}
+                </Badge>
+              ))}
+            </div>
+            {candidate.rawText ? (
+              <details className="mt-2">
+                <summary className="cursor-pointer text-[11px] font-semibold text-foreground">
+                  Original extracted sentence
+                </summary>
+                <p className="mt-2 whitespace-pre-wrap">{candidate.rawText}</p>
+                {candidate.sectionHint ? (
+                  <p className="mt-2 text-[10px] uppercase tracking-wide text-muted-foreground">
+                    Section: {candidate.sectionHint}
+                  </p>
+                ) : null}
+              </details>
+            ) : null}
+          </div>
+        ) : null}
       </div>
 
       <EditDecisionModal
