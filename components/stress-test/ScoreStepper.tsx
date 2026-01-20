@@ -15,9 +15,9 @@ export function ScoreStepper({ label, value, onChange }: ScoreStepperProps) {
   const numeric = typeof value === "number" && Number.isFinite(value) ? value : 5;
 
   return (
-    <div className="flex flex-col items-center gap-1 rounded-lg border border-border/50 bg-muted/20 px-2 py-2">
+    <div className="flex min-w-[90px] flex-col items-center gap-1 rounded-lg border border-border/50 bg-muted/20 px-2 py-2">
       <span className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">{label}</span>
-      <div className="flex items-center gap-1">
+      <div className="flex items-center gap-2">
         <Button
           type="button"
           variant="outline"
@@ -28,9 +28,7 @@ export function ScoreStepper({ label, value, onChange }: ScoreStepperProps) {
         >
           <Minus className="h-3 w-3" />
         </Button>
-        <span className="min-w-[32px] rounded-full border border-border/60 bg-background px-2 py-0.5 text-center text-xs font-semibold text-foreground">
-          {numeric}
-        </span>
+        <span className="min-w-[28px] text-center text-lg font-semibold text-foreground">{numeric}</span>
         <Button
           type="button"
           variant="outline"

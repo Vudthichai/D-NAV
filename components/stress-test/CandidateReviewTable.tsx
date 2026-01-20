@@ -24,8 +24,16 @@ export function CandidateReviewTable({ candidates, categories, onCandidatesChang
   const [bulkScore, setBulkScore] = useState<BulkScoreState>({ value: "" });
   const [openEvidenceId, setOpenEvidenceId] = useState<string | null>(null);
   const [openEditId, setOpenEditId] = useState<string | null>(null);
+  const [showMaybes, setShowMaybes] = useState(false);
 
   const keptCount = useMemo(() => candidates.filter((candidate) => candidate.keep).length, [candidates]);
+  const visibleCandidates = useMemo(
+    () =>
+      candidates.filter(
+        (candidate) => candidate.bin !== "MaybeDecision" || showMaybes,
+      ),
+    [candidates, showMaybes],
+  );
 
   const applyToKept = (updater: (candidate: DecisionCandidate) => DecisionCandidate) => {
     onCandidatesChange(candidates.map((candidate) => (candidate.keep ? updater(candidate) : candidate)));
@@ -117,11 +125,23 @@ export function CandidateReviewTable({ candidates, categories, onCandidatesChang
             Set scores for selected
           </Button>
         </div>
+        <div className="flex items-center gap-2">
+          <input
+            id="show-maybes"
+            type="checkbox"
+            checked={showMaybes}
+            onChange={(event) => setShowMaybes(event.target.checked)}
+            className="h-3 w-3 rounded border-border text-primary"
+          />
+          <label htmlFor="show-maybes" className="text-[11px] font-semibold text-muted-foreground">
+            Show Maybes
+          </label>
+        </div>
         <span className="text-[11px] text-muted-foreground">Kept: {keptCount}</span>
       </div>
 
       <div className="space-y-3">
-        {candidates.map((candidate) => (
+        {visibleCandidates.map((candidate) => (
           <CandidateRow
             key={candidate.id}
             candidate={candidate}

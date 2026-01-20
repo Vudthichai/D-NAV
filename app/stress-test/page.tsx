@@ -12,6 +12,7 @@ import { PdfDropzone, type PdfDropzoneFile } from "@/components/stress-test/PdfD
 import type {
   CanonicalDecision,
   DecisionCandidate,
+  DecisionGateDiagnostics,
   EvidenceRef,
   RawCandidate,
   UploadedDoc,
@@ -103,7 +104,8 @@ const isRecord = (value: unknown): value is Record<string, unknown> =>
 const buildCandidates = (docs: UploadedDoc[]) => {
   const rawCandidates = buildRawCandidates(docs);
   const rawById = new Map(rawCandidates.map((candidate) => [candidate.id, candidate]));
-  const canonicalDecisions = buildCanonicalDecisions(rawCandidates)
+  const { canonicals, diagnostics } = buildCanonicalDecisions(rawCandidates);
+  const canonicalDecisions = canonicals
     .slice()
     .sort((a, b) => b.sources.mergeConfidence - a.sources.mergeConfidence)
     .slice(0, MAX_CANDIDATES);
@@ -129,6 +131,7 @@ const buildCandidates = (docs: UploadedDoc[]) => {
     return {
       id: canonical.id,
       decisionTitle: canonical.title,
+      titleStatus: canonical.titleStatus,
       decisionDetail,
       rawText: bestSource?.rawText,
       contextText: bestSource?.contextText,
@@ -137,23 +140,25 @@ const buildCandidates = (docs: UploadedDoc[]) => {
       dateMentions: Array.from(
         new Set(sourceCandidates.flatMap((candidate) => candidate.dateMentions ?? [])),
       ),
+      bin: canonical.gate?.bin,
+      gate: canonical.gate,
       category: "Uncategorized",
       scores: { ...DEFAULT_REVIEW_VARIABLES },
-      timeAnchor: timing.text
+      timeAnchor: canonical.timeHintRaw
         ? {
-            raw: timing.text,
+            raw: canonical.timeHintRaw,
             type:
-              timing.normalized.precision === "day"
+              canonical.timingNormalized?.precision === "day"
                 ? "ExactDate"
-                : timing.normalized.precision === "quarter"
+                : canonical.timingNormalized?.precision === "quarter"
                   ? "Quarter"
-                  : timing.normalized.precision === "year"
+                  : canonical.timingNormalized?.precision === "year"
                     ? "FiscalYear"
                     : "Dependency",
             verified: "Explicit",
           }
         : undefined,
-      timingNormalized: timing.normalized,
+      timingNormalized: canonical.timingNormalized ?? timing.normalized,
       evidence,
       evidenceAnchors: canonical.evidence,
       sources: canonical.sources,
@@ -167,7 +172,7 @@ const buildCandidates = (docs: UploadedDoc[]) => {
         extractionScore: candidate.extractionScore,
         dateMentions: candidate.dateMentions ?? [],
       })),
-      keep: (bestSource?.extractionScore ?? 0) >= 0.35 && !bestSource?.knowsItIsTableNoise,
+      keep: canonical.gate?.bin === "Decision",
       tableNoise: sourceCandidates.every((candidate) => candidate.knowsItIsTableNoise),
     };
   };
@@ -179,7 +184,7 @@ const buildCandidates = (docs: UploadedDoc[]) => {
     return buildDecisionCandidate(canonical, sources.length ? sources : rawCandidates);
   });
 
-  return candidates;
+  return { candidates, diagnostics };
 };
 
 const isSessionDecisionSnapshot = (value: unknown): value is SessionDecision => {
@@ -202,6 +207,7 @@ export default function StressTestPage() {
   const [intakeStatus, setIntakeStatus] = useState<DecisionIntakeStatus>("idle");
   const [isParsing, setIsParsing] = useState(false);
   const [intakeError, setIntakeError] = useState<string | null>(null);
+  const [decisionDiagnostics, setDecisionDiagnostics] = useState<DecisionGateDiagnostics | null>(null);
   const [intentContext, setIntentContext] = useState("");
   const [constraintContext, setConstraintContext] = useState("");
   const [sessionDecisions, setSessionDecisions] = useState<SessionDecision[]>(() => {
@@ -222,6 +228,7 @@ export default function StressTestPage() {
   const reviewPanelRef = useRef<HTMLDivElement>(null);
 
   const { openDefinitions } = useDefinitionsPanel();
+  const showDecisionDebug = process.env.NEXT_PUBLIC_DECISION_DEBUG === "true";
 
   const updateFileProgress = useCallback((id: string, progress: number) => {
     setIntakeFiles((prev) =>
@@ -276,7 +283,8 @@ export default function StressTestPage() {
     setIntakeStatus("parsing");
     try {
       const docs = await parsePdfDocuments(intakeFiles);
-      const candidates = buildCandidates(docs).map((candidate) => {
+      const { candidates: nextCandidates, diagnostics } = buildCandidates(docs);
+      const candidates = nextCandidates.map((candidate) => {
         const timingNormalizedInput = (candidate as { timingNormalized?: TimingNormalizedInput | null })
           .timingNormalized;
         if (!timingNormalizedInput) return candidate;
@@ -295,12 +303,26 @@ export default function StressTestPage() {
       });
       if (candidates.length === 0) {
         setDecisionCandidates([]);
+        setDecisionDiagnostics(null);
         setIntakeError("No candidates found — try another file or paste text.");
         setIntakeStatus("doc_selected");
         setIsParsing(false);
         return;
       }
       setDecisionCandidates(candidates);
+      setDecisionDiagnostics(diagnostics);
+      if (showDecisionDebug) {
+        console.info("Decision intake diagnostics", diagnostics);
+        console.table(
+          diagnostics.candidates.map((entry) => ({
+            id: entry.id,
+            bin: entry.bin,
+            optionalityScore: entry.optionalityScore,
+            reasonsIncluded: entry.reasonsIncluded.join(", "),
+            reasonsExcluded: entry.reasonsExcluded.join(", "),
+          })),
+        );
+      }
       setIntakeStatus("candidates_ready");
       requestAnimationFrame(() => {
         reviewPanelRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
@@ -309,10 +331,11 @@ export default function StressTestPage() {
       console.error("Failed to parse PDF intake.", error);
       setIntakeError("PDF parse failed. Please try another file.");
       setIntakeStatus("doc_selected");
+      setDecisionDiagnostics(null);
     } finally {
       setIsParsing(false);
     }
-  }, [intakeFiles, isParsing, parsePdfDocuments]);
+  }, [intakeFiles, isParsing, parsePdfDocuments, showDecisionDebug]);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -988,6 +1011,31 @@ export default function StressTestPage() {
                           <p className="text-xs text-muted-foreground">
                             We found {decisionCandidates.length}. Add more documents to reach 10–20 commitments.
                           </p>
+                        ) : null}
+                        {showDecisionDebug && decisionDiagnostics ? (
+                          <div className="rounded-lg border border-dashed border-border/60 bg-muted/20 px-3 py-2 text-[11px] text-muted-foreground">
+                            <div className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+                              Decision intake debug
+                            </div>
+                            <div className="mt-2 flex flex-wrap gap-3 text-[11px]">
+                              <span>Decision: {decisionDiagnostics.byBin.Decision}</span>
+                              <span>Maybe: {decisionDiagnostics.byBin.MaybeDecision}</span>
+                              <span>Evidence-only: {decisionDiagnostics.byBin.EvidenceOnly}</span>
+                              <span>Rejected: {decisionDiagnostics.byBin.Rejected}</span>
+                            </div>
+                            {decisionDiagnostics.evidenceOnlySamples.length > 0 ? (
+                              <div className="mt-2 space-y-1">
+                                <div className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+                                  Evidence-only samples
+                                </div>
+                                {decisionDiagnostics.evidenceOnlySamples.map((sample) => (
+                                  <p key={sample.id} className="line-clamp-2">
+                                    {sample.rawText}
+                                  </p>
+                                ))}
+                              </div>
+                            ) : null}
+                          </div>
                         ) : null}
                         <CandidateReviewTable
                           candidates={decisionCandidates}
