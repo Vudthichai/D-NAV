@@ -47,19 +47,40 @@ export function EditDecisionModal({ candidate, open, onOpenChange, onCandidateCh
               className="text-xs"
             />
           </div>
-          <div className="space-y-2 rounded-md border border-border/60 bg-muted/20 p-3 text-[11px] text-muted-foreground">
-            <div className="flex flex-wrap items-center gap-2">
-              <span className="max-w-[240px] truncate text-xs font-semibold text-foreground">
-                {candidate.evidence.docName}
-              </span>
-              {candidate.evidence.pageNumber ? (
-                <span className="rounded-full bg-muted px-2 py-0.5 text-[10px] font-semibold">
-                  p. {candidate.evidence.pageNumber}
-                </span>
-              ) : null}
+          {candidate.evidenceAnchors && candidate.evidenceAnchors.length > 0 ? (
+            <div className="space-y-2">
+              {candidate.evidenceAnchors.map((anchor) => (
+                <div
+                  key={`${anchor.docId}-${anchor.page}-${anchor.excerpt.slice(0, 12)}`}
+                  className="rounded-md border border-border/60 bg-muted/20 p-3 text-[11px] text-muted-foreground"
+                >
+                  <div className="flex flex-wrap items-center gap-2">
+                    <span className="max-w-[240px] truncate text-xs font-semibold text-foreground">
+                      {anchor.fileName}
+                    </span>
+                    <span className="rounded-full bg-muted px-2 py-0.5 text-[10px] font-semibold">
+                      p. {anchor.page}
+                    </span>
+                  </div>
+                  <div className="mt-2 line-clamp-4 whitespace-pre-wrap">{anchor.excerpt}</div>
+                </div>
+              ))}
             </div>
-            <div className="mt-2 line-clamp-4 whitespace-pre-wrap">{candidate.evidence.rawExcerpt}</div>
-          </div>
+          ) : (
+            <div className="space-y-2 rounded-md border border-border/60 bg-muted/20 p-3 text-[11px] text-muted-foreground">
+              <div className="flex flex-wrap items-center gap-2">
+                <span className="max-w-[240px] truncate text-xs font-semibold text-foreground">
+                  {candidate.evidence.docName}
+                </span>
+                {candidate.evidence.pageNumber ? (
+                  <span className="rounded-full bg-muted px-2 py-0.5 text-[10px] font-semibold">
+                    p. {candidate.evidence.pageNumber}
+                  </span>
+                ) : null}
+              </div>
+              <div className="mt-2 line-clamp-4 whitespace-pre-wrap">{candidate.evidence.rawExcerpt}</div>
+            </div>
+          )}
         </div>
       </DialogContent>
     </Dialog>
