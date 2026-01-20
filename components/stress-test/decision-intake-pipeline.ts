@@ -1,4 +1,11 @@
-import type { CanonicalDecision, EvidenceAnchor, RawCandidate, UploadedDoc } from "@/components/stress-test/decision-intake-types";
+import type {
+  CanonicalDecision,
+  DecisionGateDiagnostics,
+  DecisionQualityGate,
+  EvidenceAnchor,
+  RawCandidate,
+  UploadedDoc,
+} from "@/components/stress-test/decision-intake-types";
 
 type PageTextData = {
   pageTextRaw: string;
@@ -18,6 +25,7 @@ const COMMITMENT_VERBS = [
   "begin",
   "ramp",
   "launch",
+  "start production",
   "approve",
   "approved",
   "build",
@@ -32,6 +40,28 @@ const COMMITMENT_VERBS = [
   "invest",
   "hire",
 ];
+
+const METRIC_OUTCOME_TERMS = [
+  "yoy",
+  "qoq",
+  "gross margin",
+  "operating income",
+  "operating profit",
+  "net income",
+  "revenue",
+  "earnings per share",
+  "eps",
+  "cash flow",
+  "operating cash flow",
+  "free cash flow",
+  "deliveries",
+  "vehicle deliveries",
+  "profit",
+  "margin",
+  "loss",
+];
+
+const WEAK_COMMITMENT_TERMS = ["may", "could", "might", "considering"];
 
 const ACTION_TERMS = [
   "build",
@@ -82,6 +112,7 @@ const STRONG_VERBS = [
   "launch",
   "ramp",
   "begin",
+  "start production",
   "build",
   "reduce",
   "expand",
@@ -109,6 +140,7 @@ const VERB_SYNONYMS: Array<{ pattern: RegExp; canonical: string }> = [
   { pattern: /\bkick\s?off\b/i, canonical: "start" },
   { pattern: /\bcommence\b/i, canonical: "begin" },
   { pattern: /\bmanufacture\b/i, canonical: "produce" },
+  { pattern: /\bstart\s+production\b/i, canonical: "start production" },
 ];
 
 const BOILERPLATE_PREFIXES: RegExp[] = [
@@ -163,7 +195,7 @@ const STOPWORDS = new Set([
 ]);
 
 const DEFAULT_SCORE = 5;
-const MAX_TITLE_LENGTH = 90;
+const MAX_TITLE_LENGTH = 120;
 
 const cleanLine = (line: string) => line.replace(/\s+/g, " ").trim();
 
@@ -255,8 +287,102 @@ const isTableNoise = (text: string) => {
   return false;
 };
 
-const hasCommitmentVerb = (text: string) =>
-  COMMITMENT_VERBS.some((verb) => text.toLowerCase().includes(verb));
+const isMetricOutcome = (text: string) => {
+  const lower = text.toLowerCase();
+  const hasMetric = METRIC_OUTCOME_TERMS.some((term) => lower.includes(term)) || /\b(yoy|qoq)\b/i.test(text);
+  if (!hasMetric) return false;
+  const hasCommitment = detectCommitmentVerb(text).strength > 0;
+  return !hasCommitment;
+};
+
+const detectCommitmentVerb = (text: string) => {
+  const lowered = text.toLowerCase();
+  const weakModalPresent = WEAK_COMMITMENT_TERMS.some((term) => lowered.includes(term));
+  let bestIndex = Number.POSITIVE_INFINITY;
+  let bestVerb: string | null = null;
+  let strength = 0;
+
+  const registerMatch = (verb: string, index: number, baseStrength: number) => {
+    if (index < 0) return;
+    if (index < bestIndex) {
+      bestIndex = index;
+      bestVerb = verb;
+      strength = baseStrength;
+    }
+  };
+
+  STRONG_VERBS.forEach((verb) => {
+    const index = lowered.indexOf(verb);
+    registerMatch(verb, index, 1);
+  });
+
+  VERB_SYNONYMS.forEach(({ pattern, canonical }) => {
+    const match = pattern.exec(text);
+    if (match) {
+      registerMatch(canonical, match.index, 1);
+    }
+  });
+
+  COMMITMENT_VERBS.forEach((verb) => {
+    const index = lowered.indexOf(verb);
+    if (index >= 0 && bestVerb === null) {
+      bestVerb = verb;
+      strength = 0.8;
+      bestIndex = index;
+    }
+  });
+
+  if (weakModalPresent && strength > 0) {
+    strength = Math.min(strength, 0.45);
+  }
+
+  return {
+    verb: bestVerb,
+    strength,
+  };
+};
+
+const detectConstraintSignals = (text: string) => {
+  const lower = text.toLowerCase();
+  const dateMentions = extractDateMentions(text);
+  const time =
+    dateMentions.length > 0 ||
+    /\b(later this year|later this quarter|next quarter|next year|next month|in \d{4}|by \w+)/i.test(text)
+      ? 1
+      : 0;
+  const capital = /\b(factory|capex|production|hiring|hire|headcount|pricing|spending|ramp|build|expand|invest)\b/i.test(
+    text,
+  )
+    ? 1
+    : 0;
+  const exposure = /\b(guidance|outlook|expects|expect|forecast|target|will)\b/i.test(text) ? 1 : 0;
+  const dependency = /\b(requires|in order to|dependent on|contingent on|after|before|once)\b/i.test(text) ? 1 : 0;
+  const reversalCost =
+    /\b(completed|construction finished|signed|launched|begun|started production|underway|already)\b/i.test(lower)
+      ? 1
+      : 0;
+
+  return {
+    time,
+    capital,
+    exposure,
+    dependency,
+    reversalCost,
+    dateMentions,
+  };
+};
+
+const optionalityScoreFromSignals = (commitmentStrength: number, signals: ReturnType<typeof detectConstraintSignals>) =>
+  clamp(
+    0.35 * commitmentStrength +
+      0.2 * signals.time +
+      0.2 * signals.capital +
+      0.1 * signals.exposure +
+      0.1 * signals.dependency +
+      0.1 * signals.reversalCost,
+  );
+
+const hasCommitmentVerb = (text: string) => detectCommitmentVerb(text).strength > 0;
 
 const hasActionObject = (text: string) => ACTION_TERMS.some((term) => text.toLowerCase().includes(term));
 
@@ -338,33 +464,100 @@ const stripTimeFromPhrase = (text: string) =>
     .replace(/\b(?:in|during|through)\s+20\d{2}\b/gi, "")
     .replace(/\b(?:later this year|later this quarter|next quarter|next year|next month)\b/gi, "");
 
-const trimTitle = (title: string) => {
-  if (title.length <= MAX_TITLE_LENGTH) return title.trim();
+const stripFillerPhrases = (text: string) =>
+  text
+    .replace(/\bwe believe\b/gi, "")
+    .replace(/\bwe continue\b/gi, "")
+    .replace(/\bwe are focused on\b/gi, "")
+    .replace(/\bwe saw\b/gi, "")
+    .replace(/\bwe delivered\b/gi, "")
+    .replace(/\bthe company\b/gi, "")
+    .replace(/\bmanagement\b/gi, "")
+    .replace(/\bboard\b/gi, "")
+    .replace(/\bteam\b/gi, "");
+
+const stripSubordinateClauses = (text: string) =>
+  text
+    .split(/\b(?:due to|as a result|which|that|because|after|before|while|if)\b/i)[0]
+    .split(/[.;]/)[0]
+    .trim();
+
+const detectActorName = (text: string) => {
+  const match = text.match(/\b(Tesla|Company|Management|Board|Team|We)\b/i);
+  if (!match) return "Company";
+  const actor = match[0];
+  if (actor.toLowerCase() === "we" || actor.toLowerCase() === "company") return "Company";
+  if (actor.toLowerCase() === "management") return "Management";
+  if (actor.toLowerCase() === "board") return "Board";
+  if (actor.toLowerCase() === "team") return "Team";
+  return actor;
+};
+
+const normalizeTimingFromHint = (hint?: string | null) => {
+  if (!hint) return { precision: "unknown" as const };
+  if (/\bQ[1-4]\s?20\d{2}\b/i.test(hint)) {
+    return { precision: "quarter" as const };
+  }
+  if (/\b[12]H\s?20\d{2}\b/i.test(hint)) {
+    return { precision: "year" as const };
+  }
+  if (/\bFY\s?20\d{2}\b/i.test(hint) || /\b20\d{2}\b/.test(hint)) {
+    return { precision: "year" as const };
+  }
+  if (/\b(?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Sept|Oct|Nov|Dec)[a-z]*\s+\d{1,2}/i.test(hint)) {
+    return { precision: "day" as const };
+  }
+  if (/\b(?:later this year|later this quarter|next quarter|next year|next month)\b/i.test(hint)) {
+    return { precision: "relative" as const };
+  }
+  return { precision: "unknown" as const };
+};
+
+const enforceTitleLength = (title: string) => {
+  if (title.length <= MAX_TITLE_LENGTH) {
+    return { title: title.trim(), status: "Ok" as const };
+  }
   let trimmed = title.replace(/\s*\([^)]*\)/g, "").trim();
-  if (trimmed.length <= MAX_TITLE_LENGTH) return trimmed;
+  trimmed = trimmed.replace(/\b(?:new|more|additional|first|second|next|major|significant)\b/gi, "").replace(/\s+/g, " ");
+  if (trimmed.length <= MAX_TITLE_LENGTH) return { title: trimmed.trim(), status: "Ok" as const };
   const clauseIndex = trimmed.search(/[;,]/);
   if (clauseIndex > 0) {
     trimmed = trimmed.slice(0, clauseIndex).trim();
   }
-  if (trimmed.length <= MAX_TITLE_LENGTH) return trimmed;
-  return trimmed.slice(0, MAX_TITLE_LENGTH).trim();
+  if (trimmed.length <= MAX_TITLE_LENGTH) return { title: trimmed.trim(), status: "Ok" as const };
+  return { title: `${trimmed.slice(0, MAX_TITLE_LENGTH - 1).trim()}…`, status: "NeedsRewrite" as const };
 };
 
-const canonicalizeTitle = (rawText: string, dateMentions: string[]) => {
-  const cleaned = stripBoilerplatePrefix(rawText);
-  const verb = findActionVerb(cleaned) ?? "Launch";
+const canonicalizeDecisionTitle = (rawText: string, dateMentions: string[], gate?: DecisionQualityGate) => {
+  const cleaned = stripBoilerplatePrefix(stripFillerPhrases(rawText));
+  const actor = detectActorName(cleaned);
+  const commitment = gate?.commitmentVerb ?? detectCommitmentVerb(cleaned).verb;
+  const commitmentNeedsAction =
+    commitment &&
+    ["will", "plan to", "plans to", "expect to", "expects to", "aim to", "aims to", "scheduled to"].includes(
+      commitment,
+    );
+  const verb = (
+    (commitmentNeedsAction ? findActionVerb(cleaned) : commitment) ??
+    findActionVerb(cleaned) ??
+    "commit"
+  ).toLowerCase();
   const verbIndex = cleaned.toLowerCase().indexOf(verb.toLowerCase());
   const afterVerb = verbIndex >= 0 ? cleaned.slice(verbIndex + verb.length) : cleaned;
   const withoutLeadingTo = afterVerb.replace(/^\s*(?:to\s+)?/i, "");
-  const objectPhrase = stripTimeFromPhrase(withoutLeadingTo).split(/[.;]/)[0] ?? "";
+  const objectPhrase = stripSubordinateClauses(stripTimeFromPhrase(withoutLeadingTo));
   const baseObject = normalizeProductNouns(objectPhrase).trim();
-  const action = `${verb.charAt(0).toUpperCase()}${verb.slice(1)}`;
-  const baseTitle = baseObject ? `${action} ${baseObject}` : action;
+  const baseTitle = baseObject ? `${actor} ${verb} ${baseObject}` : `${actor} ${verb}`;
   const timeCue = pickBestTimeCue(dateMentions, rawText);
-  const withTime = timeCue?.raw ? `${baseTitle} (${timeCue.raw})` : baseTitle;
+  const timeHintRaw = timeCue?.raw ?? null;
+  const withTime = timeHintRaw ? `${baseTitle} (${timeHintRaw})` : baseTitle;
+  const enforced = enforceTitleLength(withTime);
   return {
-    title: trimTitle(withTime),
+    title: enforced.title,
+    titleStatus: enforced.status,
     timeCue,
+    timeHintRaw,
+    timingNormalized: normalizeTimingFromHint(timeHintRaw),
   };
 };
 
@@ -385,7 +578,7 @@ const timeBucketFromCue = (timeCue?: string) => {
   const qMatch = timeCue.match(/\bQ[1-4]\s?20\d{2}\b/i);
   if (qMatch) return qMatch[0].toUpperCase().replace(/\s+/g, " ");
   const hMatch = timeCue.match(/\b[12]H\s?20\d{2}\b/i);
-  if (hMatch) return hMatch[0].toUpperCase().replace(/\s+/g, " ");
+  if (hMatch) return hMatch[0].match(/\b20\d{2}\b/)?.[0] ?? "unknown";
   const yearMatch = timeCue.match(/\b20\d{2}\b/);
   if (yearMatch) return yearMatch[0];
   return "unknown";
@@ -441,6 +634,53 @@ const scoreCandidate = (text: string) => {
   score = clamp(score);
   if (tableNoise) score = Math.min(score, 0.35);
   return { score, tableNoise };
+};
+
+const runDecisionQualityGate = (candidate: RawCandidate): DecisionQualityGate => {
+  const { rawText } = candidate;
+  const reasonsIncluded: string[] = [];
+  const reasonsExcluded: string[] = [];
+  const tableNoise = candidate.knowsItIsTableNoise;
+  const metricOutcome = isMetricOutcome(rawText);
+  const commitment = detectCommitmentVerb(rawText);
+  const signals = detectConstraintSignals(rawText);
+  const optionalityScore = optionalityScoreFromSignals(commitment.strength, signals);
+
+  if (commitment.verb) reasonsIncluded.push(`commitmentVerb:${commitment.verb}`);
+  if (signals.time) reasonsIncluded.push(`time:${signals.dateMentions[0] ?? "hint"}`);
+  if (signals.capital) reasonsIncluded.push("capital");
+  if (signals.exposure) reasonsIncluded.push("exposure");
+  if (signals.dependency) reasonsIncluded.push("dependency");
+  if (signals.reversalCost) reasonsIncluded.push("reversalCost");
+
+  if (tableNoise) reasonsExcluded.push("tableNoise");
+  if (metricOutcome) reasonsExcluded.push("metricOutcome");
+  if (!commitment.verb) reasonsExcluded.push("noCommitmentVerb");
+  if (optionalityScore < 0.45) reasonsExcluded.push("lowOptionalityScore");
+
+  const futureActionImplied = signals.time > 0 || signals.capital > 0;
+  const passesCommitmentGate = commitment.strength > 0 || (signals.reversalCost > 0 && futureActionImplied);
+
+  let bin: DecisionQualityGate["bin"] = "Rejected";
+  if (metricOutcome) {
+    bin = "EvidenceOnly";
+  } else if (!tableNoise && passesCommitmentGate) {
+    if (optionalityScore >= 0.55) {
+      bin = "Decision";
+    } else if (optionalityScore >= 0.45) {
+      bin = "MaybeDecision";
+    }
+  }
+
+  return {
+    bin,
+    optionalityScore,
+    commitmentVerb: commitment.verb,
+    commitmentStrength: commitment.strength,
+    constraintSignals: signals,
+    reasonsIncluded,
+    reasonsExcluded,
+  };
 };
 
 const findLineIndexForUnit = (lines: string[], unit: string) => {
@@ -513,23 +753,62 @@ export const buildRawCandidates = (docs: UploadedDoc[]): RawCandidate[] => {
   return rawCandidates;
 };
 
-export const buildCanonicalDecisions = (rawCandidates: RawCandidate[]): CanonicalDecision[] => {
-  const candidateUnits = rawCandidates.map((candidate) => {
-    const { title, timeCue } = canonicalizeTitle(candidate.rawText, candidate.dateMentions ?? []);
-    const actionVerb = findActionVerb(title) ?? "launch";
-    const objectKey = extractObjectKey(title);
-    const timeBucket = timeBucketFromCue(timeCue?.raw);
-    const tokens = new Set(normalizeTokens(candidate.rawText));
-    return {
-      candidate,
-      title,
-      actionVerb,
-      objectKey,
-      timeBucket,
-      timeCue,
-      tokens,
-    };
+export const buildCanonicalDecisions = (
+  rawCandidates: RawCandidate[],
+): { canonicals: CanonicalDecision[]; diagnostics: DecisionGateDiagnostics } => {
+  const gatedCandidates = rawCandidates.map((candidate) => {
+    const gate = runDecisionQualityGate(candidate);
+    return { candidate, gate };
   });
+
+  const diagnostics: DecisionGateDiagnostics = {
+    total: gatedCandidates.length,
+    byBin: {
+      Decision: gatedCandidates.filter((entry) => entry.gate.bin === "Decision").length,
+      MaybeDecision: gatedCandidates.filter((entry) => entry.gate.bin === "MaybeDecision").length,
+      EvidenceOnly: gatedCandidates.filter((entry) => entry.gate.bin === "EvidenceOnly").length,
+      Rejected: gatedCandidates.filter((entry) => entry.gate.bin === "Rejected").length,
+    },
+    candidates: gatedCandidates.map((entry) => ({
+      id: entry.candidate.id,
+      rawText: entry.candidate.rawText,
+      bin: entry.gate.bin,
+      optionalityScore: entry.gate.optionalityScore,
+      reasonsIncluded: entry.gate.reasonsIncluded,
+      reasonsExcluded: entry.gate.reasonsExcluded,
+    })),
+    evidenceOnlySamples: gatedCandidates
+      .filter((entry) => entry.gate.bin === "EvidenceOnly")
+      .slice(0, 4)
+      .map((entry) => ({
+        id: entry.candidate.id,
+        rawText: entry.candidate.rawText,
+        reasonsExcluded: entry.gate.reasonsExcluded,
+      })),
+  };
+
+  const candidateUnits = gatedCandidates
+    .filter((entry) => entry.gate.bin === "Decision" || entry.gate.bin === "MaybeDecision")
+    .map(({ candidate, gate }) => {
+      const canonical = canonicalizeDecisionTitle(candidate.rawText, candidate.dateMentions ?? [], gate);
+      const actionVerb = findActionVerb(canonical.title) ?? gate.commitmentVerb ?? "commit";
+      const objectKey = extractObjectKey(canonical.title);
+      const timeBucket = timeBucketFromCue(canonical.timeHintRaw ?? undefined);
+      const tokens = new Set(normalizeTokens(candidate.rawText));
+      return {
+        candidate,
+        gate,
+        title: canonical.title,
+        titleStatus: canonical.titleStatus,
+        timeHintRaw: canonical.timeHintRaw,
+        timingNormalized: canonical.timingNormalized,
+        actionVerb,
+        objectKey,
+        timeBucket,
+        timeCue: canonical.timeCue,
+        tokens,
+      };
+    });
 
   const grouped = new Map<string, typeof candidateUnits>();
   candidateUnits.forEach((unit) => {
@@ -555,11 +834,40 @@ export const buildCanonicalDecisions = (rawCandidates: RawCandidate[]): Canonica
       if (!merged) clusters.push([unit]);
     });
 
-    clusters.forEach((cluster) => {
+    const clusterMeta = clusters.map((cluster) => {
       const sortedByScore = [...cluster].sort(
-        (a, b) => b.candidate.extractionScore - a.candidate.extractionScore || a.title.length - b.title.length,
+        (a, b) =>
+          b.gate.optionalityScore - a.gate.optionalityScore ||
+          b.candidate.extractionScore - a.candidate.extractionScore ||
+          a.title.length - b.title.length,
       );
       const best = sortedByScore[0];
+      return {
+        cluster,
+        best,
+        representative: cluster[0],
+        canonicalId: `canon-${best.candidate.id}`,
+      };
+    });
+
+    const suggestedMergeMap = new Map<string, string[]>();
+    clusterMeta.forEach((entry, index) => {
+      clusterMeta.slice(index + 1).forEach((other) => {
+        const similarity = jaccardSimilarity(entry.representative.tokens, other.representative.tokens);
+        if (similarity >= 0.58 && similarity < 0.72) {
+          suggestedMergeMap.set(entry.canonicalId, [
+            ...(suggestedMergeMap.get(entry.canonicalId) ?? []),
+            other.canonicalId,
+          ]);
+          suggestedMergeMap.set(other.canonicalId, [
+            ...(suggestedMergeMap.get(other.canonicalId) ?? []),
+            entry.canonicalId,
+          ]);
+        }
+      });
+    });
+
+    clusterMeta.forEach(({ cluster, best, canonicalId }) => {
       const candidateIds = cluster.map((item) => item.candidate.id);
       const evidenceMap = new Map<string, EvidenceAnchor>();
       cluster.forEach((item) => {
@@ -578,9 +886,13 @@ export const buildCanonicalDecisions = (rawCandidates: RawCandidate[]): Canonica
       const hasMerge = cluster.length > 1;
       const mergeConfidence = hasMerge ? clamp(avgSimilarity + (best.timeBucket !== "unknown" ? 0.1 : 0)) : 1;
       canonicals.push({
-        id: `canon-${best.candidate.id}`,
+        id: canonicalId,
         docId: best.candidate.docId,
         title: best.title,
+        titleStatus: best.titleStatus,
+        timeHintRaw: best.timeHintRaw ?? null,
+        timingNormalized: best.timingNormalized,
+        gate: best.gate,
         summary: undefined,
         domain: undefined,
         date: timeChoice
@@ -602,11 +914,12 @@ export const buildCanonicalDecisions = (rawCandidates: RawCandidate[]): Canonica
           mergeReason: hasMerge
             ? buildMergeReasons(best.actionVerb, best.objectKey, best.timeBucket, avgSimilarity)
             : ["single candidate"],
+          suggestedMergeIds: suggestedMergeMap.get(canonicalId),
         },
         tags: undefined,
       });
     });
   });
 
-  return canonicals;
+  return { canonicals, diagnostics };
 };

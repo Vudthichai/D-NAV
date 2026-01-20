@@ -39,10 +39,35 @@ export type RawCandidate = {
   evidence: EvidenceAnchor[];
 };
 
+export type DecisionGateBin = "Decision" | "MaybeDecision" | "EvidenceOnly" | "Rejected";
+
+export type ConstraintSignals = {
+  time: number;
+  capital: number;
+  exposure: number;
+  dependency: number;
+  reversalCost: number;
+  dateMentions: string[];
+};
+
+export type DecisionQualityGate = {
+  bin: DecisionGateBin;
+  optionalityScore: number;
+  commitmentVerb: string | null;
+  commitmentStrength: number;
+  constraintSignals: ConstraintSignals;
+  reasonsIncluded: string[];
+  reasonsExcluded: string[];
+};
+
 export type CanonicalDecision = {
   id: string;
   docId: string;
   title: string;
+  titleStatus?: "Ok" | "NeedsRewrite";
+  timeHintRaw?: string | null;
+  timingNormalized?: TimingNormalized;
+  gate?: DecisionQualityGate;
   summary?: string;
   domain?: string;
   date?: {
@@ -60,6 +85,7 @@ export type CanonicalDecision = {
     candidateIds: string[];
     mergeConfidence: number;
     mergeReason: string[];
+    suggestedMergeIds?: string[];
   };
   tags?: string[];
 };
@@ -89,6 +115,9 @@ export interface DecisionCandidate {
   sectionHint?: string;
   extractionScore?: number;
   dateMentions?: string[];
+  bin?: DecisionGateBin;
+  gate?: DecisionQualityGate;
+  titleStatus?: "Ok" | "NeedsRewrite";
   category: string;
   scores: {
     impact?: number;
@@ -111,3 +140,21 @@ export interface DecisionCandidate {
   tableNoise?: boolean;
   duplicateOf?: string;
 }
+
+export type DecisionGateDiagnostics = {
+  total: number;
+  byBin: Record<DecisionGateBin, number>;
+  candidates: Array<{
+    id: string;
+    rawText: string;
+    bin: DecisionGateBin;
+    optionalityScore: number;
+    reasonsIncluded: string[];
+    reasonsExcluded: string[];
+  }>;
+  evidenceOnlySamples: Array<{
+    id: string;
+    rawText: string;
+    reasonsExcluded: string[];
+  }>;
+};

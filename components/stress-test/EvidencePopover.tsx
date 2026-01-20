@@ -22,15 +22,14 @@ const buildPageLabel = (anchors: EvidenceAnchor[]) => {
 };
 
 export function EvidencePopover({ evidenceAnchors, isOpen, onOpenChange, className }: EvidencePopoverProps) {
-  const [showFullExcerpt, setShowFullExcerpt] = useState(false);
+  const [openAnchorId, setOpenAnchorId] = useState<string | null>(null);
   const primaryEvidence = evidenceAnchors[0];
-  const contextText = primaryEvidence?.excerpt ?? "No excerpt available.";
   const pageLabel = buildPageLabel(evidenceAnchors);
   const evidenceCount = evidenceAnchors.length;
 
   const handleOpenChange = (nextOpen: boolean) => {
     if (!nextOpen) {
-      setShowFullExcerpt(false);
+      setOpenAnchorId(null);
     }
     onOpenChange(nextOpen);
   };
@@ -58,42 +57,35 @@ export function EvidencePopover({ evidenceAnchors, isOpen, onOpenChange, classNa
             </Badge>
           ) : null}
         </div>
-        <div className="mt-3 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Context</div>
-        <div className="mt-2 rounded-md bg-muted/20 p-2 font-mono text-[11px] text-muted-foreground">
-          <div
-            className={cn(
-              "whitespace-pre-wrap",
-              showFullExcerpt ? "max-h-40 overflow-auto pr-1" : "line-clamp-3",
-            )}
-          >
-            {contextText}
-          </div>
-          <button
-            type="button"
-            className="mt-2 text-[11px] font-semibold text-primary"
-            onClick={() => setShowFullExcerpt((prev) => !prev)}
-          >
-            {showFullExcerpt ? "Show less" : "View more"}
-          </button>
-        </div>
-        {evidenceAnchors.length > 1 ? (
-          <div className="mt-3 space-y-2">
-            <div className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Evidence list</div>
-            <div className="space-y-2">
-              {evidenceAnchors.map((anchor) => (
-                <div key={`${anchor.docId}-${anchor.page}-${anchor.excerpt.slice(0, 12)}`} className="text-[11px]">
+        <div className="mt-3 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Evidence list</div>
+        <div className="mt-2 space-y-2">
+          {evidenceAnchors.map((anchor) => {
+            const anchorId = `${anchor.docId}-${anchor.page}-${anchor.excerpt.slice(0, 12)}`;
+            const isOpenAnchor = openAnchorId === anchorId;
+            return (
+              <div key={anchorId} className="rounded-md border border-border/60 bg-muted/10">
+                <button
+                  type="button"
+                  className="flex w-full items-center justify-between gap-2 px-3 py-2 text-left"
+                  onClick={() => setOpenAnchorId(isOpenAnchor ? null : anchorId)}
+                >
                   <div className="flex flex-wrap items-center gap-2">
-                    <span className="font-semibold text-foreground">{anchor.fileName}</span>
+                    <span className="text-[11px] font-semibold text-foreground">{anchor.fileName}</span>
                     <Badge variant="secondary" className="text-[10px]">
                       p. {anchor.page}
                     </Badge>
                   </div>
-                  <p className="mt-1 line-clamp-2 whitespace-pre-wrap text-muted-foreground">{anchor.excerpt}</p>
-                </div>
-              ))}
-            </div>
-          </div>
-        ) : null}
+                  <span className="text-[10px] text-muted-foreground">{isOpenAnchor ? "Hide" : "View"}</span>
+                </button>
+                {isOpenAnchor ? (
+                  <div className="border-t border-border/60 px-3 py-2 text-[11px] text-muted-foreground">
+                    <p className="line-clamp-2 whitespace-pre-wrap">{anchor.excerpt}</p>
+                  </div>
+                ) : null}
+              </div>
+            );
+          })}
+        </div>
       </PopoverContent>
     </Popover>
   );
