@@ -11,6 +11,7 @@ interface CandidateReviewTableProps {
   candidates: DecisionCandidate[];
   categories: string[];
   onCandidatesChange: (candidates: DecisionCandidate[]) => void;
+  showDecisionDebug?: boolean;
 }
 
 interface BulkScoreState {
@@ -19,7 +20,12 @@ interface BulkScoreState {
 
 const clampScore = (value: number) => Math.min(10, Math.max(1, value));
 
-export function CandidateReviewTable({ candidates, categories, onCandidatesChange }: CandidateReviewTableProps) {
+export function CandidateReviewTable({
+  candidates,
+  categories,
+  onCandidatesChange,
+  showDecisionDebug = false,
+}: CandidateReviewTableProps) {
   const [bulkCategory, setBulkCategory] = useState<string>("Uncategorized");
   const [bulkScore, setBulkScore] = useState<BulkScoreState>({ value: "" });
   const [openEvidenceId, setOpenEvidenceId] = useState<string | null>(null);
@@ -150,6 +156,7 @@ export function CandidateReviewTable({ candidates, categories, onCandidatesChang
             onEvidenceOpenChange={(open) => setOpenEvidenceId(open ? candidate.id : null)}
             isEditOpen={openEditId === candidate.id}
             onEditOpenChange={(open) => setOpenEditId(open ? candidate.id : null)}
+            showDecisionDebug={showDecisionDebug}
             onCandidateChange={(nextCandidate) =>
               onCandidatesChange(
                 candidates.map((item) => (item.id === candidate.id ? nextCandidate : item)),

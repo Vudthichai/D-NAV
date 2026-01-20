@@ -22,6 +22,7 @@ export type EvidenceAnchor = {
   fileName: string;
   page: number;
   excerpt: string;
+  contextText?: string;
   charStart?: number;
   charEnd?: number;
 };
@@ -37,6 +38,10 @@ export type RawCandidate = {
   extractionScore: number;
   dateMentions: string[];
   evidence: EvidenceAnchor[];
+};
+
+export type Candidate = RawCandidate & {
+  gate: DecisionQualityGate;
 };
 
 export type DecisionGateBin = "Decision" | "MaybeDecision" | "EvidenceOnly" | "Rejected";
@@ -157,4 +162,11 @@ export type DecisionGateDiagnostics = {
     rawText: string;
     reasonsExcluded: string[];
   }>;
+  stages?: {
+    extracted: number;
+    kept: number;
+    maybe: number;
+    rejected: number;
+    deduped: number;
+  };
 };
