@@ -6,7 +6,7 @@ import StressTestCalculator, {
 } from "@/components/stress-test/StressTestCalculator";
 import { useDefinitionsPanel } from "@/components/definitions/DefinitionsPanelProvider";
 import { CandidateReviewTable } from "@/components/stress-test/CandidateReviewTable";
-import { isLikelyTableNoise } from "@/components/stress-test/decision-intake-utils";
+import { buildRawCandidates } from "@/components/stress-test/decision-intake-pipeline";
 import { ExcelExportButton } from "@/components/stress-test/ExcelExportButton";
 import { PdfDropzone, type PdfDropzoneFile } from "@/components/stress-test/PdfDropzone";
 import type {
@@ -26,7 +26,6 @@ import {
   cleanExcerpt,
   dedupeKey,
   extractTiming,
-  isDecisionCandidate,
   isSimilarDecisionTitle,
   normalizeDecisionExcerpt,
   scoreDecisionCandidate,
@@ -97,72 +96,66 @@ const DEFAULT_REVIEW_VARIABLES = {
 const MAX_CANDIDATES = 30;
 const SOFT_FILE_LIMIT_MB = 25;
 
-const normalizeText = (text: string) =>
-  text
-    .replace(/\s+/g, " ")
-    .replace(/•/g, "• ")
-    .trim();
-
 const asOptionalString = (value: unknown): string | undefined => (typeof value === "string" ? value : undefined);
 
 const isRecord = (value: unknown): value is Record<string, unknown> =>
   typeof value === "object" && value !== null;
 
-const chunkText = (text: string) => {
-  const cleaned = text.replace(/\r/g, "\n");
-  const blocks = cleaned.split(/\n{2,}/g).flatMap((block) => block.split(/\n[-•]\s+/g));
-  return blocks.map((block) => normalizeText(block)).filter((block) => block.length > 30);
-};
-
 // Future: swap buildCandidates with an LLM-backed extractor that uses intentContext/constraintContext as prompts.
 const buildCandidates = (docs: UploadedDoc[]) => {
-  const candidates: DecisionCandidate[] = [];
-  docs.forEach((doc) => {
-    doc.pages.forEach((page) => {
-      chunkText(page.text).forEach((chunk, index) => {
-        const cleanedExcerpt = cleanExcerpt(chunk);
-        const normalizedExcerpt = normalizeDecisionExcerpt(cleanedExcerpt);
-        if (!normalizedExcerpt || !isDecisionCandidate(normalizedExcerpt)) return;
-        const timing = extractTiming(normalizedExcerpt);
-        const decisionTitle = toDecisionTitle(normalizedExcerpt);
-        const decisionDetail = toDecisionDetail(normalizedExcerpt);
-        if (!decisionTitle) return;
-        const tableNoise = isLikelyTableNoise(cleanedExcerpt);
-        const evidence: EvidenceRef = {
-          docId: doc.id,
-          docName: doc.fileName,
-          pageNumber: page.pageNumber,
-          rawExcerpt: chunk,
-          chunkId: `${doc.id}-p${page.pageNumber}-c${index}`,
-        };
-        candidates.push({
-          id: `${doc.id}-${page.pageNumber}-${index}`,
-          decisionTitle,
-          decisionDetail,
-          category: "Uncategorized",
-          scores: { ...DEFAULT_REVIEW_VARIABLES },
-          timeAnchor: timing.text
-            ? {
-                raw: timing.text,
-                type:
-                  timing.normalized.precision === "day"
-                    ? "ExactDate"
-                    : timing.normalized.precision === "quarter"
-                      ? "Quarter"
-                      : timing.normalized.precision === "year"
-                        ? "FiscalYear"
-                        : "Dependency",
-                verified: "Explicit",
-              }
-            : undefined,
-          timingNormalized: timing.normalized,
-          evidence,
-          keep: Boolean(decisionTitle) && !tableNoise,
-          tableNoise,
-        });
-      });
-    });
+  const rawCandidates = buildRawCandidates(docs);
+  const rankedRawCandidates = rawCandidates
+    .slice()
+    .sort((a, b) => b.extractionScore - a.extractionScore)
+    .slice(0, MAX_CANDIDATES);
+
+  const candidates: DecisionCandidate[] = rankedRawCandidates.map((raw) => {
+    const cleanedExcerpt = cleanExcerpt(raw.rawText);
+    const normalizedExcerpt = normalizeDecisionExcerpt(cleanedExcerpt) || raw.rawText;
+    const timing = extractTiming(normalizedExcerpt);
+    const decisionTitle = toDecisionTitle(normalizedExcerpt) || raw.rawText;
+    const decisionDetail = toDecisionDetail(normalizedExcerpt);
+    const evidence: EvidenceRef = {
+      docId: raw.docId,
+      docName: raw.evidence[0]?.fileName ?? "Uploaded PDF",
+      pageNumber: raw.page,
+      rawExcerpt: raw.rawText,
+      contextText: raw.contextText ?? raw.rawText,
+      chunkId: raw.id,
+    };
+
+    return {
+      id: raw.id,
+      decisionTitle,
+      decisionDetail,
+      rawText: raw.rawText,
+      contextText: raw.contextText,
+      sectionHint: raw.sectionHint,
+      extractionScore: raw.extractionScore,
+      dateMentions: raw.dateMentions,
+      category: "Uncategorized",
+      scores: { ...DEFAULT_REVIEW_VARIABLES },
+      timeAnchor: timing.text
+        ? {
+            raw: timing.text,
+            type:
+              timing.normalized.precision === "day"
+                ? "ExactDate"
+                : timing.normalized.precision === "quarter"
+                  ? "Quarter"
+                  : timing.normalized.precision === "year"
+                    ? "FiscalYear"
+                    : "Dependency",
+            verified: "Explicit",
+          }
+        : undefined,
+      timingNormalized: timing.normalized,
+      evidence,
+      keep: raw.extractionScore >= 0.35 && !raw.knowsItIsTableNoise,
+      tableNoise: raw.knowsItIsTableNoise,
+    };
   });
+
   const deduped = candidates.map((candidate) => ({ ...candidate }));
   const groups: Array<{ index: number; title: string; key: string }> = [];
   deduped.forEach((candidate, index) => {

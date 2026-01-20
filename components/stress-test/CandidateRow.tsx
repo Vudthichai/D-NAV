@@ -55,9 +55,11 @@ export function CandidateRow({
               <span className="text-[11px] font-semibold text-muted-foreground">Keep</span>
             </div>
             <div className="min-w-0 space-y-1">
-              <p className="truncate text-sm font-semibold text-foreground">{candidate.decisionTitle}</p>
+              <p className="truncate text-sm font-semibold text-foreground">
+                {candidate.rawText || candidate.decisionTitle}
+              </p>
               <p className="line-clamp-2 text-xs text-muted-foreground">
-                {candidate.decisionDetail || "No excerpt available."}
+                {candidate.decisionDetail || candidate.decisionTitle || "No excerpt available."}
               </p>
               <div className="flex flex-wrap items-center gap-2">
                 {candidate.duplicateOf ? (

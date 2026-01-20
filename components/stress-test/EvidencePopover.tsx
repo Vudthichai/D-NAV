@@ -17,6 +17,7 @@ interface EvidencePopoverProps {
 export function EvidencePopover({ evidence, isOpen, onOpenChange, className }: EvidencePopoverProps) {
   const [showFullExcerpt, setShowFullExcerpt] = useState(false);
   const pageLabel = evidence.pageNumber ?? "?";
+  const contextText = evidence.contextText ?? evidence.rawExcerpt;
 
   const handleOpenChange = (nextOpen: boolean) => {
     if (!nextOpen) {
@@ -46,7 +47,7 @@ export function EvidencePopover({ evidence, isOpen, onOpenChange, className }: E
             </Badge>
           ) : null}
         </div>
-        <div className="mt-3 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Excerpt</div>
+        <div className="mt-3 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Context</div>
         <div className="mt-2 rounded-md bg-muted/20 p-2 font-mono text-[11px] text-muted-foreground">
           <div
             className={cn(
@@ -54,7 +55,7 @@ export function EvidencePopover({ evidence, isOpen, onOpenChange, className }: E
               showFullExcerpt ? "max-h-40 overflow-auto pr-1" : "line-clamp-3",
             )}
           >
-            {evidence.rawExcerpt}
+            {contextText}
           </div>
           <button
             type="button"
