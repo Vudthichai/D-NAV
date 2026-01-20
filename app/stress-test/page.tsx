@@ -6,12 +6,14 @@ import StressTestCalculator, {
 } from "@/components/stress-test/StressTestCalculator";
 import { useDefinitionsPanel } from "@/components/definitions/DefinitionsPanelProvider";
 import { CandidateReviewTable } from "@/components/stress-test/CandidateReviewTable";
-import { buildRawCandidates } from "@/components/stress-test/decision-intake-pipeline";
+import { buildCanonicalDecisions, buildRawCandidates } from "@/components/stress-test/decision-intake-pipeline";
 import { ExcelExportButton } from "@/components/stress-test/ExcelExportButton";
 import { PdfDropzone, type PdfDropzoneFile } from "@/components/stress-test/PdfDropzone";
 import type {
+  CanonicalDecision,
   DecisionCandidate,
   EvidenceRef,
+  RawCandidate,
   UploadedDoc,
 } from "@/components/stress-test/decision-intake-types";
 import { Button } from "@/components/ui/button";
@@ -24,13 +26,9 @@ import { MetricDistribution, type MetricDistributionSegment } from "@/components
 import { computeMetrics } from "@/lib/calculations";
 import {
   cleanExcerpt,
-  dedupeKey,
   extractTiming,
-  isSimilarDecisionTitle,
   normalizeDecisionExcerpt,
-  scoreDecisionCandidate,
   toDecisionDetail,
-  toDecisionTitle,
 } from "@/lib/decisionText";
 import { getSessionActionInsight } from "@/lib/sessionActionInsight";
 import { normalizePrecision } from "@/utils/timingPrecision";
@@ -104,35 +102,41 @@ const isRecord = (value: unknown): value is Record<string, unknown> =>
 // Future: swap buildCandidates with an LLM-backed extractor that uses intentContext/constraintContext as prompts.
 const buildCandidates = (docs: UploadedDoc[]) => {
   const rawCandidates = buildRawCandidates(docs);
-  const rankedRawCandidates = rawCandidates
+  const rawById = new Map(rawCandidates.map((candidate) => [candidate.id, candidate]));
+  const canonicalDecisions = buildCanonicalDecisions(rawCandidates)
     .slice()
-    .sort((a, b) => b.extractionScore - a.extractionScore)
+    .sort((a, b) => b.sources.mergeConfidence - a.sources.mergeConfidence)
     .slice(0, MAX_CANDIDATES);
 
-  const candidates: DecisionCandidate[] = rankedRawCandidates.map((raw) => {
-    const cleanedExcerpt = cleanExcerpt(raw.rawText);
-    const normalizedExcerpt = normalizeDecisionExcerpt(cleanedExcerpt) || raw.rawText;
+  const buildDecisionCandidate = (canonical: CanonicalDecision, sourceCandidates: RawCandidate[]): DecisionCandidate => {
+    const bestSource = sourceCandidates
+      .slice()
+      .sort((a, b) => b.extractionScore - a.extractionScore)[0];
+    const cleanedExcerpt = cleanExcerpt(bestSource?.rawText ?? canonical.title);
+    const normalizedExcerpt = normalizeDecisionExcerpt(cleanedExcerpt) || bestSource?.rawText || canonical.title;
     const timing = extractTiming(normalizedExcerpt);
-    const decisionTitle = toDecisionTitle(normalizedExcerpt) || raw.rawText;
     const decisionDetail = toDecisionDetail(normalizedExcerpt);
+    const evidenceAnchor = canonical.evidence[0];
     const evidence: EvidenceRef = {
-      docId: raw.docId,
-      docName: raw.evidence[0]?.fileName ?? "Uploaded PDF",
-      pageNumber: raw.page,
-      rawExcerpt: raw.rawText,
-      contextText: raw.contextText ?? raw.rawText,
-      chunkId: raw.id,
+      docId: evidenceAnchor?.docId ?? canonical.docId,
+      docName: evidenceAnchor?.fileName ?? "Uploaded PDF",
+      pageNumber: evidenceAnchor?.page ?? bestSource?.page,
+      rawExcerpt: bestSource?.rawText ?? canonical.title,
+      contextText: bestSource?.contextText ?? bestSource?.rawText ?? canonical.title,
+      chunkId: bestSource?.id ?? canonical.id,
     };
 
     return {
-      id: raw.id,
-      decisionTitle,
+      id: canonical.id,
+      decisionTitle: canonical.title,
       decisionDetail,
-      rawText: raw.rawText,
-      contextText: raw.contextText,
-      sectionHint: raw.sectionHint,
-      extractionScore: raw.extractionScore,
-      dateMentions: raw.dateMentions,
+      rawText: bestSource?.rawText,
+      contextText: bestSource?.contextText,
+      sectionHint: bestSource?.sectionHint,
+      extractionScore: bestSource?.extractionScore,
+      dateMentions: Array.from(
+        new Set(sourceCandidates.flatMap((candidate) => candidate.dateMentions ?? [])),
+      ),
       category: "Uncategorized",
       scores: { ...DEFAULT_REVIEW_VARIABLES },
       timeAnchor: timing.text
@@ -151,47 +155,31 @@ const buildCandidates = (docs: UploadedDoc[]) => {
         : undefined,
       timingNormalized: timing.normalized,
       evidence,
-      keep: raw.extractionScore >= 0.35 && !raw.knowsItIsTableNoise,
-      tableNoise: raw.knowsItIsTableNoise,
+      evidenceAnchors: canonical.evidence,
+      sources: canonical.sources,
+      sourceCandidates: sourceCandidates.map((candidate) => ({
+        id: candidate.id,
+        docId: candidate.docId,
+        fileName: candidate.evidence[0]?.fileName ?? "Uploaded PDF",
+        page: candidate.page,
+        rawText: candidate.rawText,
+        contextText: candidate.contextText,
+        extractionScore: candidate.extractionScore,
+        dateMentions: candidate.dateMentions ?? [],
+      })),
+      keep: (bestSource?.extractionScore ?? 0) >= 0.35 && !bestSource?.knowsItIsTableNoise,
+      tableNoise: sourceCandidates.every((candidate) => candidate.knowsItIsTableNoise),
     };
+  };
+
+  const candidates = canonicalDecisions.map((canonical) => {
+    const sources = canonical.sources.candidateIds
+      .map((id) => rawById.get(id))
+      .filter((candidate): candidate is RawCandidate => Boolean(candidate));
+    return buildDecisionCandidate(canonical, sources.length ? sources : rawCandidates);
   });
 
-  const deduped = candidates.map((candidate) => ({ ...candidate }));
-  const groups: Array<{ index: number; title: string; key: string }> = [];
-  deduped.forEach((candidate, index) => {
-    const normalizedTitle = dedupeKey(candidate.decisionTitle);
-    const existingGroup = groups.find((group) => {
-      if (normalizedTitle && group.key && normalizedTitle === group.key) return true;
-      return isSimilarDecisionTitle(candidate.decisionTitle, group.title);
-    });
-    if (!existingGroup) {
-      groups.push({ index, title: candidate.decisionTitle, key: normalizedTitle });
-      return;
-    }
-    const currentBest = deduped[existingGroup.index];
-    const candidateScore = scoreDecisionCandidate(candidate.decisionTitle, candidate.decisionDetail);
-    const bestScore = scoreDecisionCandidate(currentBest.decisionTitle, currentBest.decisionDetail);
-    const candidateBetter =
-      candidateScore.score > bestScore.score ||
-      (candidateScore.score === bestScore.score && candidateScore.lengthPenalty < bestScore.lengthPenalty);
-    if (candidateBetter) {
-      deduped[existingGroup.index] = {
-        ...currentBest,
-        keep: false,
-        duplicateOf: candidate.id,
-      };
-      existingGroup.index = index;
-      existingGroup.title = candidate.decisionTitle;
-      existingGroup.key = normalizedTitle;
-    } else {
-      deduped[index] = {
-        ...candidate,
-        keep: false,
-        duplicateOf: currentBest.id,
-      };
-    }
-  });
-  return deduped.slice(0, MAX_CANDIDATES);
+  return candidates;
 };
 
 const isSessionDecisionSnapshot = (value: unknown): value is SessionDecision => {
