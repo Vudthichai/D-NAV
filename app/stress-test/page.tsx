@@ -347,8 +347,6 @@ export default function StressTestPage() {
 
             <StressTestCalculator ref={calculatorRef} saveLabel="Save decision" onSaveDecision={handleSaveSessionDecision} />
 
-            <DecisionCandidateIntake />
-
             <div className="flex flex-col gap-2 rounded-lg border border-border/60 bg-muted/10 px-3 py-2 text-xs text-muted-foreground">
               <div className="flex flex-wrap items-center justify-between gap-2 text-xs font-semibold text-foreground">
                 <span>
@@ -564,6 +562,8 @@ export default function StressTestPage() {
                 </div>
               </div>
             ) : null}
+
+            <DecisionCandidateIntake />
 
             {process.env.NODE_ENV === "development" ? (
               <div className="rounded-lg border border-dashed border-border/60 bg-muted/30 px-3 py-2 text-xs text-muted-foreground">
