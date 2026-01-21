@@ -23,7 +23,7 @@ type QualityTier = "A" | "B" | "C";
 type CandidateType = "Commitment" | "Conditional" | "Status" | "BeliefOutlook";
 type CategoryBucket = "Product" | "Capex" | "Platform" | "Ops" | "Other";
 
-type DocumentStatus = "pending" | "processing" | "done" | "error";
+type DocumentStatus = "pending" | "processing" | "paused" | "done" | "error";
 
 type DocumentSourceType = "pdf" | "text";
 
@@ -37,7 +37,7 @@ interface DocumentProgress {
   totalPages: number;
   qualityTier?: QualityTier;
   qualityReason?: string;
-  limitApplied?: string;
+  pauseMessage?: string;
   error?: string;
   candidateCount: number;
 }
@@ -69,10 +69,15 @@ interface DecisionCandidate {
 const commitmentVerbs = [
   "will",
   "plan",
+  "planned",
   "launch",
+  "launched",
   "begin",
+  "start",
   "ramp",
   "invest",
+  "investment",
+  "investments",
   "deploy",
   "expand",
   "commission",
@@ -80,6 +85,10 @@ const commitmentVerbs = [
   "transition",
   "complete",
 ];
+
+const directionVerbs = ["prioritize", "focus", "deprioritize", "pursue"];
+
+const constraintPhrases = ["must", "before", "after", "dependent on", "requires"];
 
 const timeAnchorRegex =
   /\b(20\d{2}|Q[1-4]|later this year|by end of|by end|starting in)\b/gi;
@@ -134,7 +143,21 @@ const stopWords = new Set([
   "their",
 ]);
 
-const MAX_PAGES_PER_DOC = 30;
+const AUTO_PAUSE_MS = 40000;
+const MEMORY_PRESSURE_THRESHOLD = 0.82;
+
+const tableNoiseTerms = [
+  "yoy",
+  "installed",
+  "vehicle capacity",
+  "production rate",
+  "annual",
+  "utilization",
+  "volume",
+  "throughput",
+  "units",
+  "rate",
+];
 
 const normalizeWhitespace = (value: string) => value.replace(/\s+/g, " ").trim();
 
@@ -194,6 +217,38 @@ const splitIntoChunks = (text: string) => {
   });
 
   return output;
+};
+
+const hasVerbSignal = (lower: string) =>
+  commitmentVerbs.some((term) => lower.includes(term)) ||
+  directionVerbs.some((term) => lower.includes(term)) ||
+  constraintPhrases.some((term) => lower.includes(term));
+
+const analyzeChunk = (text: string) => {
+  const words = text.split(/\s+/).filter(Boolean);
+  const lower = text.toLowerCase();
+  const letters = (text.match(/[A-Za-z]/g) ?? []).length;
+  const digits = (text.match(/\d/g) ?? []).length;
+  const digitRatio = digits / Math.max(letters + digits, 1);
+  const yearTokens = lower.match(/\b20\d{2}\b/g) ?? [];
+  const allCapsTokens = words.filter((word) => /^[A-Z0-9&-]+$/.test(word) && /[A-Z]/.test(word));
+  const allCapsRatio = allCapsTokens.length / Math.max(words.length, 1);
+  const tableLike = digitRatio > 0.35 || yearTokens.length >= 3;
+  const headingLike =
+    (allCapsRatio > 0.6 && words.length <= 12) ||
+    (words.length <= 8 && text === text.toUpperCase());
+  const hasVerb = hasVerbSignal(lower);
+  const tableNoise = tableNoiseTerms.some((term) => lower.includes(term));
+
+  return {
+    wordCount: words.length,
+    digitRatio,
+    yearTokens,
+    tableLike,
+    headingLike,
+    hasVerb,
+    tableNoise,
+  };
 };
 
 const getQualityTier = (text: string, lines: string[]): { tier: QualityTier; reason: string } => {
@@ -286,9 +341,32 @@ const parsePdfPage = async (page: PDFPageProxy) => {
 const scoreCandidate = (text: string) => {
   const lower = text.toLowerCase();
   const triggers: string[] = [];
+  const analysis = analyzeChunk(text);
+
+  if (analysis.wordCount < 6 && !analysis.hasVerb) {
+    return {
+      triggers,
+      decisionScore: 0,
+      candidateType: "Status" as CandidateType,
+      timeAnchors: [],
+      hasCommitment: false,
+      hasResource: false,
+      isCandidate: false,
+      isSignal: false,
+      analysis,
+    };
+  }
 
   const hasCommitment = commitmentVerbs.some((term) => lower.includes(term));
   if (hasCommitment) triggers.push("Commitment verb");
+
+  const hasDirection = directionVerbs.some((term) => lower.includes(term));
+  if (hasDirection) triggers.push("Direction verb");
+
+  const hasConstraint = constraintPhrases.some((term) => lower.includes(term));
+  if (hasConstraint) triggers.push("Constraint");
+
+  const hasRequiredVerb = hasCommitment || hasDirection || hasConstraint;
 
   const timeAnchors = Array.from(new Set(lower.match(timeAnchorRegex) ?? [])).map((anchor) => anchor);
   if (timeAnchors.length > 0) triggers.push("Time anchor");
@@ -313,11 +391,20 @@ const scoreCandidate = (text: string) => {
   if (hasResource) score += 12;
   if (hasTradeoff) score += 8;
   if (hasConditional) score += 8;
+  if (hasRequiredVerb && timeAnchors.length > 0) score += 10;
+  if (hasRequiredVerb && hasTradeoff) score += 8;
+  if (hasRequiredVerb && (hasResource || timeAnchors.length > 0) && hasConditional) score += 6;
+
+  if (analysis.tableNoise && !analysis.hasVerb) score -= 30;
+  if (analysis.tableLike) score -= 45;
+  if (analysis.headingLike) score -= 35;
   if (beliefPenalty) score -= 25;
 
   const decisionScore = Math.max(0, Math.min(100, score));
 
-  const candidateType: CandidateType = beliefPenalty && !hasCommitment && !hasResource && timeAnchors.length === 0
+  const isSignal = beliefPenalty && !hasCommitment && !hasResource && timeAnchors.length === 0;
+
+  const candidateType: CandidateType = isSignal
     ? "BeliefOutlook"
     : hasConditional
       ? "Conditional"
@@ -332,6 +419,9 @@ const scoreCandidate = (text: string) => {
     timeAnchors,
     hasCommitment,
     hasResource,
+    isCandidate: hasRequiredVerb,
+    isSignal,
+    analysis,
   };
 };
 
@@ -351,12 +441,7 @@ const yieldToMain = () =>
       resolve();
       return;
     }
-    if ("requestIdleCallback" in window) {
-      (window as Window & { requestIdleCallback: (cb: () => void, options?: { timeout: number }) => void })
-        .requestIdleCallback(() => resolve(), { timeout: 500 });
-    } else {
-      setTimeout(() => resolve(), 0);
-    }
+    requestAnimationFrame(() => resolve());
   });
 
 const emptyMetrics = (): CandidateMetrics => ({
@@ -370,17 +455,23 @@ const emptyMetrics = (): CandidateMetrics => ({
 export default function DecisionCandidateIntake() {
   const [documents, setDocuments] = useState<DocumentProgress[]>([]);
   const [candidates, setCandidates] = useState<DecisionCandidate[]>([]);
+  const [signalCandidates, setSignalCandidates] = useState<DecisionCandidate[]>([]);
   const [isProcessing, setIsProcessing] = useState(false);
+  const [isPaused, setIsPaused] = useState(false);
+  const [pauseReason, setPauseReason] = useState<string | null>(null);
   const [statusLine, setStatusLine] = useState("Idle");
-  const [overallProgress, setOverallProgress] = useState(0);
+  const [isExpanded, setIsExpanded] = useState(false);
   const [pasteText, setPasteText] = useState("");
   const [showPaste, setShowPaste] = useState(false);
   const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set());
   const [showAll, setShowAll] = useState(false);
+  const [showSignals, setShowSignals] = useState(false);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const pendingDocsRef = useRef<DocumentProgress[]>([]);
   const processingRef = useRef(false);
   const cancelRef = useRef({ cancelled: false, runId: 0 });
+  const pauseRef = useRef({ paused: false });
+  const docStartTimesRef = useRef(new Map<string, number>());
   const perDocLineCounts = useRef(new Map<string, { counts: Map<string, number>; repeated: Set<string> }>());
 
   const updateDocument = useCallback((id: string, updates: Partial<DocumentProgress>) => {
@@ -417,11 +508,22 @@ export default function DecisionCandidateIntake() {
     });
   }, []);
 
+  const addSignals = useCallback((incoming: DecisionCandidate[]) => {
+    setSignalCandidates((prev) => [...prev, ...incoming]);
+  }, []);
+
+  const triggerPause = useCallback((reason: string) => {
+    pauseRef.current.paused = true;
+    setIsPaused(true);
+    setPauseReason(reason);
+    setIsProcessing(false);
+    processingRef.current = false;
+  }, []);
+
   const processTextSource = useCallback(
     async (doc: DocumentProgress, runId: number) => {
       updateDocument(doc.id, { status: "processing", processedPages: 1, totalPages: 1 });
       setStatusLine(`Parsing ${doc.label} — memo`);
-      setOverallProgress(100);
       const lines = pasteText.split(/\n+/).map((line) => normalizeWhitespace(line));
       const dehyphenated = dehyphenate(lines.join("\n"));
       const paragraphs = reconstructParagraphs(dehyphenated.split(/\n+/));
@@ -431,10 +533,32 @@ export default function DecisionCandidateIntake() {
       updateDocument(doc.id, { qualityTier: quality.tier, qualityReason: quality.reason });
 
       const extracted: DecisionCandidate[] = [];
+      const signals: DecisionCandidate[] = [];
       chunks.forEach((chunk, index) => {
         const trimmed = normalizeWhitespace(chunk);
         if (!trimmed) return;
         const scoring = scoreCandidate(trimmed);
+        if (scoring.isSignal) {
+          const entities = getEntities(trimmed);
+          const signature = buildSignature(trimmed, entities, scoring.timeAnchors);
+          signals.push({
+            id: `${doc.id}-memo-signal-${index}-${crypto.randomUUID()}`,
+            docId: doc.id,
+            docLabel: doc.label,
+            pageNumber: 1,
+            decisionText: trimmed,
+            triggers: scoring.triggers,
+            decisionScore: scoring.decisionScore,
+            candidateType: scoring.candidateType,
+            category: getCategoryBucket(trimmed),
+            timeAnchors: scoring.timeAnchors,
+            kept: false,
+            metrics: emptyMetrics(),
+            signature,
+          });
+          return;
+        }
+        if (!scoring.isCandidate) return;
         if (scoring.decisionScore < 20 && !scoring.hasCommitment && !scoring.hasResource) return;
         const entities = getEntities(trimmed);
         const signature = buildSignature(trimmed, entities, scoring.timeAnchors);
@@ -456,21 +580,22 @@ export default function DecisionCandidateIntake() {
       });
 
       addCandidates(extracted);
+      addSignals(signals);
       updateDocument(doc.id, { status: "done", candidateCount: extracted.length });
 
       if (cancelRef.current.cancelled || cancelRef.current.runId !== runId) return;
     },
-    [addCandidates, pasteText, updateDocument],
+    [addCandidates, addSignals, pasteText, updateDocument],
   );
 
   const processPdfRange = useCallback(
     async (doc: DocumentProgress, runId: number, startPage: number) => {
       if (!doc.file) return;
       updateDocument(doc.id, { status: "processing" });
+      docStartTimesRef.current.set(doc.id, docStartTimesRef.current.get(doc.id) ?? Date.now());
       const arrayBuffer = await doc.file.arrayBuffer();
       const pdf = await getDocument({ data: arrayBuffer }).promise;
       const totalPages = pdf.numPages;
-      const endPage = Math.min(startPage + MAX_PAGES_PER_DOC - 1, totalPages);
       const lineCache = perDocLineCounts.current.get(doc.id) ?? {
         counts: new Map<string, number>(),
         repeated: new Set<string>(),
@@ -479,13 +604,21 @@ export default function DecisionCandidateIntake() {
 
       updateDocument(doc.id, {
         totalPages,
-        limitApplied: totalPages > endPage ? `Processed first ${endPage} pages for speed.` : undefined,
+        pauseMessage: undefined,
       });
 
       let candidateCount = doc.candidateCount;
 
-      for (let pageIndex = startPage; pageIndex <= endPage; pageIndex += 1) {
+      for (let pageIndex = startPage; pageIndex <= totalPages; pageIndex += 1) {
         if (cancelRef.current.cancelled || cancelRef.current.runId !== runId) return;
+        if (pauseRef.current.paused) {
+          updateDocument(doc.id, {
+            status: "paused",
+            processedPages: pageIndex - 1,
+            pauseMessage: `Parsing paused at page ${pageIndex - 1}/${totalPages}. Continue?`,
+          });
+          return;
+        }
         const page = await pdf.getPage(pageIndex);
         const { text, lines } = await parsePdfPage(page);
         const quality = getQualityTier(text, lines);
@@ -495,8 +628,6 @@ export default function DecisionCandidateIntake() {
           qualityReason: quality.reason,
         });
         setStatusLine(`Parsing ${doc.label} — page ${pageIndex}/${totalPages}`);
-        const overall = Math.round(((pageIndex / totalPages) * 100));
-        setOverallProgress(overall);
 
         lines.forEach((line) => {
           const normalizedLine = normalizeWhitespace(line);
@@ -514,11 +645,33 @@ export default function DecisionCandidateIntake() {
         const paragraphs = reconstructParagraphs(dehyphenated.split(/\n+/));
         const chunks = splitIntoChunks(paragraphs.join("\n"));
         const extracted: DecisionCandidate[] = [];
+        const signals: DecisionCandidate[] = [];
 
         chunks.forEach((chunk, index) => {
           const trimmed = normalizeWhitespace(chunk);
           if (!trimmed) return;
           const scoring = scoreCandidate(trimmed);
+          if (scoring.isSignal) {
+            const entities = getEntities(trimmed);
+            const signature = buildSignature(trimmed, entities, scoring.timeAnchors);
+            signals.push({
+              id: `${doc.id}-${pageIndex}-signal-${index}-${crypto.randomUUID()}`,
+              docId: doc.id,
+              docLabel: doc.label,
+              pageNumber: pageIndex,
+              decisionText: trimmed,
+              triggers: scoring.triggers,
+              decisionScore: scoring.decisionScore,
+              candidateType: scoring.candidateType,
+              category: getCategoryBucket(trimmed),
+              timeAnchors: scoring.timeAnchors,
+              kept: false,
+              metrics: emptyMetrics(),
+              signature,
+            });
+            return;
+          }
+          if (!scoring.isCandidate) return;
           if (scoring.decisionScore < 20 && !scoring.hasCommitment && !scoring.hasResource) return;
           const entities = getEntities(trimmed);
           const signature = buildSignature(trimmed, entities, scoring.timeAnchors);
@@ -541,21 +694,36 @@ export default function DecisionCandidateIntake() {
 
         candidateCount += extracted.length;
         addCandidates(extracted);
+        addSignals(signals);
         updateDocument(doc.id, { candidateCount });
+        const elapsed = Date.now() - (docStartTimesRef.current.get(doc.id) ?? Date.now());
+        const memory = typeof performance !== "undefined" ? (performance as Performance & { memory?: { usedJSHeapSize: number; jsHeapSizeLimit: number } }).memory : undefined;
+        const memoryPressure =
+          memory && memory.jsHeapSizeLimit > 0 ? memory.usedJSHeapSize / memory.jsHeapSizeLimit > MEMORY_PRESSURE_THRESHOLD : false;
+        if (elapsed > AUTO_PAUSE_MS || memoryPressure) {
+          const reason = memoryPressure ? "Memory pressure detected" : "Parsing time threshold reached";
+          triggerPause(reason);
+          updateDocument(doc.id, {
+            status: "paused",
+            pauseMessage: `Parsing paused at page ${pageIndex}/${totalPages}. Continue?`,
+          });
+          return;
+        }
         await yieldToMain();
       }
 
       updateDocument(doc.id, {
         status: "done",
-        processedPages: endPage,
-        limitApplied: totalPages > endPage ? `Processed first ${endPage} pages for speed.` : undefined,
+        processedPages: totalPages,
+        pauseMessage: undefined,
       });
     },
-    [addCandidates, updateDocument],
+    [addCandidates, addSignals, triggerPause, updateDocument],
   );
 
   const runQueue = useCallback(async () => {
     if (processingRef.current) return;
+    if (pauseRef.current.paused) return;
     processingRef.current = true;
     setIsProcessing(true);
     const runId = cancelRef.current.runId;
@@ -563,6 +731,7 @@ export default function DecisionCandidateIntake() {
     while (pendingDocsRef.current.length > 0) {
       const nextDoc = pendingDocsRef.current.shift();
       if (!nextDoc) continue;
+      if (pauseRef.current.paused) break;
       if (cancelRef.current.cancelled || cancelRef.current.runId !== runId) break;
       try {
         if (nextDoc.sourceType === "text") {
@@ -581,6 +750,7 @@ export default function DecisionCandidateIntake() {
 
   const enqueueDocs = useCallback(
     (docs: DocumentProgress[]) => {
+      cancelRef.current.cancelled = false;
       pendingDocsRef.current.push(...docs);
       runQueue();
     },
@@ -630,21 +800,77 @@ export default function DecisionCandidateIntake() {
     cancelRef.current.runId += 1;
     pendingDocsRef.current = [];
     processingRef.current = false;
+    pauseRef.current.paused = false;
+    docStartTimesRef.current.clear();
+    perDocLineCounts.current.clear();
     setDocuments([]);
     setCandidates([]);
+    setSignalCandidates([]);
     setPasteText("");
     setExpandedIds(new Set());
     setShowAll(false);
+    setShowSignals(false);
     setStatusLine("Idle");
-    setOverallProgress(0);
     setIsProcessing(false);
+    setIsPaused(false);
+    setPauseReason(null);
   }, []);
+
+  const handleCancelProcessing = useCallback(() => {
+    if (!isProcessing && !isPaused) return;
+    cancelRef.current.cancelled = true;
+    cancelRef.current.runId += 1;
+    pendingDocsRef.current = [];
+    processingRef.current = false;
+    pauseRef.current.paused = false;
+    setIsProcessing(false);
+    setIsPaused(false);
+    setPauseReason(null);
+    setStatusLine("Parsing cancelled");
+    setDocuments((prev) =>
+      prev.map((doc) =>
+        doc.status === "processing" || doc.status === "pending"
+          ? { ...doc, status: "paused", pauseMessage: `Parsing paused at page ${doc.processedPages}/${doc.totalPages || 1}. Continue?` }
+          : doc,
+      ),
+    );
+  }, [isPaused, isProcessing]);
+
+  const handlePauseProcessing = useCallback(() => {
+    if (!isProcessing) return;
+    triggerPause("Paused by user");
+    setStatusLine("Parsing paused");
+  }, [isProcessing, triggerPause]);
+
+  const handleResumeProcessing = useCallback(() => {
+    if (!isPaused) return;
+    pauseRef.current.paused = false;
+    setIsPaused(false);
+    setPauseReason(null);
+    setStatusLine("Resuming parsing");
+    const pausedDocs = documents
+      .filter((doc) => doc.status === "paused")
+      .map((doc) => ({ ...doc, status: "pending" as const, pauseMessage: undefined }));
+    if (pausedDocs.length > 0) {
+      setDocuments((prev) =>
+        prev.map((doc) =>
+          doc.status === "paused" ? { ...doc, status: "pending", pauseMessage: undefined } : doc,
+        ),
+      );
+      enqueueDocs(pausedDocs);
+      return;
+    }
+    runQueue();
+  }, [documents, enqueueDocs, isPaused, runQueue]);
 
   const handleParseMore = useCallback(
     (doc: DocumentProgress) => {
       if (doc.sourceType !== "pdf") return;
-      const updated = { ...doc, status: "pending" as const };
+      const updated = { ...doc, status: "pending" as const, pauseMessage: undefined };
       setDocuments((prev) => prev.map((item) => (item.id === doc.id ? updated : item)));
+      pauseRef.current.paused = false;
+      setIsPaused(false);
+      setPauseReason(null);
       enqueueDocs([updated]);
     },
     [enqueueDocs],
@@ -696,6 +922,21 @@ export default function DecisionCandidateIntake() {
     return showAll ? sorted : sorted.slice(0, 50);
   }, [candidates, showAll]);
 
+  const overallProgress = useMemo(() => {
+    const totals = documents.reduce(
+      (acc, doc) => {
+        if (doc.totalPages > 0) {
+          acc.total += doc.totalPages;
+          acc.processed += Math.min(doc.processedPages, doc.totalPages);
+        }
+        return acc;
+      },
+      { processed: 0, total: 0 },
+    );
+    if (totals.total === 0) return 0;
+    return Math.round((totals.processed / totals.total) * 100);
+  }, [documents]);
+
   const keptCount = keptCandidates.length;
 
   const handleExportJson = useCallback(() => {
@@ -718,44 +959,6 @@ export default function DecisionCandidateIntake() {
     createDownload(JSON.stringify({ exportedAt: timestamp, keptDecisions: payload }, null, 2), "kept-decisions.json", "application/json");
   }, [keptCandidates]);
 
-  const handleExportCsv = useCallback(() => {
-    const timestamp = new Date().toISOString();
-    const headers = [
-      "docLabel",
-      "docId",
-      "pageNumber",
-      "decisionText",
-      "category",
-      "impact",
-      "cost",
-      "risk",
-      "urgency",
-      "confidence",
-      "decisionScore",
-      "triggers",
-      "timestamp",
-    ];
-    const rows = keptCandidates.map((candidate) => [
-      candidate.docLabel,
-      candidate.docId,
-      candidate.pageNumber,
-      candidate.decisionText,
-      candidate.category,
-      candidate.metrics.impact,
-      candidate.metrics.cost,
-      candidate.metrics.risk,
-      candidate.metrics.urgency,
-      candidate.metrics.confidence,
-      candidate.decisionScore,
-      candidate.triggers.join("|"),
-      timestamp,
-    ]);
-    const csv = [headers, ...rows]
-      .map((row) => row.map((value) => `"${String(value ?? "").replace(/"/g, '""')}"`).join(","))
-      .join("\n");
-    createDownload(csv, "kept-decisions.csv", "text/csv");
-  }, [keptCandidates]);
-
   const handleDrop = useCallback(
     (event: DragEvent<HTMLDivElement>) => {
       event.preventDefault();
@@ -768,157 +971,186 @@ export default function DecisionCandidateIntake() {
 
   return (
     <section className="mt-6 space-y-4 rounded-2xl border border-border/60 bg-white/80 p-4 shadow-sm dark:bg-black/30">
-      <div className="flex flex-wrap items-start justify-between gap-3">
-        <div className="space-y-1">
-          <h2 className="text-base font-semibold text-foreground">Document Intake</h2>
-          <p className="text-xs text-muted-foreground">Have a PDF? Drop files to surface decision candidates.</p>
-          <p className="text-[11px] text-muted-foreground">Processed in your browser only. Nothing is stored.</p>
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <div className="flex items-center gap-2 text-sm font-semibold text-foreground">
+          Document Intake
+          <Badge variant="outline" className="text-[10px]">
+            Browser-only
+          </Badge>
         </div>
-        <Badge variant="outline" className="text-[11px]">
-          Client-only extraction
-        </Badge>
+        <Button size="sm" variant="outline" onClick={() => setIsExpanded((prev) => !prev)}>
+          {isExpanded ? "Collapse" : "Import PDF / memo"}
+        </Button>
       </div>
 
-      <div className="space-y-3 rounded-xl border border-dashed border-border/70 bg-muted/10 p-4">
-        <div className="flex flex-wrap items-center justify-between gap-2">
-          <div>
-            <p className="text-sm font-semibold text-foreground">Have a PDF?</p>
-            <p className="text-[11px] text-muted-foreground">Drop files to surface decision candidates.</p>
-          </div>
-          <Button size="sm" variant="outline" onClick={() => fileInputRef.current?.click()}>
-            Choose files
-          </Button>
-        </div>
-        <div
-          role="button"
-          tabIndex={0}
-          className="rounded-lg border border-border/60 bg-white/70 px-4 py-6 text-center text-[11px] text-muted-foreground transition hover:border-primary/60"
-          onDragOver={(event) => event.preventDefault()}
-          onDrop={handleDrop}
-          onClick={() => fileInputRef.current?.click()}
-        >
-          Drag and drop multiple PDFs here, or click to browse.
-        </div>
-        <Input
-          ref={fileInputRef}
-          type="file"
-          accept=".pdf"
-          multiple
-          className="hidden"
-          onChange={(event) => handleFiles(event.target.files)}
-        />
-        {hasDocs ? (
-          <div className="space-y-2">
-            {documents.map((doc) => {
-              const progress = doc.totalPages > 0 ? Math.round((doc.processedPages / doc.totalPages) * 100) : 0;
-              const canParseMore = doc.sourceType === "pdf" && doc.totalPages > 0 && doc.processedPages < doc.totalPages;
-              return (
-                <div
-                  key={doc.id}
-                  className="rounded-lg border border-border/60 bg-white/80 px-3 py-2 text-[11px] text-muted-foreground"
-                >
-                  <div className="flex flex-wrap items-center justify-between gap-2">
-                    <div>
-                      <p className="text-xs font-semibold text-foreground">{doc.label}</p>
-                      <p>
-                        {doc.status === "processing"
-                          ? `Parsing page ${doc.processedPages}/${doc.totalPages || 1}`
-                          : doc.status === "done"
-                            ? `Processed ${doc.processedPages}/${doc.totalPages || 1} pages`
-                            : doc.status === "error"
-                              ? "Error"
-                              : "Queued"}
-                      </p>
-                      {doc.limitApplied ? <p className="text-[10px] text-amber-600">{doc.limitApplied}</p> : null}
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <Badge variant="outline">Tier {doc.qualityTier ?? "-"}</Badge>
-                      <span className="text-[10px] text-muted-foreground">{progress}%</span>
-                    </div>
-                  </div>
-                  <div className="mt-2 h-1.5 w-full overflow-hidden rounded-full bg-muted/30">
-                    <div
-                      className="h-full rounded-full bg-primary/70 transition-all"
-                      style={{ width: `${progress}%` }}
-                    />
-                  </div>
-                  {doc.qualityReason ? <p className="mt-1 text-[10px]">{doc.qualityReason}</p> : null}
-                  {doc.error ? <p className="mt-1 text-[10px] text-rose-600">{doc.error}</p> : null}
-                  {canParseMore ? (
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      className="mt-2 h-7 px-2 text-[10px] font-semibold uppercase tracking-wide"
-                      onClick={() => handleParseMore(doc)}
-                      disabled={isProcessing}
-                    >
-                      Parse more pages
-                    </Button>
-                  ) : null}
-                </div>
-              );
-            })}
-          </div>
-        ) : (
-          <p className="text-[11px] text-muted-foreground">No PDFs added yet.</p>
-        )}
-      </div>
-
-      <div className="rounded-xl border border-border/60 bg-muted/10 p-4">
-        <div className="flex flex-wrap items-center justify-between gap-2">
-          <div>
-            <p className="text-sm font-semibold text-foreground">Paste a memo</p>
-            <p className="text-[11px] text-muted-foreground">Optional text intake for summaries or memo excerpts.</p>
-          </div>
-          <Button size="sm" variant="ghost" onClick={() => setShowPaste((prev) => !prev)}>
-            {showPaste ? "Hide" : "Show"}
-          </Button>
-        </div>
-        {showPaste ? (
-          <div className="mt-3 space-y-2">
-            <Textarea
-              placeholder="Paste a memo or decision brief text here."
-              value={pasteText}
-              onChange={(event) => setPasteText(event.target.value)}
-              className="min-h-[140px]"
-            />
-            <div className="flex flex-wrap items-center gap-2">
-              <Button size="sm" onClick={handlePasteExtract} disabled={!pasteText.trim() || isProcessing}>
-                Parse memo
+      {isExpanded ? (
+        <div className="space-y-4">
+          <div className="space-y-3 rounded-xl border border-dashed border-border/70 bg-muted/10 p-4">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <p className="text-sm font-semibold text-foreground">PDF intake</p>
+              <Button size="sm" variant="outline" onClick={() => fileInputRef.current?.click()}>
+                Choose files
               </Button>
-              <span className="text-[11px] text-muted-foreground">Memo is treated as its own document.</span>
+            </div>
+            <div
+              role="button"
+              tabIndex={0}
+              className="rounded-lg border border-border/60 bg-white/70 px-4 py-6 text-center text-[11px] text-muted-foreground transition hover:border-primary/60"
+              onDragOver={(event) => event.preventDefault()}
+              onDrop={handleDrop}
+              onClick={() => fileInputRef.current?.click()}
+            >
+              Drag and drop PDFs here, or click to browse.
+            </div>
+            <Input
+              ref={fileInputRef}
+              type="file"
+              accept=".pdf"
+              multiple
+              className="hidden"
+              onChange={(event) => handleFiles(event.target.files)}
+            />
+            {hasDocs ? (
+              <div className="space-y-2">
+                {documents.map((doc) => {
+                  const progress = doc.totalPages > 0 ? Math.round((doc.processedPages / doc.totalPages) * 100) : 0;
+                  const canParseMore =
+                    doc.sourceType === "pdf" &&
+                    doc.status === "paused" &&
+                    doc.totalPages > 0 &&
+                    doc.processedPages < doc.totalPages;
+                  return (
+                    <div
+                      key={doc.id}
+                      className="rounded-lg border border-border/60 bg-white/80 px-3 py-2 text-[11px] text-muted-foreground"
+                    >
+                      <div className="flex flex-wrap items-center justify-between gap-2">
+                        <div>
+                          <p className="text-xs font-semibold text-foreground">{doc.label}</p>
+                          <p>
+                            {doc.status === "processing"
+                              ? `Parsing page ${doc.processedPages}/${doc.totalPages || 1}`
+                              : doc.status === "done"
+                                ? `Processed ${doc.processedPages}/${doc.totalPages || 1} pages`
+                                : doc.status === "paused"
+                                  ? `Paused at ${doc.processedPages}/${doc.totalPages || 1} pages`
+                                  : doc.status === "error"
+                                    ? "Error"
+                                    : "Queued"}
+                          </p>
+                          {doc.pauseMessage ? <p className="text-[10px] text-amber-600">{doc.pauseMessage}</p> : null}
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <Badge variant="outline" className="text-[10px]">
+                            Tier {doc.qualityTier ?? "-"}
+                          </Badge>
+                          <span className="text-[10px] text-muted-foreground">{progress}%</span>
+                        </div>
+                      </div>
+                      <div className="mt-2 h-1.5 w-full overflow-hidden rounded-full bg-muted/30">
+                        <div
+                          className="h-full rounded-full bg-primary/70 transition-all"
+                          style={{ width: `${progress}%` }}
+                        />
+                      </div>
+                      {doc.error ? <p className="mt-1 text-[10px] text-rose-600">{doc.error}</p> : null}
+                      {canParseMore ? (
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="mt-2 h-7 px-2 text-[10px] font-semibold uppercase tracking-wide"
+                          onClick={() => handleParseMore(doc)}
+                          disabled={isProcessing}
+                        >
+                          Parse more pages
+                        </Button>
+                      ) : null}
+                    </div>
+                  );
+                })}
+              </div>
+            ) : (
+              <p className="text-[11px] text-muted-foreground">No PDFs added yet.</p>
+            )}
+          </div>
+
+          <div className="rounded-xl border border-border/60 bg-muted/10 p-4">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <p className="text-sm font-semibold text-foreground">Memo intake</p>
+              <Button size="sm" variant="ghost" onClick={() => setShowPaste((prev) => !prev)}>
+                {showPaste ? "Hide" : "Show"}
+              </Button>
+            </div>
+            {showPaste ? (
+              <div className="mt-3 space-y-2">
+                <Textarea
+                  placeholder="Paste a memo or decision brief text here."
+                  value={pasteText}
+                  onChange={(event) => setPasteText(event.target.value)}
+                  className="min-h-[140px]"
+                />
+                <div className="flex flex-wrap items-center gap-2">
+                  <Button size="sm" onClick={handlePasteExtract} disabled={!pasteText.trim() || isProcessing}>
+                    Parse memo
+                  </Button>
+                </div>
+              </div>
+            ) : null}
+          </div>
+
+          <div className="rounded-xl border border-border/60 bg-muted/10 p-4 text-[11px] text-muted-foreground">
+            <div className="flex items-center justify-between">
+              <span>Batch progress</span>
+              <span>{overallProgress}%</span>
+            </div>
+            <div className="mt-2 h-2 w-full overflow-hidden rounded-full bg-muted/30">
+              <div
+                className="h-full rounded-full bg-primary/70 transition-all"
+                style={{ width: `${overallProgress}%` }}
+              />
+            </div>
+            <div className="mt-2 flex flex-wrap items-center justify-between gap-2 text-[11px] text-muted-foreground">
+              <span>{pauseReason ?? statusLine}</span>
+              <div className="flex items-center gap-2">
+                {isProcessing ? (
+                  <Button size="sm" variant="outline" onClick={handlePauseProcessing}>
+                    Pause
+                  </Button>
+                ) : null}
+                {isPaused ? (
+                  <Button size="sm" variant="outline" onClick={handleResumeProcessing}>
+                    Resume
+                  </Button>
+                ) : null}
+                {(isProcessing || isPaused) ? (
+                  <Button size="sm" variant="ghost" onClick={handleCancelProcessing}>
+                    Cancel
+                  </Button>
+                ) : null}
+              </div>
             </div>
           </div>
-        ) : null}
-      </div>
 
-      <div className="rounded-xl border border-border/60 bg-muted/10 p-4 text-[11px] text-muted-foreground">
-        <div className="flex items-center justify-between">
-          <span>Batch progress</span>
-          <span>{overallProgress}%</span>
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <div className="text-[11px] text-muted-foreground">
+              {isProcessing ? "Parsing in progress…" : isPaused ? "Paused" : "Idle"}
+            </div>
+            <Button size="sm" variant="outline" onClick={handleClear}>
+              Clear intake
+            </Button>
+          </div>
         </div>
-        <div className="mt-2 h-2 w-full overflow-hidden rounded-full bg-muted/30">
-          <div
-            className="h-full rounded-full bg-primary/70 transition-all"
-            style={{ width: `${overallProgress}%` }}
-          />
-        </div>
-        <p className="mt-2">{statusLine}</p>
-      </div>
+      ) : null}
 
       <div className="space-y-3">
         <div className="flex flex-wrap items-center justify-between gap-2">
           <div>
             <h3 className="text-sm font-semibold text-foreground">Extracted decisions (candidates)</h3>
-            <p className="text-[11px] text-muted-foreground">Review and keep the candidates you want to export.</p>
           </div>
           {keptCount > 0 ? (
             <div className="flex flex-wrap gap-2">
               <Button size="sm" onClick={handleExportJson}>
                 Export kept decisions
-              </Button>
-              <Button size="sm" variant="outline" onClick={handleExportCsv}>
-                Export CSV
               </Button>
             </div>
           ) : null}
@@ -927,7 +1159,6 @@ export default function DecisionCandidateIntake() {
         {candidates.length === 0 ? (
           <div className="rounded-lg border border-border/60 bg-white/80 px-3 py-3 text-[11px] text-muted-foreground">
             <p className="font-semibold text-foreground">No decision candidates yet.</p>
-            <p>Drop PDFs or parse a memo to see extracted candidates stream in.</p>
           </div>
         ) : (
           <div className="space-y-2">
@@ -997,6 +1228,33 @@ export default function DecisionCandidateIntake() {
           </div>
         )}
 
+        {signalCandidates.length > 0 ? (
+          <div className="rounded-lg border border-border/60 bg-muted/10 px-3 py-2 text-[11px] text-muted-foreground">
+            <button
+              type="button"
+              className="flex w-full items-center justify-between gap-2 text-left text-[11px] font-semibold text-foreground"
+              onClick={() => setShowSignals((prev) => !prev)}
+            >
+              <span>Signals (hidden by default)</span>
+              <span>{showSignals ? "Hide" : `Show ${signalCandidates.length}`}</span>
+            </button>
+            {showSignals ? (
+              <div className="mt-2 space-y-1">
+                {signalCandidates.slice(0, 10).map((signal) => (
+                  <div key={signal.id} className="text-[11px] text-muted-foreground">
+                    {signal.decisionText} · {signal.docLabel} · Page {signal.pageNumber}
+                  </div>
+                ))}
+                {signalCandidates.length > 10 ? (
+                  <div className="text-[10px] text-muted-foreground">
+                    Showing first 10 signals.
+                  </div>
+                ) : null}
+              </div>
+            ) : null}
+          </div>
+        ) : null}
+
         {keptCount > 0 ? (
           <div className="rounded-lg border border-border/60 bg-muted/10 px-3 py-2 text-[11px] text-muted-foreground">
             {keptCount} kept decision{keptCount === 1 ? "" : "s"} ready for export.
@@ -1004,14 +1262,6 @@ export default function DecisionCandidateIntake() {
         ) : null}
       </div>
 
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        <div className="text-[11px] text-muted-foreground">
-          {isProcessing ? "Parsing in progress…" : "Idle"}
-        </div>
-        <Button size="sm" variant="outline" onClick={handleClear}>
-          Clear intake
-        </Button>
-      </div>
     </section>
   );
 }
