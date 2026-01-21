@@ -4,6 +4,7 @@ import StressTestCalculator, {
   StressTestCalculatorHandle,
   type StressTestDecisionSnapshot,
 } from "@/components/stress-test/StressTestCalculator";
+import DecisionCandidateIntake from "@/components/stress-test/DecisionCandidateIntake";
 import { useDefinitionsPanel } from "@/components/definitions/DefinitionsPanelProvider";
 import { Button } from "@/components/ui/button";
 import { AccentSliver } from "@/components/ui/AccentSliver";
@@ -345,6 +346,8 @@ export default function StressTestPage() {
             </div>
 
             <StressTestCalculator ref={calculatorRef} saveLabel="Save decision" onSaveDecision={handleSaveSessionDecision} />
+
+            <DecisionCandidateIntake />
 
             <div className="flex flex-col gap-2 rounded-lg border border-border/60 bg-muted/10 px-3 py-2 text-xs text-muted-foreground">
               <div className="flex flex-wrap items-center justify-between gap-2 text-xs font-semibold text-foreground">
