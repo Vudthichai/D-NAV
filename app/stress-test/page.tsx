@@ -5,49 +5,15 @@ import StressTestCalculator, {
   type StressTestDecisionSnapshot,
 } from "@/components/stress-test/StressTestCalculator";
 import { useDefinitionsPanel } from "@/components/definitions/DefinitionsPanelProvider";
-import { CandidateReviewTable } from "@/components/stress-test/CandidateReviewTable";
-import { buildCanonicalDecisions, buildRawCandidates } from "@/lib/decisionCompiler";
-import { ExcelExportButton } from "@/components/stress-test/ExcelExportButton";
-import { PdfDropzone, type PdfDropzoneFile } from "@/components/stress-test/PdfDropzone";
-import type {
-  CanonicalDecision,
-  DecisionCandidate,
-  DecisionGateDiagnostics,
-  EvidenceRef,
-  RawCandidate,
-  UploadedDoc,
-} from "@/components/stress-test/decision-intake-types";
 import { Button } from "@/components/ui/button";
 import { AccentSliver } from "@/components/ui/AccentSliver";
 import { Callout } from "@/components/ui/Callout";
-import { Textarea } from "@/components/ui/textarea";
 import Term from "@/components/ui/Term";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { MetricDistribution, type MetricDistributionSegment } from "@/components/reports/MetricDistribution";
-import { computeMetrics } from "@/lib/calculations";
-import {
-  cleanExcerpt,
-  extractTiming,
-  normalizeDecisionExcerpt,
-  toDecisionDetail,
-} from "@/lib/decisionText";
 import { getSessionActionInsight } from "@/lib/sessionActionInsight";
-import { normalizePrecision } from "@/utils/timingPrecision";
-import { ChevronDown } from "lucide-react";
 import Link from "next/link";
-import * as pdfjs from "pdfjs-dist";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-
-type DecisionIntakeStatus = "idle" | "doc_selected" | "parsing" | "candidates_ready" | "committed" | "export";
-
-interface IntakeFile {
-  id: string;
-  file: File;
-  fileName: string;
-  sizeBytes: number;
-  uploadedAt: number;
-  progress?: number;
-}
 
 interface SessionDecision {
   id: string;
@@ -64,128 +30,9 @@ interface SessionDecision {
   s: number;
   dnav: number;
   createdAt: number;
-  evidence?: EvidenceRef;
 }
 
-type TimingNormalizedInput = {
-  start?: string;
-  end?: string;
-  precision?: string | undefined;
-} | undefined;
-
-const EXTRACTED_DECISION_CATEGORIES = [
-  "Uncategorized",
-  "Strategy",
-  "Capital",
-  "Ops",
-  "People",
-  "Real Estate",
-  "Risk",
-  "Product",
-  "Other",
-];
 const SESSION_DECISIONS_KEY = "dnav:stressTest:sessionDecisions";
-const DEFAULT_REVIEW_VARIABLES = {
-  impact: 5,
-  cost: 5,
-  risk: 5,
-  urgency: 5,
-  confidence: 5,
-};
-const MAX_CANDIDATES = 30;
-const SOFT_FILE_LIMIT_MB = 25;
-
-const asOptionalString = (value: unknown): string | undefined => (typeof value === "string" ? value : undefined);
-
-const isRecord = (value: unknown): value is Record<string, unknown> =>
-  typeof value === "object" && value !== null;
-
-// Future: swap buildCandidates with an LLM-backed extractor that uses intentContext/constraintContext as prompts.
-const buildCandidates = (docs: UploadedDoc[]) => {
-  const rawCandidates = buildRawCandidates(docs);
-  const rawById = new Map(rawCandidates.map((candidate) => [candidate.id, candidate]));
-  const { canonicals, diagnostics } = buildCanonicalDecisions(rawCandidates);
-  const canonicalDecisions = canonicals
-    .slice()
-    .sort((a, b) => b.sources.mergeConfidence - a.sources.mergeConfidence)
-    .slice(0, MAX_CANDIDATES);
-
-  const buildDecisionCandidate = (canonical: CanonicalDecision, sourceCandidates: RawCandidate[]): DecisionCandidate => {
-    const bestSource = sourceCandidates
-      .slice()
-      .sort((a, b) => b.extractionScore - a.extractionScore)[0];
-    const cleanedExcerpt = cleanExcerpt(bestSource?.rawText ?? canonical.title);
-    const normalizedExcerpt = normalizeDecisionExcerpt(cleanedExcerpt) || bestSource?.rawText || canonical.title;
-    const timing = extractTiming(normalizedExcerpt);
-    const decisionDetail = toDecisionDetail(normalizedExcerpt);
-    const evidenceAnchor = canonical.evidence[0];
-    const evidence: EvidenceRef = {
-      docId: evidenceAnchor?.docId ?? canonical.docId,
-      docName: evidenceAnchor?.fileName ?? "Uploaded PDF",
-      pageNumber: evidenceAnchor?.page ?? bestSource?.page,
-      rawExcerpt: bestSource?.rawText ?? canonical.title,
-      contextText: bestSource?.contextText ?? bestSource?.rawText ?? canonical.title,
-      chunkId: bestSource?.id ?? canonical.id,
-    };
-
-    return {
-      id: canonical.id,
-      decisionTitle: canonical.title,
-      titleStatus: canonical.titleStatus,
-      decisionDetail,
-      rawText: bestSource?.rawText,
-      contextText: bestSource?.contextText,
-      sectionHint: bestSource?.sectionHint,
-      extractionScore: bestSource?.extractionScore,
-      dateMentions: Array.from(
-        new Set(sourceCandidates.flatMap((candidate) => candidate.dateMentions ?? [])),
-      ),
-      bin: canonical.gate?.bin,
-      gate: canonical.gate,
-      category: "Uncategorized",
-      scores: { ...DEFAULT_REVIEW_VARIABLES },
-      timeAnchor: canonical.timeHintRaw
-        ? {
-            raw: canonical.timeHintRaw,
-            type:
-              canonical.timingNormalized?.precision === "day"
-                ? "ExactDate"
-                : canonical.timingNormalized?.precision === "quarter"
-                  ? "Quarter"
-                  : canonical.timingNormalized?.precision === "year"
-                    ? "FiscalYear"
-                    : "Dependency",
-            verified: "Explicit",
-          }
-        : undefined,
-      timingNormalized: canonical.timingNormalized ?? timing.normalized,
-      evidence,
-      evidenceAnchors: canonical.evidence,
-      sources: canonical.sources,
-      sourceCandidates: sourceCandidates.map((candidate) => ({
-        id: candidate.id,
-        docId: candidate.docId,
-        fileName: candidate.evidence[0]?.fileName ?? "Uploaded PDF",
-        page: candidate.page,
-        rawText: candidate.rawText,
-        contextText: candidate.contextText,
-        extractionScore: candidate.extractionScore,
-        dateMentions: candidate.dateMentions ?? [],
-      })),
-      keep: canonical.gate?.bin === "Decision",
-      tableNoise: sourceCandidates.every((candidate) => candidate.knowsItIsTableNoise),
-    };
-  };
-
-  const candidates = canonicalDecisions.map((canonical) => {
-    const sources = canonical.sources.candidateIds
-      .map((id) => rawById.get(id))
-      .filter((candidate): candidate is RawCandidate => Boolean(candidate));
-    return buildDecisionCandidate(canonical, sources.length ? sources : rawCandidates);
-  });
-
-  return { candidates, diagnostics };
-};
 
 const isSessionDecisionSnapshot = (value: unknown): value is SessionDecision => {
   if (!value || typeof value !== "object") return false;
@@ -202,14 +49,6 @@ const isSessionDecisionSnapshot = (value: unknown): value is SessionDecision => 
 };
 
 export default function StressTestPage() {
-  const [intakeFiles, setIntakeFiles] = useState<IntakeFile[]>([]);
-  const [decisionCandidates, setDecisionCandidates] = useState<DecisionCandidate[]>([]);
-  const [intakeStatus, setIntakeStatus] = useState<DecisionIntakeStatus>("idle");
-  const [isParsing, setIsParsing] = useState(false);
-  const [intakeError, setIntakeError] = useState<string | null>(null);
-  const [decisionDiagnostics, setDecisionDiagnostics] = useState<DecisionGateDiagnostics | null>(null);
-  const [intentContext, setIntentContext] = useState("");
-  const [constraintContext, setConstraintContext] = useState("");
   const [sessionDecisions, setSessionDecisions] = useState<SessionDecision[]>(() => {
     if (typeof window === "undefined") return [];
     try {
@@ -221,131 +60,11 @@ export default function StressTestPage() {
       return [];
     }
   });
-  const [isBaselineOpen, setIsBaselineOpen] = useState(false);
   const [isSessionAnalysisOpen, setIsSessionAnalysisOpen] = useState(false);
   const calculatorRef = useRef<StressTestCalculatorHandle>(null);
   const sessionAnalysisRef = useRef<HTMLDivElement>(null);
-  const reviewPanelRef = useRef<HTMLDivElement>(null);
 
   const { openDefinitions } = useDefinitionsPanel();
-  const [showDecisionDebug, setShowDecisionDebug] = useState(
-    process.env.NEXT_PUBLIC_DECISION_DEBUG === "true",
-  );
-
-  useEffect(() => {
-    if (typeof window === "undefined") return;
-    const params = new URLSearchParams(window.location.search);
-    if (params.get("debug") === "1") {
-      setShowDecisionDebug(true);
-    }
-  }, []);
-
-  const updateFileProgress = useCallback((id: string, progress: number) => {
-    setIntakeFiles((prev) =>
-      prev.map((file) => (file.id === id ? { ...file, progress: Math.min(100, progress) } : file)),
-    );
-  }, []);
-
-  const parsePdfDocuments = useCallback(async (files: IntakeFile[]): Promise<UploadedDoc[]> => {
-    pdfjs.GlobalWorkerOptions.workerSrc = new URL(
-      "pdfjs-dist/build/pdf.worker.min.mjs",
-      import.meta.url,
-    ).toString();
-
-    const docs: UploadedDoc[] = [];
-    for (const file of files) {
-      updateFileProgress(file.id, 15);
-      const arrayBuffer = await file.file.arrayBuffer();
-      updateFileProgress(file.id, 35);
-      const loadingTask = pdfjs.getDocument({ data: arrayBuffer });
-      const pdf = await loadingTask.promise;
-      const pages: UploadedDoc["pages"] = [];
-      for (let pageNumber = 1; pageNumber <= pdf.numPages; pageNumber += 1) {
-        const page = await pdf.getPage(pageNumber);
-        const content = await page.getTextContent();
-        const pageText = content.items
-          .map((item) => ("str" in item ? String(item.str) : ""))
-          .join(" ");
-        pages.push({ pageNumber, text: pageText });
-      }
-      updateFileProgress(file.id, 90);
-      docs.push({
-        id: file.id,
-        fileName: file.fileName,
-        sizeBytes: file.sizeBytes,
-        uploadedAt: file.uploadedAt,
-        pages,
-      });
-      updateFileProgress(file.id, 100);
-    }
-    return docs;
-  }, [updateFileProgress]);
-
-  const handleExtractDecisions = useCallback(async () => {
-    if (isParsing) return;
-    if (intakeFiles.length === 0) {
-      setIntakeError("Upload a PDF to extract decision candidates.");
-      return;
-    }
-
-    setIsParsing(true);
-    setIntakeError(null);
-    setIntakeStatus("parsing");
-    try {
-      const docs = await parsePdfDocuments(intakeFiles);
-      const { candidates: nextCandidates, diagnostics } = buildCandidates(docs);
-      const candidates = nextCandidates.map((candidate) => {
-        const timingNormalizedInput = (candidate as { timingNormalized?: TimingNormalizedInput | null })
-          .timingNormalized;
-        if (!timingNormalizedInput) return candidate;
-        const timingBase = isRecord(timingNormalizedInput) ? timingNormalizedInput : {};
-        const precision =
-          typeof timingNormalizedInput.precision === "string" ? timingNormalizedInput.precision : undefined;
-        const timingNormalized = {
-          start: asOptionalString(timingBase.start),
-          end: asOptionalString(timingBase.end),
-          precision: normalizePrecision(precision),
-        };
-        return {
-          ...candidate,
-          timingNormalized,
-        };
-      });
-      if (candidates.length === 0) {
-        setDecisionCandidates([]);
-        setDecisionDiagnostics(null);
-        setIntakeError("No candidates found — try another file or paste text.");
-        setIntakeStatus("doc_selected");
-        setIsParsing(false);
-        return;
-      }
-      setDecisionCandidates(candidates);
-      setDecisionDiagnostics(diagnostics);
-      if (showDecisionDebug) {
-        console.info("Decision intake diagnostics", diagnostics);
-        console.table(
-          diagnostics.candidates.map((entry) => ({
-            id: entry.id,
-            bin: entry.bin,
-            optionalityScore: entry.optionalityScore,
-            reasonsIncluded: entry.reasonsIncluded.join(", "),
-            reasonsExcluded: entry.reasonsExcluded.join(", "),
-          })),
-        );
-      }
-      setIntakeStatus("candidates_ready");
-      requestAnimationFrame(() => {
-        reviewPanelRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
-      });
-    } catch (error) {
-      console.error("Failed to parse PDF intake.", error);
-      setIntakeError("PDF parse failed. Please try another file.");
-      setIntakeStatus("doc_selected");
-      setDecisionDiagnostics(null);
-    } finally {
-      setIsParsing(false);
-    }
-  }, [intakeFiles, isParsing, parsePdfDocuments, showDecisionDebug]);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -380,95 +99,6 @@ export default function StressTestPage() {
     };
     setSessionDecisions((prev) => [sessionDecision, ...prev]);
   }, []);
-
-  const handleAddCandidatesToLog = useCallback((candidates: DecisionCandidate[]) => {
-    const validCandidates = candidates.filter((candidate) => candidate.decisionTitle.trim().length > 0);
-    if (validCandidates.length === 0) return 0;
-    const createdAt = Date.now();
-    const nextDecisions: SessionDecision[] = validCandidates.map((candidate, index) => {
-      const scores = {
-        impact: candidate.scores.impact ?? DEFAULT_REVIEW_VARIABLES.impact,
-        cost: candidate.scores.cost ?? DEFAULT_REVIEW_VARIABLES.cost,
-        risk: candidate.scores.risk ?? DEFAULT_REVIEW_VARIABLES.risk,
-        urgency: candidate.scores.urgency ?? DEFAULT_REVIEW_VARIABLES.urgency,
-        confidence: candidate.scores.confidence ?? DEFAULT_REVIEW_VARIABLES.confidence,
-      };
-      const metrics = computeMetrics(scores);
-      return {
-        id: `${createdAt}-${index}-${Math.random().toString(36).slice(2, 8)}`,
-        decisionTitle: candidate.decisionTitle.trim() || "Untitled decision",
-        decisionDetail: candidate.decisionDetail.trim(),
-        category: candidate.category?.trim() || "Other",
-        impact: scores.impact,
-        cost: scores.cost,
-        risk: scores.risk,
-        urgency: scores.urgency,
-        confidence: scores.confidence,
-        r: metrics.return,
-        p: metrics.pressure,
-        s: metrics.stability,
-        dnav: metrics.dnav,
-        createdAt: createdAt + index,
-        evidence: candidate.evidence,
-      };
-    });
-    setSessionDecisions((prev) => [...nextDecisions, ...prev]);
-    setDecisionCandidates([]);
-    setIntakeStatus("committed");
-    return nextDecisions.length;
-  }, []);
-
-  const handleFilesAdded = useCallback((files: File[]) => {
-    const pdfFiles = files.filter((file) => file.type === "application/pdf" || file.name.toLowerCase().endsWith(".pdf"));
-    if (pdfFiles.length === 0) {
-      setIntakeError("Only PDF files are supported right now.");
-      return;
-    }
-    setIntakeError(null);
-    setIntakeFiles((prev) => [
-      ...prev,
-      ...pdfFiles.map((file) => ({
-        id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
-        file,
-        fileName: file.name,
-        sizeBytes: file.size,
-        uploadedAt: Date.now(),
-        progress: 0,
-      })),
-    ]);
-    setIntakeStatus("doc_selected");
-  }, []);
-
-  const handleRemoveFile = useCallback((id: string) => {
-    setIntakeFiles((prev) => {
-      const next = prev.filter((file) => file.id !== id);
-      if (next.length === 0) {
-        setIntakeStatus("idle");
-      }
-      return next;
-    });
-    setDecisionCandidates((prev) => prev.filter((candidate) => candidate.evidence.docId !== id));
-  }, []);
-
-  const dropzoneFiles = useMemo<PdfDropzoneFile[]>(
-    () =>
-      intakeFiles.map((file) => ({
-        id: file.id,
-        name: file.fileName,
-        sizeBytes: file.sizeBytes,
-        progress: file.progress,
-        warning:
-          file.sizeBytes > SOFT_FILE_LIMIT_MB * 1024 * 1024
-            ? `Over ${SOFT_FILE_LIMIT_MB}MB — parsing may be slow.`
-            : undefined,
-      })),
-    [intakeFiles],
-  );
-
-  const keptCandidates = useMemo(
-    () => decisionCandidates.filter((candidate) => candidate.keep),
-    [decisionCandidates],
-  );
 
   const decisionCount = sessionDecisions.length;
   const progressCount = Math.min(decisionCount, 10);
@@ -682,6 +312,10 @@ export default function StressTestPage() {
       console.error("Failed to clear stress test session decisions.", error);
     }
   }, []);
+
+  // TODO: Rebuild Decision Intake v2
+  // Intake will be redesigned around the Decision Atom:
+  // Actor + Action + Object + Constraint
 
   return (
     <TooltipProvider>
@@ -927,154 +561,6 @@ export default function StressTestPage() {
                 </div>
               </div>
             ) : null}
-
-            <div className="mt-5 space-y-4">
-              <div className="h-px w-full bg-border/40" />
-              <div className="flex flex-col gap-4">
-                <button
-                  type="button"
-                  onClick={() => setIsBaselineOpen((prev) => !prev)}
-                  className="flex w-full items-center justify-between gap-4 rounded-lg border border-border/60 bg-muted/10 px-4 py-3 text-left"
-                >
-                  <div className="space-y-1">
-                    <h2 className="text-sm font-semibold text-foreground">Decision Intake</h2>
-                    <p className="text-xs text-muted-foreground">Upload PDFs, extract candidates, review, and commit.</p>
-                  </div>
-                  <div className="flex items-center gap-2 text-xs font-semibold text-muted-foreground">
-                    <span>Upload PDF</span>
-                    <ChevronDown
-                      aria-hidden="true"
-                      className={`h-4 w-4 transition ${isBaselineOpen ? "rotate-180" : ""}`}
-                    />
-                  </div>
-                </button>
-
-                {isBaselineOpen ? (
-                  <section className="space-y-4">
-                    <div className="grid gap-4 lg:grid-cols-[1.3fr_0.7fr]">
-                      <div className="space-y-3 rounded-xl border border-border/60 bg-background/90 p-4 shadow-sm">
-                        <div className="space-y-1">
-                          <h3 className="text-sm font-semibold text-foreground">Decision Intake</h3>
-                          <p className="text-xs text-muted-foreground">
-                            Drag in PDFs and keep only the commitments you want scored.
-                          </p>
-                        </div>
-                        <PdfDropzone
-                          files={dropzoneFiles}
-                          onFilesAdded={handleFilesAdded}
-                          onRemoveFile={handleRemoveFile}
-                          disabled={isParsing}
-                        />
-                        {intakeError ? (
-                          <div className="rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-xs text-rose-600">
-                            {intakeError}
-                          </div>
-                        ) : null}
-                        <div className="flex flex-wrap items-center gap-3">
-                          <Button
-                            onClick={handleExtractDecisions}
-                            className="h-10 px-4 text-sm font-semibold"
-                            disabled={isParsing || intakeFiles.length === 0}
-                          >
-                            {isParsing ? "Extracting…" : "Extract Decision Candidates"}
-                          </Button>
-                          <span className="text-xs text-muted-foreground">
-                            Status: {intakeStatus.replace(/_/g, " ")}
-                          </span>
-                        </div>
-                      </div>
-                      <div className="rounded-xl border border-border/60 bg-background/90 p-4 shadow-sm">
-                        <details className="group">
-                          <summary className="cursor-pointer text-sm font-semibold text-foreground">
-                            Context (optional)
-                          </summary>
-                          <div className="mt-3 space-y-3 text-xs text-muted-foreground">
-                            <div className="space-y-1">
-                              <p className="text-xs font-semibold text-foreground">Strategic intent</p>
-                              <Textarea
-                                value={intentContext}
-                                onChange={(event) => setIntentContext(event.target.value)}
-                                placeholder="Why this document matters / desired outcomes"
-                                className="min-h-[90px] text-xs"
-                              />
-                            </div>
-                            <div className="space-y-1">
-                              <p className="text-xs font-semibold text-foreground">Constraints</p>
-                              <Textarea
-                                value={constraintContext}
-                                onChange={(event) => setConstraintContext(event.target.value)}
-                                placeholder="Hard limits, dependencies, timing"
-                                className="min-h-[90px] text-xs"
-                              />
-                            </div>
-                            <p className="text-[11px] text-muted-foreground">
-                              Context will be used later to refine extraction.
-                            </p>
-                          </div>
-                        </details>
-                      </div>
-                    </div>
-
-                    {decisionCandidates.length > 0 ? (
-                      <div ref={reviewPanelRef} className="space-y-3">
-                        {decisionCandidates.length < 10 ? (
-                          <p className="text-xs text-muted-foreground">
-                            We found {decisionCandidates.length}. Add more documents to reach 10–20 commitments.
-                          </p>
-                        ) : null}
-                        {showDecisionDebug && decisionDiagnostics ? (
-                          <div className="rounded-lg border border-dashed border-border/60 bg-muted/20 px-3 py-2 text-[11px] text-muted-foreground">
-                            <div className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
-                              Decision intake debug
-                            </div>
-                            <div className="mt-2 flex flex-wrap gap-3 text-[11px]">
-                              <span>Decision: {decisionDiagnostics.byBin.Decision}</span>
-                              <span>Maybe: {decisionDiagnostics.byBin.MaybeDecision}</span>
-                              <span>Evidence-only: {decisionDiagnostics.byBin.EvidenceOnly}</span>
-                              <span>Rejected: {decisionDiagnostics.byBin.Rejected}</span>
-                            </div>
-                            {decisionDiagnostics.evidenceOnlySamples.length > 0 ? (
-                              <div className="mt-2 space-y-1">
-                                <div className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
-                                  Evidence-only samples
-                                </div>
-                                {decisionDiagnostics.evidenceOnlySamples.map((sample) => (
-                                  <p key={sample.id} className="line-clamp-2">
-                                    {sample.rawText}
-                                  </p>
-                                ))}
-                              </div>
-                            ) : null}
-                          </div>
-                        ) : null}
-                        <CandidateReviewTable
-                          candidates={decisionCandidates}
-                          onCandidatesChange={setDecisionCandidates}
-                          categories={EXTRACTED_DECISION_CATEGORIES}
-                          showDecisionDebug={showDecisionDebug}
-                        />
-                        <div className="flex flex-wrap items-center gap-2">
-                          <Button
-                            onClick={() => handleAddCandidatesToLog(keptCandidates)}
-                            className="h-9 px-4 text-xs font-semibold uppercase tracking-wide"
-                            disabled={keptCandidates.length === 0}
-                          >
-                            Add kept decisions to session
-                          </Button>
-                          <ExcelExportButton
-                            decisions={sessionDecisions}
-                            className="h-9 px-4 text-xs font-semibold uppercase tracking-wide"
-                          />
-                          {intakeStatus === "committed" ? (
-                            <span className="text-xs text-muted-foreground">Added to session.</span>
-                          ) : null}
-                        </div>
-                      </div>
-                    ) : null}
-                  </section>
-                ) : null}
-              </div>
-            </div>
 
             {process.env.NODE_ENV === "development" ? (
               <div className="rounded-lg border border-dashed border-border/60 bg-muted/30 px-3 py-2 text-xs text-muted-foreground">
