@@ -44,8 +44,11 @@ const COMMITMENT_VERBS = [
   "will",
   "plan to",
   "plans to",
+  "expect to",
+  "expects to",
   "intend to",
   "intends to",
+  "scheduled to",
   "launch",
   "begin",
   "start",
@@ -62,6 +65,7 @@ const COMMITMENT_VERBS = [
   "open",
   "close",
   "schedule",
+  "complete",
 ];
 
 const ACTION_VERBS = [
@@ -81,6 +85,7 @@ const ACTION_VERBS = [
   "open",
   "close",
   "schedule",
+  "complete",
   "produce",
   "hire",
 ];
@@ -114,6 +119,23 @@ const METRIC_TERMS = [
 const HEADER_TERMS = ["financial summary", "outlook", "guidance", "results"];
 
 const WEAK_MODALS = ["may", "might", "could"];
+
+const actionVerbPatterns = ACTION_VERBS.map((verb) => {
+  if (verb.includes(" ")) {
+    return new RegExp(`\\b${verb.replace(/\s+/g, "\\\\s+")}\\b`, "i");
+  }
+  return new RegExp(`\\b${verb}(?:s|es|ed|ing)?\\b`, "i");
+});
+
+const commitmentVerbPatterns = COMMITMENT_VERBS.map((verb) => {
+  if (verb.includes(" ")) {
+    return new RegExp(`\\b${verb.replace(/\s+/g, "\\\\s+")}\\b`, "i");
+  }
+  if (verb === "will") {
+    return /\bwill\b/i;
+  }
+  return new RegExp(`\\b${verb}(?:s|es|ed|ing)?\\b`, "i");
+});
 
 const STOP_PHRASES = [
   "we expect",
@@ -180,15 +202,35 @@ const STOPWORDS = new Set([
 
 const DATE_PATTERNS = [
   /\b(?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Sept|Oct|Nov|Dec)[a-z]*\s+\d{1,2}(?:,\s*\d{2,4})?\b/gi,
+  /\b(?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Sept|Oct|Nov|Dec)[a-z]*\s+20\d{2}\b/gi,
   /\bQ[1-4]\s?20\d{2}\b/gi,
   /\b[12]H\s?20\d{2}\b/gi,
   /\bFY\s?20\d{2}\b/gi,
-  /\b(?:later this year|later this quarter|next quarter|next year|next month|by end of 20\d{2})\b/gi,
+  /\b(?:later this year|later this quarter|next quarter|next year|next month|end of 20\d{2}|by end of 20\d{2})\b/gi,
+  /\b\d{1,2}\/\d{1,2}\/\d{2,4}\b/gi,
 ];
 
-const MAX_TITLE_LENGTH = 90;
+const MAX_TITLE_LENGTH = 110;
 
-const cleanLine = (line: string) => line.replace(/\s+/g, " ").trim();
+const WORD_MERGES: Array<[RegExp, string]> = [
+  [/\bdeploy\s+ments\b/gi, "deployments"],
+  [/\binvest\s+ments\b/gi, "investments"],
+  [/\bdeliver\s+ies\b/gi, "deliveries"],
+];
+
+export const cleanText = (text: string) => {
+  let cleaned = text ?? "";
+  WORD_MERGES.forEach(([pattern, replacement]) => {
+    cleaned = cleaned.replace(pattern, replacement);
+  });
+  cleaned = cleaned.replace(/\b([a-z]{3,})\s+((?:m|n|r|l|t)ents)\b/gi, "$1$2");
+  cleaned = cleaned.replace(/\b([a-z]{3,})\s+ies\b/gi, "$1ies");
+  cleaned = cleaned.replace(/\s+([,.;:!?])/g, "$1");
+  cleaned = cleaned.replace(/\s{2,}/g, " ");
+  return cleaned.trim();
+};
+
+const cleanLine = (line: string) => cleanText(line);
 
 const ingestPageText = (text: string): PageTextData => {
   const pageTextRaw = text ?? "";
@@ -261,12 +303,14 @@ const containsMetricTerms = (text: string) => {
   return METRIC_TERMS.some((term) => lower.includes(term)) || /\b(yoy|qoq)\b/i.test(text);
 };
 
-const containsActionVerb = (text: string) => ACTION_VERBS.some((verb) => text.toLowerCase().includes(verb));
+const containsActionVerb = (text: string) => actionVerbPatterns.some((pattern) => pattern.test(text));
 
 const containsTimeMarker = (text: string) =>
-  /\b(Q[1-4]\s?20\d{2}|[12]H\s?20\d{2}|FY\s?20\d{2}|later this year|later this quarter|next quarter|next year|by end of 20\d{2})\b/i.test(
+  /\b(Q[1-4]\s?20\d{2}|[12]H\s?20\d{2}|FY\s?20\d{2}|later this year|later this quarter|next quarter|next year|next month|end of 20\d{2}|by end of 20\d{2})\b/i.test(
     text,
-  );
+  ) ||
+  /\b\d{1,2}\/\d{1,2}\/\d{2,4}\b/i.test(text) ||
+  /\b(?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Sept|Oct|Nov|Dec)[a-z]*\s+20\d{2}\b/i.test(text);
 
 const containsResourceMarker = (text: string) =>
   RESOURCE_MARKERS.some((term) => text.toLowerCase().includes(term));
@@ -277,33 +321,30 @@ const detectCommitmentVerb = (text: string) => {
   let bestVerb: string | null = null;
   let strength = 0;
 
-  const registerMatch = (verb: string, index: number, baseStrength: number) => {
-    if (index < 0) return;
-    if (index < bestIndex) {
-      bestIndex = index;
+  const registerMatch = (verb: string, match: RegExpExecArray | null, baseStrength: number) => {
+    if (!match) return;
+    if (match.index < bestIndex) {
+      bestIndex = match.index;
       bestVerb = verb;
       strength = baseStrength;
     }
   };
 
-  ACTION_VERBS.forEach((verb) => {
-    const index = lowered.indexOf(verb);
-    registerMatch(verb, index, 1);
+  actionVerbPatterns.forEach((pattern, index) => {
+    registerMatch(ACTION_VERBS[index], pattern.exec(text), 1);
   });
 
   VERB_SYNONYMS.forEach(({ pattern, canonical }) => {
-    const match = pattern.exec(text);
-    if (match) {
-      registerMatch(canonical, match.index, 1);
-    }
+    registerMatch(canonical, pattern.exec(text), 1);
   });
 
-  COMMITMENT_VERBS.forEach((verb) => {
-    const index = lowered.indexOf(verb);
-    if (index >= 0 && bestVerb === null) {
-      bestVerb = verb;
+  commitmentVerbPatterns.forEach((pattern, index) => {
+    if (bestVerb) return;
+    const match = pattern.exec(text);
+    if (match) {
+      bestVerb = COMMITMENT_VERBS[index];
       strength = 0.8;
-      bestIndex = index;
+      bestIndex = match.index;
     }
   });
 
@@ -330,7 +371,10 @@ const pickBestTimeCue = (dateMentions: string[], text: string) => {
     if (/\bQ[1-4]\s?20\d{2}\b/i.test(cue)) return 5;
     if (/\b[12]H\s?20\d{2}\b/i.test(cue)) return 4;
     if (/\b(?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Sept|Oct|Nov|Dec)[a-z]*\s+\d{1,2}/i.test(cue)) return 4;
+    if (/\b(?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Sept|Oct|Nov|Dec)[a-z]*\s+20\d{2}\b/i.test(cue)) return 3;
     if (/\bFY\s?20\d{2}\b/i.test(cue)) return 3;
+    if (/\b\d{1,2}\/\d{1,2}\/\d{2,4}\b/.test(cue)) return 3;
+    if (/\bend of 20\d{2}\b/i.test(cue)) return 3;
     if (/\b20\d{2}\b/.test(cue)) return 2;
     return 1;
   };
@@ -351,6 +395,9 @@ const normalizeTimingFromHint = (hint?: string | null) => {
     return { precision: "year" as const };
   }
   if (/\b(?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Sept|Oct|Nov|Dec)[a-z]*\s+\d{1,2}/i.test(hint)) {
+    return { precision: "day" as const };
+  }
+  if (/\b\d{1,2}\/\d{1,2}\/\d{2,4}\b/.test(hint)) {
     return { precision: "day" as const };
   }
   if (/\b(?:later this year|later this quarter|next quarter|next year|next month)\b/i.test(hint)) {
@@ -397,16 +444,16 @@ const isForecastMaybe = (text: string) =>
 const isFragment = (text: string) => text.trim().length < 35 || isAllCapsHeader(text) || looksLikeTableRow(text);
 
 const scoreGate = (candidate: RawCandidate): GateResult => {
-  const { rawText } = candidate;
-  const commitment = detectCommitmentVerb(rawText);
-  const signals = detectConstraintSignals(rawText);
-  const hasAction = containsActionVerb(rawText);
-  const hasTime = containsTimeMarker(rawText);
-  const hasResource = containsResourceMarker(rawText);
-  const metricNoise = isMetricNoise(rawText);
-  const header = isAllCapsHeader(rawText) || HEADER_TERMS.some((term) => rawText.toLowerCase().includes(term));
-  const fragment = isFragment(rawText);
-  const forecastMaybe = isForecastMaybe(rawText);
+  const cleanedText = cleanText(candidate.rawText);
+  const commitment = detectCommitmentVerb(cleanedText);
+  const signals = detectConstraintSignals(cleanedText);
+  const hasAction = containsActionVerb(cleanedText);
+  const hasTime = containsTimeMarker(cleanedText);
+  const hasResource = containsResourceMarker(cleanedText);
+  const metricNoise = isMetricNoise(cleanedText);
+  const header = isAllCapsHeader(cleanedText) || HEADER_TERMS.some((term) => cleanedText.toLowerCase().includes(term));
+  const fragment = isFragment(cleanedText);
+  const forecastMaybe = isForecastMaybe(cleanedText);
 
   const reasonsIncluded: string[] = [];
   const reasonsExcluded: string[] = [];
@@ -418,7 +465,10 @@ const scoreGate = (candidate: RawCandidate): GateResult => {
 
   if (metricNoise) reasonsExcluded.push("metricNoise");
   if (header) reasonsExcluded.push("sectionHeader");
-  if (!hasAction && !commitment.verb) reasonsExcluded.push("missingActionVerb");
+  if (!hasAction && !commitment.verb) {
+    reasonsExcluded.push("missingActionVerb");
+    reasonsExcluded.push("missingCommitmentVerb");
+  }
   if (fragment) reasonsExcluded.push("fragment");
   if (forecastMaybe) reasonsIncluded.push("forecast");
 
@@ -436,7 +486,9 @@ const scoreGate = (candidate: RawCandidate): GateResult => {
 
   let bin: DecisionGateBin = "Rejected";
   if (!metricNoise && !header) {
-    if (score >= 0.6 && (hasAction || commitment.verb)) {
+    if (!hasAction && !commitment.verb) {
+      bin = "Rejected";
+    } else if (score >= 0.6 && (hasAction || commitment.verb)) {
       bin = "Decision";
     } else if (score >= 0.35 || forecastMaybe) {
       bin = "MaybeDecision";
@@ -490,15 +542,15 @@ const findSectionHint = (lines: string[], lineIndex: number) => {
 const stripBoilerplatePrefix = (text: string) =>
   text
     .replace(
-      /^(?:the\s+)?company\s+(?:will|expects to|expect to|plans to|plan to|aims to|aim to|intends to|intend to)\s+/i,
+      /^(?:the\s+)?company\s+(?:will|expects to|expect to|plans to|plan to|aims to|aim to|intends to|intend to|scheduled to)\s+/i,
       "",
     )
     .replace(
-      /^tesla\s+(?:will|expects to|expect to|plans to|plan to|aims to|aim to|intends to|intend to)\s+/i,
+      /^tesla\s+(?:will|expects to|expect to|plans to|plan to|aims to|aim to|intends to|intend to|scheduled to)\s+/i,
       "",
     )
     .replace(
-      /^(?:we|management|board|team)\s+(?:will|expect to|expects to|plan to|plans to|aim to|aims to|intend to|intends to)\s+/i,
+      /^(?:we|management|board|team)\s+(?:will|expect to|expects to|plan to|plans to|aim to|aims to|intend to|intends to|scheduled to)\s+/i,
       "",
     )
     .trim();
@@ -549,14 +601,13 @@ const normalizeModal = (verb?: string | null) => {
 };
 
 const findActionVerb = (text: string) => {
-  const lowered = text.toLowerCase();
   let bestIndex = Number.POSITIVE_INFINITY;
   let bestVerb: string | null = null;
-  ACTION_VERBS.forEach((verb) => {
-    const index = lowered.indexOf(verb);
-    if (index >= 0 && index < bestIndex) {
-      bestIndex = index;
-      bestVerb = verb;
+  actionVerbPatterns.forEach((pattern, index) => {
+    const match = pattern.exec(text);
+    if (match && match.index < bestIndex) {
+      bestIndex = match.index;
+      bestVerb = ACTION_VERBS[index];
     }
   });
   VERB_SYNONYMS.forEach(({ pattern, canonical }) => {
@@ -576,7 +627,8 @@ const stripTimeFromPhrase = (text: string) =>
     .replace(/\b(?:in|during|through)\s+[12]H\s?20\d{2}\b/gi, "")
     .replace(/\b(?:in|during|through)\s+FY\s?20\d{2}\b/gi, "")
     .replace(/\b(?:in|during|through)\s+20\d{2}\b/gi, "")
-    .replace(/\b(?:later this year|later this quarter|next quarter|next year|next month)\b/gi, "");
+    .replace(/\b(?:later this year|later this quarter|next quarter|next year|next month|end of 20\d{2}|by end of 20\d{2})\b/gi, "")
+    .replace(/\b\d{1,2}\/\d{1,2}\/\d{2,4}\b/g, "");
 
 const enforceTitleLength = (title: string) => {
   if (title.length <= MAX_TITLE_LENGTH) {
@@ -590,6 +642,11 @@ const enforceTitleLength = (title: string) => {
   const clauseIndex = trimmed.search(/[;,]/);
   if (clauseIndex > 0) {
     trimmed = trimmed.slice(0, clauseIndex).trim();
+  }
+  if (trimmed.length <= MAX_TITLE_LENGTH) return { title: trimmed.trim(), status: "Ok" as const };
+  const subClauseIndex = trimmed.search(/\b(?:which|that)\b/i);
+  if (subClauseIndex > 0) {
+    trimmed = trimmed.slice(0, subClauseIndex).trim();
   }
   if (trimmed.length <= MAX_TITLE_LENGTH) return { title: trimmed.trim(), status: "Ok" as const };
   return { title: `${trimmed.slice(0, MAX_TITLE_LENGTH - 1).trim()}…`, status: "NeedsRewrite" as const };
@@ -651,14 +708,82 @@ const buildMergeReasons = (actionVerb: string, objectKey: string, timeBucket: st
   return reasons;
 };
 
+const UNIT_REGEX =
+  /\b(\$?\d[\d,]*(?:\.\d+)?)(?:\s*)(%|percent|bps|bp|GWh|MWh|kWh|GW|MW|million|billion|thousand|USD|usd|dollars?)\b/gi;
+
+const DOLLAR_REGEX = /\$\d[\d,]*(?:\.\d+)?/g;
+
+const normalizeNumber = (value: string) => Number(value.replace(/[$,]/g, ""));
+
+const formatUnitDisplay = (rawNumber: string, unit: string) => {
+  if (unit === "%" || unit.toLowerCase() === "percent") {
+    return `${rawNumber.replace(/[$,]/g, "")}%`;
+  }
+  if (unit.toLowerCase() === "bp" || unit.toLowerCase() === "bps") {
+    return `${rawNumber.replace(/[$,]/g, "")} bps`;
+  }
+  if (unit.toLowerCase() === "usd" || unit.toLowerCase().includes("dollar")) {
+    return `$${rawNumber.replace(/[$]/g, "")}`;
+  }
+  return `${rawNumber.replace(/[$]/g, "")} ${unit}`;
+};
+
+const buildNumberUnitMap = (text: string) => {
+  const map = new Map<string, string>();
+  UNIT_REGEX.lastIndex = 0;
+  let match: RegExpExecArray | null = null;
+  while ((match = UNIT_REGEX.exec(text)) !== null) {
+    const rawNumber = match[1];
+    const unit = match[2];
+    const key = normalizeNumber(rawNumber).toString();
+    if (!map.has(key)) {
+      map.set(key, formatUnitDisplay(rawNumber, unit));
+    }
+  }
+  const dollarMatches = text.match(DOLLAR_REGEX) ?? [];
+  dollarMatches.forEach((raw) => {
+    const key = normalizeNumber(raw).toString();
+    if (!map.has(key)) {
+      map.set(key, raw);
+    }
+  });
+  return map;
+};
+
+const injectUnitsIntoTitle = (title: string, sourceText: string) => {
+  const numberUnitMap = buildNumberUnitMap(sourceText);
+  let missingUnit = false;
+  const updatedTitle = title.replace(/(\$?\d[\d,]*(?:\.\d+)?)/g, (match, rawNumber, offset, full) => {
+    if (match.includes("$")) return match;
+    const numberValue = normalizeNumber(rawNumber);
+    if (!Number.isFinite(numberValue)) return match;
+    if (numberValue >= 1900 && numberValue <= 2100) return match;
+    const after = full.slice(offset + match.length);
+    if (/\s?(%|bps|bp|GWh|MWh|kWh|GW|MW|million|billion|thousand)\b/i.test(after)) {
+      return match;
+    }
+    const key = numberValue.toString();
+    const unitDisplay = numberUnitMap.get(key);
+    if (unitDisplay) {
+      return unitDisplay;
+    }
+    missingUnit = true;
+    return `${match} (~)`;
+  });
+  return { title: updatedTitle, missingUnit };
+};
+
 const hasBrokenTokens = (text: string) =>
-  /\b(launch|build|ramp|start|expand|reduce|deploy|introduce|invest|produce)\s+(ed|ing)\b/i.test(text);
+  /\b(launch|build|ramp|start|expand|reduce|deploy|introduce|invest|produce)\s+(ed|ing)\b/i.test(text) ||
+  /\b[a-z]{3,}\s+(?:m|n|r|l|t)ents\b/i.test(text) ||
+  /\b[a-z]{3,}\s+ies\b/i.test(text);
 
 const hasGenericObject = (objectText: string) =>
   /\b(it|this|that|initiative|strategy|plan|program|project)\b/i.test(objectText) || objectText.length < 12;
 
 const canonicalizeDecision = (candidate: Candidate): CanonicalUnit => {
-  const cleaned = repairTokenization(stripFillerPhrases(stripBoilerplatePrefix(candidate.rawText)));
+  const cleanedRaw = cleanText(candidate.rawText);
+  const cleaned = repairTokenization(stripFillerPhrases(stripBoilerplatePrefix(cleanedRaw)));
   const actor = detectActorName(cleaned);
   const commitment = candidate.gate.commitmentVerb ?? detectCommitmentVerb(cleaned).verb;
   const modal = normalizeModal(commitment);
@@ -669,15 +794,19 @@ const canonicalizeDecision = (candidate: Candidate): CanonicalUnit => {
   const objectPhrase = stripSubordinateClauses(stripTimeFromPhrase(withoutLeadingTo));
   const baseObject = objectPhrase.trim();
   const baseTitle = baseObject ? `${actor} ${modal} ${actionVerb} ${baseObject}` : `${actor} ${modal} ${actionVerb}`;
-  const timeCue = pickBestTimeCue(candidate.dateMentions ?? [], candidate.rawText);
+  const timeCue = pickBestTimeCue(candidate.dateMentions ?? [], cleanedRaw);
   const timeHintRaw = timeCue?.raw ?? null;
   const withTime = timeHintRaw ? `${baseTitle} (${timeHintRaw})` : baseTitle;
-  const enforced = enforceTitleLength(withTime);
+  const sourceText = cleanText(candidate.contextText ?? candidate.rawText);
+  const unitInjection = injectUnitsIntoTitle(withTime, sourceText);
+  const enforced = enforceTitleLength(unitInjection.title);
+  const missingStructure = !actionVerb || !baseObject;
 
   const needsRewrite =
     enforced.status === "NeedsRewrite" ||
+    unitInjection.missingUnit ||
     hasBrokenTokens(baseTitle) ||
-    !actionVerb ||
+    missingStructure ||
     hasGenericObject(baseObject);
 
   const updatedGate =
