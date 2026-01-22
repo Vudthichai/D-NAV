@@ -4,17 +4,10 @@ import StressTestCalculator, {
   StressTestCalculatorHandle,
   type StressTestDecisionSnapshot,
 } from "@/components/stress-test/StressTestCalculator";
-import DecisionCandidateIntake from "@/components/stress-test/DecisionCandidateIntake";
 import { useDefinitionsPanel } from "@/components/definitions/DefinitionsPanelProvider";
 import { Button } from "@/components/ui/button";
-import { AccentSliver } from "@/components/ui/AccentSliver";
-import { Callout } from "@/components/ui/Callout";
-import Term from "@/components/ui/Term";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
-import { MetricDistribution, type MetricDistributionSegment } from "@/components/reports/MetricDistribution";
-import { getSessionActionInsight } from "@/lib/sessionActionInsight";
-import Link from "next/link";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 
 interface SessionDecision {
   id: string;
@@ -61,9 +54,7 @@ export default function StressTestPage() {
       return [];
     }
   });
-  const [isSessionAnalysisOpen, setIsSessionAnalysisOpen] = useState(false);
   const calculatorRef = useRef<StressTestCalculatorHandle>(null);
-  const sessionAnalysisRef = useRef<HTMLDivElement>(null);
 
   const { openDefinitions } = useDefinitionsPanel();
 
@@ -105,190 +96,6 @@ export default function StressTestPage() {
   const progressCount = Math.min(decisionCount, 10);
   const canOpenSessionAnalysis = decisionCount >= 10;
 
-  const sessionStats = useMemo(() => {
-    if (sessionDecisions.length === 0) {
-      return {
-        avgImpact: 0,
-        avgCost: 0,
-        avgRisk: 0,
-        avgUrgency: 0,
-        avgConfidence: 0,
-        avgReturn: 0,
-        avgPressure: 0,
-        avgStability: 0,
-        avgDnav: 0,
-      };
-    }
-
-    const totals = sessionDecisions.reduce(
-      (acc, decision) => {
-        acc.impact += decision.impact;
-        acc.cost += decision.cost;
-        acc.risk += decision.risk;
-        acc.urgency += decision.urgency;
-        acc.confidence += decision.confidence;
-        acc.return += decision.r;
-        acc.pressure += decision.p;
-        acc.stability += decision.s;
-        acc.dnav += decision.dnav;
-        return acc;
-      },
-      { impact: 0, cost: 0, risk: 0, urgency: 0, confidence: 0, return: 0, pressure: 0, stability: 0, dnav: 0 },
-    );
-
-    const count = sessionDecisions.length;
-    return {
-      avgImpact: totals.impact / count,
-      avgCost: totals.cost / count,
-      avgRisk: totals.risk / count,
-      avgUrgency: totals.urgency / count,
-      avgConfidence: totals.confidence / count,
-      avgReturn: totals.return / count,
-      avgPressure: totals.pressure / count,
-      avgStability: totals.stability / count,
-      avgDnav: totals.dnav / count,
-    };
-  }, [sessionDecisions]);
-
-  const sessionBuckets = useMemo(() => {
-    const buckets = {
-      return: { Positive: 0, Neutral: 0, Negative: 0 },
-      pressure: { Pressured: 0, Neutral: 0, Calm: 0 },
-      stability: { Stable: 0, Neutral: 0, Fragile: 0 },
-    };
-
-    sessionDecisions.forEach((decision) => {
-      if (decision.r > 0) buckets.return.Positive += 1;
-      else if (decision.r < 0) buckets.return.Negative += 1;
-      else buckets.return.Neutral += 1;
-
-      if (decision.p > 0) buckets.pressure.Pressured += 1;
-      else if (decision.p < 0) buckets.pressure.Calm += 1;
-      else buckets.pressure.Neutral += 1;
-
-      if (decision.s > 0) buckets.stability.Stable += 1;
-      else if (decision.s < 0) buckets.stability.Fragile += 1;
-      else buckets.stability.Neutral += 1;
-    });
-
-    return buckets;
-  }, [sessionDecisions]);
-
-  const sessionDistributions = useMemo(() => {
-    const total = sessionDecisions.length;
-    const toPct = (value: number) => (total > 0 ? (value / total) * 100 : 0);
-
-    const returnSegments: MetricDistributionSegment[] = [
-      { label: "Positive", value: toPct(sessionBuckets.return.Positive), colorClass: "bg-emerald-500" },
-      { label: "Neutral", value: toPct(sessionBuckets.return.Neutral), colorClass: "bg-muted" },
-      { label: "Negative", value: toPct(sessionBuckets.return.Negative), colorClass: "bg-rose-500" },
-    ];
-
-    const pressureSegments: MetricDistributionSegment[] = [
-      { label: "Pressured", value: toPct(sessionBuckets.pressure.Pressured), colorClass: "bg-amber-500" },
-      { label: "Neutral", value: toPct(sessionBuckets.pressure.Neutral), colorClass: "bg-muted" },
-      { label: "Calm", value: toPct(sessionBuckets.pressure.Calm), colorClass: "bg-sky-500" },
-    ];
-
-    const stabilitySegments: MetricDistributionSegment[] = [
-      { label: "Stable", value: toPct(sessionBuckets.stability.Stable), colorClass: "bg-emerald-600" },
-      { label: "Neutral", value: toPct(sessionBuckets.stability.Neutral), colorClass: "bg-muted" },
-      { label: "Fragile", value: toPct(sessionBuckets.stability.Fragile), colorClass: "bg-rose-500" },
-    ];
-
-    return {
-      returnSegments,
-      pressureSegments,
-      stabilitySegments,
-      pressurePressuredPct: toPct(sessionBuckets.pressure.Pressured),
-      stabilityFragilePct: toPct(sessionBuckets.stability.Fragile),
-    };
-  }, [sessionBuckets, sessionDecisions.length]);
-
-  const sessionDirective = useMemo(
-    () =>
-      getSessionActionInsight({
-        avgReturn: sessionStats.avgReturn,
-        avgPressure: sessionStats.avgPressure,
-        avgStability: sessionStats.avgStability,
-        avgRisk: sessionStats.avgRisk,
-        avgConfidence: sessionStats.avgConfidence,
-      }),
-    [
-      sessionStats.avgConfidence,
-      sessionStats.avgPressure,
-      sessionStats.avgReturn,
-      sessionStats.avgRisk,
-      sessionStats.avgStability,
-    ],
-  );
-
-  const sessionActionOutput = useMemo(() => {
-    if (sessionDecisions.length === 0) {
-      return {
-        callout: "Action Insight will appear once a few decisions are logged.",
-        invitation: "Log one decision to surface a pressure pattern.",
-        note: null,
-      };
-    }
-
-    if (sessionStats.avgUrgency - sessionStats.avgConfidence >= 1) {
-      return {
-        callout: "Urgency is leading confidence across the session.",
-        invitation: "Left unchecked, this pattern scales risk faster than impact.",
-        note: null,
-      };
-    }
-
-    if (sessionStats.avgReturn > 0 && sessionStats.avgStability < 0.5) {
-      return {
-        callout: "Returns lead, but stability is lagging across the session.",
-        invitation: "Left unchecked, this pattern compounds risk faster than resilience.",
-        note: null,
-      };
-    }
-
-    if (sessionStats.avgImpact - sessionStats.avgConfidence >= 1) {
-      return {
-        callout: "Impact is leading, while confidence is lagging across the session.",
-        invitation: "Left unchecked, this pattern stretches execution beyond evidence.",
-        note: null,
-      };
-    }
-
-    if (sessionStats.avgReturn <= 0 || sessionStats.avgPressure > 1) {
-      return {
-        callout: "Pressure is rising while return is muted across the session.",
-        invitation: "Left unchecked, this pattern limits upside while drag compounds.",
-        note: null,
-      };
-    }
-
-    return {
-      callout: "Confidence, pressure, and return are aligned across the session.",
-      invitation: "Left unchecked, this pattern can drift if urgency spikes.",
-      note: "Aligned signals can still hide emerging pressure without guided review.",
-    };
-  }, [
-    sessionDecisions.length,
-    sessionStats.avgConfidence,
-    sessionStats.avgImpact,
-    sessionStats.avgPressure,
-    sessionStats.avgReturn,
-    sessionStats.avgStability,
-    sessionStats.avgUrgency,
-  ]);
-
-  const handleSessionAnalysisToggle = useCallback(() => {
-    const nextOpen = !isSessionAnalysisOpen;
-    setIsSessionAnalysisOpen(nextOpen);
-    if (nextOpen) {
-      requestAnimationFrame(() => {
-        sessionAnalysisRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
-      });
-    }
-  }, [isSessionAnalysisOpen]);
-
   const formatCompact = useCallback((value: number, digits = 0) => {
     if (!Number.isFinite(value)) return "0";
     return value.toFixed(digits);
@@ -305,7 +112,6 @@ export default function StressTestPage() {
     if (typeof window === "undefined") return;
     if (!window.confirm("Clear saved session decisions?")) return;
     setSessionDecisions([]);
-    setIsSessionAnalysisOpen(false);
     calculatorRef.current?.resetSavedState();
     try {
       window.sessionStorage.removeItem(SESSION_DECISIONS_KEY);
@@ -436,142 +242,23 @@ export default function StressTestPage() {
                 </div>
               ) : null}
 
-              {canOpenSessionAnalysis ? (
-                <Button
-                  className="h-9 px-4 text-xs font-semibold uppercase tracking-wide"
-                  onClick={handleSessionAnalysisToggle}
-                >
-                  OPEN SESSION ANALYSIS
-                </Button>
-              ) : (
-                <Button className="h-9 px-4 text-xs font-semibold uppercase tracking-wide" disabled>
-                  OPEN SESSION ANALYSIS
-                </Button>
-              )}
+              <Button
+                className="h-9 px-4 text-xs font-semibold uppercase tracking-wide"
+                disabled={!canOpenSessionAnalysis}
+              >
+                OPEN SESSION ANALYSIS
+              </Button>
             </div>
 
-            {canOpenSessionAnalysis && isSessionAnalysisOpen ? (
-              <div
-                ref={sessionAnalysisRef}
-                className="dnav-dark-glass-surface space-y-4 rounded-2xl border border-border/60 bg-white/70 p-4 shadow-sm"
-              >
-                <div className="flex flex-wrap items-start justify-between gap-3">
-                  <div className="space-y-1">
-                    <h2 className="text-base font-semibold text-foreground">
-                      Session Analysis — Your Judgment Under Pressure
-                    </h2>
-                    <p className="text-xs text-muted-foreground">
-                      A pattern-level readout of how you make decisions before outcomes intervene.
-                    </p>
-                    <p className="text-[11px] text-muted-foreground">
-                      In guided consulting sessions, we review many decisions to surface the real variables — and
-                      understand the physics of judgment under pressure.
-                    </p>
-                  </div>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    className="h-8 px-3 text-xs font-semibold uppercase tracking-wide"
-                    onClick={() => setIsSessionAnalysisOpen(false)}
-                  >
-                    Collapse
-                  </Button>
-                </div>
-                <Callout
-                  label={
-                    <>
-                      <AccentSliver />
-                      <span>Session Insight</span>
-                    </>
-                  }
-                  labelClassName="flex items-center gap-2 text-muted-foreground"
-                  bodyClassName="text-foreground"
-                  className="dnav-dark-glass-surface dnav-insight-callout dnav-session-insight-callout"
-                >
-                  <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-                    <div className="space-y-1">
-                      <p className="font-semibold">{sessionActionOutput.callout}</p>
-                      <p className="text-[11px] text-muted-foreground">{sessionDirective}</p>
-                    </div>
-                    <div className="flex flex-col gap-2 text-[11px] text-muted-foreground md:max-w-[220px] md:items-end md:text-right">
-                      <p className="text-[10px] font-semibold uppercase tracking-wide text-foreground">Next step</p>
-                      <p>Review 10–20 decisions live and tune the variables.</p>
-                      <Button asChild size="sm" className="h-8 px-3 text-[11px]">
-                        <Link href="/contact">Book a Decision Review</Link>
-                      </Button>
-                    </div>
-                  </div>
-                </Callout>
-                <div className="flex flex-wrap gap-2">
-                  {[
-                    { label: "Decisions", value: decisionCount.toString() },
-                    { label: "D-NAV", value: sessionStats.avgDnav.toFixed(1) },
-                    { label: "Return", value: sessionStats.avgReturn.toFixed(1) },
-                    { label: "Pressure", value: sessionStats.avgPressure.toFixed(1) },
-                    { label: "Stability", value: sessionStats.avgStability.toFixed(1) },
-                  ].map((pill) => (
-                    <div
-                      key={pill.label}
-                      className="flex h-9 w-full items-center justify-between gap-3 rounded-full border border-border/40 bg-muted/10 px-3 text-[11px] sm:w-auto"
-                    >
-                      <span className="font-semibold uppercase tracking-wide text-muted-foreground">{pill.label}</span>
-                      <span className="text-sm font-semibold text-foreground tabular-nums">{pill.value}</span>
-                    </div>
-                  ))}
-                </div>
-                <p className="text-[11px] text-muted-foreground">
-                  Decision posture distribution (this is what repeats when stakes rise)
+            <section id="session-gated-area" className="mt-8">
+              <div className="rounded-lg border border-dashed p-6 text-sm text-muted-foreground">
+                <strong>Session-gated area cleared</strong>
+                <p className="mt-2">
+                  All post-session UI has been intentionally removed. This space will be rebuilt once session-level
+                  analysis is redesigned.
                 </p>
-                <div className="grid gap-2 md:grid-cols-3">
-                  <div className="rounded-xl border border-border/40 bg-muted/10 px-3 py-1.5">
-                    <MetricDistribution metricLabel="Return distribution" segments={sessionDistributions.returnSegments} />
-                  </div>
-                  <div className="rounded-xl border border-border/40 bg-muted/10 px-3 py-1.5">
-                    <MetricDistribution
-                      metricLabel="Pressure distribution"
-                      segments={sessionDistributions.pressureSegments}
-                    />
-                  </div>
-                  <div className="rounded-xl border border-border/40 bg-muted/10 px-3 py-1.5">
-                    <MetricDistribution
-                      metricLabel="Stability distribution"
-                      segments={sessionDistributions.stabilitySegments}
-                    />
-                  </div>
-                </div>
-                <a
-                  href="/mockups/John-Smith%27s-Company.pdf"
-                  target="_blank"
-                  rel="noreferrer"
-                  className="mt-1 block rounded-md text-left transition duration-150 ease-out hover:-translate-y-0.5 hover:shadow-sm focus-visible:-translate-y-0.5 focus-visible:shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-500/40 focus-visible:ring-offset-2 focus-visible:ring-offset-background"
-                >
-                  <div className="text-sm font-semibold text-foreground">Download Sample Decision Brief →</div>
-                  <p className="text-[11px] text-muted-foreground">
-                    A real pre-commitment consulting deliverable (PDF).
-                  </p>
-                </a>
-                <div className="rounded-lg border border-border/60 bg-muted/10 px-3 py-2 text-xs text-muted-foreground">
-                  <p className="text-[11px] font-semibold uppercase tracking-wide text-foreground">WANT TO GO DEEPER?</p>
-                  <p className="mt-1 text-[11px] text-muted-foreground">
-                    Live decisions tell the truth. In guided sessions, teams use D-NAV to surface blind spots before
-                    outcomes create hindsight bias.
-                  </p>
-                  <Button asChild variant="link" size="sm" className="mt-1 h-auto px-0 text-[11px]">
-                    <Link href="/scenarios">Explore Scenarios →</Link>
-                  </Button>
-                </div>
               </div>
-            ) : null}
-
-            <DecisionCandidateIntake />
-
-            {process.env.NODE_ENV === "development" ? (
-              <div className="rounded-lg border border-dashed border-border/60 bg-muted/30 px-3 py-2 text-xs text-muted-foreground">
-                Tooltip demo: <Term termKey="impact" /> · <Term termKey="cost" /> · <Term termKey="risk" /> ·{" "}
-                <Term termKey="urgency" /> · <Term termKey="confidence" /> · <Term termKey="return" /> ·{" "}
-                <Term termKey="pressure" /> · <Term termKey="stability" /> · <Term termKey="dnav">D-NAV</Term>
-              </div>
-            ) : null}
+            </section>
           </div>
         </section>
       </main>
