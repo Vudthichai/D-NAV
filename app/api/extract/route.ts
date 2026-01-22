@@ -1,10 +1,10 @@
 // app/api/extract/route.ts
 import OpenAI from "openai";
 
-export const runtime = "nodejs"; // important for Next.js App Router
+export const runtime = "nodejs";
 
 const client = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY, // <-- key comes from env var, NOT hardcoded
+  apiKey: process.env.OPENAI_API_KEY,
 });
 
 type Decision = {
@@ -16,11 +16,40 @@ type Decision = {
   source?: string;
 };
 
+type ExtractionResult = {
+  decisions: Decision[];
+};
+
+function safeJsonParse(text: string): ExtractionResult | null {
+  // Try raw parse
+  try {
+    return JSON.parse(text) as ExtractionResult;
+  } catch {
+    // Try to extract the first JSON object in the output
+    const start = text.indexOf("{");
+    const end = text.lastIndexOf("}");
+    if (start >= 0 && end > start) {
+      const candidate = text.slice(start, end + 1);
+      try {
+        return JSON.parse(candidate) as ExtractionResult;
+      } catch {
+        return null;
+      }
+    }
+    return null;
+  }
+}
+
 export async function POST(req: Request) {
   try {
-    // Accept either JSON { text } or form-data (fallback)
-    const contentType = req.headers.get("content-type") || "";
+    if (!process.env.OPENAI_API_KEY) {
+      return new Response(
+        JSON.stringify({ error: "Missing OPENAI_API_KEY env var on server." }),
+        { status: 500, headers: { "Content-Type": "application/json" } }
+      );
+    }
 
+    const contentType = req.headers.get("content-type") || "";
     let text = "";
 
     if (contentType.includes("application/json")) {
@@ -28,12 +57,10 @@ export async function POST(req: Request) {
       text = String(body?.text || "");
     } else if (contentType.includes("multipart/form-data")) {
       const form = await req.formData();
-      // Expect: form field "text" OR one/many "file" inputs (basic)
+
       const maybeText = form.get("text");
       if (typeof maybeText === "string") text = maybeText;
 
-      // If files were uploaded, concatenate their plain text (best-effort).
-      // NOTE: PDFs won't auto-extract text here — this is a minimal first pass.
       const files = form.getAll("file");
       for (const f of files) {
         if (f instanceof File) {
@@ -42,84 +69,81 @@ export async function POST(req: Request) {
         }
       }
     } else {
-      // last resort
       text = await req.text();
     }
 
     if (!text.trim()) {
-      return new Response(
-        JSON.stringify({ error: "No text provided." }),
-        { status: 400, headers: { "Content-Type": "application/json" } }
-      );
+      return new Response(JSON.stringify({ error: "No text provided." }), {
+        status: 400,
+        headers: { "Content-Type": "application/json" },
+      });
     }
 
-    const schema = {
-      type: "object",
-      additionalProperties: false,
-      properties: {
-        decisions: {
-          type: "array",
-          items: {
-            type: "object",
-            additionalProperties: false,
-            properties: {
-              title: { type: "string" },
-              decision: { type: "string" },
-              rationale: { type: "string" },
-              category: { type: "string" },
-              evidence_quotes: { type: "array", items: { type: "string" } },
-              source: { type: "string" }
-            },
-            required: ["title", "decision", "rationale"]
-          }
-        }
-      },
-      required: ["decisions"]
+    const schemaHint = {
+      decisions: [
+        {
+          title: "short label",
+          decision: "what is being decided/committed to",
+          rationale: "why (as stated or strongly implied)",
+          category: "optional",
+          evidence_quotes: ["optional quote 1", "optional quote 2"],
+          source: "optional section/page",
+        },
+      ],
     };
 
-    const prompt = `
-You are extracting "decisions" from a document.
+    const system = `You extract distinct DECISIONS from documents.
 
 A "decision" is: a committed choice, plan, policy, strategic direction, approval, rejection, investment, divestment, target, timeline, or stance with implied or explicit action.
 
-Extract distinct decisions. Deduplicate. Keep them concise.
-For each decision:
-- title: short label
-- decision: what is being decided / committed to
-- rationale: why (as stated or strongly implied)
-- category: optional (e.g., Product, Finance, Legal, Ops, Hiring, Strategy)
-- evidence_quotes: optional: up to 2 short quotes that support it
-- source: optional: section/page if you can infer (otherwise omit)
+Rules:
+- Output MUST be valid JSON only (no markdown, no commentary).
+- Output MUST match this shape: { "decisions": [ ... ] }
+- Deduplicate decisions.
+- Keep decisions concise.
+- evidence_quotes: max 2 short quotes if available.
+- If a field is unknown, omit it (except required ones).`;
 
-Return ONLY valid JSON that matches the schema.
+    const user = `Return ONLY JSON.
+
+JSON shape example (not content, just shape):
+${JSON.stringify(schemaHint, null, 2)}
+
 TEXT:
-${text}
-`.trim();
+${text}`;
 
-    const resp = await client.responses.create({
-      model: "gpt-5-mini",
-      input: prompt,
-      // don't store by default (good hygiene for sensitive docs)
-      store: false,
-      response_format: {
-        type: "json_schema",
-        json_schema: {
-          name: "decision_extraction",
-          schema
-        }
-      }
+    const completion = await client.chat.completions.create({
+      // Use a widely-supported model name to avoid SDK/version weirdness
+      model: "gpt-4o-mini",
+      temperature: 0.2,
+      messages: [
+        { role: "system", content: system },
+        { role: "user", content: user },
+      ],
     });
 
-    const out = resp.output_text?.trim() || "";
-    return new Response(out, {
+    const raw = completion.choices[0]?.message?.content?.trim() || "";
+    const parsed = safeJsonParse(raw);
+
+    if (!parsed || !Array.isArray(parsed.decisions)) {
+      return new Response(
+        JSON.stringify({
+          error: "Model did not return valid JSON in the expected shape.",
+          raw: raw.slice(0, 2000),
+        }),
+        { status: 502, headers: { "Content-Type": "application/json" } }
+      );
+    }
+
+    return new Response(JSON.stringify(parsed), {
       status: 200,
-      headers: { "Content-Type": "application/json" }
+      headers: { "Content-Type": "application/json" },
     });
   } catch (err: unknown) {
-  const detail =
-    err instanceof Error
-      ? err.message
-      : typeof err === "string"
+    const detail =
+      err instanceof Error
+        ? err.message
+        : typeof err === "string"
         ? err
         : (() => {
             try {
@@ -129,13 +153,9 @@ ${text}
             }
           })();
 
-  return new Response(
-    JSON.stringify({
-      error: "Extraction failed.",
-      detail
-    }),
-    { status: 500, headers: { "Content-Type": "application/json" } }
-  );
-}
-
+    return new Response(
+      JSON.stringify({ error: "Extraction failed.", detail }),
+      { status: 500, headers: { "Content-Type": "application/json" } }
+    );
+  }
 }
