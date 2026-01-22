@@ -115,13 +115,26 @@ ${text}
       status: 200,
       headers: { "Content-Type": "application/json" }
     });
-  } catch (err: any) {
-    return new Response(
-      JSON.stringify({
-        error: "Extraction failed.",
-        detail: err?.message || String(err)
-      }),
-      { status: 500, headers: { "Content-Type": "application/json" } }
-    );
-  }
+  } catch (err: unknown) {
+  const detail =
+    err instanceof Error
+      ? err.message
+      : typeof err === "string"
+        ? err
+        : (() => {
+            try {
+              return JSON.stringify(err);
+            } catch {
+              return "Unknown error";
+            }
+          })();
+
+  return new Response(
+    JSON.stringify({
+      error: "Extraction failed.",
+      detail
+    }),
+    { status: 500, headers: { "Content-Type": "application/json" } }
+  );
 }
+
