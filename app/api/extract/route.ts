@@ -215,14 +215,17 @@ function getResponseText(response: unknown): string {
   return chunks.join("\n").trim();
 }
 
-async function repairJson(raw: string): Promise<string> {
+async function repairJson(raw: string, signal: AbortSignal): Promise<string> {
   const repairPrompt = `Fix the following to valid JSON only.\n\nRules:\n- Output ONLY JSON.\n- Preserve the existing structure and fields.\n- Do not add commentary.\n\nBROKEN JSON:\n${raw}`;
 
-  const repair = await client.responses.create({
-    model: "gpt-5-mini",
-    input: repairPrompt,
-    store: false,
-  });
+  const repair = await client.responses.create(
+    {
+      model: "gpt-5-mini",
+      input: repairPrompt,
+      store: false,
+    },
+    { signal }
+  );
 
   return getResponseText(repair);
 }
@@ -236,6 +239,8 @@ export async function POST(req: Request) {
       );
     }
 
+    const controller = new AbortController();
+    const { signal } = controller;
     const contentType = req.headers.get("content-type") || "";
     let text = "";
 
@@ -296,17 +301,20 @@ export async function POST(req: Request) {
 
     const prompt = `You are a decision extraction engine for D-NAV.\n\nOnly extract DECISIONS that satisfy ALL of the following D-NAV definition:\n- A committed allocation of intent under constraint.\n- Multiple futures plausibly existed at commitment time.\n- Uncertainty existed at commitment time.\n- Agency is present.\n- Degeneracy check: EXCLUDE "fake choices" where refusing annihilates all futures (e.g., breathing, escaping a fire). Only include if the future space is non-degenerate.\n\nFILTERING RULES:\n- Exclude trivial daily actions unless they materially allocate resources/intent under constraint with meaningful future divergence.\n- Exclude facts, observations, and status updates that are not commitments.\n- Exclude degenerate cases.\n- Deduplicate aggressively.\n\nOUTPUT RULES (STRICT):\n- Output MUST be valid JSON only, no markdown or commentary.\n- Output MUST be exactly: { "decisions": [DecisionJudgment, ...] }\n- Use the DecisionJudgment schema shown below.\n- evidence_quotes: up to 2 short quotes max; may be empty array.\n- category/source may be null if not inferable.\n- dnav may be null if not inferable.\n- If no valid decisions, return { "decisions": [] }.\n\nDecisionJudgment schema example (shape only):\n${JSON.stringify(schemaHint, null, 2)}\n\nTEXT:\n${text}`;
 
-    const response = await client.responses.create({
-      model: "gpt-5-mini",
-      input: prompt,
-      store: false,
-    });
+    const response = await client.responses.create(
+      {
+        model: "gpt-5-mini",
+        input: prompt,
+        store: false,
+      },
+      { signal }
+    );
 
     let raw = getResponseText(response);
     let parsed = safeJsonParse(raw);
 
     if (!parsed.ok) {
-      const repaired = await repairJson(raw);
+      const repaired = await repairJson(raw, signal);
       raw = repaired;
       parsed = safeJsonParse(repaired);
     }
