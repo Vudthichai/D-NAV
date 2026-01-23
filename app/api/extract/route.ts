@@ -3,9 +3,7 @@ import OpenAI from "openai";
 
 export const runtime = "nodejs";
 
-const client = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY,
-});
+const MAX_TEXT_CHARS = 200_000;
 
 type CommitmentType =
   | "explicit_action"
@@ -215,7 +213,11 @@ function getResponseText(response: unknown): string {
   return chunks.join("\n").trim();
 }
 
-async function repairJson(raw: string, signal: AbortSignal): Promise<string> {
+async function repairJson(
+  client: OpenAI,
+  raw: string,
+  signal: AbortSignal
+): Promise<string> {
   const repairPrompt = `Fix the following to valid JSON only.\n\nRules:\n- Output ONLY JSON.\n- Preserve the existing structure and fields.\n- Do not add commentary.\n\nBROKEN JSON:\n${raw}`;
 
   const repair = await client.responses.create(
@@ -239,13 +241,17 @@ export async function POST(req: Request) {
       );
     }
 
+    const client = new OpenAI({
+      apiKey: process.env.OPENAI_API_KEY,
+    });
+
     const controller = new AbortController();
     const { signal } = controller;
     const contentType = req.headers.get("content-type") || "";
     let text = "";
 
     if (contentType.includes("application/json")) {
-      const body = await req.json();
+      const body = (await req.json()) as { text?: string; meta?: unknown };
       text = String(body?.text || "");
     } else if (contentType.includes("multipart/form-data")) {
       const form = await req.formData();
@@ -269,6 +275,16 @@ export async function POST(req: Request) {
         status: 400,
         headers: { "Content-Type": "application/json" },
       });
+    }
+
+    if (text.length > MAX_TEXT_CHARS) {
+      return new Response(
+        JSON.stringify({
+          error: "Text payload exceeds maximum size.",
+          limit: MAX_TEXT_CHARS,
+        }),
+        { status: 413, headers: { "Content-Type": "application/json" } }
+      );
     }
 
     const schemaHint: ExtractionResult = {
@@ -314,7 +330,7 @@ export async function POST(req: Request) {
     let parsed = safeJsonParse(raw);
 
     if (!parsed.ok) {
-      const repaired = await repairJson(raw, signal);
+      const repaired = await repairJson(client, raw, signal);
       raw = repaired;
       parsed = safeJsonParse(repaired);
     }
