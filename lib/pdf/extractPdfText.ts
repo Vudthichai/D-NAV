@@ -5,6 +5,11 @@ export type PdfProgress = {
 
 export type PdfProgressCallback = (progress: PdfProgress) => void;
 
+export type PdfExtractionResult = {
+  text: string;
+  pages: number;
+};
+
 const loadPdfJs = async () => {
   const pdfjsLib = await import("pdfjs-dist");
   pdfjsLib.GlobalWorkerOptions.workerSrc = new URL(
@@ -17,7 +22,7 @@ const loadPdfJs = async () => {
 export const extractPdfText = async (
   arrayBuffer: ArrayBuffer,
   onProgress?: PdfProgressCallback,
-): Promise<string> => {
+): Promise<PdfExtractionResult> => {
   const pdfjsLib = await loadPdfJs();
   const loadingTask = pdfjsLib.getDocument({ data: arrayBuffer });
   const pdf = await loadingTask.promise;
@@ -40,5 +45,5 @@ export const extractPdfText = async (
     onProgress?.({ page: pageNumber, total });
   }
 
-  return pages.join("\n\n");
+  return { text: pages.join("\n\n"), pages: total };
 };

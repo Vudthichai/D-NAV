@@ -9,7 +9,7 @@ import DecisionIntake, { type DecisionCandidate } from "@/components/intake/Deci
 import { Button } from "@/components/ui/button";
 import { computeMetrics, type DecisionVariables } from "@/lib/calculations";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 interface SessionDecision {
   id: string;
@@ -57,6 +57,7 @@ export default function StressTestPage() {
     }
   });
   const calculatorRef = useRef<StressTestCalculatorHandle>(null);
+  const [sessionAnalysisOpen, setSessionAnalysisOpen] = useState(false);
 
   const { openDefinitions } = useDefinitionsPanel();
 
@@ -98,6 +99,12 @@ export default function StressTestPage() {
   const progressCount = Math.min(decisionCount, 10);
   const canOpenSessionAnalysis = decisionCount >= 10;
 
+  useEffect(() => {
+    if (!canOpenSessionAnalysis) {
+      setSessionAnalysisOpen(false);
+    }
+  }, [canOpenSessionAnalysis]);
+
   const formatCompact = useCallback((value: number, digits = 0) => {
     if (!Number.isFinite(value)) return "0";
     return value.toFixed(digits);
@@ -121,6 +128,36 @@ export default function StressTestPage() {
       console.error("Failed to clear stress test session decisions.", error);
     }
   }, []);
+
+  const sessionAverages = useMemo(() => {
+    if (sessionDecisions.length === 0) return null;
+    const totals = sessionDecisions.reduce(
+      (acc, decision) => ({
+        impact: acc.impact + decision.impact,
+        cost: acc.cost + decision.cost,
+        risk: acc.risk + decision.risk,
+        urgency: acc.urgency + decision.urgency,
+        confidence: acc.confidence + decision.confidence,
+        r: acc.r + decision.r,
+        p: acc.p + decision.p,
+        s: acc.s + decision.s,
+        dnav: acc.dnav + decision.dnav,
+      }),
+      { impact: 0, cost: 0, risk: 0, urgency: 0, confidence: 0, r: 0, p: 0, s: 0, dnav: 0 },
+    );
+    const divisor = sessionDecisions.length;
+    return {
+      impact: totals.impact / divisor,
+      cost: totals.cost / divisor,
+      risk: totals.risk / divisor,
+      urgency: totals.urgency / divisor,
+      confidence: totals.confidence / divisor,
+      r: totals.r / divisor,
+      p: totals.p / divisor,
+      s: totals.s / divisor,
+      dnav: totals.dnav / divisor,
+    };
+  }, [sessionDecisions]);
 
   const handleImportDecisions = useCallback((selected: DecisionCandidate[]) => {
     setSessionDecisions((prev) => {
@@ -277,13 +314,67 @@ export default function StressTestPage() {
                 </div>
               ) : null}
 
-              <Button
-                className="h-9 px-4 text-xs font-semibold uppercase tracking-wide"
-                disabled={!canOpenSessionAnalysis}
-              >
-                OPEN SESSION ANALYSIS
-              </Button>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <span>
+                    <Button
+                      className="h-9 px-4 text-xs font-semibold uppercase tracking-wide"
+                      disabled={!canOpenSessionAnalysis}
+                      onClick={() => setSessionAnalysisOpen((prev) => !prev)}
+                    >
+                      {sessionAnalysisOpen ? "CLOSE SESSION ANALYSIS" : "OPEN SESSION ANALYSIS"}
+                    </Button>
+                  </span>
+                </TooltipTrigger>
+                {!canOpenSessionAnalysis ? (
+                  <TooltipContent side="bottom" className="max-w-[220px] text-xs">
+                    Log at least 10 decisions to unlock session analysis.
+                  </TooltipContent>
+                ) : null}
+              </Tooltip>
             </div>
+
+            {sessionAnalysisOpen && sessionAverages ? (
+              <div className="rounded-lg border border-border/60 bg-background/70 px-4 py-3 text-xs text-muted-foreground">
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <div>
+                    <p className="text-sm font-semibold text-foreground">Session Analysis</p>
+                    <p className="text-[11px] text-muted-foreground">
+                      Averages across your in-session decisions.
+                    </p>
+                  </div>
+                  <p className="text-[11px] text-muted-foreground">
+                    Based on {decisionCount} decision{decisionCount === 1 ? "" : "s"}
+                  </p>
+                </div>
+                <div className="mt-3 grid gap-2 md:grid-cols-3">
+                  <div className="rounded-md border border-border/40 bg-muted/10 px-3 py-2">
+                    <p className="text-[10px] uppercase tracking-wide text-muted-foreground">Inputs</p>
+                    <p className="mt-1 text-[11px]">
+                      Impact {formatCompact(sessionAverages.impact)} · Cost {formatCompact(sessionAverages.cost)} · Risk{" "}
+                      {formatCompact(sessionAverages.risk)}
+                    </p>
+                    <p className="text-[11px]">
+                      Urgency {formatCompact(sessionAverages.urgency)} · Confidence{" "}
+                      {formatCompact(sessionAverages.confidence)}
+                    </p>
+                  </div>
+                  <div className="rounded-md border border-border/40 bg-muted/10 px-3 py-2">
+                    <p className="text-[10px] uppercase tracking-wide text-muted-foreground">Signal</p>
+                    <p className="mt-1 text-[11px]">
+                      Return {formatSignal(sessionAverages.r)} · Pressure {formatSignal(sessionAverages.p)} · Stability{" "}
+                      {formatSignal(sessionAverages.s)}
+                    </p>
+                  </div>
+                  <div className="rounded-md border border-border/40 bg-muted/10 px-3 py-2">
+                    <p className="text-[10px] uppercase tracking-wide text-muted-foreground">D-NAV</p>
+                    <p className="mt-1 text-[11px] font-semibold text-foreground">
+                      {formatCompact(sessionAverages.dnav, 1)}
+                    </p>
+                  </div>
+                </div>
+              </div>
+            ) : null}
 
             <DecisionIntake onImportDecisions={handleImportDecisions} />
           </div>
