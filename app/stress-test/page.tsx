@@ -5,16 +5,11 @@ import StressTestCalculator, {
   type StressTestDecisionSnapshot,
 } from "@/components/stress-test/StressTestCalculator";
 import { useDefinitionsPanel } from "@/components/definitions/DefinitionsPanelProvider";
+import DecisionIntake, { type DecisionCandidate } from "@/components/intake/DecisionIntake";
 import { Button } from "@/components/ui/button";
-import { Card } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
-import { Switch } from "@/components/ui/switch";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Textarea } from "@/components/ui/textarea";
 import { computeMetrics, type DecisionVariables } from "@/lib/calculations";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
-import { ChevronDown, ChevronRight } from "lucide-react";
-import { Fragment, useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 
 interface SessionDecision {
   id: string;
@@ -31,23 +26,6 @@ interface SessionDecision {
   s: number;
   dnav: number;
   createdAt: number;
-}
-
-interface ExtractedDecisionCandidate {
-  id: string;
-  title: string;
-  decision: string;
-  rationale?: string;
-  category?: string;
-  evidenceQuotes?: string[];
-  source?: string;
-  impact: number;
-  cost: number;
-  risk: number;
-  urgency: number;
-  confidence: number;
-  keep: boolean;
-  expanded: boolean;
 }
 
 const SESSION_DECISIONS_KEY = "dnav:stressTest:sessionDecisions";
@@ -81,13 +59,6 @@ export default function StressTestPage() {
   const calculatorRef = useRef<StressTestCalculatorHandle>(null);
 
   const { openDefinitions } = useDefinitionsPanel();
-  const [uploadedFileName, setUploadedFileName] = useState<string | null>(null);
-  const [fileText, setFileText] = useState("");
-  const [pastedText, setPastedText] = useState("");
-  const [showPdfNote, setShowPdfNote] = useState(false);
-  const [isExtracting, setIsExtracting] = useState(false);
-  const [extractError, setExtractError] = useState<string | null>(null);
-  const [extractedDecisions, setExtractedDecisions] = useState<ExtractedDecisionCandidate[]>([]);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -151,132 +122,7 @@ export default function StressTestPage() {
     }
   }, []);
 
-  const handleFileSelection = useCallback((file: File | null) => {
-    setExtractError(null);
-    setShowPdfNote(false);
-    if (!file) {
-      setUploadedFileName(null);
-      setFileText("");
-      return;
-    }
-
-    setUploadedFileName(file.name);
-    const isPdf = file.type === "application/pdf" || file.name.toLowerCase().endsWith(".pdf");
-    if (isPdf) {
-      setShowPdfNote(true);
-      setFileText("");
-      return;
-    }
-
-    const reader = new FileReader();
-    reader.onload = () => {
-      setFileText(typeof reader.result === "string" ? reader.result : "");
-    };
-    reader.onerror = () => {
-      setFileText("");
-      setExtractError("We couldn't read that file. Please paste the text instead.");
-    };
-    reader.readAsText(file);
-  }, []);
-
-  const handleExtract = useCallback(async () => {
-    const text = fileText.trim() || pastedText.trim();
-    if (!text) {
-      setExtractError("Add a file or paste text to extract decisions.");
-      return;
-    }
-
-    setIsExtracting(true);
-    setExtractError(null);
-    try {
-      const response = await fetch("/api/extract", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ text }),
-      });
-
-      if (!response.ok) {
-        throw new Error("Extraction failed");
-      }
-
-      const data = (await response.json()) as { decisions?: Array<Record<string, unknown>> };
-      const decisions = Array.isArray(data.decisions) ? data.decisions : [];
-
-      const mapped = decisions.map((item, index) => {
-        const title = typeof item.title === "string" ? item.title : "";
-        const decisionText = typeof item.decision === "string" ? item.decision : "";
-        const rationale = typeof item.rationale === "string" ? item.rationale : undefined;
-        const category = typeof item.category === "string" ? item.category : undefined;
-        const evidenceQuotesRaw = item.evidence_quotes;
-        const evidenceQuotes = Array.isArray(evidenceQuotesRaw)
-          ? evidenceQuotesRaw.filter((quote) => typeof quote === "string")
-          : [];
-        const source = typeof item.source === "string" ? item.source : undefined;
-
-        return {
-          id: `${Date.now()}-${index}-${Math.random().toString(36).slice(2, 6)}`,
-          title: title || "Decision candidate",
-          decision: decisionText,
-          rationale,
-          category,
-          evidenceQuotes,
-          source,
-          impact: 5,
-          cost: 5,
-          risk: 5,
-          urgency: 5,
-          confidence: 5,
-          keep: true,
-          expanded: false,
-        } satisfies ExtractedDecisionCandidate;
-      });
-
-      setExtractedDecisions(mapped);
-      if (mapped.length === 0) {
-        setExtractError("No decisions found. Try adding clearer decision language.");
-      }
-    } catch (error) {
-      console.error("Decision extraction failed", error);
-      setExtractError("Extraction failed. Please try again or paste different text.");
-    } finally {
-      setIsExtracting(false);
-    }
-  }, [fileText, pastedText]);
-
-  const clampScore = useCallback((value: number) => {
-    if (!Number.isFinite(value)) return 1;
-    return Math.min(10, Math.max(1, Math.round(value)));
-  }, []);
-
-  const updateDecisionScore = useCallback(
-    (id: string, key: keyof DecisionVariables, value: number) => {
-      setExtractedDecisions((prev) =>
-        prev.map((decision) =>
-          decision.id === id ? { ...decision, [key]: clampScore(value) } : decision,
-        ),
-      );
-    },
-    [clampScore],
-  );
-
-  const toggleDecisionKeep = useCallback((id: string, keep: boolean) => {
-    setExtractedDecisions((prev) =>
-      prev.map((decision) => (decision.id === id ? { ...decision, keep } : decision)),
-    );
-  }, []);
-
-  const toggleDecisionExpanded = useCallback((id: string) => {
-    setExtractedDecisions((prev) =>
-      prev.map((decision) =>
-        decision.id === id ? { ...decision, expanded: !decision.expanded } : decision,
-      ),
-    );
-  }, []);
-
-  const handleImportDecisions = useCallback(() => {
-    const selected = extractedDecisions.filter((decision) => decision.keep);
-    if (selected.length === 0) return;
-
+  const handleImportDecisions = useCallback((selected: DecisionCandidate[]) => {
     setSessionDecisions((prev) => {
       const now = Date.now();
       const imports = selected.map((decision, index) => {
@@ -307,7 +153,7 @@ export default function StressTestPage() {
       });
       return [...imports, ...prev];
     });
-  }, [extractedDecisions]);
+  }, []);
 
   // TODO: Rebuild Decision Intake v2
   // Intake will be redesigned around the Decision Atom:
@@ -439,216 +285,7 @@ export default function StressTestPage() {
               </Button>
             </div>
 
-            <section className="mt-6 space-y-4">
-              <div className="space-y-2">
-                <h2 className="text-2xl font-semibold text-foreground">The fastest way to surface decisions</h2>
-                <p className="text-sm text-muted-foreground">
-                  Upload a memo, financial report, or paste text. We’ll extract decision candidates you can score
-                  instantly.
-                </p>
-              </div>
-
-              <Card className="gap-4 border-border/60 bg-background/80 px-4 py-4 shadow-sm">
-                <div className="grid gap-4 lg:grid-cols-[1fr_1fr]">
-                  <div className="space-y-3">
-                    <div className="space-y-1">
-                      <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                        Drag & drop / Choose file
-                      </p>
-                      <div
-                        className="flex h-32 items-center justify-center rounded-lg border border-dashed border-border/70 bg-muted/20 px-4 text-xs text-muted-foreground"
-                        onDragOver={(event) => {
-                          event.preventDefault();
-                        }}
-                        onDrop={(event) => {
-                          event.preventDefault();
-                          const file = event.dataTransfer.files?.[0] ?? null;
-                          handleFileSelection(file);
-                        }}
-                      >
-                        <label className="flex cursor-pointer flex-col items-center gap-2">
-                          <span>{uploadedFileName ?? "Drop a .pdf or .txt file"}</span>
-                          <input
-                            type="file"
-                            accept=".pdf,.txt"
-                            className="hidden"
-                            onChange={(event) => handleFileSelection(event.target.files?.[0] ?? null)}
-                          />
-                          <span className="text-[11px] font-semibold text-foreground underline">
-                            Choose file
-                          </span>
-                        </label>
-                      </div>
-                      {showPdfNote ? (
-                        <p className="text-[11px] text-muted-foreground">
-                          PDF parsing is returning next — paste text for now.
-                        </p>
-                      ) : null}
-                    </div>
-                  </div>
-
-                  <div className="space-y-2">
-                    <label className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                      Paste text instead
-                    </label>
-                    <Textarea
-                      value={pastedText}
-                      onChange={(event) => setPastedText(event.target.value)}
-                      placeholder="Paste the excerpt you want to scan for decisions."
-                      className="min-h-[128px] bg-background"
-                    />
-                  </div>
-                </div>
-
-                {extractError ? <p className="text-xs text-destructive">{extractError}</p> : null}
-
-                <div className="flex flex-wrap items-center justify-between gap-3">
-                  <p className="text-xs text-muted-foreground">
-                    We’ll only analyze the text you provide here.
-                  </p>
-                  <Button
-                    className="h-9 px-4 text-xs font-semibold uppercase tracking-wide"
-                    onClick={handleExtract}
-                    disabled={isExtracting}
-                  >
-                    {isExtracting ? "Extracting..." : "Extract decisions"}
-                  </Button>
-                </div>
-              </Card>
-
-              {extractedDecisions.length > 0 ? (
-                <div className="space-y-3">
-                  <div className="sticky top-4 z-10 flex flex-wrap items-center justify-between gap-3 rounded-lg border border-border/60 bg-background/95 px-4 py-3 shadow-sm backdrop-blur">
-                    <div className="space-y-1">
-                      <p className="text-sm font-semibold text-foreground">Decision candidates</p>
-                      <p className="text-xs text-muted-foreground">Score each decision before importing.</p>
-                    </div>
-                    <Button
-                      className="h-9 px-4 text-xs font-semibold uppercase tracking-wide"
-                      onClick={handleImportDecisions}
-                    >
-                      Import selected decisions
-                    </Button>
-                  </div>
-
-                  <div className="rounded-lg border border-border/60 bg-background/80">
-                    <Table>
-                      <TableHeader>
-                        <TableRow className="bg-muted/30 text-xs uppercase tracking-wide text-muted-foreground">
-                          <TableHead className="w-[36px]" />
-                          <TableHead>Decision</TableHead>
-                          <TableHead className="text-center">Impact</TableHead>
-                          <TableHead className="text-center">Cost</TableHead>
-                          <TableHead className="text-center">Risk</TableHead>
-                          <TableHead className="text-center">Urgency</TableHead>
-                          <TableHead className="text-center">Confidence</TableHead>
-                          <TableHead className="text-center">Keep</TableHead>
-                        </TableRow>
-                      </TableHeader>
-                      <TableBody>
-                        {extractedDecisions.map((decision) => (
-                          <Fragment key={decision.id}>
-                            <TableRow className="bg-transparent">
-                              <TableCell className="w-[36px] align-top">
-                                <button
-                                  type="button"
-                                  className="flex h-7 w-7 items-center justify-center rounded-md border border-border/60 text-muted-foreground hover:text-foreground"
-                                  onClick={() => toggleDecisionExpanded(decision.id)}
-                                  aria-label="Toggle decision details"
-                                >
-                                  {decision.expanded ? (
-                                    <ChevronDown className="h-4 w-4" />
-                                  ) : (
-                                    <ChevronRight className="h-4 w-4" />
-                                  )}
-                                </button>
-                              </TableCell>
-                              <TableCell className="min-w-[220px] align-top">
-                                <div className="space-y-1">
-                                  <p className="text-sm font-semibold text-foreground">{decision.title}</p>
-                                  <p className="text-xs text-muted-foreground line-clamp-1">
-                                    {decision.decision || "Decision detail not provided."}
-                                  </p>
-                                </div>
-                              </TableCell>
-                              {(["impact", "cost", "risk", "urgency", "confidence"] as const).map((key) => (
-                                <TableCell key={`${decision.id}-${key}`} className="text-center align-top">
-                                  <Input
-                                    type="number"
-                                    min={1}
-                                    max={10}
-                                    value={decision[key]}
-                                    onChange={(event) =>
-                                      updateDecisionScore(decision.id, key, Number(event.target.value))
-                                    }
-                                    className="h-8 w-16 text-center text-sm"
-                                  />
-                                </TableCell>
-                              ))}
-                              <TableCell className="text-center align-top">
-                                <div className="flex items-center justify-center">
-                                  <Switch
-                                    checked={decision.keep}
-                                    onCheckedChange={(checked) => toggleDecisionKeep(decision.id, checked)}
-                                  />
-                                </div>
-                              </TableCell>
-                            </TableRow>
-                            {decision.expanded ? (
-                              <TableRow className="bg-muted/10">
-                                <TableCell />
-                                <TableCell colSpan={7} className="py-4">
-                                  <div className="space-y-3 text-xs text-muted-foreground">
-                                    {decision.rationale ? (
-                                      <div>
-                                        <p className="text-[11px] font-semibold uppercase tracking-wide text-foreground">
-                                          Rationale
-                                        </p>
-                                        <p className="mt-1">{decision.rationale}</p>
-                                      </div>
-                                    ) : null}
-                                    {decision.evidenceQuotes && decision.evidenceQuotes.length > 0 ? (
-                                      <div>
-                                        <p className="text-[11px] font-semibold uppercase tracking-wide text-foreground">
-                                          Evidence quotes
-                                        </p>
-                                        <ul className="mt-1 list-disc space-y-1 pl-4">
-                                          {decision.evidenceQuotes.map((quote, index) => (
-                                            <li key={`${decision.id}-quote-${index}`}>{quote}</li>
-                                          ))}
-                                        </ul>
-                                      </div>
-                                    ) : null}
-                                    {decision.source ? (
-                                      <div>
-                                        <p className="text-[11px] font-semibold uppercase tracking-wide text-foreground">
-                                          Source
-                                        </p>
-                                        <p className="mt-1">{decision.source}</p>
-                                      </div>
-                                    ) : null}
-                                  </div>
-                                </TableCell>
-                              </TableRow>
-                            ) : null}
-                          </Fragment>
-                        ))}
-                      </TableBody>
-                    </Table>
-                  </div>
-                </div>
-              ) : null}
-            </section>
-
-            <section id="session-gated-area" className="mt-8">
-              <div className="rounded-lg border border-dashed p-6 text-sm text-muted-foreground">
-                <strong>Session-gated area cleared</strong>
-                <p className="mt-2">
-                  All post-session UI has been intentionally removed. This space will be rebuilt once session-level
-                  analysis is redesigned.
-                </p>
-              </div>
-            </section>
+            <DecisionIntake onImportDecisions={handleImportDecisions} />
           </div>
         </section>
       </main>
