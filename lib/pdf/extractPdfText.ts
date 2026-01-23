@@ -5,6 +5,24 @@ export type PdfProgress = {
 
 export type PdfProgressCallback = (progress: PdfProgress) => void;
 
+export type PdfExtractionOptions = {
+  maxPages?: number;
+  startPage?: number;
+  endPage?: number;
+  onProgress?: PdfProgressCallback;
+};
+
+export type PdfPageText = {
+  pageNumber: number;
+  text: string;
+};
+
+export type PdfExtractionResult = {
+  totalPages: number;
+  processedPages: number;
+  pages: PdfPageText[];
+};
+
 const loadPdfJs = async () => {
   const pdfjsLib = await import("pdfjs-dist");
   pdfjsLib.GlobalWorkerOptions.workerSrc = new URL(
@@ -16,29 +34,35 @@ const loadPdfJs = async () => {
 
 export const extractPdfText = async (
   arrayBuffer: ArrayBuffer,
-  onProgress?: PdfProgressCallback,
-): Promise<string> => {
+  options: PdfExtractionOptions = {},
+): Promise<PdfExtractionResult> => {
   const pdfjsLib = await loadPdfJs();
   const loadingTask = pdfjsLib.getDocument({ data: arrayBuffer });
   const pdf = await loadingTask.promise;
   const total = pdf.numPages;
-  const pages: string[] = [];
+  const startPage = Math.max(1, options.startPage ?? 1);
+  const endBound = options.endPage ?? total;
+  const endPage = Math.min(total, endBound, options.maxPages ? startPage + options.maxPages - 1 : total);
+  const pages: PdfPageText[] = [];
 
-  for (let pageNumber = 1; pageNumber <= total; pageNumber += 1) {
+  for (let pageNumber = startPage; pageNumber <= endPage; pageNumber += 1) {
     const page = await pdf.getPage(pageNumber);
     const textContent = await page.getTextContent();
     const pageText = textContent.items
       .map((item) => ("str" in item && typeof item.str === "string" ? item.str : ""))
       .filter(Boolean)
       .join(" ")
+      .replace(/\s+/g, " ")
       .trim();
 
-    if (pageText) {
-      pages.push(pageText);
-    }
+    pages.push({ pageNumber, text: pageText });
 
-    onProgress?.({ page: pageNumber, total });
+    options.onProgress?.({ page: pageNumber, total: endPage });
   }
 
-  return pages.join("\n\n");
+  return {
+    totalPages: total,
+    processedPages: pages.length,
+    pages,
+  };
 };

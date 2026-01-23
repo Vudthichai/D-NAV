@@ -7,39 +7,28 @@ const client = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY,
 });
 
-type CommitmentType =
-  | "explicit_action"
-  | "explicit_refusal"
-  | "implicit_commitment";
+const MODEL_NAME = "gpt-5-mini";
+const REQUEST_TIMEOUT_MS = 25_000;
 
-type DegeneracyCheck = "non_degenerate" | "degenerate_excluded";
-
-type DecisionJudgment = {
+type DecisionCandidate = {
   id: string;
   title: string;
   decision: string;
   rationale: string;
   category: string | null;
+  constraints: string[];
   evidence_quotes: string[];
   source: string | null;
-  future_space: string[];
-  commitment_type: CommitmentType;
-  constraints: string[];
-  uncertainty_sources: string[];
-  degeneracy_check: DegeneracyCheck;
-  decision_density: number;
   extract_confidence: number;
-  dnav: {
-    impact: number | null;
-    cost: number | null;
-    risk: number | null;
-    urgency: number | null;
-    confidence: number | null;
-  } | null;
 };
 
-type ExtractionResult = {
-  decisions: DecisionJudgment[];
+type ExtractionResponse = {
+  decisions: DecisionCandidate[];
+  meta: {
+    model: string;
+    truncated: boolean;
+    input_chars: number;
+  };
 };
 
 type SafeJsonParseResult =
@@ -95,99 +84,57 @@ function clamp(value: number, min: number, max: number): number {
   return Math.min(max, Math.max(min, value));
 }
 
-function normalizeStringArray(value: unknown, maxItems?: number): string[] | null {
-  if (!Array.isArray(value)) return null;
+function normalizeStringArray(value: unknown, maxItems?: number): string[] {
+  if (!Array.isArray(value)) return [];
   const items = value
     .filter((item) => typeof item === "string" && item.trim().length > 0)
     .map((item) => item.trim());
-  const sliced = typeof maxItems === "number" ? items.slice(0, maxItems) : items;
-  return sliced;
+  return typeof maxItems === "number" ? items.slice(0, maxItems) : items;
 }
 
-function normalizeJudgment(obj: unknown): DecisionJudgment | null {
+function normalizeCategory(value: unknown): string | null {
+  const allowed = new Set([
+    "Product",
+    "Finance",
+    "Legal",
+    "Ops",
+    "Hiring",
+    "Strategy",
+    "Other",
+  ]);
+  if (typeof value !== "string") return null;
+  const trimmed = value.trim();
+  if (allowed.has(trimmed)) return trimmed;
+  return trimmed ? "Other" : null;
+}
+
+function normalizeDecision(obj: unknown): DecisionCandidate | null {
   if (!obj || typeof obj !== "object") return null;
   const record = obj as Record<string, unknown>;
 
   const title = typeof record.title === "string" ? record.title.trim() : "";
-  const decision =
-    typeof record.decision === "string" ? record.decision.trim() : "";
-  const rationale =
-    typeof record.rationale === "string" ? record.rationale.trim() : "";
-  const futureSpace = normalizeStringArray(record.future_space);
-  const constraints = normalizeStringArray(record.constraints) ?? [];
-  const uncertainty = normalizeStringArray(record.uncertainty_sources) ?? [];
-  const evidenceQuotes =
-    normalizeStringArray(record.evidence_quotes, 2) ?? [];
-
-  const commitmentType = record.commitment_type as CommitmentType | undefined;
-  const degeneracyCheck = record.degeneracy_check as
-    | DegeneracyCheck
-    | undefined;
-
-  const decisionDensity = coerceNumber(record.decision_density);
+  const decision = typeof record.decision === "string" ? record.decision.trim() : "";
+  const rationale = typeof record.rationale === "string" ? record.rationale.trim() : "";
+  const category = normalizeCategory(record.category);
+  const constraints = normalizeStringArray(record.constraints);
+  const evidenceQuotes = normalizeStringArray(record.evidence_quotes, 2);
+  const source = typeof record.source === "string" ? record.source.trim() : null;
   const extractConfidence = coerceNumber(record.extract_confidence);
 
   if (!title || !decision || !rationale) return null;
-  if (!futureSpace || futureSpace.length === 0) return null;
-  if (
-    commitmentType !== "explicit_action" &&
-    commitmentType !== "explicit_refusal" &&
-    commitmentType !== "implicit_commitment"
-  ) {
-    return null;
-  }
-  if (
-    degeneracyCheck !== "non_degenerate" &&
-    degeneracyCheck !== "degenerate_excluded"
-  ) {
-    return null;
-  }
-  if (decisionDensity === null || extractConfidence === null) return null;
+  if (extractConfidence === null) return null;
 
-  const category =
-    typeof record.category === "string" ? record.category.trim() : null;
-  const source = typeof record.source === "string" ? record.source.trim() : null;
-
-  const dnavValue = record.dnav;
-  let dnav: DecisionJudgment["dnav"] = null;
-  if (dnavValue && typeof dnavValue === "object") {
-    const dnavRecord = dnavValue as Record<string, unknown>;
-    const impact = coerceNumber(dnavRecord.impact);
-    const cost = coerceNumber(dnavRecord.cost);
-    const risk = coerceNumber(dnavRecord.risk);
-    const urgency = coerceNumber(dnavRecord.urgency);
-    const confidence = coerceNumber(dnavRecord.confidence);
-
-    dnav = {
-      impact: impact === null ? null : clamp(impact, 1, 10),
-      cost: cost === null ? null : clamp(cost, 1, 10),
-      risk: risk === null ? null : clamp(risk, 1, 10),
-      urgency: urgency === null ? null : clamp(urgency, 1, 10),
-      confidence: confidence === null ? null : clamp(confidence, 1, 10),
-    };
-  }
-
-  const normalized: DecisionJudgment = {
+  return {
     id: hashId(`${title}|${decision}`),
     title,
     decision,
     rationale,
-    category: category || null,
-    evidence_quotes: evidenceQuotes,
-    source: source || null,
-    future_space: futureSpace,
-    commitment_type: commitmentType,
+    category,
     constraints,
-    uncertainty_sources: uncertainty,
-    degeneracy_check: degeneracyCheck,
-    decision_density: clamp(decisionDensity, 0, 1),
+    evidence_quotes: evidenceQuotes,
+    source,
     extract_confidence: clamp(extractConfidence, 0, 1),
-    dnav,
   };
-
-  if (normalized.degeneracy_check === "degenerate_excluded") return null;
-
-  return normalized;
 }
 
 function getResponseText(response: unknown): string {
@@ -215,13 +162,14 @@ function getResponseText(response: unknown): string {
   return chunks.join("\n").trim();
 }
 
-async function repairJson(raw: string): Promise<string> {
+async function repairJson(raw: string, signal: AbortSignal): Promise<string> {
   const repairPrompt = `Fix the following to valid JSON only.\n\nRules:\n- Output ONLY JSON.\n- Preserve the existing structure and fields.\n- Do not add commentary.\n\nBROKEN JSON:\n${raw}`;
 
   const repair = await client.responses.create({
-    model: "gpt-5-mini",
+    model: MODEL_NAME,
     input: repairPrompt,
     store: false,
+    signal,
   });
 
   return getResponseText(repair);
@@ -232,32 +180,22 @@ export async function POST(req: Request) {
     if (!process.env.OPENAI_API_KEY) {
       return new Response(
         JSON.stringify({ error: "Missing OPENAI_API_KEY env var on server." }),
-        { status: 500, headers: { "Content-Type": "application/json" } }
+        { status: 500, headers: { "Content-Type": "application/json" } },
       );
     }
 
     const contentType = req.headers.get("content-type") || "";
-    let text = "";
-
-    if (contentType.includes("application/json")) {
-      const body = await req.json();
-      text = String(body?.text || "");
-    } else if (contentType.includes("multipart/form-data")) {
-      const form = await req.formData();
-
-      const maybeText = form.get("text");
-      if (typeof maybeText === "string") text = maybeText;
-
-      const files = form.getAll("file");
-      for (const f of files) {
-        if (f instanceof File) {
-          const fileText = await f.text().catch(() => "");
-          if (fileText) text += `\n\n--- FILE: ${f.name} ---\n${fileText}`;
-        }
-      }
-    } else {
-      text = await req.text();
+    if (!contentType.includes("application/json")) {
+      return new Response(JSON.stringify({ error: "Expected JSON payload." }), {
+        status: 415,
+        headers: { "Content-Type": "application/json" },
+      });
     }
+
+    const body = await req.json();
+    const text = typeof body?.text === "string" ? body.text : "";
+    const sourceMeta = typeof body?.source_meta === "object" && body.source_meta ? body.source_meta : null;
+    const truncatedFlag = Boolean((sourceMeta as { truncated?: boolean } | null)?.truncated);
 
     if (!text.trim()) {
       return new Response(JSON.stringify({ error: "No text provided." }), {
@@ -266,48 +204,58 @@ export async function POST(req: Request) {
       });
     }
 
-    const schemaHint: ExtractionResult = {
+    const schemaHint = {
       decisions: [
         {
-          id: "dnav_abc123",
+          id: "stable_string_id",
           title: "Short decision label",
           decision: "What was committed/chosen",
           rationale: "Why it was chosen (stated or strongly implied)",
           category: "Strategy",
+          constraints: ["Budget limit", "Regulatory deadline"],
           evidence_quotes: ["Short quote 1", "Short quote 2"],
           source: "Section or page",
-          future_space: ["Alternative A", "Alternative B"],
-          commitment_type: "explicit_action",
-          constraints: ["Budget limit", "Regulatory deadline"],
-          uncertainty_sources: ["Market response", "Vendor delivery"],
-          degeneracy_check: "non_degenerate",
-          decision_density: 0.7,
           extract_confidence: 0.8,
-          dnav: {
-            impact: 7,
-            cost: 5,
-            risk: 6,
-            urgency: 4,
-            confidence: 6,
-          },
         },
       ],
-    };
+      meta: {
+        model: MODEL_NAME,
+        truncated: false,
+        input_chars: 1234,
+      },
+    } satisfies ExtractionResponse;
 
-    const prompt = `You are a decision extraction engine for D-NAV.\n\nOnly extract DECISIONS that satisfy ALL of the following D-NAV definition:\n- A committed allocation of intent under constraint.\n- Multiple futures plausibly existed at commitment time.\n- Uncertainty existed at commitment time.\n- Agency is present.\n- Degeneracy check: EXCLUDE "fake choices" where refusing annihilates all futures (e.g., breathing, escaping a fire). Only include if the future space is non-degenerate.\n\nFILTERING RULES:\n- Exclude trivial daily actions unless they materially allocate resources/intent under constraint with meaningful future divergence.\n- Exclude facts, observations, and status updates that are not commitments.\n- Exclude degenerate cases.\n- Deduplicate aggressively.\n\nOUTPUT RULES (STRICT):\n- Output MUST be valid JSON only, no markdown or commentary.\n- Output MUST be exactly: { "decisions": [DecisionJudgment, ...] }\n- Use the DecisionJudgment schema shown below.\n- evidence_quotes: up to 2 short quotes max; may be empty array.\n- category/source may be null if not inferable.\n- dnav may be null if not inferable.\n- If no valid decisions, return { "decisions": [] }.\n\nDecisionJudgment schema example (shape only):\n${JSON.stringify(schemaHint, null, 2)}\n\nTEXT:\n${text}`;
+    const prompt = `You are a decision extraction engine for D-NAV.\n\nD-NAV DECISION ONTOLOGY (must satisfy all):\n- A committed allocation of intent under constraint.\n- Multiple futures plausibly existed at commitment time (optionality).\n- Uncertainty existed at commitment time.\n\nFILTERING RULES:\n- Do NOT include routine actions unless explicitly framed as a deliberate commitment under constraint.\n- Exclude facts, observations, and status updates without a commitment.\n- Exclude degenerate choices where refusing annihilates all futures (e.g., escaping a fire).\n- Deduplicate near-duplicates; keep the most specific version.\n- Prefer launches, ramps, targets, timelines, capex decisions, factory commissioning, product milestones, policy/strategy commitments.\n\nOUTPUT RULES (STRICT):\n- Output MUST be valid JSON only, no markdown or commentary.\n- Output MUST be exactly: { "decisions": [DecisionCandidate, ...] }\n- Use the DecisionCandidate schema shown below.\n- evidence_quotes: up to 2 short quotes max; may be empty array.\n- category/source may be null if not inferable.\n- constraints may be empty array.\n- extract_confidence must be 0.0-1.0.\n- If no valid decisions, return { "decisions": [] }.\n\nDecisionCandidate schema example (shape only):\n${JSON.stringify(schemaHint, null, 2)}\n\nSOURCE META:\n${JSON.stringify(sourceMeta ?? {}, null, 2)}\n\nTEXT:\n${text}`;
 
-    const response = await client.responses.create({
-      model: "gpt-5-mini",
-      input: prompt,
-      store: false,
-    });
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
 
-    let raw = getResponseText(response);
-    let parsed = safeJsonParse(raw);
+    let responseText = "";
+    try {
+      const response = await client.responses.create({
+        model: MODEL_NAME,
+        input: prompt,
+        store: false,
+        signal: controller.signal,
+      });
+      responseText = getResponseText(response);
+    } catch (err) {
+      if (controller.signal.aborted) {
+        return new Response(
+          JSON.stringify({ error: "Model request timed out." }),
+          { status: 504, headers: { "Content-Type": "application/json" } },
+        );
+      }
+      throw err;
+    } finally {
+      clearTimeout(timeout);
+    }
+
+    let parsed = safeJsonParse(responseText);
 
     if (!parsed.ok) {
-      const repaired = await repairJson(raw);
-      raw = repaired;
+      const repaired = await repairJson(responseText, controller.signal);
+      responseText = repaired;
       parsed = safeJsonParse(repaired);
     }
 
@@ -316,29 +264,30 @@ export async function POST(req: Request) {
         JSON.stringify({
           error: "Model did not return valid JSON.",
           detail: parsed.ok ? "Unexpected shape." : parsed.error,
-          raw: raw.slice(0, 2000),
+          raw: responseText.slice(0, 2000),
         }),
-        { status: 502, headers: { "Content-Type": "application/json" } }
+        { status: 502, headers: { "Content-Type": "application/json" } },
       );
     }
 
     const value = parsed.value as Record<string, unknown>;
     const decisionsRaw = value.decisions;
     if (!Array.isArray(decisionsRaw)) {
+      // Unit-ish check: invalid model output should report missing decisions array for debugging.
       return new Response(
         JSON.stringify({
           error: "Model JSON missing decisions array.",
-          raw: raw.slice(0, 2000),
+          raw: responseText.slice(0, 2000),
         }),
-        { status: 502, headers: { "Content-Type": "application/json" } }
+        { status: 502, headers: { "Content-Type": "application/json" } },
       );
     }
 
     const normalized = decisionsRaw
-      .map((item) => normalizeJudgment(item))
-      .filter((item): item is DecisionJudgment => Boolean(item));
+      .map((item) => normalizeDecision(item))
+      .filter((item): item is DecisionCandidate => Boolean(item));
 
-    const deduped = new Map<string, DecisionJudgment>();
+    const deduped = new Map<string, DecisionCandidate>();
     for (const item of normalized) {
       const existing = deduped.get(item.id);
       if (!existing || item.extract_confidence > existing.extract_confidence) {
@@ -346,8 +295,13 @@ export async function POST(req: Request) {
       }
     }
 
-    const result: ExtractionResult = {
+    const result: ExtractionResponse = {
       decisions: Array.from(deduped.values()),
+      meta: {
+        model: MODEL_NAME,
+        truncated: truncatedFlag,
+        input_chars: text.length,
+      },
     };
 
     return new Response(JSON.stringify(result), {
@@ -359,18 +313,18 @@ export async function POST(req: Request) {
       err instanceof Error
         ? err.message
         : typeof err === "string"
-        ? err
-        : (() => {
-            try {
-              return JSON.stringify(err);
-            } catch {
-              return "Unknown error";
-            }
-          })();
+          ? err
+          : (() => {
+              try {
+                return JSON.stringify(err);
+              } catch {
+                return "Unknown error";
+              }
+            })();
 
     return new Response(
       JSON.stringify({ error: "Extraction failed.", detail }),
-      { status: 500, headers: { "Content-Type": "application/json" } }
+      { status: 500, headers: { "Content-Type": "application/json" } },
     );
   }
 }

@@ -9,7 +9,9 @@ import DecisionIntake, { type DecisionCandidate } from "@/components/intake/Deci
 import { Button } from "@/components/ui/button";
 import { computeMetrics, type DecisionVariables } from "@/lib/calculations";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import * as XLSX from "xlsx";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 interface SessionDecision {
   id: string;
@@ -57,6 +59,7 @@ export default function StressTestPage() {
     }
   });
   const calculatorRef = useRef<StressTestCalculatorHandle>(null);
+  const [showSessionAnalysis, setShowSessionAnalysis] = useState(false);
 
   const { openDefinitions } = useDefinitionsPanel();
 
@@ -124,8 +127,19 @@ export default function StressTestPage() {
 
   const handleImportDecisions = useCallback((selected: DecisionCandidate[]) => {
     setSessionDecisions((prev) => {
+      const normalizeKey = (id: string, title: string, detail: string) =>
+        `${id}|${title.trim()}|${detail.trim()}`.toLowerCase();
+      const normalizedExisting = new Set(
+        prev.map((decision) =>
+          normalizeKey(decision.id, decision.decisionTitle, decision.decisionDetail ?? ""),
+        ),
+      );
+      const seen = new Set(normalizedExisting);
       const now = Date.now();
       const imports = selected.map((decision, index) => {
+        const dedupeKey = normalizeKey(decision.id, decision.title, decision.decision);
+        if (seen.has(dedupeKey)) return null;
+        seen.add(dedupeKey);
         const vars: DecisionVariables = {
           impact: decision.impact,
           cost: decision.cost,
@@ -135,7 +149,7 @@ export default function StressTestPage() {
         };
         const metrics = computeMetrics(vars);
         return {
-          id: `${now}-${index}-${Math.random().toString(36).slice(2, 8)}`,
+          id: decision.id || `${now}-${index}-${Math.random().toString(36).slice(2, 8)}`,
           decisionTitle: decision.title,
           decisionDetail: decision.decision,
           category: decision.category?.trim() || "Extracted",
@@ -150,14 +164,57 @@ export default function StressTestPage() {
           dnav: metrics.dnav,
           createdAt: now + index,
         } satisfies SessionDecision;
-      });
+      }).filter((entry): entry is SessionDecision => Boolean(entry));
       return [...imports, ...prev];
     });
   }, []);
 
-  // TODO: Rebuild Decision Intake v2
-  // Intake will be redesigned around the Decision Atom:
-  // Actor + Action + Object + Constraint
+  const exportRows = useMemo(
+    () =>
+      sessionDecisions.map((decision) => ({
+        title: decision.decisionTitle,
+        decision: decision.decisionDetail ?? "",
+        category: decision.category,
+        impact: decision.impact,
+        cost: decision.cost,
+        risk: decision.risk,
+        urgency: decision.urgency,
+        confidence: decision.confidence,
+        r: decision.r,
+        p: decision.p,
+        s: decision.s,
+        dnav: decision.dnav,
+      })),
+    [sessionDecisions],
+  );
+
+  const handleExportSession = useCallback(() => {
+    if (exportRows.length === 0) return;
+    const worksheet = XLSX.utils.json_to_sheet(exportRows);
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, "Session Analysis");
+    const fileBase = `dnav-session-${new Date().toISOString().slice(0, 10)}`;
+    try {
+      const arrayBuffer = XLSX.write(workbook, { bookType: "xlsx", type: "array" });
+      const blob = new Blob([arrayBuffer], {
+        type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+      });
+      const link = document.createElement("a");
+      link.href = URL.createObjectURL(blob);
+      link.download = `${fileBase}.xlsx`;
+      link.click();
+      URL.revokeObjectURL(link.href);
+    } catch (error) {
+      console.warn("Falling back to CSV export.", error);
+      const csv = XLSX.utils.sheet_to_csv(worksheet);
+      const blob = new Blob([csv], { type: "text/csv" });
+      const link = document.createElement("a");
+      link.href = URL.createObjectURL(blob);
+      link.download = `${fileBase}.csv`;
+      link.click();
+      URL.revokeObjectURL(link.href);
+    }
+  }, [exportRows]);
 
   return (
     <TooltipProvider>
@@ -277,17 +334,96 @@ export default function StressTestPage() {
                 </div>
               ) : null}
 
-              <Button
-                className="h-9 px-4 text-xs font-semibold uppercase tracking-wide"
-                disabled={!canOpenSessionAnalysis}
-              >
-                OPEN SESSION ANALYSIS
-              </Button>
+              <div className="flex flex-col gap-1">
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <span>
+                      <Button
+                        className="h-9 px-4 text-xs font-semibold uppercase tracking-wide"
+                        disabled={!canOpenSessionAnalysis}
+                        onClick={() => setShowSessionAnalysis(true)}
+                      >
+                        OPEN SESSION ANALYSIS
+                      </Button>
+                    </span>
+                  </TooltipTrigger>
+                  {!canOpenSessionAnalysis ? (
+                    <TooltipContent side="bottom">Log at least 10 decisions to unlock.</TooltipContent>
+                  ) : null}
+                </Tooltip>
+                {!canOpenSessionAnalysis ? (
+                  <p className="text-[11px] text-muted-foreground">
+                    Session Analysis unlocks after 10 decisions.
+                  </p>
+                ) : null}
+              </div>
             </div>
 
             <DecisionIntake onImportDecisions={handleImportDecisions} />
           </div>
         </section>
+        <Dialog open={showSessionAnalysis} onOpenChange={setShowSessionAnalysis}>
+          <DialogContent className="max-w-4xl">
+            <DialogHeader>
+              <DialogTitle className="text-base font-semibold">Session Analysis</DialogTitle>
+            </DialogHeader>
+            <div className="space-y-3 text-sm text-muted-foreground">
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <p>
+                  {decisionCount} decision{decisionCount === 1 ? "" : "s"} in this session.
+                </p>
+                <Button
+                  className="h-8 px-3 text-xs font-semibold uppercase tracking-wide"
+                  onClick={handleExportSession}
+                  disabled={decisionCount === 0}
+                >
+                  Export to Excel
+                </Button>
+              </div>
+              <div className="overflow-x-auto rounded-lg border border-border/60 bg-muted/10">
+                <div className="min-w-[720px] space-y-1 px-3 py-2 text-[11px] text-muted-foreground">
+                  <div className="grid grid-cols-[minmax(180px,1.6fr)_repeat(5,minmax(48px,0.5fr))_repeat(3,minmax(40px,0.4fr))_minmax(56px,0.5fr)] gap-2 font-semibold uppercase tracking-wide text-muted-foreground">
+                    <span>Decision</span>
+                    <span className="text-center">Impact</span>
+                    <span className="text-center">Cost</span>
+                    <span className="text-center">Risk</span>
+                    <span className="text-center">Urgency</span>
+                    <span className="text-center">Confidence</span>
+                    <span className="text-center">R</span>
+                    <span className="text-center">P</span>
+                    <span className="text-center">S</span>
+                    <span className="text-right">D-NAV</span>
+                  </div>
+                  {sessionDecisions.map((decision) => (
+                    <div
+                      key={`analysis-${decision.id}`}
+                      className="grid grid-cols-[minmax(180px,1.6fr)_repeat(5,minmax(48px,0.5fr))_repeat(3,minmax(40px,0.4fr))_minmax(56px,0.5fr)] items-center gap-2 rounded-lg border border-border/40 bg-background/70 px-2 py-1"
+                    >
+                      <div className="min-w-0">
+                        <p className="truncate font-semibold text-foreground">{decision.decisionTitle}</p>
+                        <p className="truncate text-[10px] text-muted-foreground">{decision.category}</p>
+                      </div>
+                      <span className="text-center tabular-nums">{formatCompact(decision.impact)}</span>
+                      <span className="text-center tabular-nums">{formatCompact(decision.cost)}</span>
+                      <span className="text-center tabular-nums">{formatCompact(decision.risk)}</span>
+                      <span className="text-center tabular-nums">{formatCompact(decision.urgency)}</span>
+                      <span className="text-center tabular-nums">{formatCompact(decision.confidence)}</span>
+                      <span className="text-center tabular-nums">{formatSignal(decision.r)}</span>
+                      <span className="text-center tabular-nums">{formatSignal(decision.p)}</span>
+                      <span className="text-center tabular-nums">{formatSignal(decision.s)}</span>
+                      <span className="text-right font-semibold text-foreground tabular-nums">
+                        {formatCompact(decision.dnav, 1)}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+              <p className="text-[11px] text-muted-foreground">
+                Export includes decision text, category, 5 scores, and D-NAV posture metrics.
+              </p>
+            </div>
+          </DialogContent>
+        </Dialog>
       </main>
     </TooltipProvider>
   );
