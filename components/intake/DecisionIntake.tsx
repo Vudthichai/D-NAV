@@ -11,6 +11,7 @@ import { extractPdfText, type PdfProgress } from "@/lib/pdf/extractPdfText";
 import { ChevronDown, ChevronRight } from "lucide-react";
 
 const DEFAULT_SCORE = 5;
+const MAX_CLIENT_TEXT_CHARS = 200_000;
 
 export type DecisionCandidate = {
   id: string;
@@ -161,6 +162,13 @@ export default function DecisionIntake({ onImportDecisions }: DecisionIntakeProp
         setError("Add a PDF or paste text to extract decisions.");
         setIsExtracting(false);
         return;
+      }
+
+      if (text.length > MAX_CLIENT_TEXT_CHARS) {
+        setError(
+          `Your text is ${text.length.toLocaleString()} characters. Only the first ${MAX_CLIENT_TEXT_CHARS.toLocaleString()} will be analyzed—consider shortening the input.`,
+        );
+        text = text.slice(0, MAX_CLIENT_TEXT_CHARS);
       }
 
       const response = await fetch("/api/extract", {
