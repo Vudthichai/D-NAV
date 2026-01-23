@@ -1,6 +1,6 @@
 "use client";
 
-import { Fragment, useCallback, useMemo, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -8,114 +8,61 @@ import { Switch } from "@/components/ui/switch";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Textarea } from "@/components/ui/textarea";
 import { extractPdfText, type PdfProgress } from "@/lib/pdf/extractPdfText";
-import { ChevronDown, ChevronRight } from "lucide-react";
+import { extractDecisionCandidates } from "@/lib/decision/extractDecisionCandidates";
+import type { DecisionCandidate } from "@/lib/types/decision";
 
-const DEFAULT_SCORE = 5;
 const MAX_CLIENT_TEXT_CHARS = 200_000;
-
-export type DecisionCandidate = {
-  id: string;
-  title: string;
-  decision: string;
-  rationale?: string;
-  category?: string;
-  evidenceQuotes?: string[];
-  source?: string;
-  impact: number;
-  cost: number;
-  risk: number;
-  urgency: number;
-  confidence: number;
-  keep: boolean;
-  expanded: boolean;
-};
 
 type DecisionIntakeProps = {
   onImportDecisions?: (decisions: DecisionCandidate[]) => void;
 };
 
-const safeParseJson = (value: string): unknown => {
-  try {
-    return JSON.parse(value);
-  } catch {
-    return value;
-  }
-};
-
-const normalizeDecisions = (payload: unknown): DecisionCandidate[] => {
-  const container = typeof payload === "object" && payload !== null ? (payload as { decisions?: unknown }) : null;
-  const decisionsRaw = Array.isArray(container?.decisions)
-    ? container?.decisions
-    : Array.isArray(payload)
-      ? payload
-      : [];
-
-  return decisionsRaw.map((item, index) => {
-    const candidate = typeof item === "object" && item !== null ? (item as Record<string, unknown>) : {};
-    const title = typeof candidate.title === "string" ? candidate.title : "";
-    const decisionText = typeof candidate.decision === "string" ? candidate.decision : "";
-    const rationale = typeof candidate.rationale === "string" ? candidate.rationale : undefined;
-    const category = typeof candidate.category === "string" ? candidate.category : undefined;
-    const evidenceQuotesRaw =
-      candidate.evidence_quotes ?? candidate.evidenceQuotes ?? candidate.evidenceQuotesRaw;
-    const evidenceQuotes = Array.isArray(evidenceQuotesRaw)
-      ? evidenceQuotesRaw.filter((quote): quote is string => typeof quote === "string")
-      : [];
-    const source = typeof candidate.source === "string" ? candidate.source : undefined;
-
-    return {
-      id: `${Date.now()}-${index}-${Math.random().toString(36).slice(2, 7)}`,
-      title: title || "Decision candidate",
-      decision: decisionText,
-      rationale,
-      category,
-      evidenceQuotes,
-      source,
-      impact: DEFAULT_SCORE,
-      cost: DEFAULT_SCORE,
-      risk: DEFAULT_SCORE,
-      urgency: DEFAULT_SCORE,
-      confidence: DEFAULT_SCORE,
-      keep: true,
-      expanded: false,
-    };
-  });
+type IntakeProgress = PdfProgress & {
+  fileIndex: number;
+  totalFiles: number;
+  fileName: string;
 };
 
 export default function DecisionIntake({ onImportDecisions }: DecisionIntakeProps) {
-  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
+  const [usePastedText, setUsePastedText] = useState(false);
   const [pastedText, setPastedText] = useState("");
-  const [pdfProgress, setPdfProgress] = useState<PdfProgress | null>(null);
+  const [pdfProgress, setPdfProgress] = useState<IntakeProgress | null>(null);
   const [isExtracting, setIsExtracting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [warning, setWarning] = useState<string | null>(null);
   const [decisions, setDecisions] = useState<DecisionCandidate[]>([]);
 
   const progressLabel = useMemo(() => {
     if (pdfProgress) {
-      return `Parsing page ${pdfProgress.page} of ${pdfProgress.total}`;
+      return `File ${pdfProgress.fileIndex}/${pdfProgress.totalFiles} — Page ${pdfProgress.page}/${pdfProgress.total} (${pdfProgress.fileName})`;
     }
     if (isExtracting) {
-      return "Sending to extractor...";
+      return "Extracting locally...";
     }
     return null;
   }, [isExtracting, pdfProgress]);
 
-  const handleFileSelection = useCallback((file: File | null) => {
+  const handleFileSelection = useCallback((files: FileList | File[] | null) => {
     setError(null);
+    setWarning(null);
     setPdfProgress(null);
-    if (!file) {
-      setSelectedFile(null);
+    if (!files || files.length === 0) {
+      setSelectedFiles([]);
       return;
     }
 
-    const isPdf = file.type === "application/pdf" || file.name.toLowerCase().endsWith(".pdf");
-    if (!isPdf) {
-      setSelectedFile(null);
-      setError("Please upload a PDF file.");
+    const fileArray = Array.from(files);
+    const invalid = fileArray.find(
+      (file) => !(file.type === "application/pdf" || file.name.toLowerCase().endsWith(".pdf")),
+    );
+    if (invalid) {
+      setSelectedFiles([]);
+      setError("Please upload PDF files only.");
       return;
     }
 
-    setSelectedFile(file);
+    setSelectedFiles(fileArray);
   }, []);
 
   const clampScore = useCallback((value: number) => {
@@ -132,65 +79,105 @@ export default function DecisionIntake({ onImportDecisions }: DecisionIntakeProp
     [clampScore],
   );
 
+  const updateDecisionText = useCallback((id: string, value: string) => {
+    setDecisions((prev) => prev.map((decision) => (decision.id === id ? { ...decision, decision: value } : decision)));
+  }, []);
+
   const toggleDecisionKeep = useCallback((id: string, keep: boolean) => {
     setDecisions((prev) => prev.map((decision) => (decision.id === id ? { ...decision, keep } : decision)));
   }, []);
 
-  const toggleDecisionExpanded = useCallback((id: string) => {
-    setDecisions((prev) =>
-      prev.map((decision) => (decision.id === id ? { ...decision, expanded: !decision.expanded } : decision)),
-    );
-  }, []);
-
   const handleExtract = useCallback(async () => {
     setError(null);
+    setWarning(null);
     setIsExtracting(true);
     setPdfProgress(null);
 
     try {
-      let text = pastedText.trim();
+      const trimmedText = pastedText.trim();
+      const shouldUsePaste = usePastedText || selectedFiles.length === 0;
+      const extractedCandidates: DecisionCandidate[] = [];
+      let totalChars = 0;
+      let wasTruncated = false;
 
-      if (!text && selectedFile) {
-        const buffer = await selectedFile.arrayBuffer();
-        text = await extractPdfText(buffer, (progress) => {
-          setPdfProgress(progress);
-        });
-        setPdfProgress(null);
+      if (shouldUsePaste) {
+        if (!trimmedText) {
+          setError("Add text to extract decisions.");
+          setIsExtracting(false);
+          return;
+        }
+        let text = trimmedText;
+        if (text.length > MAX_CLIENT_TEXT_CHARS) {
+          wasTruncated = true;
+          text = text.slice(0, MAX_CLIENT_TEXT_CHARS);
+        }
+        extractedCandidates.push(
+          ...extractDecisionCandidates(text).map((candidate) => ({
+            ...candidate,
+            source: "Pasted text",
+          })),
+        );
+      } else {
+        if (selectedFiles.length === 0) {
+          setError("Add a PDF or paste text to extract decisions.");
+          setIsExtracting(false);
+          return;
+        }
+
+        for (let index = 0; index < selectedFiles.length; index += 1) {
+          const file = selectedFiles[index];
+          const buffer = await file.arrayBuffer();
+          const fileText = await extractPdfText(buffer, (progress) => {
+            setPdfProgress({
+              ...progress,
+              fileIndex: index + 1,
+              totalFiles: selectedFiles.length,
+              fileName: file.name,
+            });
+          });
+          setPdfProgress(null);
+
+          const remaining = MAX_CLIENT_TEXT_CHARS - totalChars;
+          if (remaining <= 0) {
+            wasTruncated = true;
+            break;
+          }
+
+          const trimmedFileText = fileText.trim();
+          if (!trimmedFileText) continue;
+
+          let effectiveText = trimmedFileText;
+          if (trimmedFileText.length > remaining) {
+            effectiveText = trimmedFileText.slice(0, remaining);
+            wasTruncated = true;
+          }
+
+          totalChars += effectiveText.length;
+
+          extractedCandidates.push(
+            ...extractDecisionCandidates(effectiveText).map((candidate) => ({
+              ...candidate,
+              source: file.name,
+            })),
+          );
+
+          if (wasTruncated) break;
+        }
       }
 
-      if (!text) {
-        setError("Add a PDF or paste text to extract decisions.");
+      if (extractedCandidates.length === 0) {
+        setError("No decisions found. Try adding clearer decision language.");
         setIsExtracting(false);
         return;
       }
 
-      if (text.length > MAX_CLIENT_TEXT_CHARS) {
-        setError(
-          `Your text is ${text.length.toLocaleString()} characters. Only the first ${MAX_CLIENT_TEXT_CHARS.toLocaleString()} will be analyzed—consider shortening the input.`,
+      if (wasTruncated) {
+        setWarning(
+          `We analyzed only the first ${MAX_CLIENT_TEXT_CHARS.toLocaleString()} characters to keep the browser fast.`,
         );
-        text = text.slice(0, MAX_CLIENT_TEXT_CHARS);
       }
 
-      const response = await fetch("/api/extract", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ text }),
-      });
-
-      const raw = await response.text();
-      if (!response.ok) {
-        const detail = raw ? ` (${raw.slice(0, 200)})` : "";
-        throw new Error(`Extraction failed${detail}`);
-      }
-
-      const parsed = safeParseJson(raw);
-      const payload = typeof parsed === "string" ? safeParseJson(parsed) : parsed;
-      const mapped = normalizeDecisions(payload);
-
-      setDecisions(mapped);
-      if (mapped.length === 0) {
-        setError("No decisions found. Try adding clearer decision language.");
-      }
+      setDecisions(extractedCandidates);
     } catch (caughtError) {
       const message = caughtError instanceof Error ? caughtError.message : "Extraction failed.";
       console.error("Decision extraction failed", caughtError);
@@ -198,7 +185,7 @@ export default function DecisionIntake({ onImportDecisions }: DecisionIntakeProp
     } finally {
       setIsExtracting(false);
     }
-  }, [pastedText, selectedFile]);
+  }, [pastedText, selectedFiles, usePastedText]);
 
   const handleImport = useCallback(() => {
     const selected = decisions.filter((decision) => decision.keep);
@@ -223,6 +210,9 @@ export default function DecisionIntake({ onImportDecisions }: DecisionIntakeProp
         <p className="text-sm text-muted-foreground">
           Upload a memo, financial report, or paste text. We’ll extract decision candidates you can score instantly.
         </p>
+        <p className="text-xs text-muted-foreground">
+          We surface candidates that look like committed intent under constraint. You curate what counts.
+        </p>
       </div>
 
       <Card className="gap-4 border-border/60 bg-background/80 px-4 py-4 shadow-sm">
@@ -239,17 +229,21 @@ export default function DecisionIntake({ onImportDecisions }: DecisionIntakeProp
                 }}
                 onDrop={(event) => {
                   event.preventDefault();
-                  const file = event.dataTransfer.files?.[0] ?? null;
-                  handleFileSelection(file);
+                  handleFileSelection(event.dataTransfer.files ?? null);
                 }}
               >
                 <label className="flex cursor-pointer flex-col items-center gap-2">
-                  <span>{selectedFile?.name ?? "Drop a .pdf file"}</span>
+                  <span>
+                    {selectedFiles.length > 0
+                      ? `${selectedFiles.length} PDF${selectedFiles.length > 1 ? "s" : ""} selected`
+                      : "Drop up to 5 .pdf files"}
+                  </span>
                   <input
                     type="file"
                     accept=".pdf"
+                    multiple
                     className="hidden"
-                    onChange={(event) => handleFileSelection(event.target.files?.[0] ?? null)}
+                    onChange={(event) => handleFileSelection(event.target.files)}
                   />
                   <span className="text-[11px] font-semibold text-foreground underline">Choose file</span>
                 </label>
@@ -259,9 +253,15 @@ export default function DecisionIntake({ onImportDecisions }: DecisionIntakeProp
           </div>
 
           <div className="space-y-2">
-            <label className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-              Paste text instead
-            </label>
+            <div className="flex items-center justify-between gap-3">
+              <label className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                Paste text memo
+              </label>
+              <div className="flex items-center gap-2 text-[11px] text-muted-foreground">
+                <span>Use pasted text instead</span>
+                <Switch checked={usePastedText} onCheckedChange={setUsePastedText} />
+              </div>
+            </div>
             <Textarea
               value={pastedText}
               onChange={(event) => setPastedText(event.target.value)}
@@ -270,6 +270,12 @@ export default function DecisionIntake({ onImportDecisions }: DecisionIntakeProp
             />
           </div>
         </div>
+
+        {warning ? (
+          <div className="rounded-lg border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-xs text-amber-700">
+            {warning}
+          </div>
+        ) : null}
 
         {error ? (
           <div className="rounded-lg border border-destructive/40 bg-destructive/10 px-3 py-2 text-xs text-destructive" role="alert">
@@ -305,7 +311,6 @@ export default function DecisionIntake({ onImportDecisions }: DecisionIntakeProp
             <Table>
               <TableHeader>
                 <TableRow className="bg-muted/30 text-xs uppercase tracking-wide text-muted-foreground">
-                  <TableHead className="w-[36px]" />
                   <TableHead>Decision</TableHead>
                   <TableHead className="text-center">Impact</TableHead>
                   <TableHead className="text-center">Cost</TableHead>
@@ -317,93 +322,38 @@ export default function DecisionIntake({ onImportDecisions }: DecisionIntakeProp
               </TableHeader>
               <TableBody>
                 {decisions.map((decision) => (
-                  <Fragment key={decision.id}>
-                    <TableRow className="bg-transparent">
-                      <TableCell className="w-[36px] align-top">
-                        <button
-                          type="button"
-                          className="flex h-7 w-7 items-center justify-center rounded-md border border-border/60 text-muted-foreground hover:text-foreground"
-                          onClick={() => toggleDecisionExpanded(decision.id)}
-                          aria-label="Toggle decision details"
-                        >
-                          {decision.expanded ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
-                        </button>
+                  <TableRow key={decision.id} className="bg-transparent">
+                    <TableCell className="min-w-[240px] align-top">
+                      <div className="space-y-1">
+                        <Input
+                          value={decision.decision}
+                          onChange={(event) => updateDecisionText(decision.id, event.target.value)}
+                          className="h-8 text-sm"
+                        />
+                        <p className="text-[11px] text-muted-foreground line-clamp-2">{decision.evidence}</p>
+                        {decision.source ? (
+                          <p className="text-[10px] text-muted-foreground">Source: {decision.source}</p>
+                        ) : null}
+                      </div>
+                    </TableCell>
+                    {(["impact", "cost", "risk", "urgency", "confidence"] as const).map((key) => (
+                      <TableCell key={`${decision.id}-${key}`} className="text-center align-top">
+                        <Input
+                          type="number"
+                          min={1}
+                          max={10}
+                          value={decision[key]}
+                          onChange={(event) => updateDecisionScore(decision.id, key, Number(event.target.value))}
+                          className="h-8 w-16 text-center text-sm"
+                        />
                       </TableCell>
-                      <TableCell className="min-w-[220px] align-top">
-                        <div className="space-y-1">
-                          <p className="text-sm font-semibold text-foreground">{decision.title}</p>
-                          <p className="text-xs text-muted-foreground line-clamp-1">
-                            {decision.rationale || decision.decision || "Rationale not provided."}
-                          </p>
-                        </div>
-                      </TableCell>
-                      {(["impact", "cost", "risk", "urgency", "confidence"] as const).map((key) => (
-                        <TableCell key={`${decision.id}-${key}`} className="text-center align-top">
-                          <Input
-                            type="number"
-                            min={1}
-                            max={10}
-                            value={decision[key]}
-                            onChange={(event) => updateDecisionScore(decision.id, key, Number(event.target.value))}
-                            className="h-8 w-16 text-center text-sm"
-                          />
-                        </TableCell>
-                      ))}
-                      <TableCell className="text-center align-top">
-                        <div className="flex items-center justify-center">
-                          <Switch
-                            checked={decision.keep}
-                            onCheckedChange={(checked) => toggleDecisionKeep(decision.id, checked)}
-                          />
-                        </div>
-                      </TableCell>
-                    </TableRow>
-                    {decision.expanded ? (
-                      <TableRow className="bg-muted/10">
-                        <TableCell />
-                        <TableCell colSpan={7} className="py-4">
-                          <div className="space-y-3 text-xs text-muted-foreground">
-                            {decision.decision ? (
-                              <div>
-                                <p className="text-[11px] font-semibold uppercase tracking-wide text-foreground">
-                                  Decision detail
-                                </p>
-                                <p className="mt-1">{decision.decision}</p>
-                              </div>
-                            ) : null}
-                            {decision.rationale ? (
-                              <div>
-                                <p className="text-[11px] font-semibold uppercase tracking-wide text-foreground">
-                                  Rationale
-                                </p>
-                                <p className="mt-1">{decision.rationale}</p>
-                              </div>
-                            ) : null}
-                            {decision.evidenceQuotes && decision.evidenceQuotes.length > 0 ? (
-                              <div>
-                                <p className="text-[11px] font-semibold uppercase tracking-wide text-foreground">
-                                  Evidence quotes
-                                </p>
-                                <ul className="mt-1 list-disc space-y-1 pl-4">
-                                  {decision.evidenceQuotes.map((quote, index) => (
-                                    <li key={`${decision.id}-quote-${index}`}>{quote}</li>
-                                  ))}
-                                </ul>
-                              </div>
-                            ) : null}
-                            {decision.source ? (
-                              <div>
-                                <p className="text-[11px] font-semibold uppercase tracking-wide text-foreground">
-                                  Source
-                                </p>
-                                <p className="mt-1">{decision.source}</p>
-                              </div>
-                            ) : null}
-                          </div>
-                        </TableCell>
-                      </TableRow>
-                    ) : null}
-                  </Fragment>
+                    ))}
+                    <TableCell className="text-center align-top">
+                      <div className="flex items-center justify-center">
+                        <Switch checked={decision.keep} onCheckedChange={(checked) => toggleDecisionKeep(decision.id, checked)} />
+                      </div>
+                    </TableCell>
+                  </TableRow>
                 ))}
               </TableBody>
             </Table>
