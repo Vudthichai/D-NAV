@@ -5,11 +5,12 @@ import StressTestCalculator, {
   type StressTestDecisionSnapshot,
 } from "@/components/stress-test/StressTestCalculator";
 import { useDefinitionsPanel } from "@/components/definitions/DefinitionsPanelProvider";
-import DecisionIntake, { type DecisionCandidate } from "@/components/intake/DecisionIntake";
+import DecisionIntake from "@/components/intake/DecisionIntake";
 import { Button } from "@/components/ui/button";
 import { computeMetrics, type DecisionVariables } from "@/lib/calculations";
+import type { DecisionCandidate } from "@/lib/types/decision";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 interface SessionDecision {
   id: string;
@@ -57,6 +58,8 @@ export default function StressTestPage() {
     }
   });
   const calculatorRef = useRef<StressTestCalculatorHandle>(null);
+  const [isSessionAnalysisOpen, setIsSessionAnalysisOpen] = useState(false);
+  const [showGateTooltip, setShowGateTooltip] = useState(false);
 
   const { openDefinitions } = useDefinitionsPanel();
 
@@ -136,9 +139,9 @@ export default function StressTestPage() {
         const metrics = computeMetrics(vars);
         return {
           id: `${now}-${index}-${Math.random().toString(36).slice(2, 8)}`,
-          decisionTitle: decision.title,
+          decisionTitle: decision.decision,
           decisionDetail: decision.decision,
-          category: decision.category?.trim() || "Extracted",
+          category: decision.source?.trim() || "Extracted",
           impact: vars.impact,
           cost: vars.cost,
           risk: vars.risk,
@@ -154,6 +157,41 @@ export default function StressTestPage() {
       return [...imports, ...prev];
     });
   }, []);
+
+  const sessionAverages = useMemo(() => {
+    if (sessionDecisions.length === 0) return null;
+    const totals = sessionDecisions.reduce(
+      (acc, decision) => {
+        acc.impact += decision.impact;
+        acc.cost += decision.cost;
+        acc.risk += decision.risk;
+        acc.urgency += decision.urgency;
+        acc.confidence += decision.confidence;
+        acc.dnav += decision.dnav;
+        return acc;
+      },
+      { impact: 0, cost: 0, risk: 0, urgency: 0, confidence: 0, dnav: 0 },
+    );
+    const divisor = sessionDecisions.length;
+    return {
+      impact: totals.impact / divisor,
+      cost: totals.cost / divisor,
+      risk: totals.risk / divisor,
+      urgency: totals.urgency / divisor,
+      confidence: totals.confidence / divisor,
+      dnav: totals.dnav / divisor,
+    };
+  }, [sessionDecisions]);
+
+  const handleToggleSessionAnalysis = useCallback(() => {
+    if (!canOpenSessionAnalysis) {
+      setShowGateTooltip(true);
+      window.setTimeout(() => setShowGateTooltip(false), 2000);
+      return;
+    }
+    setShowGateTooltip(false);
+    setIsSessionAnalysisOpen((prev) => !prev);
+  }, [canOpenSessionAnalysis]);
 
   // TODO: Rebuild Decision Intake v2
   // Intake will be redesigned around the Decision Atom:
@@ -277,13 +315,63 @@ export default function StressTestPage() {
                 </div>
               ) : null}
 
-              <Button
-                className="h-9 px-4 text-xs font-semibold uppercase tracking-wide"
-                disabled={!canOpenSessionAnalysis}
-              >
-                OPEN SESSION ANALYSIS
-              </Button>
+              <Tooltip open={showGateTooltip}>
+                <TooltipTrigger asChild>
+                  <Button
+                    type="button"
+                    className="h-9 px-4 text-xs font-semibold uppercase tracking-wide"
+                    onClick={handleToggleSessionAnalysis}
+                  >
+                    {isSessionAnalysisOpen ? "CLOSE SESSION ANALYSIS" : "OPEN SESSION ANALYSIS"}
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent side="top">
+                  Log 10 decisions to unlock Session Analysis.
+                </TooltipContent>
+              </Tooltip>
             </div>
+
+            {isSessionAnalysisOpen && canOpenSessionAnalysis && sessionAverages ? (
+              <div className="rounded-lg border border-border/60 bg-background/80 px-4 py-3 text-xs text-muted-foreground shadow-sm">
+                <div className="flex flex-wrap items-center justify-between gap-3">
+                  <div>
+                    <p className="text-sm font-semibold text-foreground">Session Analysis</p>
+                    <p className="text-[11px] text-muted-foreground">
+                      Averages across the decisions you logged in this session.
+                    </p>
+                  </div>
+                  <div className="text-right text-[11px] text-muted-foreground">
+                    <p>Decisions analyzed: {sessionDecisions.length}</p>
+                  </div>
+                </div>
+                <div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-3">
+                  <div className="rounded-md border border-border/50 bg-muted/20 px-3 py-2">
+                    <p className="text-[10px] uppercase tracking-wide text-muted-foreground">Avg Impact</p>
+                    <p className="text-sm font-semibold text-foreground">{formatCompact(sessionAverages.impact, 1)}</p>
+                  </div>
+                  <div className="rounded-md border border-border/50 bg-muted/20 px-3 py-2">
+                    <p className="text-[10px] uppercase tracking-wide text-muted-foreground">Avg Cost</p>
+                    <p className="text-sm font-semibold text-foreground">{formatCompact(sessionAverages.cost, 1)}</p>
+                  </div>
+                  <div className="rounded-md border border-border/50 bg-muted/20 px-3 py-2">
+                    <p className="text-[10px] uppercase tracking-wide text-muted-foreground">Avg Risk</p>
+                    <p className="text-sm font-semibold text-foreground">{formatCompact(sessionAverages.risk, 1)}</p>
+                  </div>
+                  <div className="rounded-md border border-border/50 bg-muted/20 px-3 py-2">
+                    <p className="text-[10px] uppercase tracking-wide text-muted-foreground">Avg Urgency</p>
+                    <p className="text-sm font-semibold text-foreground">{formatCompact(sessionAverages.urgency, 1)}</p>
+                  </div>
+                  <div className="rounded-md border border-border/50 bg-muted/20 px-3 py-2">
+                    <p className="text-[10px] uppercase tracking-wide text-muted-foreground">Avg Confidence</p>
+                    <p className="text-sm font-semibold text-foreground">{formatCompact(sessionAverages.confidence, 1)}</p>
+                  </div>
+                  <div className="rounded-md border border-border/50 bg-muted/20 px-3 py-2">
+                    <p className="text-[10px] uppercase tracking-wide text-muted-foreground">Avg D-NAV</p>
+                    <p className="text-sm font-semibold text-foreground">{formatCompact(sessionAverages.dnav, 1)}</p>
+                  </div>
+                </div>
+              </div>
+            ) : null}
 
             <DecisionIntake onImportDecisions={handleImportDecisions} />
           </div>

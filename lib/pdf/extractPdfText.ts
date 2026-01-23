@@ -6,9 +6,9 @@ export type PdfProgress = {
 export type PdfProgressCallback = (progress: PdfProgress) => void;
 
 const loadPdfJs = async () => {
-  const pdfjsLib = await import("pdfjs-dist");
+  const pdfjsLib = await import("pdfjs-dist/legacy/build/pdf");
   pdfjsLib.GlobalWorkerOptions.workerSrc = new URL(
-    "pdfjs-dist/build/pdf.worker.min.mjs",
+    "pdfjs-dist/legacy/build/pdf.worker.min.mjs",
     import.meta.url,
   ).toString();
   return pdfjsLib;
