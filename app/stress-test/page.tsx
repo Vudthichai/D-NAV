@@ -313,6 +313,7 @@ export default function StressTestPage() {
   const handleImportDecisions = useCallback((selected: DecisionCandidate[]) => {
     setSessionDecisions((prev) => {
       const now = Date.now();
+      const existingIds = new Set(prev.map((decision) => decision.id));
       const imports = selected.map((decision, index) => {
         const primarySource = decision.sources[0];
         const vars: DecisionVariables = {
@@ -344,8 +345,8 @@ export default function StressTestPage() {
           createdAt: now + index,
         } satisfies SessionDecision;
       });
-      const manual = prev.filter((decision) => decision.sourceType !== "intake");
-      return [...imports, ...manual];
+      const newImports = imports.filter((decision) => !existingIds.has(decision.id));
+      return [...newImports, ...prev];
     });
   }, []);
 

@@ -5,6 +5,7 @@ export type DecisionSegment = {
   fileName?: string;
   pageNumber: number;
   rawExcerpt: string;
+  isRepeatedLine?: boolean;
 };
 
 const splitOnDelimiters = (value: string) =>
@@ -24,11 +25,17 @@ const splitLongSegment = (value: string) => {
   return parts.length > 1 ? parts : [value];
 };
 
-export const segmentDecisionCandidates = (pages: CleanedPage[]): DecisionSegment[] => {
+const normalizeKey = (value: string) => value.replace(/\s+/g, " ").trim().toLowerCase();
+
+export const segmentDecisionCandidates = (
+  pages: CleanedPage[],
+  repeatedLines?: Set<string>,
+): DecisionSegment[] => {
   const segments: DecisionSegment[] = [];
 
   for (const page of pages) {
     for (const line of page.lines) {
+      const isRepeatedLine = repeatedLines ? repeatedLines.has(normalizeKey(line)) : false;
       const initialSegments = splitOnDelimiters(line);
       for (const segment of initialSegments) {
         const expanded = splitLongSegment(segment);
@@ -39,6 +46,7 @@ export const segmentDecisionCandidates = (pages: CleanedPage[]): DecisionSegment
             rawExcerpt: chunk,
             fileName: page.fileName,
             pageNumber: page.pageNumber,
+            isRepeatedLine,
           });
         }
       }

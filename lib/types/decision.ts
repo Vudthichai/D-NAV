@@ -11,6 +11,7 @@ export type DecisionCandidate = {
   urgency: number;
   confidence: number;
   keep: boolean;
+  imported?: boolean;
 };
 
 export type DecisionSource = {
