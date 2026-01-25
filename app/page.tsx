@@ -51,7 +51,7 @@ function HeroSection() {
     {
       badge: "Diagnostic lens",
       title: "What actually drives this decision",
-      copy: "Breaks a decision into five variables so hidden pressure and weak assumptions become visible.",
+      copy: "Surfaces the judgment behind a decision so hidden pressure and weak assumptions become visible.",
     },
     {
       badge: "Pattern recognition",
@@ -84,9 +84,8 @@ function HeroSection() {
           <div className="space-y-6 md:space-y-7 w-full max-w-4xl">
             <h1 className="text-4xl md:text-6xl font-black leading-tight tracking-tight text-white">Decisions fail long before execution. D-NAV shows you where.</h1>
             <p className="text-xl text-slate-200 max-w-3xl">
-              D-NAV helps leadership teams capture how decisions are judged before commitment — pressure, risk, urgency, and confidence — so hidden strain surfaces before execution inherits it.
+              Most organizations plan decisions. Very few preserve how they were judged.
             </p>
-            <p className="text-sm text-slate-400">Most organizations plan decisions. Very few preserve how they were judged.</p>
             <div className="space-y-2">
               <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:gap-4">
                 <Button
@@ -108,7 +107,6 @@ function HeroSection() {
                   <Link href="/contact">Request a pre-commitment review</Link>
                 </Button>
               </div>
-              <p className="text-sm text-slate-400">One decision. Five variables. A facilitated decision readout.</p>
             </div>
             <p className="text-lg text-slate-300 max-w-3xl">
               Decisions rarely collapse because of effort. They fail because pressure, risk, and stability were never surfaced before commitment. D-NAV makes that friction visible early, so execution teams inherit a plan that has already survived scrutiny.
