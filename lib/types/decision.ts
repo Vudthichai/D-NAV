@@ -4,6 +4,7 @@ export type DecisionCandidate = {
   evidence: string;
   sources: DecisionSource[];
   extractConfidence: number;
+  qualityScore: number;
   impact: number;
   cost: number;
   risk: number;

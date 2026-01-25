@@ -189,12 +189,13 @@ export const extractDecisionCandidates = (text: string): DecisionCandidate[] => 
       evidence: segment.trim(),
       sources: [],
       extractConfidence: scoreConfidence(normalized),
+      qualityScore: Math.round(scoreConfidence(normalized) * 100),
       impact: DEFAULT_SCORE,
       cost,
       risk,
       urgency,
       confidence,
-      keep: true,
+      keep: false,
     };
 
     candidates.push(candidate);

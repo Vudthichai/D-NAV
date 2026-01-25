@@ -4,6 +4,8 @@ import { passesDecisionCandidateFilters, scoreDecisionCandidate } from "@/lib/de
 import type { DecisionCandidate, DecisionSource } from "@/lib/types/decision";
 
 const DEFAULT_SCORE = 5;
+const SCORE_THRESHOLD = 35;
+const DUPLICATE_SIMILARITY_THRESHOLD = 0.86;
 
 type CandidateWithScore = DecisionCandidate & {
   score: number;
@@ -24,19 +26,29 @@ const normalizeForDedup = (value: string) =>
     .replace(/\s+/g, " ")
     .trim();
 
-const shouldDropForLength = (value: string) => {
-  const length = value.length;
-  return length < 40 || length > 240;
+const splitOnClause = (value: string) => value.split(/[.;:–—]/).map((chunk) => chunk.trim()).filter(Boolean);
+
+const isPersonalMemoText = (value: string) => {
+  const matches = value.match(/\bI\b/g)?.length ?? 0;
+  const words = value.trim().split(/\s+/).length || 1;
+  return matches >= 3 || matches / words > 0.03;
+};
+
+const truncateToWord = (value: string, limit: number) => {
+  if (value.length <= limit) return value;
+  const sliced = value.slice(0, limit);
+  const lastSpace = sliced.lastIndexOf(" ");
+  const trimmed = (lastSpace > 40 ? sliced.slice(0, lastSpace) : sliced).trim();
+  return trimmed.endsWith("…") ? trimmed : `${trimmed}…`;
 };
 
 const generateTitle = (value: string) => {
-  const match =
-    value.match(
-      /\b(will|plan to|expect to|aim to|target|prepare to|commit to|discontinue|launch|ramp|begin|start|expand|build|deploy|introduce|scale|invest|allocate|approve|commence|transition|reduce|increase|continue|on track to|remain on track to)\b([^,.]{0,80})/i,
-    ) ?? null;
-  const raw = match ? `${match[1]}${match[2]}` : value;
-  const words = raw.trim().split(/\s+/).slice(0, 10);
-  const title = words.join(" ").replace(/[,.]$/, "");
+  const trimmed = normalizeWhitespace(value);
+  const startsWithVerb = /^\s*(we\s+)?(will|plan to|expect to|aim to|target|prepare to|commit to|launch|ramp|begin|start|expand|build|deploy|deliver|commission|schedule|scheduled|roll out|rollout|introduce|scale|invest|allocate|approve|commence|transition|reduce|increase|continue|on track to|remain on track to)\b/i.test(
+    trimmed,
+  );
+  const base = startsWithVerb ? trimmed : splitOnClause(trimmed)[0] ?? trimmed;
+  const title = truncateToWord(base, 80).replace(/[,.]$/, "");
   return title.charAt(0).toUpperCase() + title.slice(1);
 };
 
@@ -47,13 +59,14 @@ const buildCandidate = (text: string, source: DecisionSource, score: number): Ca
     decision: generateTitle(normalized),
     evidence: normalized,
     sources: [source],
-    extractConfidence: Math.min(1, Math.max(0, score / 8)),
+    extractConfidence: Math.min(1, Math.max(0, score / 100)),
+    qualityScore: Math.max(0, Math.min(100, score)),
     impact: DEFAULT_SCORE,
     cost: DEFAULT_SCORE,
     risk: DEFAULT_SCORE,
     urgency: DEFAULT_SCORE,
     confidence: DEFAULT_SCORE,
-    keep: true,
+    keep: false,
     score,
   };
 };
@@ -86,12 +99,14 @@ export const extractDecisionCandidatesFromPages = (pages: PdfPageText[]): Decisi
   const candidates: CandidateWithScore[] = [];
 
   for (const [, group] of grouped.entries()) {
+    const memoText = group.map((page) => page.text).join(" ");
+    const isPersonalMemo = isPersonalMemoText(memoText);
     const cleanedPages = cleanPdfPages(group);
     const segments = segmentDecisionCandidates(cleanedPages);
     for (const segment of segments) {
-      if (shouldDropForLength(segment.text)) continue;
-      if (!passesDecisionCandidateFilters(segment.text)) continue;
+      if (!passesDecisionCandidateFilters(segment.text, { isPersonalMemo })) continue;
       const score = scoreDecisionCandidate(segment.text);
+      if (score < SCORE_THRESHOLD) continue;
 
       candidates.push(
         buildCandidate(segment.text, {
@@ -103,32 +118,41 @@ export const extractDecisionCandidatesFromPages = (pages: PdfPageText[]): Decisi
     }
   }
 
-  const deduped = new Map<string, CandidateWithScore>();
-  for (const candidate of candidates) {
-    const normalized = normalizeForDedup(candidate.evidence);
+  const sorted = candidates.sort((a, b) => (b.score !== a.score ? b.score - a.score : a.evidence.length - b.evidence.length));
+  const deduped: CandidateWithScore[] = [];
+
+  const similarity = (a: string, b: string) => {
+    const tokensA = new Set(normalizeForDedup(a).split(" "));
+    const tokensB = new Set(normalizeForDedup(b).split(" "));
+    const intersection = [...tokensA].filter((token) => tokensB.has(token)).length;
+    const union = new Set([...tokensA, ...tokensB]).size || 1;
+    return intersection / union;
+  };
+
+  for (const candidate of sorted) {
     let merged = false;
-    for (const [key, existing] of deduped.entries()) {
-      const longer = existing.evidence.length >= candidate.evidence.length ? existing : candidate;
-      const shorter = longer === existing ? candidate : existing;
-      if (longer.evidence.includes(shorter.evidence)) {
-        const lengthDiff = Math.abs(longer.evidence.length - shorter.evidence.length) / longer.evidence.length;
-        if (lengthDiff < 0.4) {
-          const winner = longer.score >= shorter.score ? longer : shorter;
-          winner.sources = mergeSources(longer.sources, shorter.sources);
-          deduped.set(key, winner);
-          merged = true;
-          break;
+    for (const existing of deduped) {
+      if (
+        similarity(existing.evidence, candidate.evidence) >= DUPLICATE_SIMILARITY_THRESHOLD ||
+        existing.evidence.includes(candidate.evidence) ||
+        candidate.evidence.includes(existing.evidence)
+      ) {
+        const winner = existing.score >= candidate.score ? existing : candidate;
+        winner.sources = mergeSources(existing.sources, candidate.sources);
+        if (winner !== existing) {
+          const index = deduped.indexOf(existing);
+          deduped[index] = winner;
         }
+        merged = true;
+        break;
       }
     }
-    if (!merged && !deduped.has(normalized)) {
-      deduped.set(normalized, candidate);
+    if (!merged) {
+      deduped.push(candidate);
     }
   }
 
-  return [...deduped.values()]
-    .sort((a, b) => (b.score !== a.score ? b.score - a.score : a.evidence.length - b.evidence.length))
-    .map(({ score, ...rest }) => rest);
+  return deduped.map(({ score, ...rest }) => rest);
 };
 
 export const extractDecisionCandidatesFromText = (text: string, fileName = "Pasted text"): DecisionCandidate[] => {

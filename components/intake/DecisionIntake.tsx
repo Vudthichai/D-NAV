@@ -24,37 +24,28 @@ type IntakeProgress = PdfProgress & {
 };
 
 export default function DecisionIntake({ onImportDecisions }: DecisionIntakeProps) {
-  const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
-  const [usePastedText, setUsePastedText] = useState(false);
-  const [pastedText, setPastedText] = useState("");
-  const [pdfProgress, setPdfProgress] = useState<IntakeProgress | null>(null);
-  const [isExtracting, setIsExtracting] = useState(false);
-  const [statusMessage, setStatusMessage] = useState<string | null>(null);
+  const [intakeFiles, setIntakeFiles] = useState<File[]>([]);
+  const [intakeMemo, setIntakeMemo] = useState("");
+  const [parseProgress, setParseProgress] = useState<IntakeProgress[]>([]);
+  const [isParsing, setIsParsing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [warning, setWarning] = useState<string | null>(null);
   const [decisions, setDecisions] = useState<DecisionCandidate[]>([]);
   const [expandedDecisions, setExpandedDecisions] = useState<Record<string, boolean>>({});
   const [expandedSources, setExpandedSources] = useState<Record<string, boolean>>({});
+  const [showAllCandidates, setShowAllCandidates] = useState(false);
+  const [isRefining, setIsRefining] = useState(false);
 
-  const progressLabel = useMemo(() => {
-    if (pdfProgress) {
-      return `Parsing PDF ${pdfProgress.fileIndex}/${pdfProgress.totalFiles} … page ${pdfProgress.page}/${pdfProgress.total} (${pdfProgress.fileName})`;
-    }
-    if (statusMessage) {
-      return statusMessage;
-    }
-    if (isExtracting) {
-      return "Extracting locally...";
-    }
-    return null;
-  }, [isExtracting, pdfProgress, statusMessage]);
+  const keptCandidates = useMemo(() => decisions.filter((decision) => decision.keep), [decisions]);
+  const candidateLimit = 80;
+  const visibleCandidates = showAllCandidates ? decisions : decisions.slice(0, candidateLimit);
+  const aiRefineEnabled = process.env.NEXT_PUBLIC_AI_REFINE === "true";
 
   const handleFileSelection = useCallback((files: FileList | File[] | null) => {
     setError(null);
     setWarning(null);
-    setPdfProgress(null);
     if (!files || files.length === 0) {
-      setSelectedFiles([]);
+      setIntakeFiles([]);
       return;
     }
 
@@ -63,12 +54,29 @@ export default function DecisionIntake({ onImportDecisions }: DecisionIntakeProp
       (file) => !(file.type === "application/pdf" || file.name.toLowerCase().endsWith(".pdf")),
     );
     if (invalid) {
-      setSelectedFiles([]);
+      setIntakeFiles([]);
       setError("Please upload PDF files only.");
       return;
     }
 
-    setSelectedFiles(fileArray);
+    setIntakeFiles(fileArray);
+  }, []);
+
+  const handleAddFiles = useCallback((files: FileList | File[] | null) => {
+    if (!files || files.length === 0) return;
+    const incoming = Array.from(files);
+    const invalid = incoming.find(
+      (file) => !(file.type === "application/pdf" || file.name.toLowerCase().endsWith(".pdf")),
+    );
+    if (invalid) {
+      setError("Please upload PDF files only.");
+      return;
+    }
+    setIntakeFiles((prev) => [...prev, ...incoming]);
+  }, []);
+
+  const handleRemoveFile = useCallback((index: number) => {
+    setIntakeFiles((prev) => prev.filter((_, idx) => idx !== index));
   }, []);
 
   const clampScore = useCallback((value: number) => {
@@ -96,68 +104,73 @@ export default function DecisionIntake({ onImportDecisions }: DecisionIntakeProp
   const handleExtract = useCallback(async () => {
     setError(null);
     setWarning(null);
-    setIsExtracting(true);
-    setPdfProgress(null);
-    setStatusMessage(null);
+    setIsParsing(true);
+    setParseProgress([]);
+    setShowAllCandidates(false);
 
     try {
-      const trimmedText = pastedText.trim();
-      const shouldUsePaste = usePastedText || trimmedText.length > 0 || selectedFiles.length === 0;
+      const trimmedText = intakeMemo.trim();
       const extractedCandidates: DecisionCandidate[] = [];
       let totalChars = 0;
       let wasTruncated = false;
 
-      if (shouldUsePaste) {
-        if (!trimmedText) {
-          setError("Add text to extract decisions.");
-          setIsExtracting(false);
-          return;
-        }
+      if (!trimmedText && intakeFiles.length === 0) {
+        setError("Add PDFs or paste text to extract decisions.");
+        setIsParsing(false);
+        return;
+      }
+
+      if (trimmedText) {
         let text = trimmedText;
         if (text.length > MAX_CLIENT_TEXT_CHARS) {
           wasTruncated = true;
           text = text.slice(0, MAX_CLIENT_TEXT_CHARS);
         }
-        setStatusMessage("Filtering candidates...");
         extractedCandidates.push(...extractDecisionCandidatesFromText(text));
-      } else {
-        if (selectedFiles.length === 0) {
-          setError("Add a PDF or paste text to extract decisions.");
-          setIsExtracting(false);
-          return;
-        }
+        totalChars += text.length;
+      }
 
-        for (let index = 0; index < selectedFiles.length; index += 1) {
-          const file = selectedFiles[index];
-          const buffer = await file.arrayBuffer();
-          const pageTexts = await extractPdfTextByPage(buffer, (progress) => {
-            setPdfProgress({
+      for (let index = 0; index < intakeFiles.length; index += 1) {
+        const file = intakeFiles[index];
+        const buffer = await file.arrayBuffer();
+        const pageTexts = await extractPdfTextByPage(buffer, (progress) => {
+          setParseProgress((prev) => {
+            const next = [...prev];
+            const existingIndex = next.findIndex((entry) => entry.fileName === file.name);
+            const update = {
               ...progress,
               fileIndex: index + 1,
-              totalFiles: selectedFiles.length,
+              totalFiles: intakeFiles.length,
               fileName: file.name,
-            });
+            };
+            if (existingIndex >= 0) {
+              next[existingIndex] = update;
+            } else {
+              next.push(update);
+            }
+            return next;
           });
-          setPdfProgress(null);
+        });
 
-          const remaining = MAX_CLIENT_TEXT_CHARS - totalChars;
-          if (remaining <= 0) {
-            wasTruncated = true;
-            break;
-          }
+        const remaining = MAX_CLIENT_TEXT_CHARS - totalChars;
+        if (remaining <= 0) {
+          wasTruncated = true;
+          break;
+        }
 
-          const trimmedPages = pageTexts
-            .map((page) => ({
-              ...page,
-              text: page.text.trim(),
-              fileName: file.name,
-            }))
-            .filter((page) => page.text);
+        const trimmedPages = pageTexts
+          .map((page) => ({
+            ...page,
+            text: page.text.trim(),
+            fileName: file.name,
+          }))
+          .filter((page) => page.text);
 
-          if (trimmedPages.length === 0) continue;
+        if (trimmedPages.length === 0) continue;
 
-          let charsUsed = 0;
-          const limitedPages = trimmedPages.map((page) => {
+        let charsUsed = 0;
+        const limitedPages = trimmedPages
+          .map((page) => {
             const available = Math.max(0, remaining - charsUsed);
             if (available <= 0) {
               wasTruncated = true;
@@ -170,20 +183,18 @@ export default function DecisionIntake({ onImportDecisions }: DecisionIntakeProp
             }
             charsUsed += page.text.length;
             return page;
-          }).filter((page) => page.text);
+          })
+          .filter((page) => page.text);
 
-          totalChars += charsUsed;
+        totalChars += charsUsed;
+        extractedCandidates.push(...extractDecisionCandidatesFromPages(limitedPages));
 
-          setStatusMessage("Filtering candidates...");
-          extractedCandidates.push(...extractDecisionCandidatesFromPages(limitedPages));
-
-          if (wasTruncated) break;
-        }
+        if (wasTruncated) break;
       }
 
       if (extractedCandidates.length === 0) {
         setError("No decisions found. Try adding clearer decision language.");
-        setIsExtracting(false);
+        setIsParsing(false);
         return;
       }
 
@@ -199,14 +210,13 @@ export default function DecisionIntake({ onImportDecisions }: DecisionIntakeProp
       console.error("Decision extraction failed", caughtError);
       setError(message);
     } finally {
-      setIsExtracting(false);
-      setStatusMessage(null);
+      setIsParsing(false);
+      setParseProgress([]);
     }
-  }, [pastedText, selectedFiles, usePastedText]);
+  }, [intakeFiles, intakeMemo]);
 
   useEffect(() => {
     if (!onImportDecisions) return;
-    if (decisions.length === 0) return;
     onImportDecisions(decisions.filter((decision) => decision.keep));
   }, [decisions, onImportDecisions]);
 
@@ -217,6 +227,50 @@ export default function DecisionIntake({ onImportDecisions }: DecisionIntakeProp
   const toggleExpandedSource = useCallback((id: string) => {
     setExpandedSources((prev) => ({ ...prev, [id]: !prev[id] }));
   }, []);
+
+  const handleClearIntake = useCallback(() => {
+    setIntakeFiles([]);
+    setIntakeMemo("");
+    setParseProgress([]);
+    setDecisions([]);
+    setExpandedDecisions({});
+    setExpandedSources({});
+    setWarning(null);
+    setError(null);
+    setShowAllCandidates(false);
+  }, []);
+
+  const handleRefineWording = useCallback(async () => {
+    if (!aiRefineEnabled) return;
+    const payload = (keptCandidates.length > 0 ? keptCandidates : decisions.slice(0, 30)).map((candidate) => ({
+      id: candidate.id,
+      decision: candidate.decision,
+      evidence: candidate.evidence,
+      sources: candidate.sources,
+    }));
+    if (payload.length === 0) return;
+    setIsRefining(true);
+    try {
+      const response = await fetch("/api/refine-decisions", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ decisions: payload }),
+      });
+      if (!response.ok) return;
+      const data = (await response.json()) as { decisions?: { id: string; decision: string }[] };
+      if (!data.decisions) return;
+      setDecisions((prev) =>
+        prev.map((decision) => {
+          const match = data.decisions?.find((item) => item.id === decision.id);
+          return match ? { ...decision, decision: match.decision } : decision;
+        }),
+      );
+    } catch (caughtError) {
+      console.error("Decision refine failed", caughtError);
+    } finally {
+      setIsRefining(false);
+    }
+  }, [aiRefineEnabled, decisions, keptCandidates]);
 
   return (
     <section className="mt-6 space-y-4">
@@ -238,48 +292,81 @@ export default function DecisionIntake({ onImportDecisions }: DecisionIntakeProp
                 Drag & drop / Choose PDF
               </p>
               <div
-                className="flex h-32 items-center justify-center rounded-lg border border-dashed border-border/70 bg-muted/20 px-4 text-xs text-muted-foreground"
+                className="flex min-h-[132px] items-center justify-center rounded-lg border border-dashed border-border/70 bg-muted/20 px-4 py-3 text-xs text-muted-foreground"
                 onDragOver={(event) => {
                   event.preventDefault();
                 }}
                 onDrop={(event) => {
                   event.preventDefault();
-                  handleFileSelection(event.dataTransfer.files ?? null);
+                  handleAddFiles(event.dataTransfer.files ?? null);
                 }}
               >
-                <label className="flex cursor-pointer flex-col items-center gap-2">
-                  <span>
-                    {selectedFiles.length > 0
-                      ? `${selectedFiles.length} PDF${selectedFiles.length > 1 ? "s" : ""} selected`
-                      : "Drop up to 5 .pdf files"}
-                  </span>
-                  <input
-                    type="file"
-                    accept=".pdf"
-                    multiple
-                    className="hidden"
-                    onChange={(event) => handleFileSelection(event.target.files)}
-                  />
-                  <span className="text-[11px] font-semibold text-foreground underline">Choose file</span>
-                </label>
+                <div className="flex w-full flex-col items-center gap-2">
+                  {intakeFiles.length === 0 ? (
+                    <label className="flex cursor-pointer flex-col items-center gap-2">
+                      <span>Drop PDFs here or Choose files</span>
+                      <input
+                        type="file"
+                        accept=".pdf"
+                        multiple
+                        className="hidden"
+                        onChange={(event) => handleFileSelection(event.target.files)}
+                      />
+                      <span className="text-[11px] font-semibold text-foreground underline">Choose files</span>
+                    </label>
+                  ) : (
+                    <div className="flex w-full flex-col gap-2">
+                      <div className="flex flex-wrap items-center gap-2">
+                        {intakeFiles.map((file, index) => (
+                          <span
+                            key={`${file.name}-${file.lastModified}-${index}`}
+                            className="inline-flex items-center gap-1 rounded-full border border-border/60 bg-background px-2 py-1 text-[11px] text-foreground"
+                          >
+                            {file.name}
+                            <button
+                              type="button"
+                              className="text-[11px] text-muted-foreground hover:text-foreground"
+                              onClick={() => handleRemoveFile(index)}
+                              aria-label={`Remove ${file.name}`}
+                            >
+                              ×
+                            </button>
+                          </span>
+                        ))}
+                      </div>
+                      <label className="inline-flex cursor-pointer items-center gap-2 text-[11px] font-semibold text-foreground underline">
+                        + Add more
+                        <input
+                          type="file"
+                          accept=".pdf"
+                          multiple
+                          className="hidden"
+                          onChange={(event) => handleAddFiles(event.target.files)}
+                        />
+                      </label>
+                    </div>
+                  )}
+                </div>
               </div>
-              {progressLabel ? <p className="text-[11px] text-muted-foreground">{progressLabel}</p> : null}
+              {isParsing && parseProgress.length > 0 ? (
+                <div className="space-y-1 text-[11px] text-muted-foreground">
+                  {parseProgress.map((progress) => (
+                    <p key={progress.fileName}>
+                      Parsing {progress.fileName} (p {progress.page}/{progress.total})
+                    </p>
+                  ))}
+                </div>
+              ) : null}
             </div>
           </div>
 
           <div className="space-y-2">
-            <div className="flex items-center justify-between gap-3">
-              <label className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                Paste text memo
-              </label>
-              <div className="flex items-center gap-2 text-[11px] text-muted-foreground">
-                <span>Use pasted text instead</span>
-                <Switch checked={usePastedText} onCheckedChange={setUsePastedText} />
-              </div>
-            </div>
+            <label className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+              Paste text memo
+            </label>
             <Textarea
-              value={pastedText}
-              onChange={(event) => setPastedText(event.target.value)}
+              value={intakeMemo}
+              onChange={(event) => setIntakeMemo(event.target.value)}
               placeholder="Paste the excerpt you want to scan for decisions."
               className="min-h-[128px] bg-background"
             />
@@ -293,20 +380,33 @@ export default function DecisionIntake({ onImportDecisions }: DecisionIntakeProp
         ) : null}
 
         {error ? (
-          <div className="rounded-lg border border-destructive/40 bg-destructive/10 px-3 py-2 text-xs text-destructive" role="alert">
+          <div
+            className="rounded-lg border border-destructive/40 bg-destructive/10 px-3 py-2 text-xs text-destructive"
+            role="alert"
+          >
             {error}
           </div>
         ) : null}
 
         <div className="flex flex-wrap items-center justify-between gap-3">
           <p className="text-xs text-muted-foreground">We’ll only analyze the text you provide here.</p>
-          <Button
-            className="h-9 px-4 text-xs font-semibold uppercase tracking-wide"
-            onClick={handleExtract}
-            disabled={isExtracting}
-          >
-            {isExtracting ? "Extracting..." : "Extract decisions"}
-          </Button>
+          <div className="flex flex-wrap items-center gap-2">
+            <Button
+              variant="ghost"
+              className="h-9 px-4 text-xs font-semibold uppercase tracking-wide"
+              onClick={handleClearIntake}
+              disabled={isParsing && parseProgress.length > 0}
+            >
+              Clear intake
+            </Button>
+            <Button
+              className="h-9 px-4 text-xs font-semibold uppercase tracking-wide"
+              onClick={handleExtract}
+              disabled={isParsing}
+            >
+              {isParsing ? "Extracting..." : "Extract Decisions"}
+            </Button>
+          </div>
         </div>
       </Card>
 
@@ -314,16 +414,30 @@ export default function DecisionIntake({ onImportDecisions }: DecisionIntakeProp
         <div className="space-y-3">
           <div className="sticky top-4 z-10 flex flex-wrap items-center justify-between gap-3 rounded-lg border border-border/60 bg-background/95 px-4 py-3 shadow-sm backdrop-blur">
             <div className="space-y-1">
-              <p className="text-sm font-semibold text-foreground">Decision candidates</p>
-              <p className="text-xs text-muted-foreground">Keep toggles update your session instantly.</p>
+              <p className="text-sm font-semibold text-foreground">Decision Candidates</p>
+              <p className="text-xs text-muted-foreground">Toggle Keep to add to your session (N/10).</p>
+            </div>
+            <div className="flex items-center gap-3 text-xs text-muted-foreground">
+              <span className="font-semibold text-foreground">Kept: {keptCandidates.length} / 10</span>
+              {aiRefineEnabled ? (
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="h-7 px-2 text-[10px] font-semibold uppercase tracking-wide"
+                  onClick={handleRefineWording}
+                  disabled={isRefining}
+                >
+                  {isRefining ? "Refining..." : "Refine wording (optional)"}
+                </Button>
+              ) : null}
             </div>
           </div>
 
           <div className="space-y-3">
-            {decisions.map((decision) => {
+            {visibleCandidates.map((decision) => {
               const source = decision.sources[0];
               const sourceLabel = source?.fileName
-                ? `${source.fileName}${source.pageNumber ? ` · p${source.pageNumber}` : ""}`
+                ? `${source.fileName}${source.pageNumber ? ` • p${source.pageNumber}` : ""}`
                 : undefined;
               const isExpanded = Boolean(expandedDecisions[decision.id]);
               const isSourceExpanded = Boolean(expandedSources[decision.id]);
@@ -352,7 +466,7 @@ export default function DecisionIntake({ onImportDecisions }: DecisionIntakeProp
                       </button>
                     </div>
                     <div className="flex flex-wrap items-center gap-2 text-[10px] text-muted-foreground">
-                      {sourceLabel ? <span>Source: {sourceLabel}</span> : null}
+                      {sourceLabel ? <span>{sourceLabel}</span> : null}
                       {source?.excerpt ? (
                         <button
                           type="button"
@@ -387,12 +501,27 @@ export default function DecisionIntake({ onImportDecisions }: DecisionIntakeProp
                   <div className="flex items-center justify-end lg:justify-center">
                     <div className="flex flex-col items-center gap-1 text-[10px] text-muted-foreground">
                       <span>Keep</span>
-                      <Switch checked={decision.keep} onCheckedChange={(checked) => toggleDecisionKeep(decision.id, checked)} />
+                      <Switch
+                        checked={decision.keep}
+                        onCheckedChange={(checked) => toggleDecisionKeep(decision.id, checked)}
+                      />
                     </div>
                   </div>
                 </div>
               );
             })}
+            {decisions.length > candidateLimit ? (
+              <div className="flex justify-center">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="h-8 px-3 text-[11px] font-semibold uppercase tracking-wide"
+                  onClick={() => setShowAllCandidates((prev) => !prev)}
+                >
+                  {showAllCandidates ? "Show top 80" : `Show ${decisions.length - candidateLimit} more`}
+                </Button>
+              </div>
+            ) : null}
           </div>
         </div>
       ) : null}
