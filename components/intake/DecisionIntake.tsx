@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -118,7 +118,7 @@ export default function DecisionIntake({ onImportDecisions }: DecisionIntakeProp
           wasTruncated = true;
           text = text.slice(0, MAX_CLIENT_TEXT_CHARS);
         }
-        setStatusMessage("Scoring candidates...");
+        setStatusMessage("Filtering candidates...");
         extractedCandidates.push(...extractDecisionCandidatesFromText(text));
       } else {
         if (selectedFiles.length === 0) {
@@ -174,7 +174,7 @@ export default function DecisionIntake({ onImportDecisions }: DecisionIntakeProp
 
           totalChars += charsUsed;
 
-          setStatusMessage("Scoring candidates...");
+          setStatusMessage("Filtering candidates...");
           extractedCandidates.push(...extractDecisionCandidatesFromPages(limitedPages));
 
           if (wasTruncated) break;
@@ -204,20 +204,10 @@ export default function DecisionIntake({ onImportDecisions }: DecisionIntakeProp
     }
   }, [pastedText, selectedFiles, usePastedText]);
 
-  const handleImport = useCallback(() => {
-    const selected = decisions.filter((decision) => decision.keep);
-    if (selected.length === 0) {
-      setError("Select at least one decision to import.");
-      return;
-    }
-
-    if (onImportDecisions) {
-      onImportDecisions(selected);
-      return;
-    }
-
-    console.warn("TODO: wire Decision Intake import handler.");
-    setError("Import is not wired yet.");
+  useEffect(() => {
+    if (!onImportDecisions) return;
+    if (decisions.length === 0) return;
+    onImportDecisions(decisions.filter((decision) => decision.keep));
   }, [decisions, onImportDecisions]);
 
   const toggleExpandedDecision = useCallback((id: string) => {
@@ -325,11 +315,8 @@ export default function DecisionIntake({ onImportDecisions }: DecisionIntakeProp
           <div className="sticky top-4 z-10 flex flex-wrap items-center justify-between gap-3 rounded-lg border border-border/60 bg-background/95 px-4 py-3 shadow-sm backdrop-blur">
             <div className="space-y-1">
               <p className="text-sm font-semibold text-foreground">Decision candidates</p>
-              <p className="text-xs text-muted-foreground">Score each decision before importing.</p>
+              <p className="text-xs text-muted-foreground">Keep toggles update your session instantly.</p>
             </div>
-            <Button className="h-9 px-4 text-xs font-semibold uppercase tracking-wide" onClick={handleImport}>
-              Import selected decisions
-            </Button>
           </div>
 
           <div className="space-y-3">

@@ -1,6 +1,6 @@
 import { cleanPdfPages, normalizeWhitespace, type PdfPageText } from "@/lib/decisionExtract/cleanText";
 import { segmentDecisionCandidates } from "@/lib/decisionExtract/segment";
-import { scoreDecisionCandidate } from "@/lib/decisionExtract/scoreDecision";
+import { passesDecisionCandidateFilters, scoreDecisionCandidate } from "@/lib/decisionExtract/scoreDecision";
 import type { DecisionCandidate, DecisionSource } from "@/lib/types/decision";
 
 const DEFAULT_SCORE = 5;
@@ -24,18 +24,15 @@ const normalizeForDedup = (value: string) =>
     .replace(/\s+/g, " ")
     .trim();
 
-const shouldDropForLength = (value: string, score: number) => {
+const shouldDropForLength = (value: string) => {
   const length = value.length;
-  if (length < 30 && score < 5) return true;
-  if (length < 40 && score < 4) return true;
-  if (length > 260) return true;
-  return false;
+  return length < 40 || length > 240;
 };
 
 const generateTitle = (value: string) => {
   const match =
     value.match(
-      /\b(will|plan to|expect to|launch|ramp|begin|start|expand|build|deploy|introduce|scale|invest|allocate|approve|commence|transition|reduce|increase|continue|on track to)\b([^,.]{0,80})/i,
+      /\b(will|plan to|expect to|aim to|target|prepare to|commit to|discontinue|launch|ramp|begin|start|expand|build|deploy|introduce|scale|invest|allocate|approve|commence|transition|reduce|increase|continue|on track to|remain on track to)\b([^,.]{0,80})/i,
     ) ?? null;
   const raw = match ? `${match[1]}${match[2]}` : value;
   const words = raw.trim().split(/\s+/).slice(0, 10);
@@ -92,9 +89,9 @@ export const extractDecisionCandidatesFromPages = (pages: PdfPageText[]): Decisi
     const cleanedPages = cleanPdfPages(group);
     const segments = segmentDecisionCandidates(cleanedPages);
     for (const segment of segments) {
+      if (shouldDropForLength(segment.text)) continue;
+      if (!passesDecisionCandidateFilters(segment.text)) continue;
       const score = scoreDecisionCandidate(segment.text);
-      if (score < 3) continue;
-      if (shouldDropForLength(segment.text, score)) continue;
 
       candidates.push(
         buildCandidate(segment.text, {

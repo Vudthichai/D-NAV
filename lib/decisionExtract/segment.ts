@@ -16,7 +16,7 @@ const splitOnDelimiters = (value: string) =>
     .filter(Boolean);
 
 const splitLongSegment = (value: string) => {
-  if (value.length <= 260) return [value];
+  if (value.length <= 240) return [value];
   const parts = value
     .split(/,(?![^()]*\))/g)
     .map((segment) => segment.trim())
