@@ -1,20 +1,20 @@
 "use client";
 
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
-import { extractPdfTextByPage, type PdfProgress } from "@/lib/pdf/extractPdfText";
-import { extractDecisionCandidatesFromPages, extractDecisionCandidatesFromText } from "@/lib/decisionExtract/extract";
+import type { PdfProgress } from "@/lib/pdf/extractPdfText";
+import { distillSources, type DistillStage } from "@/lib/decisionExtract/distillSources";
 import type { DecisionCandidate } from "@/lib/types/decision";
 import { ChevronDown, ChevronUp } from "lucide-react";
 
-const MAX_CLIENT_TEXT_CHARS = 200_000;
+const MAX_FILES = 5;
 
 type DecisionIntakeProps = {
-  onImportDecisions?: (decisions: DecisionCandidate[]) => void;
+  onImportDecisions?: (decisions: DecisionCandidate[], options?: { mode: "sync" | "append" }) => void;
 };
 
 type IntakeProgress = PdfProgress & {
@@ -25,7 +25,6 @@ type IntakeProgress = PdfProgress & {
 
 export default function DecisionIntake({ onImportDecisions }: DecisionIntakeProps) {
   const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
-  const [usePastedText, setUsePastedText] = useState(false);
   const [pastedText, setPastedText] = useState("");
   const [pdfProgress, setPdfProgress] = useState<IntakeProgress | null>(null);
   const [isExtracting, setIsExtracting] = useState(false);
@@ -33,18 +32,18 @@ export default function DecisionIntake({ onImportDecisions }: DecisionIntakeProp
   const [error, setError] = useState<string | null>(null);
   const [warning, setWarning] = useState<string | null>(null);
   const [decisions, setDecisions] = useState<DecisionCandidate[]>([]);
+  const [hasExtracted, setHasExtracted] = useState(false);
   const [expandedDecisions, setExpandedDecisions] = useState<Record<string, boolean>>({});
-  const [expandedSources, setExpandedSources] = useState<Record<string, boolean>>({});
 
   const progressLabel = useMemo(() => {
     if (pdfProgress) {
-      return `Parsing PDF ${pdfProgress.fileIndex}/${pdfProgress.totalFiles} … page ${pdfProgress.page}/${pdfProgress.total} (${pdfProgress.fileName})`;
+      return `Parsing PDFs ${pdfProgress.fileIndex}/${pdfProgress.totalFiles} … page ${pdfProgress.page}/${pdfProgress.total} (${pdfProgress.fileName})`;
     }
     if (statusMessage) {
       return statusMessage;
     }
     if (isExtracting) {
-      return "Extracting locally...";
+      return "Extracting decisions...";
     }
     return null;
   }, [isExtracting, pdfProgress, statusMessage]);
@@ -58,7 +57,7 @@ export default function DecisionIntake({ onImportDecisions }: DecisionIntakeProp
       return;
     }
 
-    const fileArray = Array.from(files);
+    const fileArray = Array.from(files).slice(0, MAX_FILES);
     const invalid = fileArray.find(
       (file) => !(file.type === "application/pdf" || file.name.toLowerCase().endsWith(".pdf")),
     );
@@ -68,6 +67,9 @@ export default function DecisionIntake({ onImportDecisions }: DecisionIntakeProp
       return;
     }
 
+    if (files.length > MAX_FILES) {
+      setWarning(`Only the first ${MAX_FILES} PDFs were added.`);
+    }
     setSelectedFiles(fileArray);
   }, []);
 
@@ -102,98 +104,93 @@ export default function DecisionIntake({ onImportDecisions }: DecisionIntakeProp
 
     try {
       const trimmedText = pastedText.trim();
-      const shouldUsePaste = usePastedText || trimmedText.length > 0 || selectedFiles.length === 0;
-      const extractedCandidates: DecisionCandidate[] = [];
-      let totalChars = 0;
-      let wasTruncated = false;
-
-      if (shouldUsePaste) {
-        if (!trimmedText) {
-          setError("Add text to extract decisions.");
-          setIsExtracting(false);
-          return;
-        }
-        let text = trimmedText;
-        if (text.length > MAX_CLIENT_TEXT_CHARS) {
-          wasTruncated = true;
-          text = text.slice(0, MAX_CLIENT_TEXT_CHARS);
-        }
-        setStatusMessage("Scoring candidates...");
-        extractedCandidates.push(...extractDecisionCandidatesFromText(text));
-      } else {
-        if (selectedFiles.length === 0) {
-          setError("Add a PDF or paste text to extract decisions.");
-          setIsExtracting(false);
-          return;
-        }
-
-        for (let index = 0; index < selectedFiles.length; index += 1) {
-          const file = selectedFiles[index];
-          const buffer = await file.arrayBuffer();
-          const pageTexts = await extractPdfTextByPage(buffer, (progress) => {
-            setPdfProgress({
-              ...progress,
-              fileIndex: index + 1,
-              totalFiles: selectedFiles.length,
-              fileName: file.name,
-            });
-          });
-          setPdfProgress(null);
-
-          const remaining = MAX_CLIENT_TEXT_CHARS - totalChars;
-          if (remaining <= 0) {
-            wasTruncated = true;
-            break;
-          }
-
-          const trimmedPages = pageTexts
-            .map((page) => ({
-              ...page,
-              text: page.text.trim(),
-              fileName: file.name,
-            }))
-            .filter((page) => page.text);
-
-          if (trimmedPages.length === 0) continue;
-
-          let charsUsed = 0;
-          const limitedPages = trimmedPages.map((page) => {
-            const available = Math.max(0, remaining - charsUsed);
-            if (available <= 0) {
-              wasTruncated = true;
-              return { ...page, text: "" };
-            }
-            if (page.text.length > available) {
-              wasTruncated = true;
-              charsUsed += available;
-              return { ...page, text: page.text.slice(0, available) };
-            }
-            charsUsed += page.text.length;
-            return page;
-          }).filter((page) => page.text);
-
-          totalChars += charsUsed;
-
-          setStatusMessage("Scoring candidates...");
-          extractedCandidates.push(...extractDecisionCandidatesFromPages(limitedPages));
-
-          if (wasTruncated) break;
-        }
+      if (!trimmedText && selectedFiles.length === 0) {
+        setError("Add a PDF or paste text to extract decisions.");
+        setIsExtracting(false);
+        return;
       }
 
-      if (extractedCandidates.length === 0) {
+      const stageLabel: Record<DistillStage, string> = {
+        parsing: "Parsing PDFs...",
+        scanning: "Scanning text...",
+        chunking: "Preparing chunks...",
+      };
+
+      const { chunks, warnings } = await distillSources(selectedFiles, trimmedText, {
+        onProgress: (progress) => {
+          setPdfProgress(progress);
+        },
+        onStageChange: (stage) => {
+          setStatusMessage(stageLabel[stage]);
+        },
+      });
+      setPdfProgress(null);
+
+      if (warnings.length > 0) {
+        setWarning(warnings[0]);
+      }
+
+      if (chunks.length === 0) {
+        setError("No readable text found. Try a different PDF or pasted memo.");
+        setIsExtracting(false);
+        return;
+      }
+
+      setStatusMessage("Extracting decisions...");
+      const response = await fetch("/api/extract", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ chunks, maxDecisionsPerChunk: 12 }),
+      });
+
+      if (!response.ok) {
+        const message = await response.text();
+        throw new Error(message || "Extraction failed.");
+      }
+
+      const payload = (await response.json()) as {
+        decisions: Array<{
+          id: string;
+          decision: string;
+          evidence: string;
+          sourceId: string;
+          pageStart: number | null;
+          pageEnd: number | null;
+          extractConfidence: number;
+          decisionness: number;
+        }>;
+      };
+
+      setStatusMessage("Dedupe...");
+      const mapped = payload.decisions.map((decision) => ({
+        id: decision.id,
+        decision: decision.decision,
+        evidence: decision.evidence,
+        sources: [
+          {
+            fileName: decision.sourceId,
+            pageNumber: decision.pageStart ?? undefined,
+            pageEnd: decision.pageEnd ?? undefined,
+            excerpt: decision.evidence,
+          },
+        ],
+        extractConfidence: decision.extractConfidence,
+        impact: 5,
+        cost: 5,
+        risk: 5,
+        urgency: 5,
+        confidence: 5,
+        keep: true,
+      }));
+
+      if (mapped.length === 0) {
         setError("No decisions found. Try adding clearer decision language.");
         setIsExtracting(false);
         return;
       }
 
-      if (wasTruncated) {
-        setWarning(
-          `We analyzed only the first ${MAX_CLIENT_TEXT_CHARS.toLocaleString()} characters to keep the browser fast.`,
-        );
-      }
-
-      setDecisions(extractedCandidates);
+      setDecisions(mapped);
+      setHasExtracted(true);
     } catch (caughtError) {
       const message = caughtError instanceof Error ? caughtError.message : "Extraction failed.";
       console.error("Decision extraction failed", caughtError);
@@ -202,30 +199,16 @@ export default function DecisionIntake({ onImportDecisions }: DecisionIntakeProp
       setIsExtracting(false);
       setStatusMessage(null);
     }
-  }, [pastedText, selectedFiles, usePastedText]);
+  }, [pastedText, selectedFiles]);
 
-  const handleImport = useCallback(() => {
-    const selected = decisions.filter((decision) => decision.keep);
-    if (selected.length === 0) {
-      setError("Select at least one decision to import.");
-      return;
-    }
-
-    if (onImportDecisions) {
-      onImportDecisions(selected);
-      return;
-    }
-
-    console.warn("TODO: wire Decision Intake import handler.");
-    setError("Import is not wired yet.");
-  }, [decisions, onImportDecisions]);
+  useEffect(() => {
+    if (!onImportDecisions || !hasExtracted) return;
+    const kept = decisions.filter((decision) => decision.keep);
+    onImportDecisions(kept, { mode: "sync" });
+  }, [decisions, hasExtracted, onImportDecisions]);
 
   const toggleExpandedDecision = useCallback((id: string) => {
     setExpandedDecisions((prev) => ({ ...prev, [id]: !prev[id] }));
-  }, []);
-
-  const toggleExpandedSource = useCallback((id: string) => {
-    setExpandedSources((prev) => ({ ...prev, [id]: !prev[id] }));
   }, []);
 
   return (
@@ -261,7 +244,7 @@ export default function DecisionIntake({ onImportDecisions }: DecisionIntakeProp
                   <span>
                     {selectedFiles.length > 0
                       ? `${selectedFiles.length} PDF${selectedFiles.length > 1 ? "s" : ""} selected`
-                      : "Drop up to 5 .pdf files"}
+                      : `Drop up to ${MAX_FILES} .pdf files`}
                   </span>
                   <input
                     type="file"
@@ -282,10 +265,6 @@ export default function DecisionIntake({ onImportDecisions }: DecisionIntakeProp
               <label className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
                 Paste text memo
               </label>
-              <div className="flex items-center gap-2 text-[11px] text-muted-foreground">
-                <span>Use pasted text instead</span>
-                <Switch checked={usePastedText} onCheckedChange={setUsePastedText} />
-              </div>
             </div>
             <Textarea
               value={pastedText}
@@ -315,7 +294,7 @@ export default function DecisionIntake({ onImportDecisions }: DecisionIntakeProp
             onClick={handleExtract}
             disabled={isExtracting}
           >
-            {isExtracting ? "Extracting..." : "Extract decisions"}
+            {isExtracting ? "Extracting..." : "Extract Decisions"}
           </Button>
         </div>
       </Card>
@@ -325,21 +304,21 @@ export default function DecisionIntake({ onImportDecisions }: DecisionIntakeProp
           <div className="sticky top-4 z-10 flex flex-wrap items-center justify-between gap-3 rounded-lg border border-border/60 bg-background/95 px-4 py-3 shadow-sm backdrop-blur">
             <div className="space-y-1">
               <p className="text-sm font-semibold text-foreground">Decision candidates</p>
-              <p className="text-xs text-muted-foreground">Score each decision before importing.</p>
+              <p className="text-xs text-muted-foreground">Kept decisions instantly count toward your session.</p>
             </div>
-            <Button className="h-9 px-4 text-xs font-semibold uppercase tracking-wide" onClick={handleImport}>
-              Import selected decisions
-            </Button>
           </div>
 
           <div className="space-y-3">
             {decisions.map((decision) => {
               const source = decision.sources[0];
-              const sourceLabel = source?.fileName
-                ? `${source.fileName}${source.pageNumber ? ` · p${source.pageNumber}` : ""}`
-                : undefined;
+              const pageLabel =
+                source?.pageNumber && source?.pageEnd && source.pageEnd !== source.pageNumber
+                  ? `p${source.pageNumber}–${source.pageEnd}`
+                  : source?.pageNumber
+                    ? `p${source.pageNumber}`
+                    : null;
+              const sourceLabel = source?.fileName ? `${source.fileName}${pageLabel ? ` · ${pageLabel}` : ""}` : undefined;
               const isExpanded = Boolean(expandedDecisions[decision.id]);
-              const isSourceExpanded = Boolean(expandedSources[decision.id]);
 
               return (
                 <div
@@ -366,21 +345,7 @@ export default function DecisionIntake({ onImportDecisions }: DecisionIntakeProp
                     </div>
                     <div className="flex flex-wrap items-center gap-2 text-[10px] text-muted-foreground">
                       {sourceLabel ? <span>Source: {sourceLabel}</span> : null}
-                      {source?.excerpt ? (
-                        <button
-                          type="button"
-                          className="text-[10px] font-semibold text-foreground underline-offset-2 hover:underline"
-                          onClick={() => toggleExpandedSource(decision.id)}
-                        >
-                          {isSourceExpanded ? "Hide source excerpt" : "Show source excerpt"}
-                        </button>
-                      ) : null}
                     </div>
-                    {isSourceExpanded && source?.excerpt ? (
-                      <div className="rounded-md border border-border/60 bg-muted/20 px-3 py-2 text-[11px] text-muted-foreground">
-                        {source.excerpt}
-                      </div>
-                    ) : null}
                   </div>
                   <div className="grid grid-cols-2 gap-2 sm:grid-cols-5 lg:grid-cols-5">
                     {(["impact", "cost", "risk", "urgency", "confidence"] as const).map((key) => (

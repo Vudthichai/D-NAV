@@ -15,5 +15,6 @@ export type DecisionCandidate = {
 export type DecisionSource = {
   fileName?: string;
   pageNumber?: number;
+  pageEnd?: number;
   excerpt: string;
 };

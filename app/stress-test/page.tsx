@@ -28,7 +28,13 @@ interface SessionDecision {
   dnav: number;
   sourceFile?: string;
   sourcePage?: number;
+  sourceId?: string;
+  pageStart?: number;
+  pageEnd?: number;
   excerpt?: string;
+  evidence?: string;
+  origin: "manual" | "intake";
+  intakeDecisionId?: string;
   createdAt: number;
 }
 
@@ -54,7 +60,12 @@ export default function StressTestPage() {
     try {
       const stored = window.sessionStorage.getItem(SESSION_DECISIONS_KEY);
       const parsed = stored ? JSON.parse(stored) : null;
-      return Array.isArray(parsed) ? parsed.filter(isSessionDecisionSnapshot) : [];
+      return Array.isArray(parsed)
+        ? parsed.filter(isSessionDecisionSnapshot).map((decision) => ({
+            ...decision,
+            origin: decision.origin ?? "manual",
+          }))
+        : [];
     } catch (error) {
       console.error("Failed to load stress test session decisions.", error);
       return [];
@@ -94,6 +105,7 @@ export default function StressTestPage() {
       p: decision.pressure,
       s: decision.stability,
       dnav: decision.dnav,
+      origin: "manual",
       createdAt: decision.createdAt,
     };
     setSessionDecisions((prev) => [sessionDecision, ...prev]);
@@ -127,42 +139,64 @@ export default function StressTestPage() {
     }
   }, []);
 
-  const handleImportDecisions = useCallback((selected: DecisionCandidate[]) => {
-    setSessionDecisions((prev) => {
-      const now = Date.now();
-      const imports = selected.map((decision, index) => {
-        const primarySource = decision.sources[0];
-        const vars: DecisionVariables = {
-          impact: decision.impact,
-          cost: decision.cost,
-          risk: decision.risk,
-          urgency: decision.urgency,
-          confidence: decision.confidence,
-        };
-        const metrics = computeMetrics(vars);
-        return {
-          id: `${now}-${index}-${Math.random().toString(36).slice(2, 8)}`,
-          decisionTitle: decision.decision,
-          decisionDetail: decision.evidence,
-          category: primarySource?.fileName?.trim() || "Extracted",
-          impact: vars.impact,
-          cost: vars.cost,
-          risk: vars.risk,
-          urgency: vars.urgency,
-          confidence: vars.confidence,
-          r: metrics.return,
-          p: metrics.pressure,
-          s: metrics.stability,
-          dnav: metrics.dnav,
-          sourceFile: primarySource?.fileName,
-          sourcePage: primarySource?.pageNumber,
-          excerpt: primarySource?.excerpt ?? decision.evidence,
-          createdAt: now + index,
-        } satisfies SessionDecision;
+  const handleImportDecisions = useCallback(
+    (selected: DecisionCandidate[], options?: { mode: "sync" | "append" }) => {
+      setSessionDecisions((prev) => {
+        const now = Date.now();
+        const existingIntake = new Map(
+          prev
+            .filter((decision) => decision.origin === "intake" && decision.intakeDecisionId)
+            .map((decision) => [decision.intakeDecisionId as string, decision]),
+        );
+
+        const imports = selected.map((decision, index) => {
+          const primarySource = decision.sources[0];
+          const vars: DecisionVariables = {
+            impact: decision.impact,
+            cost: decision.cost,
+            risk: decision.risk,
+            urgency: decision.urgency,
+            confidence: decision.confidence,
+          };
+          const metrics = computeMetrics(vars);
+          const existing = existingIntake.get(decision.id);
+          return {
+            id: existing?.id ?? `intake-${decision.id}`,
+            intakeDecisionId: decision.id,
+            decisionTitle: decision.decision,
+            decisionDetail: decision.evidence,
+            category: primarySource?.fileName?.trim() || "Extracted",
+            impact: vars.impact,
+            cost: vars.cost,
+            risk: vars.risk,
+            urgency: vars.urgency,
+            confidence: vars.confidence,
+            r: metrics.return,
+            p: metrics.pressure,
+            s: metrics.stability,
+            dnav: metrics.dnav,
+            sourceFile: primarySource?.fileName,
+            sourcePage: primarySource?.pageNumber,
+            sourceId: primarySource?.fileName,
+            pageStart: primarySource?.pageNumber,
+            pageEnd: primarySource?.pageEnd,
+            excerpt: primarySource?.excerpt ?? decision.evidence,
+            evidence: decision.evidence,
+            origin: "intake",
+            createdAt: existing?.createdAt ?? now + index,
+          } satisfies SessionDecision;
+        });
+
+        if (options?.mode === "sync") {
+          const manual = prev.filter((decision) => decision.origin !== "intake");
+          return [...imports, ...manual];
+        }
+
+        return [...imports, ...prev];
       });
-      return [...imports, ...prev];
-    });
-  }, []);
+    },
+    [],
+  );
 
   const sessionAverages = useMemo(() => {
     if (sessionDecisions.length === 0) return null;
@@ -191,38 +225,47 @@ export default function StressTestPage() {
 
   const handleToggleSessionAnalysis = useCallback(() => {
     if (!canOpenSessionAnalysis) return;
+    console.log("Session analysis toggle clicked");
     setIsSessionAnalysisOpen((prev) => !prev);
   }, [canOpenSessionAnalysis]);
 
   const handleExportSessionCsv = useCallback(() => {
     if (typeof window === "undefined") return;
     const headers = [
-      "Title",
+      "Decision",
       "Impact",
       "Cost",
       "Risk",
       "Urgency",
       "Confidence",
-      "SourceFile",
-      "SourcePage",
-      "Excerpt",
+      "SourceId",
+      "PageRange",
+      "Evidence",
     ];
     const escapeCell = (value: string | number | undefined) => {
       const text = value === undefined || value === null ? "" : String(value);
       const escaped = text.replace(/"/g, '""');
       return /[",\n]/.test(escaped) ? `"${escaped}"` : escaped;
     };
-    const rows = sessionDecisions.map((decision) => [
-      decision.decisionTitle,
-      decision.impact,
-      decision.cost,
-      decision.risk,
-      decision.urgency,
-      decision.confidence,
-      decision.sourceFile ?? "",
-      decision.sourcePage ?? "",
-      decision.excerpt ?? decision.decisionDetail ?? "",
-    ]);
+    const rows = sessionDecisions.map((decision) => {
+      const pageRange =
+        decision.pageStart && decision.pageEnd && decision.pageEnd !== decision.pageStart
+          ? `${decision.pageStart}-${decision.pageEnd}`
+          : decision.pageStart
+            ? `${decision.pageStart}`
+            : "";
+      return [
+        decision.decisionTitle,
+        decision.impact,
+        decision.cost,
+        decision.risk,
+        decision.urgency,
+        decision.confidence,
+        decision.sourceId ?? decision.sourceFile ?? "",
+        pageRange,
+        decision.evidence ?? decision.excerpt ?? decision.decisionDetail ?? "",
+      ];
+    });
     const csv = [headers, ...rows].map((row) => row.map(escapeCell).join(",")).join("\n");
     const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
     const url = URL.createObjectURL(blob);
@@ -359,16 +402,14 @@ export default function StressTestPage() {
 
               <Tooltip>
                 <TooltipTrigger asChild>
-                  <span className="inline-flex">
-                    <Button
-                      type="button"
-                      className="h-9 px-4 text-xs font-semibold uppercase tracking-wide"
-                      onClick={handleToggleSessionAnalysis}
-                      disabled={!canOpenSessionAnalysis}
-                    >
-                      {isSessionAnalysisOpen ? "CLOSE SESSION ANALYSIS" : "OPEN SESSION ANALYSIS"}
-                    </Button>
-                  </span>
+                  <Button
+                    type="button"
+                    className="h-9 px-4 text-xs font-semibold uppercase tracking-wide"
+                    onClick={handleToggleSessionAnalysis}
+                    disabled={!canOpenSessionAnalysis}
+                  >
+                    {isSessionAnalysisOpen ? "CLOSE SESSION ANALYSIS" : "OPEN SESSION ANALYSIS"}
+                  </Button>
                 </TooltipTrigger>
                 {!canOpenSessionAnalysis ? (
                   <TooltipContent side="top">Log 10 decisions to unlock session analysis.</TooltipContent>
