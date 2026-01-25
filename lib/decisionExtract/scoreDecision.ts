@@ -16,6 +16,12 @@ const COMMITMENT_VERBS = [
   "expand",
   "build",
   "deploy",
+  "deliver",
+  "commission",
+  "schedule",
+  "scheduled",
+  "roll out",
+  "rollout",
   "introduce",
   "scale",
   "invest",
@@ -38,60 +44,54 @@ const TIMELINE_CUES = [
   "by",
   "by end of",
   "this year",
+  "later this year",
   "next quarter",
   "next year",
   "over",
   "during",
   "within",
+  "in 202",
 ];
 
-const RESOURCE_CUES = [
-  "invest",
-  "allocate",
-  "capex",
-  "budget",
-  "hire",
-  "staff",
+const CONSTRAINT_CUES = [
+  "pending",
+  "subject to",
+  "dependent",
+  "regulatory",
+  "constraint",
+  "constrained",
   "capacity",
-  "factory",
-  "manufacturing",
-  "pilot",
-  "ramp",
-  "expand",
-  "build",
+  "cost",
+  "risk",
+  "approval",
 ];
 
-const ACCOUNTING_ONLY = [
-  "cash equivalents",
-  "accounts payable",
-  "total assets",
-  "operating income",
-  "net income",
-  "earnings per share",
+const DESCRIPTIVE_ONLY = [
+  "includes",
+  "consists of",
+  "is useful to",
+  "provides information",
+  "provides an overview",
+  "is designed to",
+  "is intended to",
 ];
 
-const ACTION_VERBS = [
-  "launch",
-  "ramp",
-  "begin",
-  "start",
-  "expand",
-  "build",
-  "deploy",
-  "introduce",
-  "scale",
-  "invest",
-  "prepare",
-  "target",
-  "commit",
-  "discontinue",
+const BOILERPLATE_PHRASES = [
+  "forward-looking",
+  "safe harbor",
+  "webcast",
+  "replay",
+  "gaap",
+  "non-gaap",
+  "will be available for replay",
+  "believes that it is useful to supplement",
 ];
-
-const TIMELINE_REGEX = /\b(20\d{2}|q[1-4]|by end of|this year|next quarter|next year|by|during|within)\b/i;
 
 const TRIVIAL_ACTIONS = [
   "coffee",
   "gym",
+  "walked",
+  "walk",
   "email",
   "emails",
   "meeting",
@@ -106,67 +106,65 @@ const TRIVIAL_ACTIONS = [
   "trip",
 ];
 
-const NON_DECISION_PHRASES = [
-  "continue to monitor",
-  "continue monitoring",
-  "monitoring",
-  "ongoing operations",
-  "day-to-day",
-  "as usual",
-  "routine",
-  "we operate",
-  "we continue to operate",
-  "we believe",
-  "management believes",
-];
-
-const PAST_CUES = [
-  "was",
-  "were",
-  "had",
-  "completed",
-  "achieved",
-  "delivered",
-  "resulted",
-  "concluded",
-  "finished",
-  "previously",
-  "last year",
-];
+const TIMELINE_REGEX = /\b(20\d{2}|q[1-4]|by end of|this year|later this year|next quarter|next year|by|during|within)\b/i;
 
 const OBJECT_VERB_PATTERN = new RegExp(
   `\\b(?:${COMMITMENT_VERBS.map((verb) => verb.replace(/\s+/g, "\\s+")).join("|")})\\b\\s+([^.;:]{8,})`,
   "i",
 );
 
+const ROLLOUT_CUES = ["launch", "rollout", "roll out", "deploy", "begin", "start", "ramp", "expand", "scale"];
+
 const hasClearObject = (value: string) => OBJECT_VERB_PATTERN.test(value);
 
-const hasFutureCue = (value: string) =>
-  COMMITMENT_VERBS.some((verb) => value.includes(verb)) ||
-  TIMELINE_CUES.some((cue) => value.includes(cue)) ||
-  TIMELINE_REGEX.test(value);
+const hasTimelineCue = (value: string) =>
+  TIMELINE_CUES.some((cue) => value.includes(cue)) || TIMELINE_REGEX.test(value);
+
+const hasConstraintCue = (value: string) => CONSTRAINT_CUES.some((cue) => value.includes(cue));
 
 const isTrivialAction = (value: string) => TRIVIAL_ACTIONS.some((term) => value.includes(term));
 
-const isNonDecisionPhrase = (value: string) => NON_DECISION_PHRASES.some((phrase) => value.includes(phrase));
+const isDescriptiveOnly = (value: string) => DESCRIPTIVE_ONLY.some((phrase) => value.includes(phrase));
 
-const isPastOnly = (value: string) => PAST_CUES.some((cue) => value.includes(cue)) && !hasFutureCue(value);
+const matchesBoilerplate = (value: string) => BOILERPLATE_PHRASES.some((phrase) => value.includes(phrase));
 
-export const passesDecisionCandidateFilters = (value: string) => {
+const isCapabilityOnly = (value: string) => {
+  if (value.includes("can now") || value.includes("is able to") || value.includes("able to")) {
+    return !ROLLOUT_CUES.some((cue) => value.includes(cue));
+  }
+  return false;
+};
+
+const digitRatio = (value: string) => {
+  const digits = value.match(/\d/g)?.length ?? 0;
+  return value.length > 0 ? digits / value.length : 0;
+};
+
+type CandidateFilterOptions = {
+  isPersonalMemo?: boolean;
+};
+
+export const passesDecisionCandidateFilters = (value: string, options: CandidateFilterOptions = {}) => {
   const normalized = value.trim();
   const lowered = normalized.toLowerCase();
-  const hasTimelineCue = TIMELINE_CUES.some((cue) => lowered.includes(cue)) || TIMELINE_REGEX.test(lowered);
+  const hasCommitment = containsCommitmentVerb(lowered);
+  const hasPlanLanguage = lowered.includes("plan") || lowered.includes("target") || lowered.includes("on track");
+  const hasTimebox = hasTimelineCue(lowered);
+  const hasConstraint = hasConstraintCue(lowered);
 
-  if (normalized.length < 40 || normalized.length > 240) return false;
-  if (!containsCommitmentVerb(lowered)) return false;
-  if (!hasClearObject(lowered)) return false;
-  if (!hasFutureCue(lowered)) return false;
-  if (isPastOnly(lowered)) return false;
-  if (isTrivialAction(lowered)) return false;
-  if (isNonDecisionPhrase(lowered)) return false;
+  if (normalized.length < 45 || normalized.length > 240) return false;
+  if (digitRatio(normalized) > 0.25) return false;
   if (isTableLikeLine(normalized)) return false;
-  if (ACCOUNTING_ONLY.some((cue) => lowered.includes(cue))) return false;
-  if ((lowered.includes("on track to") || lowered.includes("remain on track to")) && !hasTimelineCue) return false;
+  if (matchesBoilerplate(lowered)) return false;
+  if (isTrivialAction(lowered)) return false;
+  if (isDescriptiveOnly(lowered)) return false;
+  if (isCapabilityOnly(lowered)) return false;
+  if (!hasCommitment && !hasPlanLanguage && !(hasTimebox && hasClearObject(lowered))) return false;
+  if (!hasClearObject(lowered)) return false;
+
+  if (options.isPersonalMemo) {
+    if (!hasCommitment || !hasConstraint) return false;
+  }
 
   return true;
 };
@@ -176,35 +174,31 @@ export const scoreDecisionCandidate = (value: string) => {
   let score = 0;
 
   if (containsCommitmentVerb(lowered)) {
-    score += 4;
+    score += 30;
   }
 
-  if (TIMELINE_CUES.some((cue) => lowered.includes(cue)) || TIMELINE_REGEX.test(lowered)) {
-    score += 2;
+  if (hasTimelineCue(lowered)) {
+    score += 20;
   }
 
-  if (RESOURCE_CUES.some((cue) => lowered.includes(cue))) {
-    score += 2;
+  if (hasConstraintCue(lowered)) {
+    score += 15;
   }
 
-  const hasConditional =
-    lowered.includes("may") || lowered.includes("might") || lowered.includes("could") || lowered.includes("subject to");
-  if (hasConditional && !containsCommitmentVerb(lowered)) {
-    score -= 3;
+  if (matchesBoilerplate(lowered)) {
+    score -= 40;
   }
 
-  const hasActor = /(we|management|board|company)\b/i.test(value);
-  const hasAction = ACTION_VERBS.some((verb) => lowered.includes(verb));
-  if (hasActor && hasAction) {
-    score += 1;
+  if (digitRatio(value) > 0.25) {
+    score -= 40;
   }
 
-  if (isTrivialAction(lowered)) {
-    score -= 4;
+  if (isTableLikeLine(value)) {
+    score -= 30;
   }
 
-  if (isNonDecisionPhrase(lowered)) {
-    score -= 4;
+  if (isDescriptiveOnly(lowered)) {
+    score -= 20;
   }
 
   return score;
