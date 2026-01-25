@@ -26,6 +26,9 @@ interface SessionDecision {
   p: number;
   s: number;
   dnav: number;
+  sourceFile?: string;
+  sourcePage?: number;
+  excerpt?: string;
   createdAt: number;
 }
 
@@ -59,7 +62,6 @@ export default function StressTestPage() {
   });
   const calculatorRef = useRef<StressTestCalculatorHandle>(null);
   const [isSessionAnalysisOpen, setIsSessionAnalysisOpen] = useState(false);
-  const [showGateTooltip, setShowGateTooltip] = useState(false);
 
   const { openDefinitions } = useDefinitionsPanel();
 
@@ -129,6 +131,7 @@ export default function StressTestPage() {
     setSessionDecisions((prev) => {
       const now = Date.now();
       const imports = selected.map((decision, index) => {
+        const primarySource = decision.sources[0];
         const vars: DecisionVariables = {
           impact: decision.impact,
           cost: decision.cost,
@@ -140,8 +143,8 @@ export default function StressTestPage() {
         return {
           id: `${now}-${index}-${Math.random().toString(36).slice(2, 8)}`,
           decisionTitle: decision.decision,
-          decisionDetail: decision.decision,
-          category: decision.source?.trim() || "Extracted",
+          decisionDetail: decision.evidence,
+          category: primarySource?.fileName?.trim() || "Extracted",
           impact: vars.impact,
           cost: vars.cost,
           risk: vars.risk,
@@ -151,6 +154,9 @@ export default function StressTestPage() {
           p: metrics.pressure,
           s: metrics.stability,
           dnav: metrics.dnav,
+          sourceFile: primarySource?.fileName,
+          sourcePage: primarySource?.pageNumber,
+          excerpt: primarySource?.excerpt ?? decision.evidence,
           createdAt: now + index,
         } satisfies SessionDecision;
       });
@@ -184,14 +190,50 @@ export default function StressTestPage() {
   }, [sessionDecisions]);
 
   const handleToggleSessionAnalysis = useCallback(() => {
-    if (!canOpenSessionAnalysis) {
-      setShowGateTooltip(true);
-      window.setTimeout(() => setShowGateTooltip(false), 2000);
-      return;
-    }
-    setShowGateTooltip(false);
+    if (!canOpenSessionAnalysis) return;
     setIsSessionAnalysisOpen((prev) => !prev);
   }, [canOpenSessionAnalysis]);
+
+  const handleExportSessionCsv = useCallback(() => {
+    if (typeof window === "undefined") return;
+    const headers = [
+      "Title",
+      "Impact",
+      "Cost",
+      "Risk",
+      "Urgency",
+      "Confidence",
+      "SourceFile",
+      "SourcePage",
+      "Excerpt",
+    ];
+    const escapeCell = (value: string | number | undefined) => {
+      const text = value === undefined || value === null ? "" : String(value);
+      const escaped = text.replace(/"/g, '""');
+      return /[",\n]/.test(escaped) ? `"${escaped}"` : escaped;
+    };
+    const rows = sessionDecisions.map((decision) => [
+      decision.decisionTitle,
+      decision.impact,
+      decision.cost,
+      decision.risk,
+      decision.urgency,
+      decision.confidence,
+      decision.sourceFile ?? "",
+      decision.sourcePage ?? "",
+      decision.excerpt ?? decision.decisionDetail ?? "",
+    ]);
+    const csv = [headers, ...rows].map((row) => row.map(escapeCell).join(",")).join("\n");
+    const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = `dnav-session-decisions-${new Date().toISOString().slice(0, 10)}.csv`;
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    window.setTimeout(() => URL.revokeObjectURL(url), 0);
+  }, [sessionDecisions]);
 
   // TODO: Rebuild Decision Intake v2
   // Intake will be redesigned around the Decision Atom:
@@ -315,19 +357,22 @@ export default function StressTestPage() {
                 </div>
               ) : null}
 
-              <Tooltip open={showGateTooltip}>
+              <Tooltip>
                 <TooltipTrigger asChild>
-                  <Button
-                    type="button"
-                    className="h-9 px-4 text-xs font-semibold uppercase tracking-wide"
-                    onClick={handleToggleSessionAnalysis}
-                  >
-                    {isSessionAnalysisOpen ? "CLOSE SESSION ANALYSIS" : "OPEN SESSION ANALYSIS"}
-                  </Button>
+                  <span className="inline-flex">
+                    <Button
+                      type="button"
+                      className="h-9 px-4 text-xs font-semibold uppercase tracking-wide"
+                      onClick={handleToggleSessionAnalysis}
+                      disabled={!canOpenSessionAnalysis}
+                    >
+                      {isSessionAnalysisOpen ? "CLOSE SESSION ANALYSIS" : "OPEN SESSION ANALYSIS"}
+                    </Button>
+                  </span>
                 </TooltipTrigger>
-                <TooltipContent side="top">
-                  Log 10 decisions to unlock Session Analysis.
-                </TooltipContent>
+                {!canOpenSessionAnalysis ? (
+                  <TooltipContent side="top">Log 10 decisions to unlock session analysis.</TooltipContent>
+                ) : null}
               </Tooltip>
             </div>
 
@@ -340,8 +385,17 @@ export default function StressTestPage() {
                       Averages across the decisions you logged in this session.
                     </p>
                   </div>
-                  <div className="text-right text-[11px] text-muted-foreground">
+                  <div className="flex flex-col items-end gap-2 text-right text-[11px] text-muted-foreground">
                     <p>Decisions analyzed: {sessionDecisions.length}</p>
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="outline"
+                      className="h-7 px-2 text-[10px] font-semibold uppercase tracking-wide"
+                      onClick={handleExportSessionCsv}
+                    >
+                      Export to Excel (.csv)
+                    </Button>
                   </div>
                 </div>
                 <div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-3">

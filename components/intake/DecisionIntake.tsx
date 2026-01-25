@@ -5,11 +5,11 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Textarea } from "@/components/ui/textarea";
-import { extractPdfText, type PdfProgress } from "@/lib/pdf/extractPdfText";
-import { extractDecisionCandidates } from "@/lib/decision/extractDecisionCandidates";
+import { extractPdfTextByPage, type PdfProgress } from "@/lib/pdf/extractPdfText";
+import { extractDecisionCandidatesFromPages, extractDecisionCandidatesFromText } from "@/lib/decisionExtract/extract";
 import type { DecisionCandidate } from "@/lib/types/decision";
+import { ChevronDown, ChevronUp } from "lucide-react";
 
 const MAX_CLIENT_TEXT_CHARS = 200_000;
 
@@ -29,19 +29,25 @@ export default function DecisionIntake({ onImportDecisions }: DecisionIntakeProp
   const [pastedText, setPastedText] = useState("");
   const [pdfProgress, setPdfProgress] = useState<IntakeProgress | null>(null);
   const [isExtracting, setIsExtracting] = useState(false);
+  const [statusMessage, setStatusMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [warning, setWarning] = useState<string | null>(null);
   const [decisions, setDecisions] = useState<DecisionCandidate[]>([]);
+  const [expandedDecisions, setExpandedDecisions] = useState<Record<string, boolean>>({});
+  const [expandedSources, setExpandedSources] = useState<Record<string, boolean>>({});
 
   const progressLabel = useMemo(() => {
     if (pdfProgress) {
-      return `File ${pdfProgress.fileIndex}/${pdfProgress.totalFiles} — Page ${pdfProgress.page}/${pdfProgress.total} (${pdfProgress.fileName})`;
+      return `Parsing PDF ${pdfProgress.fileIndex}/${pdfProgress.totalFiles} … page ${pdfProgress.page}/${pdfProgress.total} (${pdfProgress.fileName})`;
+    }
+    if (statusMessage) {
+      return statusMessage;
     }
     if (isExtracting) {
       return "Extracting locally...";
     }
     return null;
-  }, [isExtracting, pdfProgress]);
+  }, [isExtracting, pdfProgress, statusMessage]);
 
   const handleFileSelection = useCallback((files: FileList | File[] | null) => {
     setError(null);
@@ -92,10 +98,11 @@ export default function DecisionIntake({ onImportDecisions }: DecisionIntakeProp
     setWarning(null);
     setIsExtracting(true);
     setPdfProgress(null);
+    setStatusMessage(null);
 
     try {
       const trimmedText = pastedText.trim();
-      const shouldUsePaste = usePastedText || selectedFiles.length === 0;
+      const shouldUsePaste = usePastedText || trimmedText.length > 0 || selectedFiles.length === 0;
       const extractedCandidates: DecisionCandidate[] = [];
       let totalChars = 0;
       let wasTruncated = false;
@@ -111,12 +118,8 @@ export default function DecisionIntake({ onImportDecisions }: DecisionIntakeProp
           wasTruncated = true;
           text = text.slice(0, MAX_CLIENT_TEXT_CHARS);
         }
-        extractedCandidates.push(
-          ...extractDecisionCandidates(text).map((candidate) => ({
-            ...candidate,
-            source: "Pasted text",
-          })),
-        );
+        setStatusMessage("Scoring candidates...");
+        extractedCandidates.push(...extractDecisionCandidatesFromText(text));
       } else {
         if (selectedFiles.length === 0) {
           setError("Add a PDF or paste text to extract decisions.");
@@ -127,7 +130,7 @@ export default function DecisionIntake({ onImportDecisions }: DecisionIntakeProp
         for (let index = 0; index < selectedFiles.length; index += 1) {
           const file = selectedFiles[index];
           const buffer = await file.arrayBuffer();
-          const fileText = await extractPdfText(buffer, (progress) => {
+          const pageTexts = await extractPdfTextByPage(buffer, (progress) => {
             setPdfProgress({
               ...progress,
               fileIndex: index + 1,
@@ -143,23 +146,36 @@ export default function DecisionIntake({ onImportDecisions }: DecisionIntakeProp
             break;
           }
 
-          const trimmedFileText = fileText.trim();
-          if (!trimmedFileText) continue;
+          const trimmedPages = pageTexts
+            .map((page) => ({
+              ...page,
+              text: page.text.trim(),
+              fileName: file.name,
+            }))
+            .filter((page) => page.text);
 
-          let effectiveText = trimmedFileText;
-          if (trimmedFileText.length > remaining) {
-            effectiveText = trimmedFileText.slice(0, remaining);
-            wasTruncated = true;
-          }
+          if (trimmedPages.length === 0) continue;
 
-          totalChars += effectiveText.length;
+          let charsUsed = 0;
+          const limitedPages = trimmedPages.map((page) => {
+            const available = Math.max(0, remaining - charsUsed);
+            if (available <= 0) {
+              wasTruncated = true;
+              return { ...page, text: "" };
+            }
+            if (page.text.length > available) {
+              wasTruncated = true;
+              charsUsed += available;
+              return { ...page, text: page.text.slice(0, available) };
+            }
+            charsUsed += page.text.length;
+            return page;
+          }).filter((page) => page.text);
 
-          extractedCandidates.push(
-            ...extractDecisionCandidates(effectiveText).map((candidate) => ({
-              ...candidate,
-              source: file.name,
-            })),
-          );
+          totalChars += charsUsed;
+
+          setStatusMessage("Scoring candidates...");
+          extractedCandidates.push(...extractDecisionCandidatesFromPages(limitedPages));
 
           if (wasTruncated) break;
         }
@@ -184,6 +200,7 @@ export default function DecisionIntake({ onImportDecisions }: DecisionIntakeProp
       setError(message);
     } finally {
       setIsExtracting(false);
+      setStatusMessage(null);
     }
   }, [pastedText, selectedFiles, usePastedText]);
 
@@ -202,6 +219,14 @@ export default function DecisionIntake({ onImportDecisions }: DecisionIntakeProp
     console.warn("TODO: wire Decision Intake import handler.");
     setError("Import is not wired yet.");
   }, [decisions, onImportDecisions]);
+
+  const toggleExpandedDecision = useCallback((id: string) => {
+    setExpandedDecisions((prev) => ({ ...prev, [id]: !prev[id] }));
+  }, []);
+
+  const toggleExpandedSource = useCallback((id: string) => {
+    setExpandedSources((prev) => ({ ...prev, [id]: !prev[id] }));
+  }, []);
 
   return (
     <section className="mt-6 space-y-4">
@@ -307,37 +332,60 @@ export default function DecisionIntake({ onImportDecisions }: DecisionIntakeProp
             </Button>
           </div>
 
-          <div className="rounded-lg border border-border/60 bg-background/80">
-            <Table>
-              <TableHeader>
-                <TableRow className="bg-muted/30 text-xs uppercase tracking-wide text-muted-foreground">
-                  <TableHead>Decision</TableHead>
-                  <TableHead className="text-center">Impact</TableHead>
-                  <TableHead className="text-center">Cost</TableHead>
-                  <TableHead className="text-center">Risk</TableHead>
-                  <TableHead className="text-center">Urgency</TableHead>
-                  <TableHead className="text-center">Confidence</TableHead>
-                  <TableHead className="text-center">Keep</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {decisions.map((decision) => (
-                  <TableRow key={decision.id} className="bg-transparent">
-                    <TableCell className="min-w-[240px] align-top">
-                      <div className="space-y-1">
-                        <Input
-                          value={decision.decision}
-                          onChange={(event) => updateDecisionText(decision.id, event.target.value)}
-                          className="h-8 text-sm"
-                        />
-                        <p className="text-[11px] text-muted-foreground line-clamp-2">{decision.evidence}</p>
-                        {decision.source ? (
-                          <p className="text-[10px] text-muted-foreground">Source: {decision.source}</p>
-                        ) : null}
+          <div className="space-y-3">
+            {decisions.map((decision) => {
+              const source = decision.sources[0];
+              const sourceLabel = source?.fileName
+                ? `${source.fileName}${source.pageNumber ? ` · p${source.pageNumber}` : ""}`
+                : undefined;
+              const isExpanded = Boolean(expandedDecisions[decision.id]);
+              const isSourceExpanded = Boolean(expandedSources[decision.id]);
+
+              return (
+                <div
+                  key={decision.id}
+                  className="flex flex-col gap-4 rounded-lg border border-border/60 bg-background/80 px-4 py-3 shadow-sm lg:flex-row lg:items-start"
+                >
+                  <div className="flex-1 space-y-2">
+                    <Input
+                      value={decision.decision}
+                      onChange={(event) => updateDecisionText(decision.id, event.target.value)}
+                      className="h-8 text-sm"
+                    />
+                    <div className="flex items-start gap-2">
+                      <p className={`text-[11px] text-muted-foreground ${isExpanded ? "" : "line-clamp-2"}`}>
+                        {decision.evidence}
+                      </p>
+                      <button
+                        type="button"
+                        className="mt-0.5 rounded-md border border-border/70 bg-muted/20 px-1.5 py-1 text-[10px] font-semibold text-muted-foreground"
+                        onClick={() => toggleExpandedDecision(decision.id)}
+                      >
+                        {isExpanded ? <ChevronUp className="size-3" /> : <ChevronDown className="size-3" />}
+                      </button>
+                    </div>
+                    <div className="flex flex-wrap items-center gap-2 text-[10px] text-muted-foreground">
+                      {sourceLabel ? <span>Source: {sourceLabel}</span> : null}
+                      {source?.excerpt ? (
+                        <button
+                          type="button"
+                          className="text-[10px] font-semibold text-foreground underline-offset-2 hover:underline"
+                          onClick={() => toggleExpandedSource(decision.id)}
+                        >
+                          {isSourceExpanded ? "Hide source excerpt" : "Show source excerpt"}
+                        </button>
+                      ) : null}
+                    </div>
+                    {isSourceExpanded && source?.excerpt ? (
+                      <div className="rounded-md border border-border/60 bg-muted/20 px-3 py-2 text-[11px] text-muted-foreground">
+                        {source.excerpt}
                       </div>
-                    </TableCell>
+                    ) : null}
+                  </div>
+                  <div className="grid grid-cols-2 gap-2 sm:grid-cols-5 lg:grid-cols-5">
                     {(["impact", "cost", "risk", "urgency", "confidence"] as const).map((key) => (
-                      <TableCell key={`${decision.id}-${key}`} className="text-center align-top">
+                      <label key={`${decision.id}-${key}`} className="space-y-1 text-[10px] text-muted-foreground">
+                        <span className="block text-center uppercase tracking-wide">{key}</span>
                         <Input
                           type="number"
                           min={1}
@@ -346,17 +394,18 @@ export default function DecisionIntake({ onImportDecisions }: DecisionIntakeProp
                           onChange={(event) => updateDecisionScore(decision.id, key, Number(event.target.value))}
                           className="h-8 w-16 text-center text-sm"
                         />
-                      </TableCell>
+                      </label>
                     ))}
-                    <TableCell className="text-center align-top">
-                      <div className="flex items-center justify-center">
-                        <Switch checked={decision.keep} onCheckedChange={(checked) => toggleDecisionKeep(decision.id, checked)} />
-                      </div>
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
+                  </div>
+                  <div className="flex items-center justify-end lg:justify-center">
+                    <div className="flex flex-col items-center gap-1 text-[10px] text-muted-foreground">
+                      <span>Keep</span>
+                      <Switch checked={decision.keep} onCheckedChange={(checked) => toggleDecisionKeep(decision.id, checked)} />
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
           </div>
         </div>
       ) : null}
