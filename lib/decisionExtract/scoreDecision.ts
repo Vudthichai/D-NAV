@@ -43,6 +43,7 @@ const TIMELINE_CUES = [
   "in q4",
   "by",
   "by end of",
+  "by end",
   "this year",
   "later this year",
   "next quarter",
@@ -51,6 +52,13 @@ const TIMELINE_CUES = [
   "during",
   "within",
   "in 202",
+  "by june",
+  "by july",
+  "by august",
+  "by september",
+  "by october",
+  "by november",
+  "by december",
 ];
 
 const CONSTRAINT_CUES = [
@@ -74,10 +82,13 @@ const DESCRIPTIVE_ONLY = [
   "provides an overview",
   "is designed to",
   "is intended to",
+  "provides useful information",
+  "believes it is useful",
 ];
 
 const BOILERPLATE_PHRASES = [
   "forward-looking",
+  "forward-looking statements",
   "safe harbor",
   "webcast",
   "replay",
@@ -85,28 +96,25 @@ const BOILERPLATE_PHRASES = [
   "non-gaap",
   "will be available for replay",
   "believes that it is useful to supplement",
+  "risk factors",
+  "not obligated",
+  "undertake no obligation",
 ];
 
 const TRIVIAL_ACTIONS = [
   "coffee",
   "gym",
-  "walked",
-  "walk",
-  "email",
-  "emails",
-  "meeting",
-  "meetings",
-  "call",
-  "calls",
   "lunch",
   "dinner",
-  "supplies",
-  "schedule",
-  "travel",
-  "trip",
+  "picked up",
+  "went to",
+  "drove to",
+  "texted",
+  "called mom",
 ];
 
-const TIMELINE_REGEX = /\b(20\d{2}|q[1-4]|by end of|this year|later this year|next quarter|next year|by|during|within)\b/i;
+const TIMELINE_REGEX =
+  /\b(20\d{2}|q[1-4]|by end of|by end|this year|later this year|next quarter|next year|by|during|within|by [a-z]+)\b/i;
 
 const OBJECT_VERB_PATTERN = new RegExp(
   `\\b(?:${COMMITMENT_VERBS.map((verb) => verb.replace(/\s+/g, "\\s+")).join("|")})\\b\\s+([^.;:]{8,})`,
@@ -114,6 +122,38 @@ const OBJECT_VERB_PATTERN = new RegExp(
 );
 
 const ROLLOUT_CUES = ["launch", "rollout", "roll out", "deploy", "begin", "start", "ramp", "expand", "scale"];
+
+const HARD_REJECT_PHRASES = [
+  "forward-looking statements",
+  "risk factors",
+  "not obligated",
+  "undertake no obligation",
+];
+
+const NON_COMMITMENT_PHRASES = [
+  "will depend on",
+  "depends on",
+  "subject to",
+  "may be impacted by",
+];
+
+const RISK_LIST_TERMS = [
+  "failures",
+  "uncertainty",
+  "volatility",
+  "exposure",
+  "adverse",
+  "litigation",
+  "impairment",
+];
+
+const IR_FLUFF_TERMS = [
+  "believes",
+  "useful to",
+  "provides useful information",
+  "supplement",
+  "investor relations",
+];
 
 const hasClearObject = (value: string) => OBJECT_VERB_PATTERN.test(value);
 
@@ -142,6 +182,7 @@ const digitRatio = (value: string) => {
 
 type CandidateFilterOptions = {
   isPersonalMemo?: boolean;
+  isRepeatedLine?: boolean;
 };
 
 export const passesDecisionCandidateFilters = (value: string, options: CandidateFilterOptions = {}) => {
@@ -151,14 +192,26 @@ export const passesDecisionCandidateFilters = (value: string, options: Candidate
   const hasPlanLanguage = lowered.includes("plan") || lowered.includes("target") || lowered.includes("on track");
   const hasTimebox = hasTimelineCue(lowered);
   const hasConstraint = hasConstraintCue(lowered);
+  const numberCount = lowered.match(/\d+(?:[.,]\d+)?/g)?.length ?? 0;
+  const currencyCount = lowered.match(/[$€£%]/g)?.length ?? 0;
+  const separatorCount = lowered.match(/[|/—–]/g)?.length ?? 0;
+  const startsWithAbility = /^\s*our ability to\b/.test(lowered);
+  const containsNonCommitment = NON_COMMITMENT_PHRASES.some((phrase) => lowered.includes(phrase));
+  const hasHardRejectPhrase = HARD_REJECT_PHRASES.some((phrase) => lowered.includes(phrase));
 
   if (normalized.length < 45 || normalized.length > 240) return false;
-  if (digitRatio(normalized) > 0.25) return false;
+  if (digitRatio(normalized) > 0.22) return false;
+  if (numberCount >= 3) return false;
+  if (currencyCount >= 2) return false;
+  if (separatorCount >= 4) return false;
   if (isTableLikeLine(normalized)) return false;
+  if (hasHardRejectPhrase) return false;
+  if (/\bmay\b/.test(lowered) || /\bcould\b/.test(lowered)) return false;
   if (matchesBoilerplate(lowered)) return false;
   if (isTrivialAction(lowered)) return false;
   if (isDescriptiveOnly(lowered)) return false;
   if (isCapabilityOnly(lowered)) return false;
+  if (startsWithAbility || containsNonCommitment) return false;
   if (!hasCommitment && !hasPlanLanguage && !(hasTimebox && hasClearObject(lowered))) return false;
   if (!hasClearObject(lowered)) return false;
 
@@ -169,36 +222,56 @@ export const passesDecisionCandidateFilters = (value: string, options: Candidate
   return true;
 };
 
-export const scoreDecisionCandidate = (value: string) => {
+export const scoreDecisionCandidate = (value: string, options: CandidateFilterOptions = {}) => {
   const lowered = value.toLowerCase();
   let score = 0;
 
   if (containsCommitmentVerb(lowered)) {
-    score += 30;
+    score += 35;
   }
 
   if (hasTimelineCue(lowered)) {
-    score += 20;
+    score += 22;
   }
 
   if (hasConstraintCue(lowered)) {
     score += 15;
   }
 
-  if (matchesBoilerplate(lowered)) {
-    score -= 40;
+  if (hasClearObject(lowered)) {
+    score += 18;
   }
 
-  if (digitRatio(value) > 0.25) {
-    score -= 40;
+  if (containsCommitmentVerb(lowered) && hasTimelineCue(lowered) && hasClearObject(lowered)) {
+    score += 15;
+  }
+
+  if (matchesBoilerplate(lowered)) {
+    score -= 45;
+  }
+
+  if (digitRatio(value) > 0.22) {
+    score -= 35;
   }
 
   if (isTableLikeLine(value)) {
-    score -= 30;
+    score -= 35;
   }
 
   if (isDescriptiveOnly(lowered)) {
-    score -= 20;
+    score -= 25;
+  }
+
+  if (RISK_LIST_TERMS.some((term) => lowered.includes(term))) {
+    score -= 18;
+  }
+
+  if (IR_FLUFF_TERMS.some((term) => lowered.includes(term))) {
+    score -= 16;
+  }
+
+  if (options.isRepeatedLine) {
+    score -= 22;
   }
 
   return score;

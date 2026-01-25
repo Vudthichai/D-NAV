@@ -74,15 +74,17 @@ const isTableLikeLine = (value: string) => {
   const numberCount = trimmed.match(/\d+(?:[.,]\d+)?/g)?.length ?? 0;
   const currencyCount = trimmed.match(/[$€£]|\(\d[\d,.\s]*\)|%/g)?.length ?? 0;
   const columnSeparators = trimmed.match(/\s{2,}|\t|\|/g)?.length ?? 0;
+  const separatorHits = trimmed.match(/[|/—–]/g)?.length ?? 0;
   const tokens = trimmed.split(/\s+/);
   const avgTokenLength = tokens.reduce((sum, token) => sum + token.length, 0) / (tokens.length || 1);
   const tooManyShortTokens = tokens.length >= 10 && avgTokenLength <= 3;
 
   return (
-    digitRatio > 0.25 ||
-    numberCount >= 6 ||
+    digitRatio > 0.22 ||
+    numberCount >= 5 ||
     currencyCount >= 2 ||
     columnSeparators >= 3 ||
+    separatorHits >= 5 ||
     tooManyShortTokens
   );
 };
@@ -98,9 +100,8 @@ const shouldDropBoilerplate = (value: string) => {
   return false;
 };
 
-const shouldDropHeaderFooter = (value: string, repeatedLines: Set<string>) => {
+const shouldDropHeaderFooter = (value: string, _repeatedLines: Set<string>) => {
   const normalized = normalizeWhitespace(value).toLowerCase();
-  if (repeatedLines.has(normalized)) return true;
   if (normalized.includes("©") || normalized.includes("copyright")) return true;
   if (normalized.includes("tesla, inc")) return true;
   if (isPageNumberLine(normalized)) return true;
@@ -144,4 +145,4 @@ export const cleanPdfPages = (pages: PdfPageText[]): CleanedPage[] => {
   });
 };
 
-export { containsCommitmentVerb, isTableLikeLine, normalizeWhitespace };
+export { containsCommitmentVerb, isTableLikeLine, normalizeWhitespace, buildRepeatedLineSet };

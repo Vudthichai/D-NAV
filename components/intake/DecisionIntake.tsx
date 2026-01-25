@@ -1,6 +1,7 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -9,9 +10,28 @@ import { Textarea } from "@/components/ui/textarea";
 import { extractPdfTextByPage, type PdfProgress } from "@/lib/pdf/extractPdfText";
 import { extractDecisionCandidatesFromPages, extractDecisionCandidatesFromText } from "@/lib/decisionExtract/extract";
 import type { DecisionCandidate } from "@/lib/types/decision";
-import { ChevronDown, ChevronUp } from "lucide-react";
+import { ChevronDown, ChevronUp, Loader2 } from "lucide-react";
 
 const MAX_CLIENT_TEXT_CHARS = 200_000;
+const MAX_API_SENTENCES = 80;
+const MAX_SENTENCE_CHARS = 220;
+const DEFAULT_SCORE = 5;
+
+const hashString = (value: string) => {
+  let hash = 5381;
+  for (let index = 0; index < value.length; index += 1) {
+    hash = (hash * 33) ^ value.charCodeAt(index);
+  }
+  return (hash >>> 0).toString(36);
+};
+
+const truncateSentence = (value: string, limit: number) => {
+  if (value.length <= limit) return value;
+  const sliced = value.slice(0, limit);
+  const lastSpace = sliced.lastIndexOf(" ");
+  const trimmed = (lastSpace > 40 ? sliced.slice(0, lastSpace) : sliced).trim();
+  return trimmed;
+};
 
 type DecisionIntakeProps = {
   onImportDecisions?: (decisions: DecisionCandidate[]) => void;
@@ -21,6 +41,25 @@ type IntakeProgress = PdfProgress & {
   fileIndex: number;
   totalFiles: number;
   fileName: string;
+};
+
+type SentencePayload = {
+  sourceId: string;
+  fileName?: string;
+  page?: number;
+  sentence: string;
+};
+
+type ApiDecisionCandidate = {
+  id: string;
+  decision: string;
+  rationale?: string;
+  source: {
+    fileName?: string;
+    page?: number;
+    sourceId: string;
+  };
+  extractConfidence: number;
 };
 
 export default function DecisionIntake({ onImportDecisions }: DecisionIntakeProps) {
@@ -34,12 +73,11 @@ export default function DecisionIntake({ onImportDecisions }: DecisionIntakeProp
   const [expandedDecisions, setExpandedDecisions] = useState<Record<string, boolean>>({});
   const [expandedSources, setExpandedSources] = useState<Record<string, boolean>>({});
   const [showAllCandidates, setShowAllCandidates] = useState(false);
-  const [isRefining, setIsRefining] = useState(false);
 
   const keptCandidates = useMemo(() => decisions.filter((decision) => decision.keep), [decisions]);
   const candidateLimit = 80;
   const visibleCandidates = showAllCandidates ? decisions : decisions.slice(0, candidateLimit);
-  const aiRefineEnabled = process.env.NEXT_PUBLIC_AI_REFINE === "true";
+  const selectedCount = keptCandidates.length;
 
   const handleFileSelection = useCallback((files: FileList | File[] | null) => {
     setError(null);
@@ -100,6 +138,59 @@ export default function DecisionIntake({ onImportDecisions }: DecisionIntakeProp
   const toggleDecisionKeep = useCallback((id: string, keep: boolean) => {
     setDecisions((prev) => prev.map((decision) => (decision.id === id ? { ...decision, keep } : decision)));
   }, []);
+
+  const buildApiPayload = useCallback((extracted: DecisionCandidate[]) => {
+    const ranked = [...extracted].sort((a, b) => b.qualityScore - a.qualityScore);
+    const seen = new Set<string>();
+    const payload: SentencePayload[] = [];
+    ranked.forEach((candidate) => {
+      if (payload.length >= MAX_API_SENTENCES) return;
+      const source = candidate.sources[0];
+      const sentence = truncateSentence(candidate.evidence, MAX_SENTENCE_CHARS);
+      const key = sentence.toLowerCase();
+      if (!sentence || seen.has(key)) return;
+      seen.add(key);
+      payload.push({
+        sourceId: candidate.id,
+        fileName: source?.fileName,
+        page: source?.pageNumber,
+        sentence,
+      });
+    });
+    return payload;
+  }, []);
+
+  const mapApiCandidates = useCallback(
+    (payload: SentencePayload[], apiCandidates: ApiDecisionCandidate[]) => {
+      const sentenceMap = new Map(payload.map((item) => [item.sourceId, item.sentence]));
+      return apiCandidates.map((candidate) => {
+        const sourceSentence = sentenceMap.get(candidate.source.sourceId) ?? candidate.rationale ?? candidate.decision;
+        const id = candidate.id || `decision-${hashString(`${candidate.decision}-${candidate.source.sourceId}`)}`;
+        return {
+          id,
+          decision: candidate.decision,
+          evidence: sourceSentence,
+          sources: [
+            {
+              fileName: candidate.source.fileName,
+              pageNumber: candidate.source.page,
+              excerpt: sourceSentence,
+            },
+          ],
+          extractConfidence: Math.min(1, Math.max(0, candidate.extractConfidence ?? 0.5)),
+          qualityScore: Math.round(Math.min(1, Math.max(0, candidate.extractConfidence ?? 0.5)) * 100),
+          impact: DEFAULT_SCORE,
+          cost: DEFAULT_SCORE,
+          risk: DEFAULT_SCORE,
+          urgency: DEFAULT_SCORE,
+          confidence: DEFAULT_SCORE,
+          keep: false,
+          imported: false,
+        } satisfies DecisionCandidate;
+      });
+    },
+    [],
+  );
 
   const handleExtract = useCallback(async () => {
     setError(null);
@@ -204,7 +295,27 @@ export default function DecisionIntake({ onImportDecisions }: DecisionIntakeProp
         );
       }
 
-      setDecisions(extractedCandidates);
+      let finalCandidates = extractedCandidates;
+      const payload = buildApiPayload(extractedCandidates);
+      if (payload.length > 0) {
+        try {
+          const response = await fetch("/api/decision-candidates", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ sentences: payload }),
+          });
+          if (response.ok) {
+            const data = (await response.json()) as { candidates?: ApiDecisionCandidate[] };
+            if (data.candidates && data.candidates.length > 0) {
+              finalCandidates = mapApiCandidates(payload, data.candidates);
+            }
+          }
+        } catch (apiError) {
+          console.error("Decision refinement failed", apiError);
+        }
+      }
+
+      setDecisions(finalCandidates);
     } catch (caughtError) {
       const message = caughtError instanceof Error ? caughtError.message : "Extraction failed.";
       console.error("Decision extraction failed", caughtError);
@@ -213,12 +324,7 @@ export default function DecisionIntake({ onImportDecisions }: DecisionIntakeProp
       setIsParsing(false);
       setParseProgress([]);
     }
-  }, [intakeFiles, intakeMemo]);
-
-  useEffect(() => {
-    if (!onImportDecisions) return;
-    onImportDecisions(decisions.filter((decision) => decision.keep));
-  }, [decisions, onImportDecisions]);
+  }, [buildApiPayload, intakeFiles, intakeMemo, mapApiCandidates]);
 
   const toggleExpandedDecision = useCallback((id: string) => {
     setExpandedDecisions((prev) => ({ ...prev, [id]: !prev[id] }));
@@ -240,37 +346,22 @@ export default function DecisionIntake({ onImportDecisions }: DecisionIntakeProp
     setShowAllCandidates(false);
   }, []);
 
-  const handleRefineWording = useCallback(async () => {
-    if (!aiRefineEnabled) return;
-    const payload = (keptCandidates.length > 0 ? keptCandidates : decisions.slice(0, 30)).map((candidate) => ({
-      id: candidate.id,
-      decision: candidate.decision,
-      evidence: candidate.evidence,
-      sources: candidate.sources,
-    }));
-    if (payload.length === 0) return;
-    setIsRefining(true);
-    try {
-      const response = await fetch("/api/refine-decisions", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ decisions: payload }),
-      });
-      if (!response.ok) return;
-      const data = (await response.json()) as { decisions?: { id: string; decision: string }[] };
-      if (!data.decisions) return;
-      setDecisions((prev) =>
-        prev.map((decision) => {
-          const match = data.decisions?.find((item) => item.id === decision.id);
-          return match ? { ...decision, decision: match.decision } : decision;
-        }),
-      );
-    } catch (caughtError) {
-      console.error("Decision refine failed", caughtError);
-    } finally {
-      setIsRefining(false);
-    }
-  }, [aiRefineEnabled, decisions, keptCandidates]);
+  const handleClearCandidates = useCallback(() => {
+    setDecisions([]);
+    setExpandedDecisions({});
+    setExpandedSources({});
+    setShowAllCandidates(false);
+  }, []);
+
+  const handleAddToSession = useCallback(() => {
+    if (!onImportDecisions || keptCandidates.length === 0) return;
+    onImportDecisions(keptCandidates);
+    setDecisions((prev) =>
+      prev.map((decision) =>
+        decision.keep ? { ...decision, keep: false, imported: true } : decision,
+      ),
+    );
+  }, [keptCandidates, onImportDecisions]);
 
   return (
     <section className="mt-6 space-y-4">
@@ -351,9 +442,12 @@ export default function DecisionIntake({ onImportDecisions }: DecisionIntakeProp
               {isParsing && parseProgress.length > 0 ? (
                 <div className="space-y-1 text-[11px] text-muted-foreground">
                   {parseProgress.map((progress) => (
-                    <p key={progress.fileName}>
-                      Parsing {progress.fileName} (p {progress.page}/{progress.total})
-                    </p>
+                    <div key={progress.fileName} className="flex items-center gap-2">
+                      <Loader2 className="size-3 animate-spin text-muted-foreground" />
+                      <span>
+                        Reading pages… {progress.fileName} (p {progress.page}/{progress.total})
+                      </span>
+                    </div>
                   ))}
                 </div>
               ) : null}
@@ -397,7 +491,7 @@ export default function DecisionIntake({ onImportDecisions }: DecisionIntakeProp
               onClick={handleClearIntake}
               disabled={isParsing && parseProgress.length > 0}
             >
-              Clear intake
+              Clear Intake
             </Button>
             <Button
               className="h-9 px-4 text-xs font-semibold uppercase tracking-wide"
@@ -415,21 +509,28 @@ export default function DecisionIntake({ onImportDecisions }: DecisionIntakeProp
           <div className="sticky top-4 z-10 flex flex-wrap items-center justify-between gap-3 rounded-lg border border-border/60 bg-background/95 px-4 py-3 shadow-sm backdrop-blur">
             <div className="space-y-1">
               <p className="text-sm font-semibold text-foreground">Decision Candidates</p>
-              <p className="text-xs text-muted-foreground">Toggle Keep to add to your session (N/10).</p>
+              <p className="text-xs text-muted-foreground">Select what counts, then import to the session.</p>
             </div>
-            <div className="flex items-center gap-3 text-xs text-muted-foreground">
-              <span className="font-semibold text-foreground">Kept: {keptCandidates.length} / 10</span>
-              {aiRefineEnabled ? (
-                <Button
-                  size="sm"
-                  variant="outline"
-                  className="h-7 px-2 text-[10px] font-semibold uppercase tracking-wide"
-                  onClick={handleRefineWording}
-                  disabled={isRefining}
-                >
-                  {isRefining ? "Refining..." : "Refine wording (optional)"}
-                </Button>
-              ) : null}
+            <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+              <span className="rounded-full border border-border/60 bg-muted/30 px-3 py-1 text-[11px] font-semibold text-foreground">
+                Selected: {selectedCount}
+              </span>
+              <Button
+                size="sm"
+                className="h-8 px-3 text-[11px] font-semibold uppercase tracking-wide"
+                onClick={handleAddToSession}
+                disabled={selectedCount === 0}
+              >
+                ✅ ADD KEPT DECISIONS TO SESSION
+              </Button>
+              <Button
+                size="sm"
+                variant="outline"
+                className="h-8 px-3 text-[11px] font-semibold uppercase tracking-wide"
+                onClick={handleClearCandidates}
+              >
+                CLEAR CANDIDATES
+              </Button>
             </div>
           </div>
 
@@ -467,6 +568,11 @@ export default function DecisionIntake({ onImportDecisions }: DecisionIntakeProp
                     </div>
                     <div className="flex flex-wrap items-center gap-2 text-[10px] text-muted-foreground">
                       {sourceLabel ? <span>{sourceLabel}</span> : null}
+                      {decision.imported ? (
+                        <Badge variant="outline" className="h-5 rounded-full px-2 text-[9px] font-semibold">
+                          Imported
+                        </Badge>
+                      ) : null}
                       {source?.excerpt ? (
                         <button
                           type="button"
@@ -504,6 +610,7 @@ export default function DecisionIntake({ onImportDecisions }: DecisionIntakeProp
                       <Switch
                         checked={decision.keep}
                         onCheckedChange={(checked) => toggleDecisionKeep(decision.id, checked)}
+                        disabled={decision.imported}
                       />
                     </div>
                   </div>

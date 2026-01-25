@@ -1,4 +1,9 @@
-import { cleanPdfPages, normalizeWhitespace, type PdfPageText } from "@/lib/decisionExtract/cleanText";
+import {
+  buildRepeatedLineSet,
+  cleanPdfPages,
+  normalizeWhitespace,
+  type PdfPageText,
+} from "@/lib/decisionExtract/cleanText";
 import { segmentDecisionCandidates } from "@/lib/decisionExtract/segment";
 import { passesDecisionCandidateFilters, scoreDecisionCandidate } from "@/lib/decisionExtract/scoreDecision";
 import type { DecisionCandidate, DecisionSource } from "@/lib/types/decision";
@@ -101,11 +106,12 @@ export const extractDecisionCandidatesFromPages = (pages: PdfPageText[]): Decisi
   for (const [, group] of grouped.entries()) {
     const memoText = group.map((page) => page.text).join(" ");
     const isPersonalMemo = isPersonalMemoText(memoText);
+    const repeatedLines = buildRepeatedLineSet(group);
     const cleanedPages = cleanPdfPages(group);
-    const segments = segmentDecisionCandidates(cleanedPages);
+    const segments = segmentDecisionCandidates(cleanedPages, repeatedLines);
     for (const segment of segments) {
       if (!passesDecisionCandidateFilters(segment.text, { isPersonalMemo })) continue;
-      const score = scoreDecisionCandidate(segment.text);
+      const score = scoreDecisionCandidate(segment.text, { isPersonalMemo, isRepeatedLine: segment.isRepeatedLine });
       if (score < SCORE_THRESHOLD) continue;
 
       candidates.push(
