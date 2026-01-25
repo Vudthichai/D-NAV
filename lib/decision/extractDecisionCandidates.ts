@@ -187,6 +187,7 @@ export const extractDecisionCandidates = (text: string): DecisionCandidate[] => 
       id,
       decision: normalized,
       evidence: segment.trim(),
+      sources: [],
       extractConfidence: scoreConfidence(normalized),
       impact: DEFAULT_SCORE,
       cost,
