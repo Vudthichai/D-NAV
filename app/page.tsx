@@ -83,7 +83,10 @@ function HeroSection() {
 
           <div className="space-y-6 md:space-y-7 w-full max-w-4xl">
             <h1 className="text-4xl md:text-6xl font-black leading-tight tracking-tight text-white">Decisions fail long before execution. D-NAV shows you where.</h1>
-            <p className="text-xl text-slate-200 max-w-3xl">D-NAV helps leadership teams surface the pressure, return, and stability behind decisions—before momentum locks in.</p>
+            <p className="text-xl text-slate-200 max-w-3xl">
+              D-NAV helps leadership teams capture how decisions are judged before commitment — pressure, risk, urgency, and confidence — so hidden strain surfaces before execution inherits it.
+            </p>
+            <p className="text-sm text-slate-400">Most organizations plan decisions. Very few preserve how they were judged.</p>
             <div className="space-y-2">
               <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:gap-4">
                 <Button
@@ -130,9 +133,44 @@ function HeroSection() {
                   <span>Execution teams inheriting unresolved risk</span>
                 </li>
               </ul>
-              <p className="text-sm text-slate-300">These aren&apos;t execution problems. They&apos;re judgment problems.</p>
+              <p className="text-sm text-slate-300">These aren&apos;t execution failures. They&apos;re unrecorded judgment failures.</p>
             </div>
           </div>
+        </div>
+
+        <div className="rounded-2xl border border-white/10 bg-white/5 p-6 md:p-7 shadow-[0_18px_50px_-42px_rgba(0,0,0,0.9)] space-y-4 animate-fade-up" style={{ "--delay": "0.06s" } as CSSProperties}>
+          <h2 className="text-2xl md:text-3xl font-semibold text-white">
+            Can your organization answer these — immediately, and before outcomes?
+          </h2>
+          <ul className="space-y-2 text-slate-200 text-sm md:text-base">
+            <li className="flex items-start gap-2">
+              <span className="mt-1 h-1.5 w-1.5 rounded-full bg-amber-300" aria-hidden />
+              <span>How confident were we at the moment of commitment?</span>
+            </li>
+            <li className="flex items-start gap-2">
+              <span className="mt-1 h-1.5 w-1.5 rounded-full bg-amber-300" aria-hidden />
+              <span>Which risks did we knowingly accept — and which did we miss?</span>
+            </li>
+            <li className="flex items-start gap-2">
+              <span className="mt-1 h-1.5 w-1.5 rounded-full bg-amber-300" aria-hidden />
+              <span>Was urgency driven by reality, or by internal pressure?</span>
+            </li>
+            <li className="flex items-start gap-2">
+              <span className="mt-1 h-1.5 w-1.5 rounded-full bg-amber-300" aria-hidden />
+              <span>Who was deciding inside their true competence — and who wasn&apos;t?</span>
+            </li>
+          </ul>
+          <div className="space-y-2 text-slate-300 text-sm md:text-base">
+            <p>Most companies can&apos;t. Not audibly. Not persistently. Not in a way that survives scrutiny.</p>
+            <p>D-NAV exists because that gap is expensive.</p>
+          </div>
+        </div>
+
+        <div className="space-y-2 text-slate-300 text-base max-w-4xl animate-fade-up" style={{ "--delay": "0.07s" } as CSSProperties}>
+          <p>Most leadership teams feel these things in the room.</p>
+          <p>But they&apos;re tacit, distributed, and undocumented.</p>
+          <p>After commitment, that judgment disappears — replaced by outcomes, narratives, and hindsight.</p>
+          <p>D-NAV doesn&apos;t ask teams to think harder. It gives them a place to store what they already know — and usually lose.</p>
         </div>
 
         <div className="mt-10 md:mt-12 lg:mt-14 animate-fade-up" style={{ "--delay": "0.08s" } as CSSProperties}>
@@ -214,6 +252,26 @@ function ExecutiveReadoutSection() {
           <div className="space-y-4 md:space-y-6">
             <p className="text-[11px] uppercase tracking-[0.32em] text-amber-200">Executive Readout</p>
             <h2 className="text-3xl md:text-4xl font-bold leading-tight text-white">A pre-commitment decision brief, built to survive scrutiny.</h2>
+            <div className="rounded-2xl border border-white/10 bg-black/30 p-4 space-y-3 text-slate-200">
+              <p className="text-sm font-semibold text-white">
+                Before every major decision, D-NAV captures three things most organizations never store:
+              </p>
+              <ul className="space-y-2 text-sm text-slate-200">
+                <li className="flex items-start gap-2">
+                  <span className="mt-1 h-1.5 w-1.5 rounded-full bg-amber-300" aria-hidden />
+                  <span>What risks are we choosing to accept?</span>
+                </li>
+                <li className="flex items-start gap-2">
+                  <span className="mt-1 h-1.5 w-1.5 rounded-full bg-amber-300" aria-hidden />
+                  <span>What assumptions must be true for this to work?</span>
+                </li>
+                <li className="flex items-start gap-2">
+                  <span className="mt-1 h-1.5 w-1.5 rounded-full bg-amber-300" aria-hidden />
+                  <span>What would cause us to revisit?</span>
+                </li>
+              </ul>
+              <p className="text-sm text-slate-300">And then it remembers the answers — when people usually don&apos;t.</p>
+            </div>
             <div className="space-y-3 text-slate-200">
               <p>Built for boardrooms, diligence reviews, and executive sessions where judgment must be defensible.</p>
               <p>D-NAV translates the system grammar into a concise brief that makes pressure, risk, and stability legible before any commitment.</p>
@@ -284,6 +342,10 @@ function UnderTheHoodSection() {
         <p className="text-slate-300 text-base max-w-3xl animate-fade-up" style={{ "--delay": "0.06s" } as CSSProperties}>
           Return, Pressure, and Stability describe the geometry of a decision—not its outcome.
         </p>
+        <div className="space-y-2 text-slate-300 text-base max-w-3xl animate-fade-up" style={{ "--delay": "0.07s" } as CSSProperties}>
+          <p>D-NAV is not a decision engine. It doesn&apos;t tell teams what to do.</p>
+          <p>It preserves how judgment was applied — so organizations can learn from uncertainty instead of rewriting it.</p>
+        </div>
 
         <div className="grid gap-6 lg:grid-cols-[1.05fr_0.95fr]">
           <GlassCard className="p-6 md:p-8 animate-fade-up" style={{ "--delay": "0.08s" } as CSSProperties}>
@@ -480,7 +542,7 @@ function FinalCTASection() {
             <p className="text-lg text-slate-200">
               You don&apos;t need better answers.
               <br />
-              You need better questions earlier.
+              You need better questions — earlier.
             </p>
             <div className="flex flex-col sm:flex-row gap-4 justify-center">
               <Button
