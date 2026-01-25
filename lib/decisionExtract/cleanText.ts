@@ -27,6 +27,11 @@ const COMMITMENT_VERBS = [
   "will",
   "plan to",
   "expect to",
+  "aim to",
+  "target",
+  "prepare to",
+  "commit to",
+  "discontinue",
   "launch",
   "ramp",
   "begin",
@@ -45,6 +50,7 @@ const COMMITMENT_VERBS = [
   "increase",
   "continue",
   "on track to",
+  "remain on track to",
 ];
 
 const normalizeWhitespace = (value: string) => value.replace(/\s+/g, " ").trim();

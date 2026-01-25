@@ -29,6 +29,7 @@ interface SessionDecision {
   sourceFile?: string;
   sourcePage?: number;
   excerpt?: string;
+  sourceType?: "manual" | "intake";
   createdAt: number;
 }
 
@@ -94,6 +95,7 @@ export default function StressTestPage() {
       p: decision.pressure,
       s: decision.stability,
       dnav: decision.dnav,
+      sourceType: "manual",
       createdAt: decision.createdAt,
     };
     setSessionDecisions((prev) => [sessionDecision, ...prev]);
@@ -141,7 +143,7 @@ export default function StressTestPage() {
         };
         const metrics = computeMetrics(vars);
         return {
-          id: `${now}-${index}-${Math.random().toString(36).slice(2, 8)}`,
+          id: `intake-${decision.id}`,
           decisionTitle: decision.decision,
           decisionDetail: decision.evidence,
           category: primarySource?.fileName?.trim() || "Extracted",
@@ -157,10 +159,12 @@ export default function StressTestPage() {
           sourceFile: primarySource?.fileName,
           sourcePage: primarySource?.pageNumber,
           excerpt: primarySource?.excerpt ?? decision.evidence,
+          sourceType: "intake",
           createdAt: now + index,
         } satisfies SessionDecision;
       });
-      return [...imports, ...prev];
+      const manual = prev.filter((decision) => decision.sourceType !== "intake");
+      return [...imports, ...manual];
     });
   }, []);
 
