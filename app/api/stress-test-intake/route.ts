@@ -1,6 +1,5 @@
 import OpenAI from "openai";
 import { NextResponse } from "next/server";
-import * as parsePdf from "pdf-parse";
 import { extractPdfTextByPage } from "@/lib/pdf/extractPdfText";
 import type { PdfPageText } from "@/lib/decisionExtract/cleanText";
 import type { DecisionCandidate, DecisionSource } from "@/lib/types/decision";
@@ -480,10 +479,21 @@ export async function POST(request: Request) {
     } catch (error) {
       if (buffer) {
         try {
-          const parser = new parsePdf.PDFParse({ data: Buffer.from(buffer) });
-          const parsed = await parser.getText();
-          await parser.destroy();
-          const parsedText = parsed.text?.trim();
+          type PdfParseFn = (
+            data: Buffer,
+            options?: unknown,
+          ) => Promise<{ text?: string } & Record<string, unknown>>;
+
+          const mod = (await import("pdf-parse")) as unknown as {
+            default?: PdfParseFn;
+            pdfParse?: PdfParseFn;
+          };
+          const pdfParse = mod.default ?? mod.pdfParse;
+          if (!pdfParse) {
+            throw new Error("pdf-parse did not expose a callable parser (no default/pdfParse).");
+          }
+          const parsed = await pdfParse(Buffer.from(buffer));
+          const parsedText = typeof parsed?.text === "string" ? parsed.text.trim() : "";
           if (parsedText) {
             const remaining = Math.max(0, MAX_TOTAL_CHARS - totalChars);
             const slice = parsedText.slice(0, remaining);
