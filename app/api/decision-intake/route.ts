@@ -2,42 +2,58 @@ import OpenAI from "openai";
 import { NextResponse } from "next/server";
 import crypto from "crypto";
 import { extractPdfTextByPage } from "@/lib/pdf/extractPdfText";
-import type { PdfPageText } from "@/lib/decisionExtract/cleanText";
-import type { DecisionCandidate, DecisionSource } from "@/lib/types/decision";
 
 export const runtime = "nodejs";
 
-type DecisionPayload = {
+type IntakeMode = "extract" | "summarize" | "extract+summarize";
+
+type DecisionSource = {
+  fileName: string;
+  page: number;
+};
+
+type DecisionCandidate = {
   id: string;
   decision: string;
   evidence: string;
-  source?: {
-    fileName?: string;
-    page?: number;
+  source: DecisionSource;
+  tags?: string[];
+};
+
+type SummaryDecision = {
+  decision: string;
+  why_it_matters?: string;
+  source?: DecisionSource;
+};
+
+type SummaryPayload = {
+  key_decisions: SummaryDecision[];
+  themes?: string[];
+  unknowns?: string[];
+};
+
+type ApiResponse = {
+  summary: SummaryPayload | null;
+  decisions: DecisionCandidate[];
+  meta: {
+    stage: "start" | "extract_text" | "chunk" | "extract" | "merge" | "summarize" | "done" | "error";
+    pages_processed: number;
+    chunks_processed: number;
+    candidates_extracted: number;
+    decisions_final: number;
+    truncated: boolean;
+    warnings: string[];
+    timing_ms: number;
   };
+  errorId?: string;
+  error?: string;
 };
 
-type ExtractResponse = {
-  candidates: DecisionCandidate[];
-  warning?: string;
-  debug?: {
-    pagesExtracted: number;
-    totalChars: number;
-    chunks: number;
-    candidatesExtracted: number;
-    candidatesAfterQuality: number;
-    notes?: string[];
-  };
+type PageText = {
+  fileName: string;
+  page: number;
+  text: string;
 };
-
-type ErrorResponse = {
-  error: { message: string; step?: Step };
-  errorId: string;
-};
-
-type Step = "start" | "formdata" | "pdf_extract" | "openai_extract" | "merge" | "summary";
-
-type FileMeta = { name: string; size: number; type: string };
 
 type PdfParseFn = (
   buffer: Buffer,
@@ -45,112 +61,35 @@ type PdfParseFn = (
 ) => Promise<{ text?: string } & Record<string, unknown>>;
 
 const MODEL = process.env.OPENAI_MODEL ?? "gpt-4o-mini";
-const DEFAULT_SCORE = 5;
-const CHUNK_CHAR_LIMIT = 10_000;
-const CHUNK_PAGE_LIMIT = 2;
-const MAX_CANDIDATES_PER_CHUNK = 30;
+const CHUNK_CHAR_TARGET_MIN = 8_000;
+const CHUNK_CHAR_TARGET_MAX = 12_000;
 const MAX_TOTAL_CHARS = 250_000;
-const MAX_CHUNKS = 8;
 const MAX_PAGES = 20;
+const MAX_CHUNKS = 8;
+const MAX_CANDIDATES_PER_CHUNK = 25;
 const OPENAI_TIMEOUT_MS = 18_000;
 const CHUNK_CONCURRENCY = 2;
 
-const ACTION_VERBS = [
-  "begin",
-  "launch",
-  "expand",
-  "commission",
-  "prepare",
-  "invest",
-  "increase",
-  "reduce",
-  "continue",
-  "ramp",
-  "start",
-  "build",
-  "deploy",
-  "deliver",
-  "introduce",
-  "scale",
-  "approve",
-  "open",
-  "acquire",
-  "transition",
-  "resume",
-  "accelerate",
-];
+const normalizeDecisionKey = (value: string) =>
+  value
+    .toLowerCase()
+    .replace(/[^a-z0-9\s]/g, "")
+    .replace(/\s+/g, " ")
+    .trim();
 
-const STOPWORDS = new Set([
-  "the",
-  "a",
-  "an",
-  "to",
-  "in",
-  "for",
-  "of",
-  "on",
-  "and",
-  "or",
-  "with",
-  "by",
-  "at",
-  "from",
-  "this",
-  "that",
-  "these",
-  "those",
-  "both",
-  "their",
-  "our",
-  "its",
-  "as",
-  "be",
-  "is",
-  "are",
-  "was",
-  "were",
-  "will",
-  "plan",
-  "plans",
-  "planned",
-  "target",
-  "targeted",
-  "expected",
-  "expect",
-  "aim",
-  "aimed",
-]);
-
-const hashString = (value: string) => {
-  let hash = 5381;
-  for (let index = 0; index < value.length; index += 1) {
-    hash = (hash * 33) ^ value.charCodeAt(index);
-  }
-  return (hash >>> 0).toString(36);
+const scoreDecision = (candidate: DecisionCandidate) => {
+  let score = 0;
+  if (/\d/.test(candidate.evidence)) score += 3;
+  if (/\d/.test(candidate.decision)) score += 2;
+  if (candidate.decision.length > 40) score += 2;
+  if (candidate.evidence.length > 120) score += 1;
+  return score;
 };
 
-const truncateSnippet = (value: string, limit = 200) => {
+const clampEvidence = (value: string) => {
   const normalized = value.replace(/\s+/g, " ").trim();
-  if (normalized.length <= limit) return normalized;
-  const sliced = normalized.slice(0, limit);
-  const lastSpace = sliced.lastIndexOf(" ");
-  return `${sliced.slice(0, lastSpace > 60 ? lastSpace : limit).trim()}…`;
-};
-
-const withTimeout = async <T,>(promise: Promise<T>, ms: number) => {
-  let timeoutId: NodeJS.Timeout | undefined;
-  const timeout = new Promise<T>((_, reject) => {
-    timeoutId = setTimeout(() => {
-      const error = new Error(`Operation timed out after ${ms}ms`);
-      error.name = "TimeoutError";
-      reject(error);
-    }, ms);
-  });
-  try {
-    return await Promise.race([promise, timeout]);
-  } finally {
-    if (timeoutId) clearTimeout(timeoutId);
-  }
+  if (normalized.length <= 220) return normalized;
+  return `${normalized.slice(0, 217).trim()}…`;
 };
 
 const runWithConcurrency = async <Item, Result>(
@@ -172,536 +111,336 @@ const runWithConcurrency = async <Item, Result>(
   return results;
 };
 
-const normalizeDecisionKey = (value: string) =>
-  value
-    .toLowerCase()
-    .replace(/[^\w\s]/g, "")
-    .replace(/\s+/g, " ")
-    .trim();
-
-const hasObjectNoun = (value: string) => {
-  const tokens = value
-    .toLowerCase()
-    .split(/\s+/)
-    .map((token) => token.replace(/[^a-z0-9]/g, ""))
-    .filter(Boolean);
-  return tokens.some((token) => !STOPWORDS.has(token) && !ACTION_VERBS.includes(token) && token.length > 2);
+const buildDecisionId = (candidate: DecisionCandidate) => {
+  const hash = crypto
+    .createHash("sha256")
+    .update(`${candidate.decision}|${candidate.source.fileName}|${candidate.source.page}`)
+    .digest("hex");
+  return `dec_${hash.slice(0, 12)}`;
 };
 
-const ensureVerbFirst = (value: string) => {
-  const normalized = value.replace(/\s+/g, " ").trim();
-  const [first, ...rest] = normalized.split(" ");
-  if (!first) return normalized;
-  const lowerFirst = first.toLowerCase();
-  if (ACTION_VERBS.includes(lowerFirst)) {
-    return `${first.charAt(0).toUpperCase()}${first.slice(1)} ${rest.join(" ")}`.trim();
+const getMode = (value: FormDataEntryValue | null): IntakeMode => {
+  if (typeof value !== "string") return "extract+summarize";
+  const normalized = value.trim() as IntakeMode;
+  if (normalized === "extract" || normalized === "summarize" || normalized === "extract+summarize") {
+    return normalized;
   }
-  return normalized.charAt(0).toUpperCase() + normalized.slice(1);
+  return "extract+summarize";
 };
 
-const repairDecisionWithEvidence = (decision: string, evidence: string) => {
-  const normalizedEvidence = evidence.replace(/\s+/g, " ").trim();
-  const commitmentMatch = normalizedEvidence.match(
-    /\b(?:will|plan to|plans to|expect to|aim to|target to|set to|scheduled to|committed to)\s+([^.;\n]+)/i,
-  );
-  if (commitmentMatch?.[1]) {
-    return ensureVerbFirst(commitmentMatch[1]);
-  }
-  const verbMatch = normalizedEvidence.match(
-    new RegExp(`\\b(${ACTION_VERBS.join("|")})\\b\\s+([^.;\\n]{6,120})`, "i"),
-  );
-  if (verbMatch?.[1] && verbMatch?.[2]) {
-    return ensureVerbFirst(`${verbMatch[1]} ${verbMatch[2]}`);
-  }
-  return ensureVerbFirst(decision);
-};
+const createMeta = (): ApiResponse["meta"] => ({
+  stage: "start",
+  pages_processed: 0,
+  chunks_processed: 0,
+  candidates_extracted: 0,
+  decisions_final: 0,
+  truncated: false,
+  warnings: [],
+  timing_ms: 0,
+});
 
-const isTooVague = (decision: string, evidence: string) => {
-  const words = decision.trim().split(/\s+/);
-  if (words.length < 3) return true;
-  if (!hasObjectNoun(decision) && !hasObjectNoun(evidence)) return true;
-  return false;
-};
+const formatChunkText = (pages: PageText[]) =>
+  pages
+    .map((page) => `FILE: ${page.fileName} | PAGE: ${page.page}\n${page.text}`)
+    .join("\n\n");
 
-const scoreCandidate = (decision: string, evidence: string) => {
-  let score = 55;
-  if (/\b(20\d{2}|q[1-4]|by end|this year|next year|next quarter|during|within)\b/i.test(evidence)) {
-    score += 12;
-  }
-  if (/\d/.test(evidence)) score += 8;
-  if (decision.length > 60) score += 5;
-  return Math.min(100, score);
-};
-
-const mergeSources = (existing: DecisionSource[], incoming: DecisionSource[]) => {
-  const merged = [...existing];
-  for (const source of incoming) {
-    const exists = merged.some(
-      (entry) =>
-        entry.fileName === source.fileName &&
-        entry.pageNumber === source.pageNumber &&
-        entry.excerpt === source.excerpt,
-    );
-    if (!exists) merged.push(source);
-  }
-  return merged;
-};
-
-const buildChunks = (pages: PdfPageText[]) => {
-  const grouped = new Map<string, PdfPageText[]>();
-  for (const page of pages) {
-    const key = page.fileName ?? "Document";
-    const entry = grouped.get(key) ?? [];
-    entry.push(page);
-    grouped.set(key, entry);
-  }
-
-  const chunks: { fileName: string; pages: PdfPageText[]; text: string }[] = [];
-
-  for (const [fileName, filePages] of grouped.entries()) {
-    let current: PdfPageText[] = [];
-    let currentLength = 0;
-    const pushChunk = () => {
-      if (current.length === 0) return;
-      const text = current
-        .map((page) => `=== Page ${page.pageNumber} ===\n${page.text}`)
-        .join("\n\n")
-        .trim();
-      if (text) {
-        chunks.push({ fileName, pages: current, text });
-      }
-      current = [];
-      currentLength = 0;
-    };
-
-    for (const page of filePages) {
-      const trimmedText = page.text.replace(/\s+/g, " ").trim();
-      if (!trimmedText) continue;
-      if (trimmedText.length > CHUNK_CHAR_LIMIT) {
-        for (let start = 0; start < trimmedText.length; start += CHUNK_CHAR_LIMIT) {
-          const slice = trimmedText.slice(start, start + CHUNK_CHAR_LIMIT);
-          if (current.length > 0) pushChunk();
-          current = [{ ...page, text: slice }];
-          currentLength = slice.length;
-          pushChunk();
-        }
-        continue;
-      }
-
-      const nextLength = currentLength + trimmedText.length;
-      if (current.length >= CHUNK_PAGE_LIMIT || nextLength > CHUNK_CHAR_LIMIT) {
-        pushChunk();
-      }
-      current.push({ ...page, text: trimmedText });
-      currentLength += trimmedText.length;
-    }
-    pushChunk();
-  }
-
-  return chunks;
-};
-
-const parseJson = (content: string) => {
+const parseCandidates = (raw: string): DecisionCandidate[] => {
+  if (!raw) return [];
   try {
-    return JSON.parse(content);
+    const parsed = JSON.parse(raw) as { candidates?: DecisionCandidate[] };
+    if (!parsed || !Array.isArray(parsed.candidates)) return [];
+    return parsed.candidates
+      .filter((item) => item && typeof item.decision === "string" && typeof item.evidence === "string")
+      .map((item) => ({
+        id: "",
+        decision: item.decision.trim(),
+        evidence: clampEvidence(item.evidence),
+        source: {
+          fileName: item.source?.fileName ?? "Unknown",
+          page: Number.isFinite(item.source?.page) ? Number(item.source.page) : 1,
+        },
+        tags: Array.isArray(item.tags) ? item.tags.filter((tag) => typeof tag === "string") : undefined,
+      }))
+      .filter((item) => item.decision && item.evidence);
   } catch {
-    const match = content.match(/\{[\s\S]*\}/);
-    if (!match) return null;
-    try {
-      return JSON.parse(match[0]);
-    } catch {
-      return null;
-    }
+    return [];
   }
 };
 
-const extractCandidatesFromChunk = async (
-  client: OpenAI,
-  chunk: { fileName: string; pages: PdfPageText[]; text: string },
-): Promise<{ candidates: DecisionPayload[]; warning?: string; debugNote?: string }> => {
-  const pageList = chunk.pages.map((page) => page.pageNumber).join(", ");
-  const systemPrompt = [
-    "You extract high-recall decision candidates from document text.",
-    "Each candidate must be a committed intent under constraint (action + object + timing/constraint when present).",
-    "Decision statements must start with a verb (Begin/Launch/Expand/Commission/Prepare/Invest/Increase/Reduce/Continue/Ramp/Start/Build/Deploy).",
-    "Evidence must be a short quote/snippet from the text (<= 200 chars).",
-    "Include page number attribution in source.page when possible.",
-    `Return JSON ONLY with schema: { \"candidates\": [{ \"id\": \"string\", \"decision\": \"string\", \"evidence\": \"string\", \"source\": { \"fileName\"?: \"string\", \"page\"?: number } }] }`,
-    `Return up to ${MAX_CANDIDATES_PER_CHUNK} candidates. Prefer recall. No markdown.`,
-  ].join(" ");
-
-  const userPrompt = [
-    `File: ${chunk.fileName}`,
-    `Pages in this chunk: ${pageList}`,
-    "Text:",
-    chunk.text,
-  ].join("\n");
-
+const parseSummary = (raw: string): SummaryPayload | null => {
+  if (!raw) return null;
   try {
-    const completion = await withTimeout(
-      client.chat.completions.create({
-        model: MODEL,
-        temperature: 0.1,
-        response_format: { type: "json_object" },
-        messages: [
-          { role: "system", content: systemPrompt },
-          { role: "user", content: userPrompt },
-        ],
-      }),
-      OPENAI_TIMEOUT_MS,
-    );
-
-    const content = completion.choices[0]?.message?.content ?? "";
-    if (!content.trim()) {
-      return { candidates: [], debugNote: "Empty OpenAI response content." };
-    }
-    const parsed = parseJson(content) as { candidates?: DecisionPayload[] } | null;
-    if (!Array.isArray(parsed?.candidates)) {
-      return { candidates: [], debugNote: "Missing candidates array in OpenAI response." };
-    }
-    const candidates = parsed.candidates ?? [];
-    return { candidates };
-  } catch (error) {
-    if (error instanceof Error && error.name === "TimeoutError") {
-      return { candidates: [], warning: "Timed out while extracting decisions from one chunk." };
-    }
-    return { candidates: [], warning: "Failed to extract decisions from one chunk." };
+    const parsed = JSON.parse(raw) as SummaryPayload;
+    if (!parsed || !Array.isArray(parsed.key_decisions)) return null;
+    return {
+      key_decisions: parsed.key_decisions
+        .filter((item) => item && typeof item.decision === "string")
+        .map((item) => ({
+          decision: item.decision.trim(),
+          why_it_matters: item.why_it_matters?.trim() || undefined,
+          source:
+            item.source?.fileName && Number.isFinite(item.source.page)
+              ? { fileName: item.source.fileName, page: Number(item.source.page) }
+              : undefined,
+        })),
+      themes: Array.isArray(parsed.themes) ? parsed.themes.filter((item) => typeof item === "string") : undefined,
+      unknowns: Array.isArray(parsed.unknowns)
+        ? parsed.unknowns.filter((item) => typeof item === "string")
+        : undefined,
+    };
+  } catch {
+    return null;
   }
 };
-
-const buildDecisionCandidate = (
-  candidate: DecisionPayload,
-  chunk: { fileName: string; pages: PdfPageText[] },
-): DecisionCandidate | null => {
-  const decisionRaw = typeof candidate.decision === "string" ? candidate.decision.trim() : "";
-  const evidenceRaw = typeof candidate.evidence === "string" ? candidate.evidence.trim() : "";
-  if (!decisionRaw || !evidenceRaw) return null;
-
-  const fallbackPage = chunk.pages.length === 1 ? chunk.pages[0]?.pageNumber : chunk.pages[0]?.pageNumber;
-  const sourceFile = typeof candidate.source?.fileName === "string" ? candidate.source?.fileName : chunk.fileName;
-  const parsedPage =
-    typeof candidate.source?.page === "string" ? Number.parseInt(candidate.source.page, 10) : undefined;
-  const sourcePage =
-    typeof candidate.source?.page === "number"
-      ? candidate.source?.page
-      : Number.isFinite(parsedPage)
-        ? parsedPage
-        : fallbackPage ?? undefined;
-
-  const evidence = truncateSnippet(evidenceRaw, 200);
-  let decision = ensureVerbFirst(decisionRaw);
-  if (isTooVague(decision, evidence)) {
-    const repaired = repairDecisionWithEvidence(decisionRaw, evidence);
-    if (isTooVague(repaired, evidence)) return null;
-    decision = ensureVerbFirst(repaired);
-  }
-
-  const id = `decision-${hashString(`${decision}-${sourceFile ?? ""}-${sourcePage ?? ""}`)}`;
-  const score = scoreCandidate(decision, evidence);
-  return {
-    id,
-    decision,
-    evidence,
-    sources: [
-      {
-        fileName: sourceFile,
-        pageNumber: sourcePage,
-        excerpt: evidence,
-      },
-    ],
-    extractConfidence: score / 100,
-    qualityScore: score,
-    impact: DEFAULT_SCORE,
-    cost: DEFAULT_SCORE,
-    risk: DEFAULT_SCORE,
-    urgency: DEFAULT_SCORE,
-    confidence: DEFAULT_SCORE,
-  };
-};
-
-const getPdfParse = async (): Promise<PdfParseFn> => {
-  const mod = (await import("pdf-parse")) as unknown as { default?: PdfParseFn; pdfParse?: PdfParseFn };
-  const pdfParse = mod.default ?? mod.pdfParse;
-  if (!pdfParse) {
-    throw new Error("pdf-parse did not expose a callable parser.");
-  }
-  return pdfParse;
-};
-
-const buildErrorResponse = ({
-  status,
-  message,
-  errorId,
-  step,
-}: {
-  status: number;
-  message: string;
-  errorId: string;
-  step?: Step;
-}) =>
-  NextResponse.json(
-    {
-      error: { message, step },
-      errorId,
-    } satisfies ErrorResponse,
-    { status },
-  );
-
-const captureFileMeta = (files: File[]) =>
-  files.map((file) => ({ name: file.name, size: file.size, type: file.type } satisfies FileMeta));
-
-const summarizeError = (
-  error: unknown,
-  context: { errorId: string; step: Step; files: FileMeta[]; pagesExtracted: number; model: string },
-) => {
-  const err = error instanceof Error ? error : new Error("Unknown error");
-  console.error("Decision intake failed", {
-    errorId: context.errorId,
-    step: context.step,
-    model: context.model,
-    files: context.files,
-    pagesExtracted: context.pagesExtracted,
-    errorMessage: err.message,
-    errorStack: err.stack,
-  });
-  return err;
-};
-
-export async function GET() {
-  return NextResponse.json({
-    ok: true,
-    hasOpenAIKey: Boolean(process.env.OPENAI_API_KEY),
-    model: process.env.OPENAI_MODEL ?? null,
-    nodeEnv: process.env.NODE_ENV ?? null,
-  });
-}
 
 export async function POST(request: Request) {
-  const errorId = crypto.randomUUID();
-  let step: Step = "start";
-  const warnings: string[] = [];
-  let pagesExtracted = 0;
-  let fileMeta: FileMeta[] = [];
+  const meta = createMeta();
+  const startedAt = Date.now();
+  let summary: SummaryPayload | null = null;
+  let decisions: DecisionCandidate[] = [];
 
   try {
-    if (!process.env.OPENAI_API_KEY) {
-      return buildErrorResponse({
-        status: 500,
-        message:
-          "OPENAI_API_KEY missing in runtime environment. Set it in Netlify Site settings → Environment variables (and ensure it applies to Production deploys).",
-        errorId,
-        step,
-      });
-    }
-
-    step = "formdata";
+    meta.stage = "extract_text";
     const formData = await request.formData();
-    const memo = typeof formData.get("memo") === "string" ? formData.get("memo")?.toString() ?? "" : "";
+    const memoValue = formData.get("memo");
+    const mode = getMode(formData.get("mode"));
     const files = formData.getAll("files").filter((item): item is File => item instanceof File);
-    const filesByKey = new Map<string, File>();
+
+    const pages: PageText[] = [];
+    if (typeof memoValue === "string" && memoValue.trim()) {
+      pages.push({ fileName: "Pasted text", page: 1, text: memoValue.trim() });
+    }
+
     for (const file of files) {
-      const dedupeKey = `${file.name}-${file.size}-${file.lastModified}`;
-      if (!filesByKey.has(dedupeKey)) filesByKey.set(dedupeKey, file);
+      const arrayBuffer = await file.arrayBuffer();
+      try {
+        const extracted = await extractPdfTextByPage(arrayBuffer);
+        extracted.forEach((page) => {
+          if (page.text?.trim()) {
+            pages.push({ fileName: file.name, page: page.pageNumber, text: page.text.trim() });
+          }
+        });
+      } catch (error) {
+        const mod = (await import("pdf-parse")) as unknown as {
+          default?: PdfParseFn;
+          pdfParse?: PdfParseFn;
+        };
+        const pdfParse = mod.default ?? mod.pdfParse;
+        if (!pdfParse) {
+          throw new Error("pdf-parse did not expose a callable parser.");
+        }
+        const parsed = await pdfParse(Buffer.from(arrayBuffer));
+        const text = typeof parsed?.text === "string" ? parsed.text : "";
+        if (text.trim()) {
+          pages.push({ fileName: file.name, page: 1, text: text.trim() });
+        }
+        meta.warnings.push(`Fallback pdf-parse used for ${file.name}; page citations are approximate.`);
+      }
     }
-    const uniqueFiles = [...filesByKey.values()];
-    fileMeta = captureFileMeta(uniqueFiles);
 
-    if (!memo.trim() && uniqueFiles.length === 0) {
-      return buildErrorResponse({
-        status: 400,
-        message: "Add PDFs or paste text to extract decisions.",
-        errorId,
-        step,
-      });
-    }
-
-    const pages: PdfPageText[] = [];
+    const limitedPages: PageText[] = [];
     let totalChars = 0;
-    let truncated = false;
-    let pageLimitReached = false;
-
-    if (memo.trim()) {
-      const text = memo.trim();
-      const remaining = Math.max(0, MAX_TOTAL_CHARS - totalChars);
-      const slice = text.slice(0, remaining);
-      if (slice.length < text.length) truncated = true;
-      pages.push({ fileName: "Pasted text", pageNumber: 1, text: slice });
-      totalChars += slice.length;
-    }
-
-    step = "pdf_extract";
-    for (const file of uniqueFiles) {
-      if (totalChars >= MAX_TOTAL_CHARS) {
-        truncated = true;
+    for (const page of pages) {
+      if (limitedPages.length >= MAX_PAGES) {
+        meta.warnings.push("Reached maximum page limit; remaining pages were skipped.");
+        meta.truncated = true;
         break;
       }
-      let buffer: ArrayBuffer | null = null;
-      let extracted = false;
-      try {
-        buffer = await file.arrayBuffer();
-        const pageTexts = await extractPdfTextByPage(buffer);
-        for (const page of pageTexts) {
-          if (pages.length >= MAX_PAGES) {
-            pageLimitReached = true;
-            break;
-          }
-          if (totalChars >= MAX_TOTAL_CHARS) {
-            truncated = true;
-            break;
-          }
-          const text = page.text.trim();
-          if (!text) continue;
-          const remaining = Math.max(0, MAX_TOTAL_CHARS - totalChars);
-          const slice = text.slice(0, remaining);
-          if (slice.length < text.length) truncated = true;
-          pages.push({ ...page, fileName: file.name, text: slice });
-          totalChars += slice.length;
-        }
-        extracted = true;
-      } catch (error) {
-        warnings.push("Page-aware extraction failed; used fallback parser (page citations approximated).");
-        if (buffer) {
-          try {
-            const pdfParse = await getPdfParse();
-            const parsed = await pdfParse(Buffer.from(buffer));
-            const parsedText = typeof parsed?.text === "string" ? parsed.text.trim() : "";
-            if (parsedText) {
-              const remaining = Math.max(0, MAX_TOTAL_CHARS - totalChars);
-              const slice = parsedText.slice(0, remaining);
-              if (slice.length < parsedText.length) truncated = true;
-              pages.push({ fileName: file.name, pageNumber: 1, text: slice });
-              totalChars += slice.length;
-              extracted = true;
-            }
-          } catch (parseError) {
-            warnings.push(`Fallback PDF parsing failed for ${file.name}.`);
-            console.error("PDF parse fallback failed", parseError);
-          }
-        }
-        if (!extracted) {
-          warnings.push(`Unable to extract text from ${file.name}.`);
-          console.error("PDF extraction failed", error);
-        }
+      if (totalChars >= MAX_TOTAL_CHARS) {
+        meta.warnings.push("Reached maximum character limit; remaining text was skipped.");
+        meta.truncated = true;
+        break;
       }
-      if (pageLimitReached) break;
-    }
-
-    if (pages.length === 0) {
-      return buildErrorResponse({
-        status: 400,
-        message: "No readable text found in the uploads.",
-        errorId,
-        step,
-      });
-    }
-
-    pagesExtracted = pages.length;
-    const chunks = buildChunks(pages);
-    step = "openai_extract";
-    if (chunks.length > MAX_CHUNKS) {
-      warnings.push(
-        `Processed first ${MAX_CHUNKS} chunks for speed. Upload a smaller excerpt or paste key sections for full coverage.`,
-      );
-    }
-    if (pageLimitReached) {
-      warnings.push(
-        `Processed only the first ${MAX_PAGES} pages to keep extraction fast. Upload fewer pages for full coverage.`,
-      );
-    }
-    if (truncated) {
-      warnings.push(
-        `We analyzed only the first ${MAX_TOTAL_CHARS.toLocaleString()} characters to keep extraction fast.`,
-      );
-    }
-
-    const client = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
-
-    const rawCandidates: DecisionPayload[] = [];
-    const collected: DecisionCandidate[] = [];
-    const debugNotes: string[] = [];
-    const chunksToProcess = chunks.slice(0, MAX_CHUNKS);
-    const chunkResults = await runWithConcurrency(chunksToProcess, CHUNK_CONCURRENCY, async (chunk) =>
-      extractCandidatesFromChunk(client, chunk),
-    );
-    chunkResults.forEach((result, index) => {
-      if (result.warning) warnings.push(result.warning);
-      if (result.debugNote) debugNotes.push(`Chunk ${index + 1}: ${result.debugNote}`);
-      const chunk = chunksToProcess[index];
-      const chunkCandidates = result.candidates ?? [];
-      rawCandidates.push(...chunkCandidates.map((candidate) => ({ ...candidate, source: candidate.source ?? {} })));
-      for (const candidate of chunkCandidates) {
-        const built = buildDecisionCandidate(candidate, chunk);
-        if (built) collected.push(built);
+      const remaining = MAX_TOTAL_CHARS - totalChars;
+      const text = page.text.length > remaining ? page.text.slice(0, remaining) : page.text;
+      if (page.text.length > remaining) {
+        meta.warnings.push("Input text was truncated to fit processing limits.");
+        meta.truncated = true;
       }
-    });
-
-    step = "merge";
-    const deduped = new Map<string, DecisionCandidate>();
-    for (const candidate of collected) {
-      const key = normalizeDecisionKey(candidate.decision);
-      const existing = deduped.get(key);
-      if (!existing) {
-        deduped.set(key, candidate);
-        continue;
-      }
-      const mergedSources = mergeSources(existing.sources, candidate.sources);
-      const winner = candidate.qualityScore >= existing.qualityScore ? candidate : existing;
-      deduped.set(key, { ...winner, sources: mergedSources });
+      if (!text.trim()) continue;
+      totalChars += text.length;
+      limitedPages.push({ ...page, text });
     }
 
-    step = "summary";
-    const finalCandidates = [...deduped.values()];
+    meta.pages_processed = limitedPages.length;
 
-    const response: ExtractResponse = {
-      candidates: finalCandidates,
-      warning: warnings.filter(Boolean).join(" ").trim() || undefined,
-      debug:
-        process.env.NODE_ENV !== "production"
-          ? {
-              pagesExtracted: pages.length,
-              totalChars,
-              chunks: chunks.length,
-              candidatesExtracted: rawCandidates.length,
-              candidatesAfterQuality: finalCandidates.length,
-              notes: debugNotes.length > 0 ? debugNotes : undefined,
-            }
-          : undefined,
+    meta.stage = "chunk";
+    const chunks: PageText[][] = [];
+    let current: PageText[] = [];
+    let currentChars = 0;
+
+    const pushCurrent = () => {
+      if (current.length) {
+        chunks.push(current);
+        current = [];
+        currentChars = 0;
+      }
     };
 
-    if (process.env.NODE_ENV !== "production") {
-      console.debug("Decision intake", {
-        pagesExtracted: pages.length,
-        totalChars,
-        chunks: chunks.length,
-        candidatesExtracted: rawCandidates.length,
-        candidatesAfterQuality: finalCandidates.length,
-      });
+    for (const page of limitedPages) {
+      const pageText = `FILE: ${page.fileName} | PAGE: ${page.page}\n${page.text}`;
+      const incomingLength = pageText.length;
+      if (current.length >= 2 || (currentChars + incomingLength > CHUNK_CHAR_TARGET_MAX && currentChars >= CHUNK_CHAR_TARGET_MIN)) {
+        pushCurrent();
+      }
+      if (incomingLength > CHUNK_CHAR_TARGET_MAX && current.length === 0) {
+        meta.warnings.push("A page exceeded the chunk limit and was truncated.");
+        meta.truncated = true;
+        current.push({ ...page, text: page.text.slice(0, CHUNK_CHAR_TARGET_MAX) });
+        pushCurrent();
+        continue;
+      }
+      current.push(page);
+      currentChars += incomingLength;
+    }
+    pushCurrent();
+
+    if (chunks.length > MAX_CHUNKS) {
+      meta.warnings.push("Reached maximum chunk limit; remaining text was skipped.");
+      meta.truncated = true;
+      chunks.splice(MAX_CHUNKS);
     }
 
-    if (finalCandidates.length === 0 && pages.length > 0) {
-      response.warning = [
-        response.warning,
-        "No decisions were extracted. Try providing more explicit decision language.",
-      ]
-        .filter(Boolean)
-        .join(" ")
-        .trim();
+    meta.chunks_processed = chunks.length;
+
+    if (chunks.length === 0) {
+      meta.stage = "done";
+      meta.timing_ms = Date.now() - startedAt;
+      return NextResponse.json({ summary: null, decisions: [], meta } satisfies ApiResponse, { status: 200 });
     }
 
-    return NextResponse.json(response);
+    meta.stage = "extract";
+    const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+
+    const chunkResults = await runWithConcurrency(chunks, CHUNK_CONCURRENCY, async (chunk, index) => {
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), OPENAI_TIMEOUT_MS);
+      try {
+        const body = {
+          model: MODEL,
+          response_format: { type: "json_object" },
+          temperature: 0.2,
+          messages: [
+            {
+              role: "system",
+              content:
+                "You extract decision candidates with high recall. A decision is a committed intent under constraint. Write decision as verb-first, concise. Evidence must be <=220 chars. Include source fileName and page when possible. JSON only.",
+            },
+            {
+              role: "user",
+              content: [
+                "Extract decision candidates from this chunk.",
+                `Return JSON as { "candidates": [{ "decision": "", "evidence": "", "source": { "fileName": "", "page": 1 }, "tags": [] }] }`,
+                `Limit to ${MAX_CANDIDATES_PER_CHUNK} candidates.`,
+                "Chunk:",
+                formatChunkText(chunk),
+              ].join("\n\n"),
+            },
+          ],
+        };
+
+        const completion = await openai.chat.completions.create(body, { signal: controller.signal });
+        const content = completion.choices[0]?.message?.content ?? "";
+        return parseCandidates(content);
+      } catch (error) {
+        meta.warnings.push(`Chunk ${index + 1} extraction failed.`);
+        return [];
+      } finally {
+        clearTimeout(timeout);
+      }
+    });
+
+    const extractedCandidates = chunkResults.flat();
+    meta.candidates_extracted = extractedCandidates.length;
+
+    meta.stage = "merge";
+    const deduped = new Map<string, DecisionCandidate>();
+    for (const candidate of extractedCandidates) {
+      const normalized = normalizeDecisionKey(candidate.decision);
+      if (!normalized) continue;
+      const existing = deduped.get(normalized);
+      const enriched: DecisionCandidate = {
+        ...candidate,
+        evidence: clampEvidence(candidate.evidence),
+        source: candidate.source ?? { fileName: "Unknown", page: 1 },
+        id: "",
+      };
+      const scored = scoreDecision(enriched);
+      if (!existing || scored > scoreDecision(existing)) {
+        deduped.set(normalized, enriched);
+      }
+    }
+
+    decisions = Array.from(deduped.values()).map((candidate) => ({
+      ...candidate,
+      id: buildDecisionId(candidate),
+    }));
+
+    decisions.sort((a, b) => scoreDecision(b) - scoreDecision(a));
+    if (decisions.length > 80) {
+      decisions = decisions.slice(0, 80);
+    }
+
+    meta.decisions_final = decisions.length;
+
+    if (mode === "extract+summarize" || mode === "summarize") {
+      meta.stage = "summarize";
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), OPENAI_TIMEOUT_MS);
+      try {
+        const body = {
+          model: MODEL,
+          response_format: { type: "json_object" },
+          temperature: 0.2,
+          messages: [
+            {
+              role: "system",
+              content:
+                "Summarize decisions into 8-20 key bullets. Return JSON { key_decisions: [{ decision, why_it_matters, source }], themes: [], unknowns: [] }. JSON only.",
+            },
+            {
+              role: "user",
+              content: `Decisions:\n${JSON.stringify(decisions, null, 2)}`,
+            },
+          ],
+        };
+
+        const completion = await openai.chat.completions.create(body, { signal: controller.signal });
+        const content = completion.choices[0]?.message?.content ?? "";
+        summary = parseSummary(content);
+        if (!summary) {
+          meta.warnings.push("Summary response could not be parsed.");
+        }
+      } catch (error) {
+        meta.warnings.push("Summary extraction failed.");
+      } finally {
+        clearTimeout(timeout);
+      }
+    }
+
+    meta.stage = "done";
+    meta.timing_ms = Date.now() - startedAt;
+
+    return NextResponse.json({
+      summary,
+      decisions,
+      meta,
+    } satisfies ApiResponse);
   } catch (error) {
-    const err = summarizeError(error, {
-      errorId,
-      step,
-      files: fileMeta,
-      pagesExtracted,
-      model: MODEL,
-    });
-    return buildErrorResponse({
-      status: 500,
-      message: err.message || "Internal error while processing the decision intake.",
-      errorId,
-      step,
-    });
+    const errorId = crypto.randomUUID();
+    const message = error instanceof Error ? error.message : "Unknown error.";
+    meta.stage = "error";
+    meta.timing_ms = Date.now() - startedAt;
+    console.error("Decision intake error", { errorId, message });
+    return NextResponse.json(
+      {
+        summary: null,
+        decisions: [],
+        meta,
+        errorId,
+        error: message,
+      } satisfies ApiResponse,
+      { status: 500 },
+    );
   }
 }
