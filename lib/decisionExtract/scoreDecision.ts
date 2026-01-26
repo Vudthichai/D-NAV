@@ -111,6 +111,9 @@ const TRIVIAL_ACTIONS = [
   "drove to",
   "texted",
   "called mom",
+  "walked",
+  "emailed",
+  "meeting",
 ];
 
 const TIMELINE_REGEX =
@@ -153,6 +156,28 @@ const IR_FLUFF_TERMS = [
   "provides useful information",
   "supplement",
   "investor relations",
+];
+
+const CAPACITY_CUES = [
+  "capacity",
+  "production",
+  "manufacturing",
+  "build",
+  "install",
+  "open",
+  "scale",
+  "launch",
+  "deploy",
+];
+
+const PRODUCT_CUES = [
+  "megafactory",
+  "megapack",
+  "powerwall",
+  "robotaxi",
+  "cybercab",
+  "model y",
+  "semi",
 ];
 
 const hasClearObject = (value: string) => OBJECT_VERB_PATTERN.test(value);
@@ -198,13 +223,14 @@ export const passesDecisionCandidateFilters = (value: string, options: Candidate
   const startsWithAbility = /^\s*our ability to\b/.test(lowered);
   const containsNonCommitment = NON_COMMITMENT_PHRASES.some((phrase) => lowered.includes(phrase));
   const hasHardRejectPhrase = HARD_REJECT_PHRASES.some((phrase) => lowered.includes(phrase));
+  const descriptiveStarter = /^\s*(we are|we have|there is|there are|there was|there were)\b/.test(lowered);
 
-  if (normalized.length < 45 || normalized.length > 240) return false;
-  if (digitRatio(normalized) > 0.22) return false;
+  if (normalized.length < 45 || normalized.length > 220) return false;
+  if (digitRatio(normalized) > 0.25 && !(hasCommitment && hasTimebox)) return false;
   if (numberCount >= 3) return false;
   if (currencyCount >= 2) return false;
   if (separatorCount >= 4) return false;
-  if (isTableLikeLine(normalized)) return false;
+  if (isTableLikeLine(normalized) && !(hasCommitment && hasTimebox)) return false;
   if (hasHardRejectPhrase) return false;
   if (/\bmay\b/.test(lowered) || /\bcould\b/.test(lowered)) return false;
   if (matchesBoilerplate(lowered)) return false;
@@ -212,6 +238,7 @@ export const passesDecisionCandidateFilters = (value: string, options: Candidate
   if (isDescriptiveOnly(lowered)) return false;
   if (isCapabilityOnly(lowered)) return false;
   if (startsWithAbility || containsNonCommitment) return false;
+  if (descriptiveStarter && !hasCommitment) return false;
   if (!hasCommitment && !hasPlanLanguage && !(hasTimebox && hasClearObject(lowered))) return false;
   if (!hasClearObject(lowered)) return false;
 
@@ -242,6 +269,14 @@ export const scoreDecisionCandidate = (value: string, options: CandidateFilterOp
     score += 18;
   }
 
+  if (CAPACITY_CUES.some((cue) => lowered.includes(cue))) {
+    score += 10;
+  }
+
+  if (PRODUCT_CUES.some((cue) => lowered.includes(cue))) {
+    score += 8;
+  }
+
   if (containsCommitmentVerb(lowered) && hasTimelineCue(lowered) && hasClearObject(lowered)) {
     score += 15;
   }
@@ -250,11 +285,11 @@ export const scoreDecisionCandidate = (value: string, options: CandidateFilterOp
     score -= 45;
   }
 
-  if (digitRatio(value) > 0.22) {
+  if (digitRatio(value) > 0.25) {
     score -= 35;
   }
 
-  if (isTableLikeLine(value)) {
+  if (isTableLikeLine(value) && !(containsCommitmentVerb(lowered) && hasTimelineCue(lowered))) {
     score -= 35;
   }
 

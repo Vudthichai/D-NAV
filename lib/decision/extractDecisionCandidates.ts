@@ -195,7 +195,6 @@ export const extractDecisionCandidates = (text: string): DecisionCandidate[] => 
       risk,
       urgency,
       confidence,
-      keep: false,
     };
 
     candidates.push(candidate);

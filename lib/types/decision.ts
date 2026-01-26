@@ -10,7 +10,6 @@ export type DecisionCandidate = {
   risk: number;
   urgency: number;
   confidence: number;
-  keep: boolean;
   imported?: boolean;
 };
 
