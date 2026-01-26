@@ -49,6 +49,7 @@ export const decisionExtractResponseSchema = z.object({
   meta: z.object({
     pagesReceived: z.number().int().min(0),
     totalChars: z.number().int().min(0),
+    warnings: z.array(z.string()).optional(),
   }),
 });
 
