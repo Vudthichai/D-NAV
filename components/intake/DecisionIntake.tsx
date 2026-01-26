@@ -59,7 +59,11 @@ type IntakeResponse = {
     candidatesAfterQuality: number;
     notes?: string[];
   };
-  error?: string;
+  error?: {
+    message?: string;
+    step?: string;
+  };
+  errorId?: string;
 };
 
 export default function DecisionIntake({ onImportDecisions }: DecisionIntakeProps) {
@@ -269,25 +273,26 @@ export default function DecisionIntake({ onImportDecisions }: DecisionIntakeProp
       intakeFiles.forEach((file) => {
         formData.append("files", file);
       });
+      formData.append("mode", "extract+summarize");
 
-      const response = await fetch("/api/stress-test-intake", {
+      const response = await fetch("/api/decision-intake", {
         method: "POST",
         body: formData,
       });
 
-      const responseText = await response.text();
       let payload: IntakeResponse | null = null;
-      if (responseText) {
-        try {
-          payload = JSON.parse(responseText) as IntakeResponse;
-        } catch (parseError) {
-          console.error("Failed to parse stress test intake response.", parseError);
-        }
+      try {
+        payload = (await response.json()) as IntakeResponse;
+      } catch (parseError) {
+        console.error("Failed to parse decision intake response.", parseError);
       }
       if (!response.ok) {
-        const errorMessage =
-          typeof payload?.error === "string" ? payload.error : responseText || "Decision extraction failed.";
-        setError(errorMessage);
+        const fallbackMessage = "Decision extraction failed.";
+        const message = payload?.error?.message?.trim() || fallbackMessage;
+        const errorParts = [message, `Status ${response.status}`];
+        if (payload?.error?.step) errorParts.push(`Step: ${payload.error.step}`);
+        if (payload?.errorId) errorParts.push(`Error ID: ${payload.errorId}`);
+        setError(errorParts.join(" • "));
         return;
       }
 
