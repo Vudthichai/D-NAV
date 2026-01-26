@@ -23,11 +23,27 @@ interface ExtractedPage {
 interface DecisionCandidate {
   id: string;
   title: string;
-  type: "decision" | "constraint" | "assumption";
-  category: "Operations" | "Finance" | "Product" | "Hiring" | "Legal" | "Strategy" | "Other";
-  signal: { impact: number; cost: number; risk: number; urgency: number; confidence: number };
-  evidence: { page: number; quote: string };
-  notes: string;
+  strength: "hard" | "soft";
+  category:
+    | "Operations"
+    | "Finance"
+    | "Product"
+    | "Hiring"
+    | "Legal"
+    | "Strategy"
+    | "Sales/Go-to-market"
+    | "Other";
+  decision: string;
+  rationale: string;
+  constraints: {
+    impact: { score: number; evidence: string };
+    cost: { score: number; evidence: string };
+    risk: { score: number; evidence: string };
+    urgency: { score: number; evidence: string };
+    confidence: { score: number; evidence: string };
+  };
+  evidence: { page: number; quote: string; locationHint?: string };
+  tags: string[];
 }
 
 interface DecisionExtractSuccessResponse {
@@ -42,13 +58,6 @@ interface DecisionExtractErrorResponse {
   message?: string;
   totalChars?: number;
   limit?: number;
-}
-
-interface DecisionExtractStatusResponse {
-  ok: true;
-  route: string;
-  methods: string[];
-  timestamp: string;
 }
 
 interface SessionDecision {
@@ -137,20 +146,17 @@ export default function StressTestPage() {
     const checkApi = async () => {
       try {
         const response = await fetch("/api/decision-extract");
-        const data = (await response.json().catch(() => null)) as
-          | DecisionExtractStatusResponse
-          | DecisionExtractErrorResponse
-          | null;
-        if (!isMounted) return;
-        if (response.ok && data && "ok" in data && data.ok) {
-          setApiStatus({ state: "online" });
-        } else {
-          const message =
-            data && "error" in data
-              ? data.message || data.error
-              : `HTTP ${response.status} ${response.statusText || "error"}`;
-          setApiStatus({ state: "error", message });
-        }
+      const data = (await response.json().catch(() => null)) as DecisionExtractErrorResponse | null;
+      if (!isMounted) return;
+      if (response.status === 405 && data && "error" in data && data.error === "Method not allowed.") {
+        setApiStatus({ state: "online" });
+      } else if (response.ok) {
+        setApiStatus({ state: "online" });
+      } else {
+        const message =
+          data && "error" in data ? data.message || data.error : `HTTP ${response.status} ${response.statusText || "error"}`;
+        setApiStatus({ state: "error", message });
+      }
       } catch (error) {
         if (!isMounted) return;
         console.error("Decision extract API status check failed.", error);
@@ -497,15 +503,10 @@ export default function StressTestPage() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          doc: {
-            name: selectedFileName ?? "uploaded.pdf",
-            source: "pdf",
-            pageCount: extractedPages.length,
-          },
+          docName: selectedFileName ?? "uploaded.pdf",
           pages: extractedPages.map((page) => ({
             page: page.pageNumber,
             text: page.text,
-            charCount: page.charCount,
           })),
           options: {
             maxCandidatesPerPage: 6,
@@ -915,11 +916,17 @@ export default function StressTestPage() {
                                 {candidate.evidence.page ? `p. ${candidate.evidence.page}` : "Page n/a"}
                               </p>
                             </div>
-                            <span className="rounded-full border border-border/50 bg-background px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-foreground">
-                              {candidate.type}
-                            </span>
+                            <div className="flex flex-wrap items-center gap-2">
+                              <span className="rounded-full border border-border/50 bg-background px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-foreground">
+                                {candidate.strength}
+                              </span>
+                              <span className="rounded-full border border-border/50 bg-background px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-foreground">
+                                {candidate.category}
+                              </span>
+                            </div>
                           </div>
-                          <p className="mt-2 text-[11px] text-muted-foreground">{candidate.notes}</p>
+                          <p className="mt-2 text-[11px] text-muted-foreground">{candidate.decision}</p>
+                          <p className="mt-2 text-[11px] text-muted-foreground">{candidate.rationale}</p>
                           {candidate.evidence.quote ? (
                             <p className="mt-2 text-[11px] text-muted-foreground">“{candidate.evidence.quote}”</p>
                           ) : null}
