@@ -5,14 +5,11 @@ import StressTestCalculator, {
   type StressTestDecisionSnapshot,
 } from "@/components/stress-test/StressTestCalculator";
 import { useDefinitionsPanel } from "@/components/definitions/DefinitionsPanelProvider";
-import DecisionIntake from "@/components/intake/DecisionIntake";
 import { Button } from "@/components/ui/button";
 import { AccentSliver } from "@/components/ui/AccentSliver";
 import { Callout } from "@/components/ui/Callout";
 import { MetricDistribution, type MetricDistributionSegment } from "@/components/reports/MetricDistribution";
-import { computeMetrics, type DecisionVariables } from "@/lib/calculations";
 import { getSessionActionInsight } from "@/lib/sessionActionInsight";
-import type { DecisionCandidate } from "@/lib/types/decision";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
@@ -308,46 +305,6 @@ export default function StressTestPage() {
     } catch (error) {
       console.error("Failed to clear stress test session decisions.", error);
     }
-  }, []);
-
-  const handleImportDecisions = useCallback((selected: DecisionCandidate[]) => {
-    setSessionDecisions((prev) => {
-      const now = Date.now();
-      const existingIds = new Set(prev.map((decision) => decision.id));
-      const imports = selected.map((decision, index) => {
-        const primarySource = decision.sources[0];
-        const vars: DecisionVariables = {
-          impact: decision.impact,
-          cost: decision.cost,
-          risk: decision.risk,
-          urgency: decision.urgency,
-          confidence: decision.confidence,
-        };
-        const metrics = computeMetrics(vars);
-        return {
-          id: `intake-${decision.id}`,
-          decisionTitle: decision.decision,
-          decisionDetail: decision.evidence,
-          category: primarySource?.fileName?.trim() || "Extracted",
-          impact: vars.impact,
-          cost: vars.cost,
-          risk: vars.risk,
-          urgency: vars.urgency,
-          confidence: vars.confidence,
-          r: metrics.return,
-          p: metrics.pressure,
-          s: metrics.stability,
-          dnav: metrics.dnav,
-          sourceFile: primarySource?.fileName,
-          sourcePage: primarySource?.pageNumber,
-          excerpt: primarySource?.excerpt ?? decision.evidence,
-          sourceType: "intake",
-          createdAt: now + index,
-        } satisfies SessionDecision;
-      });
-      const newImports = imports.filter((decision) => !existingIds.has(decision.id));
-      return [...newImports, ...prev];
-    });
   }, []);
 
   const handleToggleSessionAnalysis = useCallback(() => {
@@ -679,7 +636,6 @@ export default function StressTestPage() {
               </div>
             ) : null}
 
-            <DecisionIntake onImportDecisions={handleImportDecisions} />
           </div>
         </section>
       </main>
