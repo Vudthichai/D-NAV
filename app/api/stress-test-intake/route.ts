@@ -1,1 +1,1 @@
-export { GET, POST, runtime } from "../decision-intake/route";
+export { POST, runtime } from "../decision-intake/route";

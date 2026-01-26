@@ -1,4 +1,5 @@
 import OpenAI from "openai";
+import type { ChatCompletionMessageParam } from "openai/resources/chat/completions";
 import { NextResponse } from "next/server";
 import crypto from "crypto";
 import { extractPdfTextByPage } from "@/lib/pdf/extractPdfText";
@@ -338,15 +339,16 @@ const extractCandidatesFromChunk = async (
   ].join("\n");
 
   try {
+    const messages: ChatCompletionMessageParam[] = [
+      { role: "system", content: systemPrompt },
+      { role: "user", content: userPrompt },
+    ];
     const completion = await withTimeout(
       client.chat.completions.create({
         model: MODEL,
         temperature: 0.1,
         response_format: { type: "json_object" },
-        messages: [
-          { role: "system", content: systemPrompt },
-          { role: "user", content: userPrompt },
-        ],
+        messages,
       }),
       OPENAI_TIMEOUT_MS,
     );
