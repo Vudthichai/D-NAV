@@ -10,6 +10,10 @@ import { AccentSliver } from "@/components/ui/AccentSliver";
 import { Callout } from "@/components/ui/Callout";
 import { MetricDistribution, type MetricDistributionSegment } from "@/components/reports/MetricDistribution";
 import { getSessionActionInsight } from "@/lib/sessionActionInsight";
+import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Switch } from "@/components/ui/switch";
 import {
   extractDecisionCandidates,
   type DecisionStrength,
@@ -28,7 +32,7 @@ interface ExtractedPage {
 interface DecisionCandidate {
   id: string;
   title: string;
-  strength: "hard" | "soft";
+  strength: "hard" | "medium" | "soft";
   category:
     | "Operations"
     | "Finance"
@@ -87,6 +91,11 @@ interface SessionDecision {
 }
 
 const SESSION_DECISIONS_KEY = "dnav:stressTest:sessionDecisions";
+const THRESHOLD_PRESETS = {
+  strict: 4.5,
+  balanced: 3,
+  loose: 1.8,
+} as const;
 
 const isSessionDecisionSnapshot = (value: unknown): value is SessionDecision => {
   if (!value || typeof value !== "object") return false;
@@ -117,6 +126,16 @@ export default function StressTestPage() {
   const [isReadingPdf, setIsReadingPdf] = useState(false);
   const [isExtracting, setIsExtracting] = useState(false);
   const [extractMode, setExtractMode] = useState<"local" | "smart">("local");
+  const [showTables, setShowTables] = useState(false);
+  const [thresholdPreset, setThresholdPreset] = useState<"strict" | "balanced" | "loose">("balanced");
+  const [sortMode, setSortMode] = useState<"score" | "page">("score");
+  const [showLowScore, setShowLowScore] = useState(false);
+  const [dismissedIds, setDismissedIds] = useState<Set<string>>(new Set());
+  const [toastNotice, setToastNotice] = useState<{
+    message: string;
+    actionLabel?: string;
+    onAction?: () => void;
+  } | null>(null);
   const [sessionDecisions, setSessionDecisions] = useState<SessionDecision[]>(() => {
     if (typeof window === "undefined") return [];
     try {
@@ -131,8 +150,25 @@ export default function StressTestPage() {
   const calculatorRef = useRef<StressTestCalculatorHandle>(null);
   const [isSessionAnalysisOpen, setIsSessionAnalysisOpen] = useState(false);
   const sessionAnalysisRef = useRef<HTMLDivElement>(null);
+  const [editingDecision, setEditingDecision] = useState<SessionDecision | null>(null);
+  const [editDraft, setEditDraft] = useState<{
+    id: string;
+    decisionTitle: string;
+    category: string;
+    impact: number;
+    cost: number;
+    risk: number;
+    urgency: number;
+    confidence: number;
+  } | null>(null);
 
   const { openDefinitions } = useDefinitionsPanel();
+
+  useEffect(() => {
+    if (!toastNotice) return;
+    const timeout = window.setTimeout(() => setToastNotice(null), 3200);
+    return () => window.clearTimeout(timeout);
+  }, [toastNotice]);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -155,6 +191,7 @@ export default function StressTestPage() {
 
   const mapApiCandidateToLocal = useCallback((candidate: DecisionCandidate): LocalDecisionCandidate => {
     const page = candidate.evidence?.page ?? 0;
+    const wordCount = candidate.decision?.split(/\s+/).filter(Boolean).length ?? 0;
     return {
       id: candidate.id,
       strength: candidate.strength,
@@ -162,6 +199,11 @@ export default function StressTestPage() {
       title: candidate.title,
       quote: candidate.evidence?.quote?.slice(0, 280) ?? candidate.decision.slice(0, 280),
       matchedTrigger: candidate.rationale ?? "",
+      score: 6,
+      wordCount,
+      isTableLike: false,
+      isBoilerplate: false,
+      isKpiOnly: false,
     };
   }, []);
 
@@ -499,9 +541,15 @@ export default function StressTestPage() {
         const page = await pdf.getPage(index);
         const content = await page.getTextContent();
         const text = content.items
-          .map((item) => ("str" in item ? item.str : ""))
-          .join(" ")
-          .replace(/\s+/g, " ")
+          .map((item) => {
+            if (!("str" in item)) return "";
+            const suffix = (item as { hasEOL?: boolean }).hasEOL ? "\n" : " ";
+            return `${item.str}${suffix}`;
+          })
+          .join("")
+          .replace(/[ \t]+\n/g, "\n")
+          .replace(/[ \t]{2,}/g, " ")
+          .replace(/\n{2,}/g, "\n")
           .trim();
         const pageCharCount = text.length;
         pages.push({ pageNumber: index, text, charCount: pageCharCount });
@@ -528,6 +576,8 @@ export default function StressTestPage() {
       extractedPages.map((page) => ({ page: page.pageNumber, text: page.text })),
     );
     setDecisionCandidates(localCandidates);
+    setDismissedIds(new Set());
+    setShowLowScore(false);
   }, [extractedPages]);
 
   const handleExtractDecisions = useCallback(async () => {
@@ -572,6 +622,8 @@ export default function StressTestPage() {
       }
       const mapped = Array.isArray(data.candidates) ? data.candidates.map(mapApiCandidateToLocal) : [];
       setDecisionCandidates(mapped);
+      setDismissedIds(new Set());
+      setShowLowScore(false);
     } catch (error) {
       console.error("Decision extraction error.", error);
       if (extractMode === "smart") {
@@ -623,9 +675,163 @@ export default function StressTestPage() {
         if (prev.some((item) => item.id === candidate.id)) return prev;
         return [candidate, ...prev];
       });
+      setToastNotice({ message: "Added to session" });
     },
     [selectedFileName],
   );
+
+  const handleAddMultiple = useCallback(
+    (candidates: LocalDecisionCandidate[]) => {
+      if (candidates.length === 0) return;
+      let addedCount = 0;
+      setSessionDecisions((prev) => {
+        const existingIds = new Set(prev.map((decision) => decision.id));
+        const additions: SessionDecision[] = [];
+        candidates.forEach((candidate) => {
+          const id = `extract-${candidate.id}`;
+          if (existingIds.has(id)) return;
+          const title = candidate.title.trim() || "Untitled decision";
+          const pageLabel = candidate.page ? ` (p. ${candidate.page})` : "";
+          const evidence = candidate.quote ? `${candidate.quote}${pageLabel}` : "";
+          additions.push({
+            id,
+            decisionTitle: title,
+            decisionDetail: evidence,
+            category: "Strategy",
+            impact: 0,
+            cost: 0,
+            risk: 0,
+            urgency: 0,
+            confidence: 0,
+            r: 0,
+            p: 0,
+            s: 0,
+            dnav: 0,
+            sourceFile: selectedFileName ?? undefined,
+            sourcePage: candidate.page || undefined,
+            excerpt: candidate.quote || undefined,
+            sourceType: "intake",
+            createdAt: Date.now(),
+          });
+        });
+        addedCount = additions.length;
+        if (additions.length === 0) return prev;
+        return [...additions, ...prev];
+      });
+      setSessionExtractedDecisions((prev) => {
+        const existing = new Set(prev.map((item) => item.id));
+        const next = [...prev];
+        candidates.forEach((candidate) => {
+          if (existing.has(candidate.id)) return;
+          next.unshift(candidate);
+          existing.add(candidate.id);
+        });
+        return next;
+      });
+      if (addedCount > 0) {
+        setToastNotice({ message: `Added ${addedCount} to session` });
+      }
+    },
+    [selectedFileName],
+  );
+
+  const handleDismissCandidate = useCallback((candidate: LocalDecisionCandidate) => {
+    setDismissedIds((prev) => {
+      const next = new Set(prev);
+      next.add(candidate.id);
+      return next;
+    });
+    setToastNotice({
+      message: "Candidate dismissed",
+      actionLabel: "Undo",
+      onAction: () =>
+        setDismissedIds((prev) => {
+          const next = new Set(prev);
+          next.delete(candidate.id);
+          return next;
+        }),
+    });
+  }, []);
+
+  const handleOpenEditDialog = useCallback((decision: SessionDecision) => {
+    setEditingDecision(decision);
+    setEditDraft({
+      id: decision.id,
+      decisionTitle: decision.decisionTitle,
+      category: decision.category,
+      impact: decision.impact,
+      cost: decision.cost,
+      risk: decision.risk,
+      urgency: decision.urgency,
+      confidence: decision.confidence,
+    });
+  }, []);
+
+  const handleSaveEdit = useCallback(() => {
+    if (!editDraft) return;
+    setSessionDecisions((prev) =>
+      prev.map((decision) =>
+        decision.id === editDraft.id
+          ? {
+              ...decision,
+              decisionTitle: editDraft.decisionTitle.trim() || decision.decisionTitle,
+              category: editDraft.category.trim() || decision.category,
+              impact: editDraft.impact,
+              cost: editDraft.cost,
+              risk: editDraft.risk,
+              urgency: editDraft.urgency,
+              confidence: editDraft.confidence,
+            }
+          : decision,
+      ),
+    );
+    setEditingDecision(null);
+    setEditDraft(null);
+  }, [editDraft]);
+
+  const filteredCandidates = useMemo(() => {
+    return decisionCandidates.filter((candidate) => {
+      if (dismissedIds.has(candidate.id)) return false;
+      if (candidate.isBoilerplate) return false;
+      if (!showTables && (candidate.isTableLike || candidate.isKpiOnly)) return false;
+      return true;
+    });
+  }, [decisionCandidates, dismissedIds, showTables]);
+
+  const threshold = THRESHOLD_PRESETS[thresholdPreset];
+  const hiddenCount = filteredCandidates.filter((candidate) => candidate.score < threshold).length;
+
+  const visibleCandidates = useMemo(() => {
+    const candidates = showLowScore
+      ? filteredCandidates
+      : filteredCandidates.filter((candidate) => candidate.score >= threshold);
+    const sorted = [...candidates].sort((a, b) => {
+      if (sortMode === "page") return a.page - b.page;
+      if (b.score !== a.score) return b.score - a.score;
+      return a.page - b.page;
+    });
+    return sorted;
+  }, [filteredCandidates, showLowScore, threshold, sortMode]);
+
+  const addedIds = useMemo(() => {
+    return new Set(sessionExtractedDecisions.map((candidate) => candidate.id));
+  }, [sessionExtractedDecisions]);
+
+  const groupedCandidates = useMemo(() => {
+    const groups: Record<DecisionStrength, LocalDecisionCandidate[]> = {
+      hard: [],
+      medium: [],
+      soft: [],
+    };
+    visibleCandidates.forEach((candidate) => {
+      groups[candidate.strength].push(candidate);
+    });
+    return groups;
+  }, [visibleCandidates]);
+
+  const topCandidates = useMemo(() => {
+    return [...filteredCandidates].sort((a, b) => b.score - a.score).slice(0, 10);
+  }, [filteredCandidates]);
 
   // TODO: Rebuild Decision Intake v2
   // Intake will be redesigned around the Decision Atom:
@@ -711,7 +917,7 @@ export default function StressTestPage() {
                     <p className="text-[11px] text-muted-foreground">
                       These are live decisions captured in-the-moment for review — before outcomes rewrite the story.
                     </p>
-                    <div className="grid grid-cols-[minmax(180px,1.6fr)_repeat(5,minmax(48px,0.5fr))_repeat(3,minmax(40px,0.4fr))_minmax(56px,0.5fr)] items-center gap-2 rounded-lg border border-border/40 bg-muted/20 px-3 py-1 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+                    <div className="grid grid-cols-[minmax(180px,1.6fr)_repeat(5,minmax(48px,0.5fr))_repeat(3,minmax(40px,0.4fr))_minmax(56px,0.5fr)_minmax(64px,0.6fr)] items-center gap-2 rounded-lg border border-border/40 bg-muted/20 px-3 py-1 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
                       <span>Decision</span>
                       <span className="text-center">Impact</span>
                       <span className="text-center">Cost</span>
@@ -722,11 +928,13 @@ export default function StressTestPage() {
                       <span className="text-center">P</span>
                       <span className="text-center">S</span>
                       <span className="text-right">D-NAV</span>
+                      <span className="text-right">Edit</span>
                     </div>
                     {sessionDecisions.map((decision) => (
                       <div
                         key={decision.id}
-                        className="grid grid-cols-[minmax(180px,1.6fr)_repeat(5,minmax(48px,0.5fr))_repeat(3,minmax(40px,0.4fr))_minmax(56px,0.5fr)] items-center gap-2 rounded-lg border border-border/40 bg-muted/10 px-3 py-1 text-[11px] text-muted-foreground"
+                        className="grid cursor-pointer grid-cols-[minmax(180px,1.6fr)_repeat(5,minmax(48px,0.5fr))_repeat(3,minmax(40px,0.4fr))_minmax(56px,0.5fr)_minmax(64px,0.6fr)] items-center gap-2 rounded-lg border border-border/40 bg-muted/10 px-3 py-1 text-[11px] text-muted-foreground transition hover:border-border/70 hover:bg-muted/20"
+                        onClick={() => handleOpenEditDialog(decision)}
                       >
                         <div className="min-w-0">
                           <p className="truncate font-semibold text-foreground">{decision.decisionTitle}</p>
@@ -743,6 +951,20 @@ export default function StressTestPage() {
                         <span className="text-right font-semibold text-foreground tabular-nums">
                           {formatCompact(decision.dnav, 1)}
                         </span>
+                        <div className="flex justify-end">
+                          <Button
+                            type="button"
+                            size="sm"
+                            variant="ghost"
+                            className="h-6 px-2 text-[10px] font-semibold uppercase tracking-wide"
+                            onClick={(event) => {
+                              event.stopPropagation();
+                              handleOpenEditDialog(decision);
+                            }}
+                          >
+                            Edit
+                          </Button>
+                        </div>
                       </div>
                     ))}
                   </div>
@@ -964,7 +1186,7 @@ export default function StressTestPage() {
                         className="h-7 px-3 text-[11px] font-semibold uppercase tracking-wide"
                         onClick={() => setExtractMode("local")}
                       >
-                        Quick scan (local)
+                        Quick Scan (Local)
                       </Button>
                       <Button
                         type="button"
@@ -974,7 +1196,7 @@ export default function StressTestPage() {
                         onClick={() => setExtractMode("smart")}
                         disabled={apiStatus.state === "error"}
                       >
-                        Smart extract (beta)
+                        Smart Extract (Beta)
                       </Button>
                     </div>
                   </div>
@@ -1001,13 +1223,102 @@ export default function StressTestPage() {
                 {decisionCandidates.length > 0 ? (
                   <div className="space-y-3">
                     <div className="flex flex-wrap items-center justify-between gap-2">
-                      <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                        Decision candidates
-                      </p>
+                      <div>
+                        <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                          Decision candidates
+                        </p>
+                        <p className="text-[11px] text-muted-foreground">
+                          Showing {visibleCandidates.length} of {filteredCandidates.length} (threshold{" "}
+                          {THRESHOLD_PRESETS[thresholdPreset].toFixed(1)})
+                        </p>
+                      </div>
                       <p className="text-[11px] text-muted-foreground">
                         Added to session: {sessionExtractedDecisions.length}
                       </p>
                     </div>
+
+                    <div className="flex flex-wrap items-center gap-3 rounded-lg border border-border/50 bg-muted/10 px-3 py-2 text-[11px] text-muted-foreground">
+                      <div className="flex items-center gap-2">
+                        <Switch checked={showTables} onCheckedChange={setShowTables} />
+                        <span>Show tables/KPIs</span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <span className="font-semibold text-foreground">Sort:</span>
+                        <Select value={sortMode} onValueChange={(value) => setSortMode(value as "score" | "page")}>
+                          <SelectTrigger className="h-7 w-[170px] text-[11px]">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="score">Most decision-like</SelectItem>
+                            <SelectItem value="page">Page order</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <span className="font-semibold text-foreground">Threshold:</span>
+                        <div className="flex items-center gap-1">
+                          {(["strict", "balanced", "loose"] as const).map((preset) => (
+                            <Button
+                              key={preset}
+                              type="button"
+                              size="sm"
+                              variant={thresholdPreset === preset ? "default" : "ghost"}
+                              className="h-7 px-2 text-[10px] font-semibold uppercase tracking-wide"
+                              onClick={() => {
+                                setThresholdPreset(preset);
+                                setShowLowScore(false);
+                              }}
+                            >
+                              {preset}
+                            </Button>
+                          ))}
+                        </div>
+                      </div>
+                      {hiddenCount > 0 ? (
+                        <Button
+                          type="button"
+                          size="sm"
+                          variant="outline"
+                          className="h-7 px-2 text-[10px] font-semibold uppercase tracking-wide"
+                          onClick={() => setShowLowScore((prev) => !prev)}
+                        >
+                          {showLowScore ? "Hide low-signal" : `Show more (+${hiddenCount})`}
+                        </Button>
+                      ) : null}
+                    </div>
+
+                    <div className="flex flex-wrap items-center gap-2">
+                      <Button
+                        type="button"
+                        size="sm"
+                        className="h-7 px-3 text-[10px] font-semibold uppercase tracking-wide"
+                        onClick={() => handleAddMultiple(groupedCandidates.hard)}
+                        disabled={groupedCandidates.hard.length === 0}
+                      >
+                        Add All (Hard)
+                      </Button>
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="outline"
+                        className="h-7 px-3 text-[10px] font-semibold uppercase tracking-wide"
+                        onClick={() => handleAddMultiple(visibleCandidates)}
+                        disabled={visibleCandidates.length === 0}
+                      >
+                        Add All (Shown)
+                      </Button>
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="outline"
+                        className="h-7 px-3 text-[10px] font-semibold uppercase tracking-wide"
+                        onClick={() => handleAddMultiple(topCandidates)}
+                        disabled={topCandidates.length === 0}
+                      >
+                        Add All (Top 10)
+                      </Button>
+                    </div>
+
                     <div className="space-y-4">
                       {(
                         [
@@ -1016,7 +1327,7 @@ export default function StressTestPage() {
                           { key: "soft", label: "Strategic / Directional" },
                         ] as { key: DecisionStrength; label: string }[]
                       ).map((group) => {
-                        const grouped = decisionCandidates.filter((candidate) => candidate.strength === group.key);
+                        const grouped = groupedCandidates[group.key];
                         if (grouped.length === 0) return null;
                         return (
                           <div key={group.key} className="space-y-2">
@@ -1025,45 +1336,63 @@ export default function StressTestPage() {
                               <span>{grouped.length} found</span>
                             </div>
                             <div className="space-y-2">
-                              {grouped.map((candidate) => (
-                                <div
-                                  key={candidate.id}
-                                  className="rounded-lg border border-border/60 bg-muted/10 px-3 py-2 text-xs text-muted-foreground"
-                                >
-                                  <div className="flex flex-wrap items-start justify-between gap-2">
-                                    <div className="space-y-1">
-                                      <p className="text-sm font-semibold text-foreground">{candidate.title}</p>
-                                      <p className="text-[11px] text-muted-foreground">
-                                        {candidate.page ? `p. ${candidate.page}` : "Page n/a"}
-                                      </p>
-                                    </div>
-                                    <div className="flex flex-wrap items-center gap-2">
-                                      <span className="rounded-full border border-border/50 bg-background px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-foreground">
-                                        {candidate.strength}
-                                      </span>
-                                      {candidate.matchedTrigger ? (
+                              {grouped.map((candidate) => {
+                                const isAdded = addedIds.has(candidate.id);
+                                return (
+                                  <div
+                                    key={candidate.id}
+                                    className="rounded-lg border border-border/60 bg-muted/10 px-3 py-2 text-xs text-muted-foreground"
+                                  >
+                                    <div className="flex flex-wrap items-start justify-between gap-2">
+                                      <div className="space-y-1">
+                                        <p className="text-sm font-semibold text-foreground">{candidate.title}</p>
+                                        <p className="text-[11px] text-muted-foreground">
+                                          {candidate.page ? `p. ${candidate.page}` : "Page n/a"}
+                                        </p>
+                                      </div>
+                                      <div className="flex flex-wrap items-center gap-2">
                                         <span className="rounded-full border border-border/50 bg-background px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-foreground">
-                                          {candidate.matchedTrigger}
+                                          {candidate.strength}
                                         </span>
-                                      ) : null}
+                                        {candidate.matchedTrigger ? (
+                                          <span className="rounded-full border border-border/50 bg-background px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-foreground">
+                                            {candidate.matchedTrigger}
+                                          </span>
+                                        ) : null}
+                                        {isAdded ? (
+                                          <span className="rounded-full border border-emerald-500/40 bg-emerald-500/10 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-emerald-700">
+                                            Added
+                                          </span>
+                                        ) : null}
+                                      </div>
+                                    </div>
+                                    {candidate.quote ? (
+                                      <p className="mt-2 text-[11px] text-muted-foreground">“{candidate.quote}”</p>
+                                    ) : null}
+                                    <div className="mt-2 flex flex-wrap items-center gap-2">
+                                      <Button
+                                        type="button"
+                                        size="sm"
+                                        variant="outline"
+                                        className="h-7 px-2 text-[11px] font-semibold uppercase tracking-wide"
+                                        onClick={() => handleAddToSession(candidate)}
+                                        disabled={isAdded}
+                                      >
+                                        {isAdded ? "Added" : "Add to session"}
+                                      </Button>
+                                      <Button
+                                        type="button"
+                                        size="sm"
+                                        variant="ghost"
+                                        className="h-7 px-2 text-[11px] font-semibold uppercase tracking-wide"
+                                        onClick={() => handleDismissCandidate(candidate)}
+                                      >
+                                        Dismiss
+                                      </Button>
                                     </div>
                                   </div>
-                                  {candidate.quote ? (
-                                    <p className="mt-2 text-[11px] text-muted-foreground">“{candidate.quote}”</p>
-                                  ) : null}
-                                  <div className="mt-2">
-                                    <Button
-                                      type="button"
-                                      size="sm"
-                                      variant="outline"
-                                      className="h-7 px-2 text-[11px] font-semibold uppercase tracking-wide"
-                                      onClick={() => handleAddToSession(candidate)}
-                                    >
-                                      Add to session
-                                    </Button>
-                                  </div>
-                                </div>
-                              ))}
+                                );
+                              })}
                             </div>
                           </div>
                         );
@@ -1073,6 +1402,113 @@ export default function StressTestPage() {
                 ) : null}
               </div>
             </div>
+
+            {toastNotice ? (
+              <div className="fixed bottom-4 right-4 z-50 flex items-center gap-3 rounded-lg border border-border/60 bg-white/90 px-4 py-3 text-[11px] text-foreground shadow-lg">
+                <span className="font-semibold">{toastNotice.message}</span>
+                {toastNotice.actionLabel ? (
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="outline"
+                    className="h-7 px-2 text-[10px] font-semibold uppercase tracking-wide"
+                    onClick={() => {
+                      toastNotice.onAction?.();
+                      setToastNotice(null);
+                    }}
+                  >
+                    {toastNotice.actionLabel}
+                  </Button>
+                ) : null}
+              </div>
+            ) : null}
+
+            <Dialog
+              open={Boolean(editingDecision)}
+              onOpenChange={(open) => {
+                if (!open) {
+                  setEditingDecision(null);
+                  setEditDraft(null);
+                }
+              }}
+            >
+              <DialogContent className="max-w-md">
+                <DialogHeader>
+                  <DialogTitle>Edit decision details</DialogTitle>
+                </DialogHeader>
+                {editDraft ? (
+                  <div className="space-y-3 text-sm">
+                    <div className="space-y-1">
+                      <label className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+                        Title
+                      </label>
+                      <Input
+                        value={editDraft.decisionTitle}
+                        onChange={(event) =>
+                          setEditDraft((prev) => (prev ? { ...prev, decisionTitle: event.target.value } : prev))
+                        }
+                      />
+                    </div>
+                    <div className="space-y-1">
+                      <label className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+                        Category
+                      </label>
+                      <Input
+                        value={editDraft.category}
+                        onChange={(event) =>
+                          setEditDraft((prev) => (prev ? { ...prev, category: event.target.value } : prev))
+                        }
+                      />
+                    </div>
+                    <div className="grid grid-cols-2 gap-3">
+                      {(
+                        [
+                          { key: "impact", label: "Impact" },
+                          { key: "cost", label: "Cost" },
+                          { key: "risk", label: "Risk" },
+                          { key: "urgency", label: "Urgency" },
+                          { key: "confidence", label: "Confidence" },
+                        ] as const
+                      ).map((field) => (
+                        <div key={field.key} className="space-y-1">
+                          <label className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+                            {field.label}
+                          </label>
+                          <Input
+                            type="number"
+                            min={0}
+                            max={10}
+                            value={editDraft[field.key]}
+                            onChange={(event) =>
+                              setEditDraft((prev) =>
+                                prev
+                                  ? { ...prev, [field.key]: Number(event.target.value) }
+                                  : prev,
+                              )
+                            }
+                          />
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                ) : null}
+                <DialogFooter className="gap-2">
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    onClick={() => {
+                      setEditingDecision(null);
+                      setEditDraft(null);
+                    }}
+                  >
+                    Cancel
+                  </Button>
+                  <Button type="button" onClick={handleSaveEdit}>
+                    Save changes
+                  </Button>
+                </DialogFooter>
+              </DialogContent>
+            </Dialog>
 
           </div>
         </section>
