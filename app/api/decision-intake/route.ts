@@ -33,10 +33,9 @@ type ExtractResponse = {
 type ErrorResponse = {
   error: { message: string; step?: Step };
   errorId: string;
-  meta?: Record<string, unknown>;
 };
 
-type Step = "start" | "formdata" | "pdf_extract" | "chunk" | "openai_extract" | "merge" | "summary";
+type Step = "start" | "formdata" | "pdf_extract" | "openai_extract" | "merge" | "summary";
 
 type FileMeta = { name: string; size: number; type: string };
 
@@ -434,19 +433,16 @@ const buildErrorResponse = ({
   message,
   errorId,
   step,
-  meta,
 }: {
   status: number;
   message: string;
   errorId: string;
   step?: Step;
-  meta?: Record<string, unknown>;
 }) =>
   NextResponse.json(
     {
       error: { message, step },
       errorId,
-      meta,
     } satisfies ErrorResponse,
     { status },
   );
@@ -472,7 +468,12 @@ const summarizeError = (
 };
 
 export async function GET() {
-  return NextResponse.json({ ok: true, hasOpenAIKey: Boolean(process.env.OPENAI_API_KEY), model: MODEL });
+  return NextResponse.json({
+    ok: true,
+    hasOpenAIKey: Boolean(process.env.OPENAI_API_KEY),
+    model: process.env.OPENAI_MODEL ?? null,
+    nodeEnv: process.env.NODE_ENV ?? null,
+  });
 }
 
 export async function POST(request: Request) {
@@ -486,7 +487,8 @@ export async function POST(request: Request) {
     if (!process.env.OPENAI_API_KEY) {
       return buildErrorResponse({
         status: 500,
-        message: "OpenAI API key not configured. Set OPENAI_API_KEY in Netlify environment variables.",
+        message:
+          "OPENAI_API_KEY missing in runtime environment. Set it in Netlify Site settings → Environment variables (and ensure it applies to Production deploys).",
         errorId,
         step,
       });
@@ -594,8 +596,8 @@ export async function POST(request: Request) {
     }
 
     pagesExtracted = pages.length;
-    step = "chunk";
     const chunks = buildChunks(pages);
+    step = "openai_extract";
     if (chunks.length > MAX_CHUNKS) {
       warnings.push(
         `Processed first ${MAX_CHUNKS} chunks for speed. Upload a smaller excerpt or paste key sections for full coverage.`,
@@ -618,7 +620,6 @@ export async function POST(request: Request) {
     const collected: DecisionCandidate[] = [];
     const debugNotes: string[] = [];
     const chunksToProcess = chunks.slice(0, MAX_CHUNKS);
-    step = "openai_extract";
     const chunkResults = await runWithConcurrency(chunksToProcess, CHUNK_CONCURRENCY, async (chunk) =>
       extractCandidatesFromChunk(client, chunk),
     );
@@ -701,11 +702,6 @@ export async function POST(request: Request) {
       message: err.message || "Internal error while processing the decision intake.",
       errorId,
       step,
-      meta: {
-        model: MODEL,
-        files: fileMeta,
-        pagesExtracted,
-      },
     });
   }
 }
