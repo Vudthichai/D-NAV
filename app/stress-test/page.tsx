@@ -17,38 +17,38 @@ import { type ChangeEvent, useCallback, useEffect, useMemo, useRef, useState } f
 interface ExtractedPage {
   pageNumber: number;
   text: string;
+  charCount: number;
 }
 
 interface DecisionCandidate {
   id: string;
   title: string;
-  type: "commitment" | "plan" | "policy" | "tradeoff" | "risk" | "unknown";
+  type: "decision" | "constraint" | "assumption";
   category: "Operations" | "Finance" | "Product" | "Hiring" | "Legal" | "Strategy" | "Other";
-  summary: string;
-  evidence: Array<{ page: number; quote: string }>;
-  constraints: {
-    impact?: string;
-    cost?: string;
-    risk?: string;
-    urgency?: string;
-    confidence?: string;
-  };
-  dnScore?: { impact: number; cost: number; risk: number; urgency: number; confidence: number };
-  openQuestions: string[];
+  signal: { impact: number; cost: number; risk: number; urgency: number; confidence: number };
+  evidence: { page: number; quote: string };
+  notes: string;
 }
 
 interface DecisionExtractSuccessResponse {
-  ok: true;
-  docId: string;
-  stats: { pages: number; totalChars: number; candidates: number };
-  decisions: DecisionCandidate[];
+  doc: { name: string; pageCount: number };
+  candidates: DecisionCandidate[];
+  meta: { pagesReceived: number; totalChars: number };
 }
 
 interface DecisionExtractErrorResponse {
-  ok: false;
-  step: string;
-  message: string;
-  details?: unknown;
+  error: string;
+  issues?: unknown;
+  message?: string;
+  totalChars?: number;
+  limit?: number;
+}
+
+interface DecisionExtractStatusResponse {
+  ok: true;
+  route: string;
+  methods: string[];
+  timestamp: string;
 }
 
 interface SessionDecision {
@@ -138,7 +138,7 @@ export default function StressTestPage() {
       try {
         const response = await fetch("/api/decision-extract");
         const data = (await response.json().catch(() => null)) as
-          | DecisionExtractSuccessResponse
+          | DecisionExtractStatusResponse
           | DecisionExtractErrorResponse
           | null;
         if (!isMounted) return;
@@ -146,8 +146,8 @@ export default function StressTestPage() {
           setApiStatus({ state: "online" });
         } else {
           const message =
-            data && "ok" in data && !data.ok
-              ? data.message
+            data && "error" in data
+              ? data.message || data.error
               : `HTTP ${response.status} ${response.statusText || "error"}`;
           setApiStatus({ state: "error", message });
         }
@@ -471,8 +471,9 @@ export default function StressTestPage() {
           .join(" ")
           .replace(/\s+/g, " ")
           .trim();
-        pages.push({ pageNumber: index, text });
-        charCount += text.length;
+        const pageCharCount = text.length;
+        pages.push({ pageNumber: index, text, charCount: pageCharCount });
+        charCount += pageCharCount;
       }
 
       setExtractedPages(pages);
@@ -496,20 +497,35 @@ export default function StressTestPage() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          docId: selectedFileName ?? undefined,
-          pages: extractedPages.map((page) => ({ page: page.pageNumber, text: page.text })),
+          doc: {
+            name: selectedFileName ?? "uploaded.pdf",
+            source: "pdf",
+            pageCount: extractedPages.length,
+          },
+          pages: extractedPages.map((page) => ({
+            page: page.pageNumber,
+            text: page.text,
+            charCount: page.charCount,
+          })),
+          options: {
+            maxCandidatesPerPage: 6,
+            model: "gpt-4o-mini",
+          },
         }),
       });
       const data = (await response.json().catch(() => null)) as
         | DecisionExtractSuccessResponse
         | DecisionExtractErrorResponse
         | null;
-      if (!response.ok || !data || !("ok" in data) || !data.ok) {
+      if (!response.ok) {
         const message =
-          data && "ok" in data && !data.ok ? data.message : "Decision extraction failed.";
+          data && "error" in data ? data.message || data.error : "Decision extraction failed.";
         throw new Error(message);
       }
-      setDecisionCandidates(Array.isArray(data.decisions) ? data.decisions : []);
+      if (!data || !("candidates" in data)) {
+        throw new Error("Decision extraction failed.");
+      }
+      setDecisionCandidates(Array.isArray(data.candidates) ? data.candidates : []);
     } catch (error) {
       console.error("Decision extraction error.", error);
       const message = error instanceof Error ? error.message : "Decision extraction failed.";
@@ -896,16 +912,16 @@ export default function StressTestPage() {
                             <div className="space-y-1">
                               <p className="text-sm font-semibold text-foreground">{candidate.title}</p>
                               <p className="text-[11px] text-muted-foreground">
-                                {candidate.evidence[0]?.page ? `p. ${candidate.evidence[0].page}` : "Page n/a"}
+                                {candidate.evidence.page ? `p. ${candidate.evidence.page}` : "Page n/a"}
                               </p>
                             </div>
                             <span className="rounded-full border border-border/50 bg-background px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-foreground">
                               {candidate.type}
                             </span>
                           </div>
-                          <p className="mt-2 text-[11px] text-muted-foreground">{candidate.summary}</p>
-                          {candidate.evidence[0]?.quote ? (
-                            <p className="mt-2 text-[11px] text-muted-foreground">“{candidate.evidence[0].quote}”</p>
+                          <p className="mt-2 text-[11px] text-muted-foreground">{candidate.notes}</p>
+                          {candidate.evidence.quote ? (
+                            <p className="mt-2 text-[11px] text-muted-foreground">“{candidate.evidence.quote}”</p>
                           ) : null}
                           <div className="mt-2">
                             <Button
