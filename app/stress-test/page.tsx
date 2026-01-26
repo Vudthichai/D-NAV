@@ -12,7 +12,20 @@ import { MetricDistribution, type MetricDistributionSegment } from "@/components
 import { getSessionActionInsight } from "@/lib/sessionActionInsight";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import Link from "next/link";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { type ChangeEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
+
+interface ExtractedPage {
+  pageNumber: number;
+  text: string;
+}
+
+interface DecisionCandidate {
+  id: string;
+  decision: string;
+  evidence: string;
+  pageNumber: number;
+  strength: "high" | "medium" | "low";
+}
 
 interface SessionDecision {
   id: string;
@@ -52,6 +65,16 @@ const isSessionDecisionSnapshot = (value: unknown): value is SessionDecision => 
 };
 
 export default function StressTestPage() {
+  const [selectedFileName, setSelectedFileName] = useState<string | null>(null);
+  const [extractedPages, setExtractedPages] = useState<ExtractedPage[]>([]);
+  const [pagesRead, setPagesRead] = useState(0);
+  const [totalChars, setTotalChars] = useState(0);
+  const [decisionCandidates, setDecisionCandidates] = useState<DecisionCandidate[]>([]);
+  const [sessionExtractedDecisions, setSessionExtractedDecisions] = useState<DecisionCandidate[]>([]);
+  const [extractWarnings, setExtractWarnings] = useState<string[]>([]);
+  const [extractError, setExtractError] = useState<string | null>(null);
+  const [isReadingPdf, setIsReadingPdf] = useState(false);
+  const [isExtracting, setIsExtracting] = useState(false);
   const [sessionDecisions, setSessionDecisions] = useState<SessionDecision[]>(() => {
     if (typeof window === "undefined") return [];
     try {
@@ -356,6 +379,91 @@ export default function StressTestPage() {
     window.setTimeout(() => URL.revokeObjectURL(url), 0);
   }, [sessionDecisions]);
 
+  const handlePdfUpload = useCallback(async (event: ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0] ?? null;
+    setSelectedFileName(file?.name ?? null);
+    setExtractedPages([]);
+    setPagesRead(0);
+    setTotalChars(0);
+    setDecisionCandidates([]);
+    setSessionExtractedDecisions([]);
+    setExtractWarnings([]);
+    setExtractError(null);
+    if (!file) return;
+    if (file.type !== "application/pdf") {
+      setExtractError("Please upload a PDF file.");
+      return;
+    }
+
+    setIsReadingPdf(true);
+    try {
+      const pdfjsLib = (await import("pdfjs-dist")) as typeof import("pdfjs-dist");
+      pdfjsLib.GlobalWorkerOptions.workerSrc = `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/pdf.worker.min.mjs`;
+      const buffer = await file.arrayBuffer();
+      const loadingTask = pdfjsLib.getDocument({ data: buffer });
+      const pdf = await loadingTask.promise;
+      const pages: ExtractedPage[] = [];
+      let charCount = 0;
+
+      for (let index = 1; index <= pdf.numPages; index += 1) {
+        const page = await pdf.getPage(index);
+        const content = await page.getTextContent();
+        const text = content.items
+          .map((item) => ("str" in item ? item.str : ""))
+          .join(" ")
+          .replace(/\s+/g, " ")
+          .trim();
+        pages.push({ pageNumber: index, text });
+        charCount += text.length;
+      }
+
+      setExtractedPages(pages);
+      setPagesRead(pages.length);
+      setTotalChars(charCount);
+    } catch (error) {
+      console.error("Failed to read PDF.", error);
+      setExtractError("Failed to read the PDF. Please try a different file.");
+    } finally {
+      setIsReadingPdf(false);
+    }
+  }, []);
+
+  const handleExtractDecisions = useCallback(async () => {
+    if (extractedPages.length === 0 || isExtracting) return;
+    setIsExtracting(true);
+    setExtractError(null);
+    setExtractWarnings([]);
+    try {
+      const response = await fetch("/api/decision-extract", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          fileName: selectedFileName,
+          pages: extractedPages,
+        }),
+      });
+      if (!response.ok) {
+        const fallbackText = await response.text();
+        throw new Error(fallbackText || "Decision extraction failed.");
+      }
+      const data = (await response.json()) as { candidates?: DecisionCandidate[]; warnings?: string[] };
+      setDecisionCandidates(Array.isArray(data.candidates) ? data.candidates : []);
+      setExtractWarnings(Array.isArray(data.warnings) ? data.warnings : []);
+    } catch (error) {
+      console.error("Decision extraction error.", error);
+      setExtractError("Decision extraction failed. Please try again.");
+    } finally {
+      setIsExtracting(false);
+    }
+  }, [extractedPages, isExtracting, selectedFileName]);
+
+  const handleAddToSession = useCallback((candidate: DecisionCandidate) => {
+    setSessionExtractedDecisions((prev) => {
+      if (prev.some((item) => item.id === candidate.id)) return prev;
+      return [candidate, ...prev];
+    });
+  }, []);
+
   // TODO: Rebuild Decision Intake v2
   // Intake will be redesigned around the Decision Atom:
   // Actor + Action + Object + Constraint
@@ -635,6 +743,114 @@ export default function StressTestPage() {
                 ) : null}
               </div>
             ) : null}
+
+            <div className="rounded-2xl border border-border/60 bg-white/80 p-4 shadow-sm">
+              <div className="space-y-2">
+                <div className="flex flex-wrap items-start justify-between gap-3">
+                  <div>
+                    <h2 className="text-base font-semibold text-foreground">Decision Extract (V1)</h2>
+                    <p className="text-xs text-muted-foreground">
+                      Upload a decision brief PDF to extract explicit commitments before moving into the Stress Test.
+                    </p>
+                  </div>
+                  <div className="text-right text-[11px] text-muted-foreground">
+                    <p>Client-side PDF parsing (pdf.js).</p>
+                    <p>No document leaves the browser until you extract.</p>
+                  </div>
+                </div>
+
+                <div className="rounded-lg border border-dashed border-border/70 bg-muted/10 px-4 py-4">
+                  <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                    <div className="space-y-1">
+                      <p className="text-sm font-semibold text-foreground">Upload PDF</p>
+                      <p className="text-[11px] text-muted-foreground">
+                        {selectedFileName ? `Selected: ${selectedFileName}` : "Choose a PDF to extract per-page text."}
+                      </p>
+                    </div>
+                    <input
+                      type="file"
+                      accept="application/pdf"
+                      onChange={handlePdfUpload}
+                      className="text-xs text-muted-foreground file:mr-3 file:rounded-md file:border-0 file:bg-primary file:px-3 file:py-2 file:text-xs file:font-semibold file:text-primary-foreground"
+                    />
+                  </div>
+                  <div className="mt-3 flex flex-wrap gap-4 text-[11px] text-muted-foreground">
+                    <span>Pages read: {pagesRead}</span>
+                    <span>Total chars: {totalChars.toLocaleString()}</span>
+                    {isReadingPdf ? <span className="font-semibold text-foreground">Reading PDF…</span> : null}
+                  </div>
+                  {extractError ? <p className="mt-2 text-[11px] text-rose-500">{extractError}</p> : null}
+                </div>
+
+                <div className="flex flex-wrap items-center gap-3">
+                  <Button
+                    type="button"
+                    className="h-9 px-4 text-xs font-semibold uppercase tracking-wide"
+                    onClick={handleExtractDecisions}
+                    disabled={extractedPages.length === 0 || isReadingPdf || isExtracting}
+                  >
+                    {isExtracting ? "Extracting…" : "Extract decisions"}
+                  </Button>
+                  <p className="text-[11px] text-muted-foreground">
+                    Sends {pagesRead} pages to /api/decision-extract for a deterministic two-pass analysis.
+                  </p>
+                </div>
+
+                {extractWarnings.length > 0 ? (
+                  <div className="rounded-lg border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-[11px] text-amber-700">
+                    <p className="font-semibold uppercase tracking-wide text-amber-800">Warnings</p>
+                    <ul className="mt-1 list-disc space-y-1 pl-4">
+                      {extractWarnings.map((warning) => (
+                        <li key={warning}>{warning}</li>
+                      ))}
+                    </ul>
+                  </div>
+                ) : null}
+
+                {decisionCandidates.length > 0 ? (
+                  <div className="space-y-3">
+                    <div className="flex flex-wrap items-center justify-between gap-2">
+                      <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                        Decision candidates
+                      </p>
+                      <p className="text-[11px] text-muted-foreground">
+                        Added to session: {sessionExtractedDecisions.length}
+                      </p>
+                    </div>
+                    <div className="space-y-2">
+                      {decisionCandidates.map((candidate) => (
+                        <div
+                          key={candidate.id}
+                          className="rounded-lg border border-border/60 bg-muted/10 px-3 py-2 text-xs text-muted-foreground"
+                        >
+                          <div className="flex flex-wrap items-start justify-between gap-2">
+                            <div className="space-y-1">
+                              <p className="text-sm font-semibold text-foreground">{candidate.decision}</p>
+                              <p className="text-[11px] text-muted-foreground">p. {candidate.pageNumber}</p>
+                            </div>
+                            <span className="rounded-full border border-border/50 bg-background px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-foreground">
+                              {candidate.strength}
+                            </span>
+                          </div>
+                          <p className="mt-2 text-[11px] text-muted-foreground">{candidate.evidence}</p>
+                          <div className="mt-2">
+                            <Button
+                              type="button"
+                              size="sm"
+                              variant="outline"
+                              className="h-7 px-2 text-[11px] font-semibold uppercase tracking-wide"
+                              onClick={() => handleAddToSession(candidate)}
+                            >
+                              Add to session
+                            </Button>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                ) : null}
+              </div>
+            </div>
 
           </div>
         </section>
