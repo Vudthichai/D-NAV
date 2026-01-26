@@ -57,6 +57,7 @@ type IntakeResponse = {
     chunks: number;
     candidatesExtracted: number;
     candidatesAfterQuality: number;
+    notes?: string[];
   };
   error?: string;
 };
@@ -72,6 +73,7 @@ export default function DecisionIntake({ onImportDecisions }: DecisionIntakeProp
   const [expandedDecisions, setExpandedDecisions] = useState<Record<string, boolean>>({});
   const [expandedSources, setExpandedSources] = useState<Record<string, boolean>>({});
   const [showAllCandidates, setShowAllCandidates] = useState(false);
+  const [debugInfo, setDebugInfo] = useState<IntakeResponse["debug"] | null>(null);
 
   const keptCandidates = useMemo(
     () => candidatesAll.filter((decision) => candidatesKeptIds.has(decision.id)),
@@ -250,13 +252,13 @@ export default function DecisionIntake({ onImportDecisions }: DecisionIntakeProp
   const handleExtract = useCallback(async () => {
     setError(null);
     setWarning(null);
+    setDebugInfo(null);
     setIsParsing(true);
     setShowAllCandidates(false);
 
     try {
       if (!intakeMemo.trim() && intakeFiles.length === 0) {
         setError("Add PDFs or paste text to extract decisions.");
-        setIsParsing(false);
         return;
       }
 
@@ -273,21 +275,29 @@ export default function DecisionIntake({ onImportDecisions }: DecisionIntakeProp
         body: formData,
       });
 
-      const payload = (await response.json()) as IntakeResponse;
+      const responseText = await response.text();
+      let payload: IntakeResponse | null = null;
+      if (responseText) {
+        try {
+          payload = JSON.parse(responseText) as IntakeResponse;
+        } catch (parseError) {
+          console.error("Failed to parse stress test intake response.", parseError);
+        }
+      }
       if (!response.ok) {
-        setError(payload.error ?? "Decision extraction failed.");
-        setIsParsing(false);
+        const errorMessage =
+          typeof payload?.error === "string" ? payload.error : responseText || "Decision extraction failed.";
+        setError(errorMessage);
         return;
       }
 
-      const extractedCandidates = Array.isArray(payload.candidates) ? payload.candidates : [];
+      const extractedCandidates = Array.isArray(payload?.candidates) ? payload?.candidates : [];
       if (extractedCandidates.length === 0) {
         setError("No decisions found. Try adding clearer decision language.");
-        setIsParsing(false);
         return;
       }
 
-      if (payload.warning) {
+      if (payload?.warning) {
         setWarning(payload.warning);
       }
 
@@ -295,8 +305,11 @@ export default function DecisionIntake({ onImportDecisions }: DecisionIntakeProp
       setCandidatesKeptIds(new Set());
       setExpandedDecisions({});
       setExpandedSources({});
+      if (process.env.NODE_ENV !== "production") {
+        setDebugInfo(payload?.debug ?? null);
+      }
 
-      if (process.env.NODE_ENV !== "production" && payload.debug) {
+      if (process.env.NODE_ENV !== "production" && payload?.debug) {
         console.debug("Decision extraction debug", {
           ...payload.debug,
           candidatesRendered: Math.min(candidateLimit, extractedCandidates.length),
@@ -331,6 +344,7 @@ export default function DecisionIntake({ onImportDecisions }: DecisionIntakeProp
     setWarning(null);
     setError(null);
     setShowAllCandidates(false);
+    setDebugInfo(null);
   }, []);
 
   const handleClearCandidates = useCallback(() => {
@@ -339,6 +353,7 @@ export default function DecisionIntake({ onImportDecisions }: DecisionIntakeProp
     setExpandedDecisions({});
     setExpandedSources({});
     setShowAllCandidates(false);
+    setDebugInfo(null);
   }, []);
 
   const handleAddToSession = useCallback(() => {
@@ -465,6 +480,29 @@ export default function DecisionIntake({ onImportDecisions }: DecisionIntakeProp
           </div>
         ) : null}
 
+        {debugInfo && process.env.NODE_ENV !== "production" ? (
+          <div className="rounded-lg border border-border/60 bg-muted/30 px-3 py-2 text-xs text-muted-foreground">
+            <p className="text-[11px] font-semibold uppercase tracking-wide text-foreground">Debug</p>
+            <ul className="mt-1 space-y-1">
+              <li>Pages extracted: {debugInfo.pagesExtracted}</li>
+              <li>Total chars: {debugInfo.totalChars.toLocaleString()}</li>
+              <li>Chunks: {debugInfo.chunks}</li>
+              <li>Candidates extracted: {debugInfo.candidatesExtracted}</li>
+              <li>Candidates after quality: {debugInfo.candidatesAfterQuality}</li>
+              {debugInfo.notes?.length ? (
+                <li>
+                  Notes:
+                  <ul className="mt-1 list-disc space-y-0.5 pl-4">
+                    {debugInfo.notes.map((note) => (
+                      <li key={note}>{note}</li>
+                    ))}
+                  </ul>
+                </li>
+              ) : null}
+            </ul>
+          </div>
+        ) : null}
+
         <div className="flex flex-wrap items-center justify-between gap-3">
           <p className="text-xs text-muted-foreground">We’ll only analyze the text you provide here.</p>
           <div className="flex flex-wrap items-center gap-2">
@@ -493,8 +531,7 @@ export default function DecisionIntake({ onImportDecisions }: DecisionIntakeProp
             <div className="space-y-1">
               <p className="text-sm font-semibold text-foreground">Decision Candidates</p>
               <p className="text-xs text-muted-foreground">
-                {candidatesAll.length.toLocaleString()} candidates extracted. Select what counts, then import to the
-                session.
+                Found {candidatesAll.length.toLocaleString()} decisions. Select what counts, then import to the session.
               </p>
             </div>
             <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">

@@ -25,6 +25,7 @@ type ExtractResponse = {
     chunks: number;
     candidatesExtracted: number;
     candidatesAfterQuality: number;
+    notes?: string[];
   };
 };
 
@@ -34,6 +35,10 @@ const CHUNK_CHAR_LIMIT = 12_000;
 const CHUNK_PAGE_LIMIT = 2;
 const MAX_CANDIDATES_PER_CHUNK = 30;
 const MAX_TOTAL_CHARS = 500_000;
+const MAX_CHUNKS = 8;
+const MAX_PAGES = 20;
+const OPENAI_TIMEOUT_MS = 18_000;
+const CHUNK_CONCURRENCY = 2;
 
 const ACTION_VERBS = [
   "begin",
@@ -115,6 +120,41 @@ const truncateSnippet = (value: string, limit = 200) => {
   const sliced = normalized.slice(0, limit);
   const lastSpace = sliced.lastIndexOf(" ");
   return `${sliced.slice(0, lastSpace > 60 ? lastSpace : limit).trim()}…`;
+};
+
+const withTimeout = async <T,>(promise: Promise<T>, ms: number) => {
+  let timeoutId: NodeJS.Timeout | undefined;
+  const timeout = new Promise<T>((_, reject) => {
+    timeoutId = setTimeout(() => {
+      const error = new Error(`Operation timed out after ${ms}ms`);
+      error.name = "TimeoutError";
+      reject(error);
+    }, ms);
+  });
+  try {
+    return await Promise.race([promise, timeout]);
+  } finally {
+    if (timeoutId) clearTimeout(timeoutId);
+  }
+};
+
+const runWithConcurrency = async <Item, Result>(
+  items: Item[],
+  concurrency: number,
+  worker: (item: Item, index: number) => Promise<Result>,
+) => {
+  const results: Result[] = new Array(items.length);
+  let nextIndex = 0;
+  const runners = Array.from({ length: Math.min(concurrency, items.length) }, async () => {
+    while (true) {
+      const currentIndex = nextIndex;
+      if (currentIndex >= items.length) break;
+      nextIndex += 1;
+      results[currentIndex] = await worker(items[currentIndex], currentIndex);
+    }
+  });
+  await Promise.all(runners);
+  return results;
 };
 
 const normalizeDecisionKey = (value: string) =>
@@ -263,7 +303,7 @@ const parseJson = (content: string) => {
 const extractCandidatesFromChunk = async (
   client: OpenAI,
   chunk: { fileName: string; pages: PdfPageText[]; text: string },
-): Promise<DecisionPayload[]> => {
+): Promise<{ candidates: DecisionPayload[]; warning?: string; debugNote?: string }> => {
   const pageList = chunk.pages.map((page) => page.pageNumber).join(", ");
   const systemPrompt = [
     "You extract high-recall decision candidates from document text.",
@@ -282,20 +322,36 @@ const extractCandidatesFromChunk = async (
     chunk.text,
   ].join("\n");
 
-  const completion = await client.chat.completions.create({
-    model: MODEL,
-    temperature: 0.1,
-    response_format: { type: "json_object" },
-    messages: [
-      { role: "system", content: systemPrompt },
-      { role: "user", content: userPrompt },
-    ],
-  });
+  try {
+    const completion = await withTimeout(
+      client.chat.completions.create({
+        model: MODEL,
+        temperature: 0.1,
+        response_format: { type: "json_object" },
+        messages: [
+          { role: "system", content: systemPrompt },
+          { role: "user", content: userPrompt },
+        ],
+      }),
+      OPENAI_TIMEOUT_MS,
+    );
 
-  const content = completion.choices[0]?.message?.content ?? "";
-  const parsed = parseJson(content) as { candidates?: DecisionPayload[] } | null;
-  const candidates = Array.isArray(parsed?.candidates) ? parsed?.candidates ?? [] : [];
-  return candidates;
+    const content = completion.choices[0]?.message?.content ?? "";
+    if (!content.trim()) {
+      return { candidates: [], debugNote: "Empty OpenAI response content." };
+    }
+    const parsed = parseJson(content) as { candidates?: DecisionPayload[] } | null;
+    if (!Array.isArray(parsed?.candidates)) {
+      return { candidates: [], debugNote: "Missing candidates array in OpenAI response." };
+    }
+    const candidates = parsed.candidates ?? [];
+    return { candidates };
+  } catch (error) {
+    if (error instanceof Error && error.name === "TimeoutError") {
+      return { candidates: [], warning: "Timed out while extracting decisions from one chunk." };
+    }
+    return { candidates: [], warning: "Failed to extract decisions from one chunk." };
+  }
 };
 
 const buildDecisionCandidate = (
@@ -318,9 +374,12 @@ const buildDecisionCandidate = (
         : fallbackPage ?? undefined;
 
   const evidence = truncateSnippet(evidenceRaw, 200);
-  const repaired = repairDecisionWithEvidence(decisionRaw, evidence);
-  if (isTooVague(repaired, evidence)) return null;
-  const decision = ensureVerbFirst(repaired);
+  let decision = ensureVerbFirst(decisionRaw);
+  if (isTooVague(decision, evidence)) {
+    const repaired = repairDecisionWithEvidence(decisionRaw, evidence);
+    if (isTooVague(repaired, evidence)) return null;
+    decision = ensureVerbFirst(repaired);
+  }
 
   const id = `decision-${hashString(`${decision}-${sourceFile ?? ""}-${sourcePage ?? ""}`)}`;
   const score = scoreCandidate(decision, evidence);
@@ -351,16 +410,36 @@ export async function POST(request: Request) {
   }
 
   const formData = await request.formData();
-  const memo = typeof formData.get("memo") === "string" ? String(formData.get("memo")) : "";
-  const files = formData.getAll("files").filter((item): item is File => item instanceof File);
+  const memoKeys = ["memo", "text", "content"];
+  const fileKeys = ["files", "file", "pdf", "pdfs", "documents"];
+  const memo =
+    memoKeys
+      .map((key) => formData.get(key))
+      .find((value) => typeof value === "string")?.toString() ?? "";
+  const files = fileKeys.flatMap((key) =>
+    formData.getAll(key).filter((item): item is File => item instanceof File),
+  );
+  const filesByKey = new Map<string, File>();
+  for (const file of files) {
+    const dedupeKey = `${file.name}-${file.size}-${file.lastModified}`;
+    if (!filesByKey.has(dedupeKey)) filesByKey.set(dedupeKey, file);
+  }
+  const uniqueFiles = [...filesByKey.values()];
 
-  if (!memo.trim() && files.length === 0) {
-    return NextResponse.json({ error: "Add PDFs or paste text to extract decisions." }, { status: 400 });
+  if (!memo.trim() && uniqueFiles.length === 0) {
+    return NextResponse.json(
+      {
+        error: "Add PDFs or paste text to extract decisions.",
+        hint: "Expected multipart form-data with keys memo/text/content and files/file/pdf/pdfs/documents.",
+      },
+      { status: 400 },
+    );
   }
 
   const pages: PdfPageText[] = [];
   let totalChars = 0;
   let truncated = false;
+  let pageLimitReached = false;
 
   if (memo.trim()) {
     const text = memo.trim();
@@ -371,26 +450,39 @@ export async function POST(request: Request) {
     totalChars += slice.length;
   }
 
-  for (const file of files) {
+  for (const file of uniqueFiles) {
     if (totalChars >= MAX_TOTAL_CHARS) {
       truncated = true;
       break;
     }
-    const buffer = await file.arrayBuffer();
-    const pageTexts = await extractPdfTextByPage(buffer);
-    for (const page of pageTexts) {
-      if (totalChars >= MAX_TOTAL_CHARS) {
-        truncated = true;
-        break;
+    try {
+      const buffer = await file.arrayBuffer();
+      const pageTexts = await extractPdfTextByPage(buffer);
+      for (const page of pageTexts) {
+        if (pages.length >= MAX_PAGES) {
+          pageLimitReached = true;
+          break;
+        }
+        if (totalChars >= MAX_TOTAL_CHARS) {
+          truncated = true;
+          break;
+        }
+        const text = page.text.trim();
+        if (!text) continue;
+        const remaining = Math.max(0, MAX_TOTAL_CHARS - totalChars);
+        const slice = text.slice(0, remaining);
+        if (slice.length < text.length) truncated = true;
+        pages.push({ ...page, fileName: file.name, text: slice });
+        totalChars += slice.length;
       }
-      const text = page.text.trim();
-      if (!text) continue;
-      const remaining = Math.max(0, MAX_TOTAL_CHARS - totalChars);
-      const slice = text.slice(0, remaining);
-      if (slice.length < text.length) truncated = true;
-      pages.push({ ...page, fileName: file.name, text: slice });
-      totalChars += slice.length;
+    } catch (error) {
+      console.error("PDF extraction failed", error);
+      return NextResponse.json(
+        { error: "PDF extraction failed", details: "We could not read one of the uploaded PDFs." },
+        { status: 500 },
+      );
     }
+    if (pageLimitReached) break;
   }
 
   if (pages.length === 0) {
@@ -398,18 +490,37 @@ export async function POST(request: Request) {
   }
 
   const chunks = buildChunks(pages);
+  const warnings: string[] = [];
+  if (chunks.length > MAX_CHUNKS) {
+    warnings.push(
+      `Processed first ${MAX_CHUNKS} chunks for speed. Upload a smaller excerpt or paste key sections for full coverage.`,
+    );
+  }
+  if (pageLimitReached) {
+    warnings.push(
+      `Processed only the first ${MAX_PAGES} pages to keep extraction fast. Upload fewer pages for full coverage.`,
+    );
+  }
   const client = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 
   const rawCandidates: DecisionPayload[] = [];
   const collected: DecisionCandidate[] = [];
-  for (const chunk of chunks) {
-    const chunkCandidates = await extractCandidatesFromChunk(client, chunk);
+  const debugNotes: string[] = [];
+  const chunksToProcess = chunks.slice(0, MAX_CHUNKS);
+  const chunkResults = await runWithConcurrency(chunksToProcess, CHUNK_CONCURRENCY, async (chunk) =>
+    extractCandidatesFromChunk(client, chunk),
+  );
+  chunkResults.forEach((result, index) => {
+    if (result.warning) warnings.push(result.warning);
+    if (result.debugNote) debugNotes.push(`Chunk ${index + 1}: ${result.debugNote}`);
+    const chunk = chunksToProcess[index];
+    const chunkCandidates = result.candidates ?? [];
     rawCandidates.push(...chunkCandidates.map((candidate) => ({ ...candidate, source: candidate.source ?? {} })));
     for (const candidate of chunkCandidates) {
       const built = buildDecisionCandidate(candidate, chunk);
       if (built) collected.push(built);
     }
-  }
+  });
 
   const deduped = new Map<string, DecisionCandidate>();
   for (const candidate of collected) {
@@ -428,9 +539,15 @@ export async function POST(request: Request) {
 
   const response: ExtractResponse = {
     candidates: finalCandidates,
-    warning: truncated
-      ? `We analyzed only the first ${MAX_TOTAL_CHARS.toLocaleString()} characters to keep extraction fast.`
-      : undefined,
+    warning: [
+      truncated
+        ? `We analyzed only the first ${MAX_TOTAL_CHARS.toLocaleString()} characters to keep extraction fast.`
+        : null,
+      ...warnings,
+    ]
+      .filter(Boolean)
+      .join(" ")
+      .trim() || undefined,
     debug:
       process.env.NODE_ENV !== "production"
         ? {
@@ -439,6 +556,7 @@ export async function POST(request: Request) {
             chunks: chunks.length,
             candidatesExtracted: rawCandidates.length,
             candidatesAfterQuality: finalCandidates.length,
+            notes: debugNotes.length > 0 ? debugNotes : undefined,
           }
         : undefined,
   };
