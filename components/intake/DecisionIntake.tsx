@@ -7,19 +7,11 @@ import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
-import { extractPdfTextByPage, type PdfProgress } from "@/lib/pdf/extractPdfText";
-import {
-  extractDecisionCandidatesFromPages,
-  type DecisionExtractDebug,
-} from "@/lib/decisionExtract/extract";
-import type { PdfPageText } from "@/lib/decisionExtract/cleanText";
 import type { DecisionCandidate } from "@/lib/types/decision";
 import { ChevronDown, ChevronUp, Loader2 } from "lucide-react";
 
-const MAX_CLIENT_TEXT_CHARS = 200_000;
 const MAX_API_CANDIDATES = 120;
 const API_CHUNK_SIZE = 30;
-const DEFAULT_SCORE = 5;
 
 const chunkArray = <T,>(items: T[], size: number) => {
   const chunks: T[][] = [];
@@ -31,12 +23,6 @@ const chunkArray = <T,>(items: T[], size: number) => {
 
 type DecisionIntakeProps = {
   onImportDecisions?: (decisions: DecisionCandidate[]) => void;
-};
-
-type IntakeProgress = PdfProgress & {
-  fileIndex: number;
-  totalFiles: number;
-  fileName: string;
 };
 
 type ApiDecisionPayload = {
@@ -62,10 +48,22 @@ type ApiRefinementResponse = {
   notes?: string;
 };
 
+type IntakeResponse = {
+  candidates?: DecisionCandidate[];
+  warning?: string;
+  debug?: {
+    pagesExtracted: number;
+    totalChars: number;
+    chunks: number;
+    candidatesExtracted: number;
+    candidatesAfterQuality: number;
+  };
+  error?: string;
+};
+
 export default function DecisionIntake({ onImportDecisions }: DecisionIntakeProps) {
   const [intakeFiles, setIntakeFiles] = useState<File[]>([]);
   const [intakeMemo, setIntakeMemo] = useState("");
-  const [parseProgress, setParseProgress] = useState<IntakeProgress[]>([]);
   const [isParsing, setIsParsing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [warning, setWarning] = useState<string | null>(null);
@@ -253,113 +251,44 @@ export default function DecisionIntake({ onImportDecisions }: DecisionIntakeProp
     setError(null);
     setWarning(null);
     setIsParsing(true);
-    setParseProgress([]);
     setShowAllCandidates(false);
 
     try {
-      const trimmedText = intakeMemo.trim();
-      let totalChars = 0;
-      let wasTruncated = false;
-      let debugInfo: DecisionExtractDebug | null = null;
-      const collectedPages: PdfPageText[] = [];
-
-      if (!trimmedText && intakeFiles.length === 0) {
+      if (!intakeMemo.trim() && intakeFiles.length === 0) {
         setError("Add PDFs or paste text to extract decisions.");
         setIsParsing(false);
         return;
       }
 
-      if (trimmedText) {
-        let text = trimmedText;
-        if (text.length > MAX_CLIENT_TEXT_CHARS) {
-          wasTruncated = true;
-          text = text.slice(0, MAX_CLIENT_TEXT_CHARS);
-        }
-        collectedPages.push({ fileName: "Pasted text", pageNumber: 1, text });
-        totalChars += text.length;
+      const formData = new FormData();
+      if (intakeMemo.trim()) {
+        formData.append("memo", intakeMemo.trim());
       }
+      intakeFiles.forEach((file) => {
+        formData.append("files", file);
+      });
 
-      for (let index = 0; index < intakeFiles.length; index += 1) {
-        const file = intakeFiles[index];
-        const buffer = await file.arrayBuffer();
-        const pageTexts = await extractPdfTextByPage(buffer, (progress) => {
-          setParseProgress((prev) => {
-            const next = [...prev];
-            const existingIndex = next.findIndex((entry) => entry.fileName === file.name);
-            const update = {
-              ...progress,
-              fileIndex: index + 1,
-              totalFiles: intakeFiles.length,
-              fileName: file.name,
-            };
-            if (existingIndex >= 0) {
-              next[existingIndex] = update;
-            } else {
-              next.push(update);
-            }
-            return next;
-          });
-        });
+      const response = await fetch("/api/stress-test-intake", {
+        method: "POST",
+        body: formData,
+      });
 
-        const remaining = MAX_CLIENT_TEXT_CHARS - totalChars;
-        if (remaining <= 0) {
-          wasTruncated = true;
-          break;
-        }
-
-        const trimmedPages = pageTexts
-          .map((page) => ({
-            ...page,
-            text: page.text.trim(),
-            fileName: file.name,
-          }))
-          .filter((page) => page.text);
-
-        if (trimmedPages.length === 0) continue;
-
-        let charsUsed = 0;
-        const limitedPages = trimmedPages
-          .map((page) => {
-            const available = Math.max(0, remaining - charsUsed);
-            if (available <= 0) {
-              wasTruncated = true;
-              return { ...page, text: "" };
-            }
-            if (page.text.length > available) {
-              wasTruncated = true;
-              charsUsed += available;
-              return { ...page, text: page.text.slice(0, available) };
-            }
-            charsUsed += page.text.length;
-            return page;
-          })
-          .filter((page) => page.text);
-
-        totalChars += charsUsed;
-        collectedPages.push(...limitedPages);
-
-        if (wasTruncated) break;
-      }
-
-      if (collectedPages.length === 0) {
-        setError("No decisions found. Try adding clearer decision language.");
+      const payload = (await response.json()) as IntakeResponse;
+      if (!response.ok) {
+        setError(payload.error ?? "Decision extraction failed.");
         setIsParsing(false);
         return;
       }
 
-      const { candidates: extractedCandidates, debug } = extractDecisionCandidatesFromPages(collectedPages);
-      debugInfo = debug;
-
+      const extractedCandidates = Array.isArray(payload.candidates) ? payload.candidates : [];
       if (extractedCandidates.length === 0) {
         setError("No decisions found. Try adding clearer decision language.");
         setIsParsing(false);
         return;
       }
 
-      if (wasTruncated) {
-        setWarning(
-          `We analyzed only the first ${MAX_CLIENT_TEXT_CHARS.toLocaleString()} characters to keep the browser fast.`,
-        );
+      if (payload.warning) {
+        setWarning(payload.warning);
       }
 
       setCandidatesAll(extractedCandidates);
@@ -367,9 +296,9 @@ export default function DecisionIntake({ onImportDecisions }: DecisionIntakeProp
       setExpandedDecisions({});
       setExpandedSources({});
 
-      if (process.env.NODE_ENV !== "production" && debugInfo) {
+      if (process.env.NODE_ENV !== "production" && payload.debug) {
         console.debug("Decision extraction debug", {
-          ...debugInfo,
+          ...payload.debug,
           candidatesRendered: Math.min(candidateLimit, extractedCandidates.length),
         });
       }
@@ -381,7 +310,6 @@ export default function DecisionIntake({ onImportDecisions }: DecisionIntakeProp
       setError(message);
     } finally {
       setIsParsing(false);
-      setParseProgress([]);
     }
   }, [candidateLimit, intakeFiles, intakeMemo, refineCandidatesInBackground]);
 
@@ -396,7 +324,6 @@ export default function DecisionIntake({ onImportDecisions }: DecisionIntakeProp
   const handleClearIntake = useCallback(() => {
     setIntakeFiles([]);
     setIntakeMemo("");
-    setParseProgress([]);
     setCandidatesAll([]);
     setCandidatesKeptIds(new Set());
     setExpandedDecisions({});
@@ -502,22 +429,9 @@ export default function DecisionIntake({ onImportDecisions }: DecisionIntakeProp
                 </div>
               </div>
               {isParsing && intakeFiles.length > 0 ? (
-                <div className="space-y-1 text-[11px] text-muted-foreground">
-                  {parseProgress.length > 0 ? (
-                    parseProgress.map((progress) => (
-                      <div key={progress.fileName} className="flex items-center gap-2">
-                        <Loader2 className="size-3 animate-spin text-muted-foreground" />
-                        <span>
-                          Reading pages… {progress.fileName} (p {progress.page}/{progress.total})
-                        </span>
-                      </div>
-                    ))
-                  ) : (
-                    <div className="flex items-center gap-2">
-                      <Loader2 className="size-3 animate-spin text-muted-foreground" />
-                      <span>Parsing PDFs…</span>
-                    </div>
-                  )}
+                <div className="flex items-center gap-2 text-[11px] text-muted-foreground">
+                  <Loader2 className="size-3 animate-spin text-muted-foreground" />
+                  <span>Parsing PDFs…</span>
                 </div>
               ) : null}
             </div>
@@ -558,7 +472,7 @@ export default function DecisionIntake({ onImportDecisions }: DecisionIntakeProp
               variant="ghost"
               className="h-9 px-4 text-xs font-semibold uppercase tracking-wide"
               onClick={handleClearIntake}
-              disabled={isParsing && parseProgress.length > 0}
+              disabled={isParsing}
             >
               Clear Intake
             </Button>
@@ -578,7 +492,10 @@ export default function DecisionIntake({ onImportDecisions }: DecisionIntakeProp
           <div className="sticky top-4 z-10 flex flex-wrap items-center justify-between gap-3 rounded-lg border border-border/60 bg-background/95 px-4 py-3 shadow-sm backdrop-blur">
             <div className="space-y-1">
               <p className="text-sm font-semibold text-foreground">Decision Candidates</p>
-              <p className="text-xs text-muted-foreground">Select what counts, then import to the session.</p>
+              <p className="text-xs text-muted-foreground">
+                {candidatesAll.length.toLocaleString()} candidates extracted. Select what counts, then import to the
+                session.
+              </p>
             </div>
             <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
               <span className="rounded-full border border-border/60 bg-muted/30 px-3 py-1 text-[11px] font-semibold text-foreground">

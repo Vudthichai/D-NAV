@@ -27,13 +27,17 @@ type ApiRefinementResponse = {
 const MODEL = process.env.OPENAI_MODEL ?? "gpt-4o-mini";
 
 const extractJson = (content: string) => {
-  const match = content.match(/\{[\s\S]*\}/);
-  if (!match) return null;
   try {
-    return JSON.parse(match[0]);
+    return JSON.parse(content);
   } catch (error) {
-    console.error("Failed to parse decision candidate JSON.", error);
-    return null;
+    const match = content.match(/\{[\s\S]*\}/);
+    if (!match) return null;
+    try {
+      return JSON.parse(match[0]);
+    } catch (nestedError) {
+      console.error("Failed to parse decision candidate JSON.", nestedError);
+      return null;
+    }
   }
 };
 
@@ -73,6 +77,7 @@ export async function POST(request: Request) {
   const completion = await client.chat.completions.create({
     model: MODEL,
     temperature: 0.2,
+    response_format: { type: "json_object" },
     messages: [
       { role: "system", content: systemPrompt },
       { role: "user", content: userPrompt },
