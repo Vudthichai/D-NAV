@@ -10,6 +10,11 @@ import { AccentSliver } from "@/components/ui/AccentSliver";
 import { Callout } from "@/components/ui/Callout";
 import { MetricDistribution, type MetricDistributionSegment } from "@/components/reports/MetricDistribution";
 import { getSessionActionInsight } from "@/lib/sessionActionInsight";
+import {
+  extractDecisionCandidates,
+  type DecisionStrength,
+  type LocalDecisionCandidate,
+} from "@/lib/decisionExtractLocal";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import Link from "next/link";
 import { type ChangeEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
@@ -102,8 +107,8 @@ export default function StressTestPage() {
   const [extractedPages, setExtractedPages] = useState<ExtractedPage[]>([]);
   const [pagesRead, setPagesRead] = useState(0);
   const [totalChars, setTotalChars] = useState(0);
-  const [decisionCandidates, setDecisionCandidates] = useState<DecisionCandidate[]>([]);
-  const [sessionExtractedDecisions, setSessionExtractedDecisions] = useState<DecisionCandidate[]>([]);
+  const [decisionCandidates, setDecisionCandidates] = useState<LocalDecisionCandidate[]>([]);
+  const [sessionExtractedDecisions, setSessionExtractedDecisions] = useState<LocalDecisionCandidate[]>([]);
   const [extractWarnings, setExtractWarnings] = useState<string[]>([]);
   const [extractError, setExtractError] = useState<string | null>(null);
   const [apiStatus, setApiStatus] = useState<{ state: "loading" | "online" | "error"; message?: string }>({
@@ -111,6 +116,7 @@ export default function StressTestPage() {
   });
   const [isReadingPdf, setIsReadingPdf] = useState(false);
   const [isExtracting, setIsExtracting] = useState(false);
+  const [extractMode, setExtractMode] = useState<"local" | "smart">("local");
   const [sessionDecisions, setSessionDecisions] = useState<SessionDecision[]>(() => {
     if (typeof window === "undefined") return [];
     try {
@@ -142,21 +148,41 @@ export default function StressTestPage() {
   }, [sessionDecisions]);
 
   useEffect(() => {
+    if (apiStatus.state === "error" && extractMode === "smart") {
+      setExtractMode("local");
+    }
+  }, [apiStatus.state, extractMode]);
+
+  const mapApiCandidateToLocal = useCallback((candidate: DecisionCandidate): LocalDecisionCandidate => {
+    const page = candidate.evidence?.page ?? 0;
+    return {
+      id: candidate.id,
+      strength: candidate.strength,
+      page,
+      title: candidate.title,
+      quote: candidate.evidence?.quote?.slice(0, 280) ?? candidate.decision.slice(0, 280),
+      matchedTrigger: candidate.rationale ?? "",
+    };
+  }, []);
+
+  useEffect(() => {
     let isMounted = true;
     const checkApi = async () => {
       try {
         const response = await fetch("/api/decision-extract");
-      const data = (await response.json().catch(() => null)) as DecisionExtractErrorResponse | null;
-      if (!isMounted) return;
-      if (response.status === 405 && data && "error" in data && data.error === "Method not allowed.") {
-        setApiStatus({ state: "online" });
-      } else if (response.ok) {
-        setApiStatus({ state: "online" });
-      } else {
-        const message =
-          data && "error" in data ? data.message || data.error : `HTTP ${response.status} ${response.statusText || "error"}`;
-        setApiStatus({ state: "error", message });
-      }
+        const data = (await response.json().catch(() => null)) as DecisionExtractErrorResponse | null;
+        if (!isMounted) return;
+        if (response.status === 405 && data && "error" in data && data.error === "Method not allowed.") {
+          setApiStatus({ state: "online" });
+        } else if (response.ok) {
+          setApiStatus({ state: "online" });
+        } else {
+          const message =
+            data && "error" in data
+              ? data.message || data.error
+              : `HTTP ${response.status} ${response.statusText || "error"}`;
+          setApiStatus({ state: "error", message });
+        }
       } catch (error) {
         if (!isMounted) return;
         console.error("Decision extract API status check failed.", error);
@@ -485,6 +511,10 @@ export default function StressTestPage() {
       setExtractedPages(pages);
       setPagesRead(pages.length);
       setTotalChars(charCount);
+      const emptyPages = pages.filter((page) => page.charCount === 0).length;
+      if (pages.length > 0 && emptyPages / pages.length >= 0.5) {
+        setExtractWarnings(["This PDF appears image-based; quick scan needs selectable text."]);
+      }
     } catch (error) {
       console.error("Failed to read PDF.", error);
       setExtractError("Failed to read the PDF. Please try a different file.");
@@ -493,15 +523,29 @@ export default function StressTestPage() {
     }
   }, []);
 
+  const runLocalExtract = useCallback(() => {
+    const localCandidates = extractDecisionCandidates(
+      extractedPages.map((page) => ({ page: page.pageNumber, text: page.text })),
+    );
+    setDecisionCandidates(localCandidates);
+  }, [extractedPages]);
+
   const handleExtractDecisions = useCallback(async () => {
     if (extractedPages.length === 0 || isExtracting) return;
     setIsExtracting(true);
     setExtractError(null);
-    setExtractWarnings([]);
     try {
+      if (extractMode === "local") {
+        runLocalExtract();
+        return;
+      }
+
+      const controller = new AbortController();
+      const timeoutId = window.setTimeout(() => controller.abort(), 12000);
       const response = await fetch("/api/decision-extract", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
+        signal: controller.signal,
         body: JSON.stringify({
           docName: selectedFileName ?? "uploaded.pdf",
           pages: extractedPages.map((page) => ({
@@ -513,7 +557,7 @@ export default function StressTestPage() {
             model: "gpt-4o-mini",
           },
         }),
-      });
+      }).finally(() => window.clearTimeout(timeoutId));
       const data = (await response.json().catch(() => null)) as
         | DecisionExtractSuccessResponse
         | DecisionExtractErrorResponse
@@ -526,22 +570,62 @@ export default function StressTestPage() {
       if (!data || !("candidates" in data)) {
         throw new Error("Decision extraction failed.");
       }
-      setDecisionCandidates(Array.isArray(data.candidates) ? data.candidates : []);
+      const mapped = Array.isArray(data.candidates) ? data.candidates.map(mapApiCandidateToLocal) : [];
+      setDecisionCandidates(mapped);
     } catch (error) {
       console.error("Decision extraction error.", error);
-      const message = error instanceof Error ? error.message : "Decision extraction failed.";
-      setExtractError(message);
+      if (extractMode === "smart") {
+        runLocalExtract();
+        setExtractWarnings((prev) => {
+          const next = new Set(prev);
+          next.add("Smart extractor failed; showing quick scan results.");
+          return Array.from(next);
+        });
+      } else {
+        const message = error instanceof Error ? error.message : "Decision extraction failed.";
+        setExtractError(message);
+      }
     } finally {
       setIsExtracting(false);
     }
-  }, [extractedPages, isExtracting, selectedFileName]);
+  }, [extractedPages, extractMode, isExtracting, mapApiCandidateToLocal, runLocalExtract, selectedFileName]);
 
-  const handleAddToSession = useCallback((candidate: DecisionCandidate) => {
-    setSessionExtractedDecisions((prev) => {
-      if (prev.some((item) => item.id === candidate.id)) return prev;
-      return [candidate, ...prev];
-    });
-  }, []);
+  const handleAddToSession = useCallback(
+    (candidate: LocalDecisionCandidate) => {
+      const title = candidate.title.trim() || "Untitled decision";
+      const pageLabel = candidate.page ? ` (p. ${candidate.page})` : "";
+      const evidence = candidate.quote ? `${candidate.quote}${pageLabel}` : "";
+      setSessionDecisions((prev) => {
+        if (prev.some((decision) => decision.id === `extract-${candidate.id}`)) return prev;
+        const sessionDecision: SessionDecision = {
+          id: `extract-${candidate.id}`,
+          decisionTitle: title,
+          decisionDetail: evidence,
+          category: "Strategy",
+          impact: 0,
+          cost: 0,
+          risk: 0,
+          urgency: 0,
+          confidence: 0,
+          r: 0,
+          p: 0,
+          s: 0,
+          dnav: 0,
+          sourceFile: selectedFileName ?? undefined,
+          sourcePage: candidate.page || undefined,
+          excerpt: candidate.quote || undefined,
+          sourceType: "intake",
+          createdAt: Date.now(),
+        };
+        return [sessionDecision, ...prev];
+      });
+      setSessionExtractedDecisions((prev) => {
+        if (prev.some((item) => item.id === candidate.id)) return prev;
+        return [candidate, ...prev];
+      });
+    },
+    [selectedFileName],
+  );
 
   // TODO: Rebuild Decision Intake v2
   // Intake will be redesigned around the Decision Atom:
@@ -834,7 +918,7 @@ export default function StressTestPage() {
                   </div>
                   <div className="text-right text-[11px] text-muted-foreground">
                     <p>Client-side PDF parsing (pdf.js).</p>
-                    <p>No document leaves the browser until you extract.</p>
+                    <p>Quick scan stays local; smart extract sends pages to the API.</p>
                   </div>
                 </div>
 
@@ -870,9 +954,30 @@ export default function StressTestPage() {
                   >
                     {isExtracting ? "Extracting…" : "Extract decisions"}
                   </Button>
-                  <p className="text-[11px] text-muted-foreground">
-                    Sends {pagesRead} pages to /api/decision-extract for a deterministic two-pass analysis.
-                  </p>
+                  <div className="flex flex-wrap items-center gap-2 text-[11px] text-muted-foreground">
+                    <span className="font-semibold text-foreground">Mode:</span>
+                    <div className="flex items-center gap-1 rounded-full border border-border/50 bg-muted/10 p-1">
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant={extractMode === "local" ? "default" : "ghost"}
+                        className="h-7 px-3 text-[11px] font-semibold uppercase tracking-wide"
+                        onClick={() => setExtractMode("local")}
+                      >
+                        Quick scan (local)
+                      </Button>
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant={extractMode === "smart" ? "default" : "ghost"}
+                        className="h-7 px-3 text-[11px] font-semibold uppercase tracking-wide"
+                        onClick={() => setExtractMode("smart")}
+                        disabled={apiStatus.state === "error"}
+                      >
+                        Smart extract (beta)
+                      </Button>
+                    </div>
+                  </div>
                   <p className="text-[11px] text-muted-foreground">
                     {apiStatus.state === "online"
                       ? "API: online"
@@ -903,46 +1008,66 @@ export default function StressTestPage() {
                         Added to session: {sessionExtractedDecisions.length}
                       </p>
                     </div>
-                    <div className="space-y-2">
-                      {decisionCandidates.map((candidate) => (
-                        <div
-                          key={candidate.id}
-                          className="rounded-lg border border-border/60 bg-muted/10 px-3 py-2 text-xs text-muted-foreground"
-                        >
-                          <div className="flex flex-wrap items-start justify-between gap-2">
-                            <div className="space-y-1">
-                              <p className="text-sm font-semibold text-foreground">{candidate.title}</p>
-                              <p className="text-[11px] text-muted-foreground">
-                                {candidate.evidence.page ? `p. ${candidate.evidence.page}` : "Page n/a"}
-                              </p>
+                    <div className="space-y-4">
+                      {(
+                        [
+                          { key: "hard", label: "Executed / Locked" },
+                          { key: "medium", label: "Committed / Scheduled" },
+                          { key: "soft", label: "Strategic / Directional" },
+                        ] as { key: DecisionStrength; label: string }[]
+                      ).map((group) => {
+                        const grouped = decisionCandidates.filter((candidate) => candidate.strength === group.key);
+                        if (grouped.length === 0) return null;
+                        return (
+                          <div key={group.key} className="space-y-2">
+                            <div className="flex items-center justify-between text-[11px] text-muted-foreground">
+                              <p className="font-semibold uppercase tracking-wide text-foreground">{group.label}</p>
+                              <span>{grouped.length} found</span>
                             </div>
-                            <div className="flex flex-wrap items-center gap-2">
-                              <span className="rounded-full border border-border/50 bg-background px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-foreground">
-                                {candidate.strength}
-                              </span>
-                              <span className="rounded-full border border-border/50 bg-background px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-foreground">
-                                {candidate.category}
-                              </span>
+                            <div className="space-y-2">
+                              {grouped.map((candidate) => (
+                                <div
+                                  key={candidate.id}
+                                  className="rounded-lg border border-border/60 bg-muted/10 px-3 py-2 text-xs text-muted-foreground"
+                                >
+                                  <div className="flex flex-wrap items-start justify-between gap-2">
+                                    <div className="space-y-1">
+                                      <p className="text-sm font-semibold text-foreground">{candidate.title}</p>
+                                      <p className="text-[11px] text-muted-foreground">
+                                        {candidate.page ? `p. ${candidate.page}` : "Page n/a"}
+                                      </p>
+                                    </div>
+                                    <div className="flex flex-wrap items-center gap-2">
+                                      <span className="rounded-full border border-border/50 bg-background px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-foreground">
+                                        {candidate.strength}
+                                      </span>
+                                      {candidate.matchedTrigger ? (
+                                        <span className="rounded-full border border-border/50 bg-background px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-foreground">
+                                          {candidate.matchedTrigger}
+                                        </span>
+                                      ) : null}
+                                    </div>
+                                  </div>
+                                  {candidate.quote ? (
+                                    <p className="mt-2 text-[11px] text-muted-foreground">“{candidate.quote}”</p>
+                                  ) : null}
+                                  <div className="mt-2">
+                                    <Button
+                                      type="button"
+                                      size="sm"
+                                      variant="outline"
+                                      className="h-7 px-2 text-[11px] font-semibold uppercase tracking-wide"
+                                      onClick={() => handleAddToSession(candidate)}
+                                    >
+                                      Add to session
+                                    </Button>
+                                  </div>
+                                </div>
+                              ))}
                             </div>
                           </div>
-                          <p className="mt-2 text-[11px] text-muted-foreground">{candidate.decision}</p>
-                          <p className="mt-2 text-[11px] text-muted-foreground">{candidate.rationale}</p>
-                          {candidate.evidence.quote ? (
-                            <p className="mt-2 text-[11px] text-muted-foreground">“{candidate.evidence.quote}”</p>
-                          ) : null}
-                          <div className="mt-2">
-                            <Button
-                              type="button"
-                              size="sm"
-                              variant="outline"
-                              className="h-7 px-2 text-[11px] font-semibold uppercase tracking-wide"
-                              onClick={() => handleAddToSession(candidate)}
-                            >
-                              Add to session
-                            </Button>
-                          </div>
-                        </div>
-                      ))}
+                        );
+                      })}
                     </div>
                   </div>
                 ) : null}
