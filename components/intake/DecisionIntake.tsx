@@ -48,36 +48,57 @@ type ApiRefinementResponse = {
   notes?: string;
 };
 
+type IntakeSummary = {
+  key_decisions: {
+    decision: string;
+    why_it_matters?: string;
+    source?: { fileName: string; page: number };
+  }[];
+  themes?: string[];
+  unknowns?: string[];
+};
+
+type IntakeDecision = {
+  id: string;
+  decision: string;
+  evidence: string;
+  source: { fileName: string; page: number };
+  tags?: string[];
+};
+
+type IntakeMeta = {
+  stage: string;
+  pages_processed: number;
+  chunks_processed: number;
+  candidates_extracted: number;
+  decisions_final: number;
+  truncated: boolean;
+  warnings: string[];
+  timing_ms: number;
+};
+
 type IntakeResponse = {
-  candidates?: DecisionCandidate[];
-  warning?: string;
-  debug?: {
-    pagesExtracted: number;
-    totalChars: number;
-    chunks: number;
-    candidatesExtracted: number;
-    candidatesAfterQuality: number;
-    notes?: string[];
-  };
-  error?: {
-    message?: string;
-    step?: string;
-  };
+  summary: IntakeSummary | null;
+  decisions: IntakeDecision[];
+  meta: IntakeMeta;
+  error?: { message?: string; detail?: string };
   errorId?: string;
 };
 
 export default function DecisionIntake({ onImportDecisions }: DecisionIntakeProps) {
   const [intakeFiles, setIntakeFiles] = useState<File[]>([]);
   const [intakeMemo, setIntakeMemo] = useState("");
-  const [isParsing, setIsParsing] = useState(false);
+  const [loadingStage, setLoadingStage] = useState<"parsing" | "extracting" | "rendering" | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [warning, setWarning] = useState<string | null>(null);
+  const [warnings, setWarnings] = useState<string[]>([]);
+  const [summary, setSummary] = useState<IntakeSummary | null>(null);
+  const [meta, setMeta] = useState<IntakeMeta | null>(null);
   const [candidatesAll, setCandidatesAll] = useState<DecisionCandidate[]>([]);
   const [candidatesKeptIds, setCandidatesKeptIds] = useState<Set<string>>(new Set());
   const [expandedDecisions, setExpandedDecisions] = useState<Record<string, boolean>>({});
   const [expandedSources, setExpandedSources] = useState<Record<string, boolean>>({});
   const [showAllCandidates, setShowAllCandidates] = useState(false);
-  const [debugInfo, setDebugInfo] = useState<IntakeResponse["debug"] | null>(null);
+  const isParsing = Boolean(loadingStage);
 
   const keptCandidates = useMemo(
     () => candidatesAll.filter((decision) => candidatesKeptIds.has(decision.id)),
@@ -89,7 +110,7 @@ export default function DecisionIntake({ onImportDecisions }: DecisionIntakeProp
 
   const handleFileSelection = useCallback((files: FileList | File[] | null) => {
     setError(null);
-    setWarning(null);
+    setWarnings([]);
     if (!files || files.length === 0) {
       setIntakeFiles([]);
       return;
@@ -255,9 +276,10 @@ export default function DecisionIntake({ onImportDecisions }: DecisionIntakeProp
 
   const handleExtract = useCallback(async () => {
     setError(null);
-    setWarning(null);
-    setDebugInfo(null);
-    setIsParsing(true);
+    setWarnings([]);
+    setSummary(null);
+    setMeta(null);
+    setLoadingStage("parsing");
     setShowAllCandidates(false);
 
     try {
@@ -275,6 +297,7 @@ export default function DecisionIntake({ onImportDecisions }: DecisionIntakeProp
       });
       formData.append("mode", "extract+summarize");
 
+      setLoadingStage("extracting");
       const response = await fetch("/api/decision-intake", {
         method: "POST",
         body: formData,
@@ -288,6 +311,7 @@ export default function DecisionIntake({ onImportDecisions }: DecisionIntakeProp
         parseFailed = true;
         console.error("Failed to parse decision intake response.", parseError);
       }
+      setLoadingStage("rendering");
       if (!response.ok) {
         if (parseFailed || !payload) {
           setError(`Decision extraction failed. Status ${response.status}.`);
@@ -296,35 +320,47 @@ export default function DecisionIntake({ onImportDecisions }: DecisionIntakeProp
         const fallbackMessage = "Decision extraction failed.";
         const message = payload?.error?.message?.trim() || fallbackMessage;
         const errorId = payload?.errorId ?? "unknown";
-        const step = payload?.error?.step ?? "unknown";
-        setError(`${message} • Error ID: ${errorId} • Step: ${step}`);
+        setError(`${message} • Error ID: ${errorId}`);
         return;
       }
 
-      const extractedCandidates = Array.isArray(payload?.candidates) ? payload?.candidates : [];
-      if (extractedCandidates.length === 0) {
+      if (payload?.meta?.warnings?.length) {
+        setWarnings(payload.meta.warnings);
+      }
+
+      setSummary(payload?.summary ?? null);
+      setMeta(payload?.meta ?? null);
+
+      const decisions = Array.isArray(payload?.decisions) ? payload.decisions : [];
+      if (decisions.length === 0) {
         setError("No decisions found. Try adding clearer decision language.");
         return;
       }
 
-      if (payload?.warning) {
-        setWarning(payload.warning);
-      }
+      const extractedCandidates = decisions.map((decision) => ({
+        id: decision.id,
+        decision: decision.decision,
+        evidence: decision.evidence,
+        sources: [
+          {
+            fileName: decision.source?.fileName,
+            pageNumber: decision.source?.page,
+            excerpt: decision.evidence,
+          },
+        ],
+        extractConfidence: 0.7,
+        qualityScore: 60,
+        impact: 5,
+        cost: 5,
+        risk: 5,
+        urgency: 5,
+        confidence: 5,
+      }));
 
       setCandidatesAll(extractedCandidates);
       setCandidatesKeptIds(new Set());
       setExpandedDecisions({});
       setExpandedSources({});
-      if (process.env.NODE_ENV !== "production") {
-        setDebugInfo(payload?.debug ?? null);
-      }
-
-      if (process.env.NODE_ENV !== "production" && payload?.debug) {
-        console.debug("Decision extraction debug", {
-          ...payload.debug,
-          candidatesRendered: Math.min(candidateLimit, extractedCandidates.length),
-        });
-      }
 
       void refineCandidatesInBackground(extractedCandidates);
     } catch (caughtError) {
@@ -332,7 +368,7 @@ export default function DecisionIntake({ onImportDecisions }: DecisionIntakeProp
       console.error("Decision extraction failed", caughtError);
       setError(message);
     } finally {
-      setIsParsing(false);
+      setLoadingStage(null);
     }
   }, [candidateLimit, intakeFiles, intakeMemo, refineCandidatesInBackground]);
 
@@ -351,10 +387,12 @@ export default function DecisionIntake({ onImportDecisions }: DecisionIntakeProp
     setCandidatesKeptIds(new Set());
     setExpandedDecisions({});
     setExpandedSources({});
-    setWarning(null);
+    setWarnings([]);
     setError(null);
     setShowAllCandidates(false);
-    setDebugInfo(null);
+    setSummary(null);
+    setMeta(null);
+    setLoadingStage(null);
   }, []);
 
   const handleClearCandidates = useCallback(() => {
@@ -363,7 +401,8 @@ export default function DecisionIntake({ onImportDecisions }: DecisionIntakeProp
     setExpandedDecisions({});
     setExpandedSources({});
     setShowAllCandidates(false);
-    setDebugInfo(null);
+    setSummary(null);
+    setMeta(null);
   }, []);
 
   const handleAddToSession = useCallback(() => {
@@ -475,9 +514,13 @@ export default function DecisionIntake({ onImportDecisions }: DecisionIntakeProp
           </div>
         </div>
 
-        {warning ? (
+        {warnings.length > 0 ? (
           <div className="rounded-lg border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-xs text-amber-700">
-            {warning}
+            <ul className="list-disc space-y-1 pl-4">
+              {warnings.map((warning) => (
+                <li key={warning}>{warning}</li>
+              ))}
+            </ul>
           </div>
         ) : null}
 
@@ -490,26 +533,16 @@ export default function DecisionIntake({ onImportDecisions }: DecisionIntakeProp
           </div>
         ) : null}
 
-        {debugInfo && process.env.NODE_ENV !== "production" ? (
-          <div className="rounded-lg border border-border/60 bg-muted/30 px-3 py-2 text-xs text-muted-foreground">
-            <p className="text-[11px] font-semibold uppercase tracking-wide text-foreground">Debug</p>
-            <ul className="mt-1 space-y-1">
-              <li>Pages extracted: {debugInfo.pagesExtracted}</li>
-              <li>Total chars: {debugInfo.totalChars.toLocaleString()}</li>
-              <li>Chunks: {debugInfo.chunks}</li>
-              <li>Candidates extracted: {debugInfo.candidatesExtracted}</li>
-              <li>Candidates after quality: {debugInfo.candidatesAfterQuality}</li>
-              {debugInfo.notes?.length ? (
-                <li>
-                  Notes:
-                  <ul className="mt-1 list-disc space-y-0.5 pl-4">
-                    {debugInfo.notes.map((note) => (
-                      <li key={note}>{note}</li>
-                    ))}
-                  </ul>
-                </li>
-              ) : null}
-            </ul>
+        {loadingStage ? (
+          <div className="flex items-center gap-2 text-[11px] text-muted-foreground">
+            <Loader2 className="size-3 animate-spin text-muted-foreground" />
+            <span>
+              {loadingStage === "parsing"
+                ? "Preparing intake payload…"
+                : loadingStage === "extracting"
+                  ? "Extracting decisions…"
+                  : "Rendering results…"}
+            </span>
           </div>
         ) : null}
 
@@ -527,13 +560,53 @@ export default function DecisionIntake({ onImportDecisions }: DecisionIntakeProp
             <Button
               className="h-9 px-4 text-xs font-semibold uppercase tracking-wide"
               onClick={handleExtract}
-              disabled={isParsing}
+              disabled={isParsing || (!intakeMemo.trim() && intakeFiles.length === 0)}
             >
               {isParsing ? "Extracting..." : "Extract Decisions"}
             </Button>
           </div>
         </div>
       </Card>
+
+      {summary ? (
+        <Card className="border-border/60 bg-background/90 px-4 py-3 shadow-sm">
+          <div className="space-y-2">
+            <p className="text-sm font-semibold text-foreground">Summary highlights</p>
+            <ul className="space-y-1 text-xs text-muted-foreground">
+              {summary.key_decisions.map((item, index) => {
+                const sourceLabel = item.source
+                  ? `${item.source.fileName} • p${item.source.page}`
+                  : undefined;
+                return (
+                  <li key={`${item.decision}-${index}`} className="space-y-1">
+                    <p className="text-[13px] font-semibold text-foreground">• {item.decision}</p>
+                    {item.why_it_matters ? <p className="text-[11px]">{item.why_it_matters}</p> : null}
+                    {sourceLabel ? <p className="text-[10px] text-muted-foreground">{sourceLabel}</p> : null}
+                  </li>
+                );
+              })}
+            </ul>
+            {summary.themes?.length ? (
+              <div className="text-[11px] text-muted-foreground">
+                <span className="font-semibold text-foreground">Themes: </span>
+                {summary.themes.join(" • ")}
+              </div>
+            ) : null}
+            {summary.unknowns?.length ? (
+              <div className="text-[11px] text-muted-foreground">
+                <span className="font-semibold text-foreground">Unknowns: </span>
+                {summary.unknowns.join(" • ")}
+              </div>
+            ) : null}
+          </div>
+        </Card>
+      ) : null}
+
+      {meta?.truncated ? (
+        <div className="rounded-lg border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-xs text-amber-700">
+          Extraction was truncated for speed. Provide fewer pages or a shorter memo for full coverage.
+        </div>
+      ) : null}
 
       {candidatesAll.length > 0 ? (
         <div className="space-y-3">
