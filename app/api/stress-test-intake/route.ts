@@ -1,3 +1,4 @@
+// Deprecated: use /api/decision-intake instead.
 import OpenAI from "openai";
 import { NextResponse } from "next/server";
 import * as parsePdf from "pdf-parse";
