@@ -8,29 +8,25 @@ import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
 import { extractPdfTextByPage, type PdfProgress } from "@/lib/pdf/extractPdfText";
-import { extractDecisionCandidatesFromPages, extractDecisionCandidatesFromText } from "@/lib/decisionExtract/extract";
+import {
+  extractDecisionCandidatesFromPages,
+  type DecisionExtractDebug,
+} from "@/lib/decisionExtract/extract";
+import type { PdfPageText } from "@/lib/decisionExtract/cleanText";
 import type { DecisionCandidate } from "@/lib/types/decision";
 import { ChevronDown, ChevronUp, Loader2 } from "lucide-react";
 
 const MAX_CLIENT_TEXT_CHARS = 200_000;
-const MAX_API_SENTENCES = 80;
-const MAX_SENTENCE_CHARS = 220;
+const MAX_API_CANDIDATES = 120;
+const API_CHUNK_SIZE = 30;
 const DEFAULT_SCORE = 5;
 
-const hashString = (value: string) => {
-  let hash = 5381;
-  for (let index = 0; index < value.length; index += 1) {
-    hash = (hash * 33) ^ value.charCodeAt(index);
+const chunkArray = <T,>(items: T[], size: number) => {
+  const chunks: T[][] = [];
+  for (let index = 0; index < items.length; index += size) {
+    chunks.push(items.slice(index, index + size));
   }
-  return (hash >>> 0).toString(36);
-};
-
-const truncateSentence = (value: string, limit: number) => {
-  if (value.length <= limit) return value;
-  const sliced = value.slice(0, limit);
-  const lastSpace = sliced.lastIndexOf(" ");
-  const trimmed = (lastSpace > 40 ? sliced.slice(0, lastSpace) : sliced).trim();
-  return trimmed;
+  return chunks;
 };
 
 type DecisionIntakeProps = {
@@ -43,23 +39,27 @@ type IntakeProgress = PdfProgress & {
   fileName: string;
 };
 
-type SentencePayload = {
-  sourceId: string;
-  fileName?: string;
-  page?: number;
-  sentence: string;
-};
-
-type ApiDecisionCandidate = {
+type ApiDecisionPayload = {
   id: string;
   decision: string;
-  rationale?: string;
-  source: {
+  evidence: string;
+  source?: {
     fileName?: string;
     page?: number;
-    sourceId: string;
   };
-  extractConfidence: number;
+};
+
+type ApiRefinedCandidate = {
+  id: string;
+  rewrittenDecision: string;
+  reasonKeep?: string;
+  mergedFromIds?: string[];
+};
+
+type ApiRefinementResponse = {
+  kept_candidates?: ApiRefinedCandidate[];
+  drop_ids?: string[];
+  notes?: string;
 };
 
 export default function DecisionIntake({ onImportDecisions }: DecisionIntakeProps) {
@@ -69,15 +69,19 @@ export default function DecisionIntake({ onImportDecisions }: DecisionIntakeProp
   const [isParsing, setIsParsing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [warning, setWarning] = useState<string | null>(null);
-  const [decisions, setDecisions] = useState<DecisionCandidate[]>([]);
+  const [candidatesAll, setCandidatesAll] = useState<DecisionCandidate[]>([]);
+  const [candidatesKeptIds, setCandidatesKeptIds] = useState<Set<string>>(new Set());
   const [expandedDecisions, setExpandedDecisions] = useState<Record<string, boolean>>({});
   const [expandedSources, setExpandedSources] = useState<Record<string, boolean>>({});
   const [showAllCandidates, setShowAllCandidates] = useState(false);
 
-  const keptCandidates = useMemo(() => decisions.filter((decision) => decision.keep), [decisions]);
-  const candidateLimit = 80;
-  const visibleCandidates = showAllCandidates ? decisions : decisions.slice(0, candidateLimit);
-  const selectedCount = keptCandidates.length;
+  const keptCandidates = useMemo(
+    () => candidatesAll.filter((decision) => candidatesKeptIds.has(decision.id)),
+    [candidatesAll, candidatesKeptIds],
+  );
+  const candidateLimit = 30;
+  const visibleCandidates = showAllCandidates ? candidatesAll : candidatesAll.slice(0, candidateLimit);
+  const selectedCount = candidatesKeptIds.size;
 
   const handleFileSelection = useCallback((files: FileList | File[] | null) => {
     setError(null);
@@ -124,7 +128,7 @@ export default function DecisionIntake({ onImportDecisions }: DecisionIntakeProp
 
   const updateDecisionScore = useCallback(
     (id: string, key: "impact" | "cost" | "risk" | "urgency" | "confidence", value: number) => {
-      setDecisions((prev) =>
+      setCandidatesAll((prev) =>
         prev.map((decision) => (decision.id === id ? { ...decision, [key]: clampScore(value) } : decision)),
       );
     },
@@ -132,64 +136,117 @@ export default function DecisionIntake({ onImportDecisions }: DecisionIntakeProp
   );
 
   const updateDecisionText = useCallback((id: string, value: string) => {
-    setDecisions((prev) => prev.map((decision) => (decision.id === id ? { ...decision, decision: value } : decision)));
+    setCandidatesAll((prev) =>
+      prev.map((decision) => (decision.id === id ? { ...decision, decision: value } : decision)),
+    );
   }, []);
 
   const toggleDecisionKeep = useCallback((id: string, keep: boolean) => {
-    setDecisions((prev) => prev.map((decision) => (decision.id === id ? { ...decision, keep } : decision)));
+    setCandidatesKeptIds((prev) => {
+      const next = new Set(prev);
+      if (keep) next.add(id);
+      else next.delete(id);
+      return next;
+    });
+  }, []);
+
+  const mergeSources = useCallback((base: DecisionCandidate, incoming: DecisionCandidate[]) => {
+    const merged = [...base.sources];
+    for (const candidate of incoming) {
+      for (const source of candidate.sources) {
+        const exists = merged.some(
+          (entry) =>
+            entry.fileName === source.fileName &&
+            entry.pageNumber === source.pageNumber &&
+            entry.excerpt === source.excerpt,
+        );
+        if (!exists) merged.push(source);
+      }
+    }
+    return merged;
   }, []);
 
   const buildApiPayload = useCallback((extracted: DecisionCandidate[]) => {
     const ranked = [...extracted].sort((a, b) => b.qualityScore - a.qualityScore);
-    const seen = new Set<string>();
-    const payload: SentencePayload[] = [];
-    ranked.forEach((candidate) => {
-      if (payload.length >= MAX_API_SENTENCES) return;
+    return ranked.slice(0, MAX_API_CANDIDATES).map((candidate) => {
       const source = candidate.sources[0];
-      const sentence = truncateSentence(candidate.evidence, MAX_SENTENCE_CHARS);
-      const key = sentence.toLowerCase();
-      if (!sentence || seen.has(key)) return;
-      seen.add(key);
-      payload.push({
-        sourceId: candidate.id,
-        fileName: source?.fileName,
-        page: source?.pageNumber,
-        sentence,
-      });
+      return {
+        id: candidate.id,
+        decision: candidate.decision,
+        evidence: candidate.evidence,
+        source: {
+          fileName: source?.fileName,
+          page: source?.pageNumber,
+        },
+      } satisfies ApiDecisionPayload;
     });
-    return payload;
   }, []);
 
-  const mapApiCandidates = useCallback(
-    (payload: SentencePayload[], apiCandidates: ApiDecisionCandidate[]) => {
-      const sentenceMap = new Map(payload.map((item) => [item.sourceId, item.sentence]));
-      return apiCandidates.map((candidate) => {
-        const sourceSentence = sentenceMap.get(candidate.source.sourceId) ?? candidate.rationale ?? candidate.decision;
-        const id = candidate.id || `decision-${hashString(`${candidate.decision}-${candidate.source.sourceId}`)}`;
+  const applyRefinement = useCallback(
+    (prev: DecisionCandidate[], refinement: ApiRefinementResponse) => {
+      if (!refinement) return prev;
+      const dropIds = new Set(refinement.drop_ids ?? []);
+      const keptCandidates = refinement.kept_candidates ?? [];
+      const byId = new Map(prev.map((candidate) => [candidate.id, candidate]));
+      const mergedIds = new Set<string>();
+
+      const updated = prev.map((candidate) => {
+        const kept = keptCandidates.find((item) => item.id === candidate.id);
+        if (!kept) return candidate;
+        const updatedDecision = kept.rewrittenDecision?.trim() || candidate.decision;
+        const mergeFrom = kept.mergedFromIds ?? [];
+        if (mergeFrom.length > 0) {
+          mergeFrom.forEach((id) => mergedIds.add(id));
+        }
+        const mergedSources = mergeFrom.length
+          ? mergeSources(candidate, mergeFrom.map((id) => byId.get(id)).filter(Boolean) as DecisionCandidate[])
+          : candidate.sources;
         return {
-          id,
-          decision: candidate.decision,
-          evidence: sourceSentence,
-          sources: [
-            {
-              fileName: candidate.source.fileName,
-              pageNumber: candidate.source.page,
-              excerpt: sourceSentence,
-            },
-          ],
-          extractConfidence: Math.min(1, Math.max(0, candidate.extractConfidence ?? 0.5)),
-          qualityScore: Math.round(Math.min(1, Math.max(0, candidate.extractConfidence ?? 0.5)) * 100),
-          impact: DEFAULT_SCORE,
-          cost: DEFAULT_SCORE,
-          risk: DEFAULT_SCORE,
-          urgency: DEFAULT_SCORE,
-          confidence: DEFAULT_SCORE,
-          keep: false,
-          imported: false,
-        } satisfies DecisionCandidate;
+          ...candidate,
+          decision: updatedDecision,
+          sources: mergedSources,
+        };
       });
+
+      const finalDropIds = new Set([...dropIds, ...mergedIds]);
+      return updated.filter((candidate) => !finalDropIds.has(candidate.id));
     },
-    [],
+    [mergeSources],
+  );
+
+  const refineCandidatesInBackground = useCallback(
+    async (extracted: DecisionCandidate[]) => {
+      const payload = buildApiPayload(extracted);
+      if (payload.length === 0) return;
+      const chunks = chunkArray(payload, API_CHUNK_SIZE);
+      for (const chunk of chunks) {
+        try {
+          const response = await fetch("/api/decision-candidates", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ candidates: chunk }),
+          });
+          if (!response.ok) continue;
+          const data = (await response.json()) as ApiRefinementResponse;
+          if (!data) continue;
+          setCandidatesAll((prev) => applyRefinement(prev, data));
+          const dropIds = new Set<string>(data.drop_ids ?? []);
+          (data.kept_candidates ?? []).forEach((candidate) => {
+            (candidate.mergedFromIds ?? []).forEach((id) => dropIds.add(id));
+          });
+          if (dropIds.size > 0) {
+            setCandidatesKeptIds((prev) => {
+              const next = new Set(prev);
+              dropIds.forEach((id) => next.delete(id));
+              return next;
+            });
+          }
+        } catch (apiError) {
+          console.error("Decision refinement failed", apiError);
+        }
+      }
+    },
+    [applyRefinement, buildApiPayload],
   );
 
   const handleExtract = useCallback(async () => {
@@ -201,9 +258,10 @@ export default function DecisionIntake({ onImportDecisions }: DecisionIntakeProp
 
     try {
       const trimmedText = intakeMemo.trim();
-      const extractedCandidates: DecisionCandidate[] = [];
       let totalChars = 0;
       let wasTruncated = false;
+      let debugInfo: DecisionExtractDebug | null = null;
+      const collectedPages: PdfPageText[] = [];
 
       if (!trimmedText && intakeFiles.length === 0) {
         setError("Add PDFs or paste text to extract decisions.");
@@ -217,7 +275,7 @@ export default function DecisionIntake({ onImportDecisions }: DecisionIntakeProp
           wasTruncated = true;
           text = text.slice(0, MAX_CLIENT_TEXT_CHARS);
         }
-        extractedCandidates.push(...extractDecisionCandidatesFromText(text));
+        collectedPages.push({ fileName: "Pasted text", pageNumber: 1, text });
         totalChars += text.length;
       }
 
@@ -278,10 +336,19 @@ export default function DecisionIntake({ onImportDecisions }: DecisionIntakeProp
           .filter((page) => page.text);
 
         totalChars += charsUsed;
-        extractedCandidates.push(...extractDecisionCandidatesFromPages(limitedPages));
+        collectedPages.push(...limitedPages);
 
         if (wasTruncated) break;
       }
+
+      if (collectedPages.length === 0) {
+        setError("No decisions found. Try adding clearer decision language.");
+        setIsParsing(false);
+        return;
+      }
+
+      const { candidates: extractedCandidates, debug } = extractDecisionCandidatesFromPages(collectedPages);
+      debugInfo = debug;
 
       if (extractedCandidates.length === 0) {
         setError("No decisions found. Try adding clearer decision language.");
@@ -295,27 +362,19 @@ export default function DecisionIntake({ onImportDecisions }: DecisionIntakeProp
         );
       }
 
-      let finalCandidates = extractedCandidates;
-      const payload = buildApiPayload(extractedCandidates);
-      if (payload.length > 0) {
-        try {
-          const response = await fetch("/api/decision-candidates", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ sentences: payload }),
-          });
-          if (response.ok) {
-            const data = (await response.json()) as { candidates?: ApiDecisionCandidate[] };
-            if (data.candidates && data.candidates.length > 0) {
-              finalCandidates = mapApiCandidates(payload, data.candidates);
-            }
-          }
-        } catch (apiError) {
-          console.error("Decision refinement failed", apiError);
-        }
+      setCandidatesAll(extractedCandidates);
+      setCandidatesKeptIds(new Set());
+      setExpandedDecisions({});
+      setExpandedSources({});
+
+      if (process.env.NODE_ENV !== "production" && debugInfo) {
+        console.debug("Decision extraction debug", {
+          ...debugInfo,
+          candidatesRendered: Math.min(candidateLimit, extractedCandidates.length),
+        });
       }
 
-      setDecisions(finalCandidates);
+      void refineCandidatesInBackground(extractedCandidates);
     } catch (caughtError) {
       const message = caughtError instanceof Error ? caughtError.message : "Extraction failed.";
       console.error("Decision extraction failed", caughtError);
@@ -324,7 +383,7 @@ export default function DecisionIntake({ onImportDecisions }: DecisionIntakeProp
       setIsParsing(false);
       setParseProgress([]);
     }
-  }, [buildApiPayload, intakeFiles, intakeMemo, mapApiCandidates]);
+  }, [candidateLimit, intakeFiles, intakeMemo, refineCandidatesInBackground]);
 
   const toggleExpandedDecision = useCallback((id: string) => {
     setExpandedDecisions((prev) => ({ ...prev, [id]: !prev[id] }));
@@ -338,7 +397,8 @@ export default function DecisionIntake({ onImportDecisions }: DecisionIntakeProp
     setIntakeFiles([]);
     setIntakeMemo("");
     setParseProgress([]);
-    setDecisions([]);
+    setCandidatesAll([]);
+    setCandidatesKeptIds(new Set());
     setExpandedDecisions({});
     setExpandedSources({});
     setWarning(null);
@@ -347,7 +407,8 @@ export default function DecisionIntake({ onImportDecisions }: DecisionIntakeProp
   }, []);
 
   const handleClearCandidates = useCallback(() => {
-    setDecisions([]);
+    setCandidatesAll([]);
+    setCandidatesKeptIds(new Set());
     setExpandedDecisions({});
     setExpandedSources({});
     setShowAllCandidates(false);
@@ -356,12 +417,13 @@ export default function DecisionIntake({ onImportDecisions }: DecisionIntakeProp
   const handleAddToSession = useCallback(() => {
     if (!onImportDecisions || keptCandidates.length === 0) return;
     onImportDecisions(keptCandidates);
-    setDecisions((prev) =>
+    setCandidatesAll((prev) =>
       prev.map((decision) =>
-        decision.keep ? { ...decision, keep: false, imported: true } : decision,
+        candidatesKeptIds.has(decision.id) ? { ...decision, imported: true } : decision,
       ),
     );
-  }, [keptCandidates, onImportDecisions]);
+    setCandidatesKeptIds(new Set());
+  }, [candidatesKeptIds, keptCandidates, onImportDecisions]);
 
   return (
     <section className="mt-6 space-y-4">
@@ -439,16 +501,23 @@ export default function DecisionIntake({ onImportDecisions }: DecisionIntakeProp
                   )}
                 </div>
               </div>
-              {isParsing && parseProgress.length > 0 ? (
+              {isParsing && intakeFiles.length > 0 ? (
                 <div className="space-y-1 text-[11px] text-muted-foreground">
-                  {parseProgress.map((progress) => (
-                    <div key={progress.fileName} className="flex items-center gap-2">
+                  {parseProgress.length > 0 ? (
+                    parseProgress.map((progress) => (
+                      <div key={progress.fileName} className="flex items-center gap-2">
+                        <Loader2 className="size-3 animate-spin text-muted-foreground" />
+                        <span>
+                          Reading pages… {progress.fileName} (p {progress.page}/{progress.total})
+                        </span>
+                      </div>
+                    ))
+                  ) : (
+                    <div className="flex items-center gap-2">
                       <Loader2 className="size-3 animate-spin text-muted-foreground" />
-                      <span>
-                        Reading pages… {progress.fileName} (p {progress.page}/{progress.total})
-                      </span>
+                      <span>Parsing PDFs…</span>
                     </div>
-                  ))}
+                  )}
                 </div>
               ) : null}
             </div>
@@ -504,7 +573,7 @@ export default function DecisionIntake({ onImportDecisions }: DecisionIntakeProp
         </div>
       </Card>
 
-      {decisions.length > 0 ? (
+      {candidatesAll.length > 0 ? (
         <div className="space-y-3">
           <div className="sticky top-4 z-10 flex flex-wrap items-center justify-between gap-3 rounded-lg border border-border/60 bg-background/95 px-4 py-3 shadow-sm backdrop-blur">
             <div className="space-y-1">
@@ -608,7 +677,7 @@ export default function DecisionIntake({ onImportDecisions }: DecisionIntakeProp
                     <div className="flex flex-col items-center gap-1 text-[10px] text-muted-foreground">
                       <span>Keep</span>
                       <Switch
-                        checked={decision.keep}
+                        checked={candidatesKeptIds.has(decision.id)}
                         onCheckedChange={(checked) => toggleDecisionKeep(decision.id, checked)}
                         disabled={decision.imported}
                       />
@@ -617,7 +686,7 @@ export default function DecisionIntake({ onImportDecisions }: DecisionIntakeProp
                 </div>
               );
             })}
-            {decisions.length > candidateLimit ? (
+            {candidatesAll.length > candidateLimit ? (
               <div className="flex justify-center">
                 <Button
                   variant="outline"
@@ -625,7 +694,9 @@ export default function DecisionIntake({ onImportDecisions }: DecisionIntakeProp
                   className="h-8 px-3 text-[11px] font-semibold uppercase tracking-wide"
                   onClick={() => setShowAllCandidates((prev) => !prev)}
                 >
-                  {showAllCandidates ? "Show top 80" : `Show ${decisions.length - candidateLimit} more`}
+                  {showAllCandidates
+                    ? `Show top ${candidateLimit}`
+                    : `Show ${candidatesAll.length - candidateLimit} more`}
                 </Button>
               </div>
             ) : null}

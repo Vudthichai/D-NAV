@@ -43,7 +43,7 @@ export const segmentDecisionCandidates = (
           if (!chunk) continue;
           segments.push({
             text: chunk,
-            rawExcerpt: chunk,
+            rawExcerpt: line,
             fileName: page.fileName,
             pageNumber: page.pageNumber,
             isRepeatedLine,

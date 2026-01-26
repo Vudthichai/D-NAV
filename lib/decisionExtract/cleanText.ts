@@ -64,6 +64,11 @@ const normalizeWhitespace = (value: string) => value.replace(/\s+/g, " ").trim()
 const containsCommitmentVerb = (value: string) =>
   COMMITMENT_VERBS.some((verb) => value.toLowerCase().includes(verb));
 
+const TIMELINE_REGEX =
+  /\b(20\d{2}|q[1-4]|by end of|by end|this year|later this year|next quarter|next year|by|during|within|by [a-z]+)\b/i;
+
+const hasTimelineCue = (value: string) => TIMELINE_REGEX.test(value);
+
 const isPageNumberLine = (value: string) => /^\s*(page\s*\d+|\d+)\s*$/i.test(value);
 
 const isTableLikeLine = (value: string) => {
@@ -135,7 +140,11 @@ export const cleanPdfPages = (pages: PdfPageText[]): CleanedPage[] => {
       .filter(Boolean)
       .filter((line) => !shouldDropHeaderFooter(line, repeatedLines))
       .filter((line) => !shouldDropBoilerplate(line))
-      .filter((line) => !isTableLikeLine(line));
+      .filter((line) => {
+        if (!isTableLikeLine(line)) return true;
+        const lowered = line.toLowerCase();
+        return containsCommitmentVerb(lowered) && hasTimelineCue(lowered);
+      });
 
     return {
       fileName: page.fileName,

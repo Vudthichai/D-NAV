@@ -1,36 +1,30 @@
 import OpenAI from "openai";
 import { NextResponse } from "next/server";
 
-type SentencePayload = {
-  sourceId: string;
-  fileName?: string;
-  page?: number;
-  sentence: string;
-};
-
-type ApiDecisionCandidate = {
+type DecisionPayload = {
   id: string;
   decision: string;
-  rationale?: string;
-  source: {
+  evidence: string;
+  source?: {
     fileName?: string;
     page?: number;
-    sourceId: string;
   };
-  extractConfidence: number;
+};
+
+type ApiRefinedCandidate = {
+  id: string;
+  rewrittenDecision: string;
+  reasonKeep?: string;
+  mergedFromIds?: string[];
+};
+
+type ApiRefinementResponse = {
+  kept_candidates?: ApiRefinedCandidate[];
+  drop_ids?: string[];
+  notes?: string;
 };
 
 const MODEL = process.env.OPENAI_MODEL ?? "gpt-4o-mini";
-
-const hashString = (value: string) => {
-  let hash = 5381;
-  for (let index = 0; index < value.length; index += 1) {
-    hash = (hash * 33) ^ value.charCodeAt(index);
-  }
-  return (hash >>> 0).toString(36);
-};
-
-const clamp = (value: number, min = 0, max = 1) => Math.min(max, Math.max(min, value));
 
 const extractJson = (content: string) => {
   const match = content.match(/\{[\s\S]*\}/);
@@ -48,33 +42,33 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "OpenAI API key not configured." }, { status: 500 });
   }
 
-  let sentences: SentencePayload[] = [];
+  let candidates: DecisionPayload[] = [];
   try {
-    const body = (await request.json()) as { sentences?: SentencePayload[] };
-    sentences = Array.isArray(body.sentences) ? body.sentences : [];
+    const body = (await request.json()) as { candidates?: DecisionPayload[] };
+    candidates = Array.isArray(body.candidates) ? body.candidates : [];
   } catch (error) {
     return NextResponse.json({ error: "Invalid JSON payload." }, { status: 400 });
   }
 
-  if (sentences.length === 0) {
-    return NextResponse.json({ error: "No sentences provided." }, { status: 400 });
+  if (candidates.length === 0) {
+    return NextResponse.json({ error: "No candidates provided." }, { status: 400 });
   }
 
   const client = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 
   const systemPrompt = [
-    "You distill decision statements from source sentences.",
-    "Only include committed intent under constraint.",
-    "Prefer action + object + timing.",
+    "You refine decision candidates into crisp decision statements.",
+    "Only keep committed intent under constraint (action + object + timing/constraint).",
     "Rewrite into active voice starting with a verb (Begin / Launch / Expand / Commission / Prepare / Invest).",
-    "Reject hedged fluff ('may', 'could', 'depends on factors') unless still a planned action.",
-    "Merge duplicates, keep best phrasing, preserve source citations.",
+    "Drop vague or hedged fluff ('may', 'could', 'depends on factors') unless still a planned action.",
+    "Merge duplicates, keep best phrasing, and reference merged ids.",
+    "You MUST use only the ids provided in the input list.",
     "Return ONLY JSON with this schema:",
-    "{ \"candidates\": [{ \"id\": \"string\", \"decision\": \"string\", \"rationale\": \"string?\", \"source\": { \"fileName\": \"string?\", \"page\": number?, \"sourceId\": \"string\" }, \"extractConfidence\": number }] }",
-    "Return 25-60 items. No extra keys, no markdown.",
+    "{ \"kept_candidates\": [{ \"id\": \"string\", \"rewrittenDecision\": \"string\", \"reasonKeep\": \"string?\", \"mergedFromIds\": [\"string\"]? }], \"drop_ids\": [\"string\"], \"notes\": \"string?\" }",
+    "Keep roughly 40-80% of items unless nearly all are strong. No extra keys, no markdown.",
   ].join(" ");
 
-  const userPrompt = `Source sentences JSON:\n${JSON.stringify(sentences, null, 2)}`;
+  const userPrompt = `Decision candidates JSON:\n${JSON.stringify(candidates, null, 2)}`;
 
   const completion = await client.chat.completions.create({
     model: MODEL,
@@ -86,40 +80,40 @@ export async function POST(request: Request) {
   });
 
   const content = completion.choices[0]?.message?.content ?? "";
-  const parsed = extractJson(content) as { candidates?: ApiDecisionCandidate[] } | null;
-  if (!parsed?.candidates || !Array.isArray(parsed.candidates)) {
+  const parsed = extractJson(content) as ApiRefinementResponse | null;
+  if (!parsed) {
     return NextResponse.json({ error: "Invalid AI response." }, { status: 502 });
   }
 
-  const cleaned = parsed.candidates
-    .map((candidate) => {
-      const decision = typeof candidate.decision === "string" ? candidate.decision.trim() : "";
-      const source = candidate.source ?? ({} as ApiDecisionCandidate["source"]);
-      const sourceId = typeof source.sourceId === "string" ? source.sourceId : "";
-      const fileName = typeof source.fileName === "string" ? source.fileName : undefined;
-      const page = typeof source.page === "number" ? source.page : undefined;
-      if (!decision || !sourceId) return null;
-      const rationale = typeof candidate.rationale === "string" ? candidate.rationale.trim() : undefined;
-      const confidence =
-        typeof candidate.extractConfidence === "number" ? clamp(candidate.extractConfidence) : 0.6;
-      const id =
-        typeof candidate.id === "string" && candidate.id
-          ? candidate.id
-          : `decision-${hashString(`${decision}-${sourceId}-${fileName ?? ""}-${page ?? ""}`)}`;
+  const allowedIds = new Set(candidates.map((candidate) => candidate.id));
 
+  const kept = Array.isArray(parsed.kept_candidates) ? parsed.kept_candidates : [];
+  const cleanedKept = kept
+    .map((candidate) => {
+      const id = typeof candidate.id === "string" ? candidate.id : "";
+      const rewrittenDecision =
+        typeof candidate.rewrittenDecision === "string" ? candidate.rewrittenDecision.trim() : "";
+      if (!id || !rewrittenDecision || !allowedIds.has(id)) return null;
+      const reasonKeep = typeof candidate.reasonKeep === "string" ? candidate.reasonKeep.trim() : undefined;
+      const mergedFromIds = Array.isArray(candidate.mergedFromIds)
+        ? candidate.mergedFromIds.filter((mergeId) => allowedIds.has(mergeId))
+        : undefined;
       return {
         id,
-        decision,
-        rationale,
-        source: {
-          fileName,
-          page,
-          sourceId,
-        },
-        extractConfidence: confidence,
-      } satisfies ApiDecisionCandidate;
+        rewrittenDecision,
+        reasonKeep,
+        mergedFromIds,
+      } satisfies ApiRefinedCandidate;
     })
-    .filter(Boolean) as ApiDecisionCandidate[];
+    .filter(Boolean) as ApiRefinedCandidate[];
 
-  return NextResponse.json({ candidates: cleaned.slice(0, 60) });
+  const dropIds = Array.isArray(parsed.drop_ids)
+    ? parsed.drop_ids.filter((id) => typeof id === "string" && allowedIds.has(id))
+    : [];
+
+  return NextResponse.json({
+    kept_candidates: cleanedKept,
+    drop_ids: dropIds,
+    notes: typeof parsed.notes === "string" ? parsed.notes : undefined,
+  });
 }
