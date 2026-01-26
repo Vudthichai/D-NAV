@@ -1,5 +1,6 @@
 import OpenAI from "openai";
 import { NextResponse } from "next/server";
+import * as parsePdf from "pdf-parse";
 import { extractPdfTextByPage } from "@/lib/pdf/extractPdfText";
 import type { PdfPageText } from "@/lib/decisionExtract/cleanText";
 import type { DecisionCandidate, DecisionSource } from "@/lib/types/decision";
@@ -455,8 +456,9 @@ export async function POST(request: Request) {
       truncated = true;
       break;
     }
+    let buffer: ArrayBuffer | null = null;
     try {
-      const buffer = await file.arrayBuffer();
+      buffer = await file.arrayBuffer();
       const pageTexts = await extractPdfTextByPage(buffer);
       for (const page of pageTexts) {
         if (pages.length >= MAX_PAGES) {
@@ -476,6 +478,24 @@ export async function POST(request: Request) {
         totalChars += slice.length;
       }
     } catch (error) {
+      if (buffer) {
+        try {
+          const parser = new parsePdf.PDFParse({ data: Buffer.from(buffer) });
+          const parsed = await parser.getText();
+          await parser.destroy();
+          const parsedText = parsed.text?.trim();
+          if (parsedText) {
+            const remaining = Math.max(0, MAX_TOTAL_CHARS - totalChars);
+            const slice = parsedText.slice(0, remaining);
+            if (slice.length < parsedText.length) truncated = true;
+            pages.push({ fileName: file.name, pageNumber: 1, text: slice });
+            totalChars += slice.length;
+            continue;
+          }
+        } catch (parseError) {
+          console.error("PDF parse fallback failed", parseError);
+        }
+      }
       console.error("PDF extraction failed", error);
       return NextResponse.json(
         { error: "PDF extraction failed", details: "We could not read one of the uploaded PDFs." },
