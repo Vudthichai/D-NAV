@@ -281,18 +281,23 @@ export default function DecisionIntake({ onImportDecisions }: DecisionIntakeProp
       });
 
       let payload: IntakeResponse | null = null;
+      let parseFailed = false;
       try {
         payload = (await response.json()) as IntakeResponse;
       } catch (parseError) {
+        parseFailed = true;
         console.error("Failed to parse decision intake response.", parseError);
       }
       if (!response.ok) {
+        if (parseFailed || !payload) {
+          setError(`Decision extraction failed. Status ${response.status}.`);
+          return;
+        }
         const fallbackMessage = "Decision extraction failed.";
         const message = payload?.error?.message?.trim() || fallbackMessage;
-        const errorParts = [message, `Status ${response.status}`];
-        if (payload?.error?.step) errorParts.push(`Step: ${payload.error.step}`);
-        if (payload?.errorId) errorParts.push(`Error ID: ${payload.errorId}`);
-        setError(errorParts.join(" • "));
+        const errorId = payload?.errorId ?? "unknown";
+        const step = payload?.error?.step ?? "unknown";
+        setError(`${message} • Error ID: ${errorId} • Step: ${step}`);
         return;
       }
 
