@@ -21,10 +21,34 @@ interface ExtractedPage {
 
 interface DecisionCandidate {
   id: string;
-  decision: string;
-  evidence: string;
-  pageNumber: number;
-  strength: "high" | "medium" | "low";
+  title: string;
+  type: "commitment" | "plan" | "policy" | "tradeoff" | "risk" | "unknown";
+  category: "Operations" | "Finance" | "Product" | "Hiring" | "Legal" | "Strategy" | "Other";
+  summary: string;
+  evidence: Array<{ page: number; quote: string }>;
+  constraints: {
+    impact?: string;
+    cost?: string;
+    risk?: string;
+    urgency?: string;
+    confidence?: string;
+  };
+  dnScore?: { impact: number; cost: number; risk: number; urgency: number; confidence: number };
+  openQuestions: string[];
+}
+
+interface DecisionExtractSuccessResponse {
+  ok: true;
+  docId: string;
+  stats: { pages: number; totalChars: number; candidates: number };
+  decisions: DecisionCandidate[];
+}
+
+interface DecisionExtractErrorResponse {
+  ok: false;
+  step: string;
+  message: string;
+  details?: unknown;
 }
 
 interface SessionDecision {
@@ -73,6 +97,9 @@ export default function StressTestPage() {
   const [sessionExtractedDecisions, setSessionExtractedDecisions] = useState<DecisionCandidate[]>([]);
   const [extractWarnings, setExtractWarnings] = useState<string[]>([]);
   const [extractError, setExtractError] = useState<string | null>(null);
+  const [apiStatus, setApiStatus] = useState<{ state: "loading" | "online" | "error"; message?: string }>({
+    state: "loading",
+  });
   const [isReadingPdf, setIsReadingPdf] = useState(false);
   const [isExtracting, setIsExtracting] = useState(false);
   const [sessionDecisions, setSessionDecisions] = useState<SessionDecision[]>(() => {
@@ -104,6 +131,37 @@ export default function StressTestPage() {
       console.error("Failed to persist stress test session decisions.", error);
     }
   }, [sessionDecisions]);
+
+  useEffect(() => {
+    let isMounted = true;
+    const checkApi = async () => {
+      try {
+        const response = await fetch("/api/decision-extract");
+        const data = (await response.json().catch(() => null)) as
+          | DecisionExtractSuccessResponse
+          | DecisionExtractErrorResponse
+          | null;
+        if (!isMounted) return;
+        if (response.ok && data && "ok" in data && data.ok) {
+          setApiStatus({ state: "online" });
+        } else {
+          const message =
+            data && "ok" in data && !data.ok
+              ? data.message
+              : `HTTP ${response.status} ${response.statusText || "error"}`;
+          setApiStatus({ state: "error", message });
+        }
+      } catch (error) {
+        if (!isMounted) return;
+        console.error("Decision extract API status check failed.", error);
+        setApiStatus({ state: "error", message: "Network error" });
+      }
+    };
+    checkApi();
+    return () => {
+      isMounted = false;
+    };
+  }, []);
 
   const handleSaveSessionDecision = useCallback((decision: StressTestDecisionSnapshot) => {
     const title = decision.name?.trim() || "Untitled decision";
@@ -438,20 +496,24 @@ export default function StressTestPage() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          fileName: selectedFileName,
-          pages: extractedPages,
+          docId: selectedFileName ?? undefined,
+          pages: extractedPages.map((page) => ({ page: page.pageNumber, text: page.text })),
         }),
       });
-      if (!response.ok) {
-        const fallbackText = await response.text();
-        throw new Error(fallbackText || "Decision extraction failed.");
+      const data = (await response.json().catch(() => null)) as
+        | DecisionExtractSuccessResponse
+        | DecisionExtractErrorResponse
+        | null;
+      if (!response.ok || !data || !("ok" in data) || !data.ok) {
+        const message =
+          data && "ok" in data && !data.ok ? data.message : "Decision extraction failed.";
+        throw new Error(message);
       }
-      const data = (await response.json()) as { candidates?: DecisionCandidate[]; warnings?: string[] };
-      setDecisionCandidates(Array.isArray(data.candidates) ? data.candidates : []);
-      setExtractWarnings(Array.isArray(data.warnings) ? data.warnings : []);
+      setDecisionCandidates(Array.isArray(data.decisions) ? data.decisions : []);
     } catch (error) {
       console.error("Decision extraction error.", error);
-      setExtractError("Decision extraction failed. Please try again.");
+      const message = error instanceof Error ? error.message : "Decision extraction failed.";
+      setExtractError(message);
     } finally {
       setIsExtracting(false);
     }
@@ -794,6 +856,13 @@ export default function StressTestPage() {
                   <p className="text-[11px] text-muted-foreground">
                     Sends {pagesRead} pages to /api/decision-extract for a deterministic two-pass analysis.
                   </p>
+                  <p className="text-[11px] text-muted-foreground">
+                    {apiStatus.state === "online"
+                      ? "API: online"
+                      : apiStatus.state === "error"
+                        ? `API: ${apiStatus.message ?? "error"}`
+                        : "API: checking…"}
+                  </p>
                 </div>
 
                 {extractWarnings.length > 0 ? (
@@ -825,14 +894,19 @@ export default function StressTestPage() {
                         >
                           <div className="flex flex-wrap items-start justify-between gap-2">
                             <div className="space-y-1">
-                              <p className="text-sm font-semibold text-foreground">{candidate.decision}</p>
-                              <p className="text-[11px] text-muted-foreground">p. {candidate.pageNumber}</p>
+                              <p className="text-sm font-semibold text-foreground">{candidate.title}</p>
+                              <p className="text-[11px] text-muted-foreground">
+                                {candidate.evidence[0]?.page ? `p. ${candidate.evidence[0].page}` : "Page n/a"}
+                              </p>
                             </div>
                             <span className="rounded-full border border-border/50 bg-background px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-foreground">
-                              {candidate.strength}
+                              {candidate.type}
                             </span>
                           </div>
-                          <p className="mt-2 text-[11px] text-muted-foreground">{candidate.evidence}</p>
+                          <p className="mt-2 text-[11px] text-muted-foreground">{candidate.summary}</p>
+                          {candidate.evidence[0]?.quote ? (
+                            <p className="mt-2 text-[11px] text-muted-foreground">“{candidate.evidence[0].quote}”</p>
+                          ) : null}
                           <div className="mt-2">
                             <Button
                               type="button"
