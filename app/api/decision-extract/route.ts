@@ -1,88 +1,54 @@
 import OpenAI from "openai";
-import type { ChatCompletionMessageParam } from "openai/resources/chat/completions";
 import { createHash } from "crypto";
+import { z } from "zod";
+import type { ChatCompletionMessageParam } from "openai/resources/chat/completions";
 
-const MAX_PAGES = 30;
+export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
+
 const MAX_TOTAL_CHARS = 250_000;
 const CHUNK_CHAR_LIMIT = 12_000;
-const MAX_CANDIDATES = 40;
 
-interface PagePayload {
-  pageNumber: number;
-  text: string;
-}
+const pageSchema = z.object({
+  page: z.number().int().positive(),
+  text: z.string().min(1, "Page text must not be empty."),
+});
 
-interface DecisionExtractRequest {
-  fileName: string | null;
-  pages: PagePayload[];
-}
+const requestSchema = z.object({
+  docId: z.string().optional(),
+  pages: z.array(pageSchema).min(1, "At least one page is required."),
+});
 
-interface CandidateDraft {
-  decision: string;
-  evidence: string;
-  pageNumber: number;
-}
+type RequestPayload = z.infer<typeof requestSchema>;
 
-interface CandidateFinal extends CandidateDraft {
-  strength: "high" | "medium" | "low";
-}
+type DecisionEvidence = { page: number; quote: string };
 
-const isPagePayload = (value: unknown): value is PagePayload => {
-  if (!value || typeof value !== "object") return false;
-  const candidate = value as Partial<PagePayload>;
-  return typeof candidate.pageNumber === "number" && typeof candidate.text === "string";
+type CandidateDraft = {
+  title: string;
+  summary: string;
+  evidence: DecisionEvidence[];
 };
 
-const normalizeRequest = (body: unknown) => {
-  const warnings: string[] = [];
-  const payload = body as Partial<DecisionExtractRequest>;
-  const fileName = typeof payload?.fileName === "string" ? payload.fileName : null;
-  const rawPages = Array.isArray(payload?.pages) ? payload.pages.filter(isPagePayload) : [];
-
-  if (rawPages.length > MAX_PAGES) {
-    warnings.push(`Only the first ${MAX_PAGES} pages were processed.`);
-  }
-
-  const trimmedPages = rawPages.slice(0, MAX_PAGES);
-  const limitedPages: PagePayload[] = [];
-  let remainingChars = MAX_TOTAL_CHARS;
-
-  for (const page of trimmedPages) {
-    if (remainingChars <= 0) break;
-    const text = page.text.slice(0, remainingChars);
-    if (text.length < page.text.length) {
-      warnings.push(`Page ${page.pageNumber} was truncated to fit the character budget.`);
-    }
-    remainingChars -= text.length;
-    limitedPages.push({ pageNumber: page.pageNumber, text });
-  }
-
-  if (remainingChars <= 0) {
-    warnings.push(`Total text exceeded ${MAX_TOTAL_CHARS.toLocaleString()} characters.`);
-  }
-
-  return { fileName, pages: limitedPages, warnings };
+type DecisionResponse = {
+  id: string;
+  title: string;
+  type: "commitment" | "plan" | "policy" | "tradeoff" | "risk" | "unknown";
+  category: "Operations" | "Finance" | "Product" | "Hiring" | "Legal" | "Strategy" | "Other";
+  summary: string;
+  evidence: DecisionEvidence[];
+  constraints: {
+    impact?: string;
+    cost?: string;
+    risk?: string;
+    urgency?: string;
+    confidence?: string;
+  };
+  dnScore?: { impact: number; cost: number; risk: number; urgency: number; confidence: number };
+  openQuestions: string[];
 };
 
-const chunkPages = (pages: PagePayload[]) => {
-  const chunks: string[] = [];
-  let current = "";
-
-  pages.forEach((page) => {
-    const header = `=== Page ${page.pageNumber} ===\n${page.text.trim()}\n`;
-    if (current.length + header.length > CHUNK_CHAR_LIMIT && current.length > 0) {
-      chunks.push(current.trim());
-      current = "";
-    }
-    current += `${header}\n`;
-  });
-
-  if (current.trim().length > 0) {
-    chunks.push(current.trim());
-  }
-
-  return chunks;
-};
+const errorResponse = (status: number, step: string, message: string, details?: unknown) =>
+  Response.json({ ok: false, step, message, details }, { status });
 
 const parseJsonObject = (value: string): unknown => {
   try {
@@ -100,86 +66,166 @@ const parseJsonObject = (value: string): unknown => {
   }
 };
 
-const toCandidateDrafts = (value: unknown): CandidateDraft[] => {
-  if (!value || typeof value !== "object") return [];
-  const payload = value as { candidates?: unknown };
-  if (!Array.isArray(payload.candidates)) return [];
-  return payload.candidates.flatMap((item) => {
-    if (!item || typeof item !== "object") return [];
-    const candidate = item as Partial<CandidateDraft>;
-    const decision = typeof candidate.decision === "string" ? candidate.decision.trim() : "";
-    const evidence = typeof candidate.evidence === "string" ? candidate.evidence.trim() : "";
-    const pageNumber = typeof candidate.pageNumber === "number" ? candidate.pageNumber : Number(candidate.pageNumber);
-    if (!decision || !evidence || !Number.isFinite(pageNumber)) return [];
-    return [{ decision, evidence, pageNumber }];
+const chunkPages = (pages: RequestPayload["pages"]) => {
+  const chunks: string[] = [];
+  let current = "";
+
+  pages.forEach((page) => {
+    const header = `=== Page ${page.page} ===\n${page.text.trim()}\n`;
+    if (current.length + header.length > CHUNK_CHAR_LIMIT && current.length > 0) {
+      chunks.push(current.trim());
+      current = "";
+    }
+    current += `${header}\n`;
   });
+
+  if (current.trim().length > 0) {
+    chunks.push(current.trim());
+  }
+
+  return chunks;
 };
 
-const toCandidateFinals = (value: unknown): CandidateFinal[] => {
-  if (!value || typeof value !== "object") return [];
-  const payload = value as { candidates?: unknown };
-  if (!Array.isArray(payload.candidates)) return [];
-  return payload.candidates.flatMap((item) => {
-    if (!item || typeof item !== "object") return [];
-    const candidate = item as Partial<CandidateFinal>;
-    const decision = typeof candidate.decision === "string" ? candidate.decision.trim() : "";
-    const evidence = typeof candidate.evidence === "string" ? candidate.evidence.trim() : "";
-    const pageNumber = typeof candidate.pageNumber === "number" ? candidate.pageNumber : Number(candidate.pageNumber);
-    const strength =
-      candidate.strength === "high" || candidate.strength === "medium" || candidate.strength === "low"
-        ? candidate.strength
-        : null;
-    if (!decision || !evidence || !Number.isFinite(pageNumber) || !strength) return [];
-    return [{ decision, evidence, pageNumber, strength }];
-  });
-};
+const candidateDraftSchema = z.object({
+  title: z.string().min(1),
+  summary: z.string().min(1),
+  evidence: z
+    .array(
+      z.object({
+        page: z.number(),
+        quote: z.string().min(1),
+      }),
+    )
+    .min(1),
+});
 
-const createDecisionId = (candidate: CandidateFinal) => {
+const candidateDraftsSchema = z.object({
+  candidates: z.array(candidateDraftSchema),
+});
+
+const decisionSchema = z.object({
+  title: z.string().min(1),
+  type: z.enum(["commitment", "plan", "policy", "tradeoff", "risk", "unknown"]),
+  category: z.enum(["Operations", "Finance", "Product", "Hiring", "Legal", "Strategy", "Other"]),
+  summary: z.string().min(1),
+  evidence: z
+    .array(
+      z.object({
+        page: z.number(),
+        quote: z.string().min(1),
+      }),
+    )
+    .min(1),
+  constraints: z
+    .object({
+      impact: z.string().optional(),
+      cost: z.string().optional(),
+      risk: z.string().optional(),
+      urgency: z.string().optional(),
+      confidence: z.string().optional(),
+    })
+    .default({}),
+  dnScore: z
+    .object({
+      impact: z.number(),
+      cost: z.number(),
+      risk: z.number(),
+      urgency: z.number(),
+      confidence: z.number(),
+    })
+    .optional(),
+  openQuestions: z.array(z.string()).default([]),
+});
+
+const decisionResponseSchema = z.object({
+  decisions: z.array(decisionSchema),
+});
+
+const getTotalChars = (pages: RequestPayload["pages"]) =>
+  pages.reduce((total, page) => total + page.text.length, 0);
+
+const createDocId = (docId: string | undefined, pages: RequestPayload["pages"]) => {
+  if (docId?.trim()) return docId;
   const hash = createHash("sha256")
-    .update(`${candidate.decision}|${candidate.pageNumber}|${candidate.evidence}`)
+    .update(pages.map((page) => `${page.page}:${page.text}`).join("|"))
+    .digest("hex")
+    .slice(0, 16);
+  return `doc_${hash}`;
+};
+
+const createDecisionId = (decision: Omit<DecisionResponse, "id">) => {
+  const hash = createHash("sha256")
+    .update(`${decision.title}|${decision.summary}|${JSON.stringify(decision.evidence)}`)
     .digest("hex")
     .slice(0, 12);
   return `dec_${hash}`;
 };
 
+export async function GET() {
+  return Response.json({ ok: true, route: "decision-extract", methods: ["GET", "POST"] }, { status: 200 });
+}
+
 export async function POST(request: Request) {
   if (!process.env.OPENAI_API_KEY) {
-    return Response.json({ error: "OPENAI_API_KEY is not set." }, { status: 500 });
+    return errorResponse(500, "env", "OPENAI_API_KEY missing");
   }
 
   let body: unknown;
   try {
     body = await request.json();
   } catch {
-    return Response.json({ error: "Invalid JSON payload." }, { status: 400 });
+    return errorResponse(400, "parse", "Invalid JSON payload.");
   }
 
-  const { fileName, pages, warnings } = normalizeRequest(body);
-  if (pages.length === 0) {
-    return Response.json({ error: "No pages provided.", warnings }, { status: 400 });
+  const parsed = requestSchema.safeParse(body);
+  if (!parsed.success) {
+    return errorResponse(400, "validation", "Request body failed validation.", parsed.error.flatten());
   }
 
+  const totalChars = getTotalChars(parsed.data.pages);
+  if (totalChars > MAX_TOTAL_CHARS) {
+    return errorResponse(
+      400,
+      "validation",
+      `Total text exceeds ${MAX_TOTAL_CHARS.toLocaleString()} characters.`,
+      { totalChars },
+    );
+  }
+
+  const docId = createDocId(parsed.data.docId, parsed.data.pages);
   const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
   const model = process.env.OPENAI_MODEL ?? "gpt-4o-mini";
-  const passACandidates: CandidateDraft[] = [];
-  const chunks = chunkPages(pages);
 
-  const systemMessage = `You extract decision candidates from documents.
-A decision candidate is an explicit commitment under constraint: an intended action + object + (timing/constraint when present). Prefer verb-first phrasing.
+  const pass1System = `You extract decision candidates from documents.
+A decision candidate is an explicit commitment under constraint: an intended action + object + (timing/constraint when present).
 Return JSON only.`;
+
+  const pass1Candidates: CandidateDraft[] = [];
+  const chunks = chunkPages(parsed.data.pages);
 
   for (const chunk of chunks) {
     const messages: ChatCompletionMessageParam[] = [
-      { role: "system", content: systemMessage },
+      { role: "system", content: pass1System },
       {
         role: "user",
         content: `Extract decision candidates from the text below.
-Respond with JSON only in this schema:
+Return JSON only in this schema:
 {
   "candidates": [
-    { "decision": "string", "evidence": "string", "pageNumber": number }
+    {
+      "title": "string",
+      "summary": "string",
+      "evidence": [
+        { "page": number, "quote": "string" }
+      ]
+    }
   ]
 }
+
+Rules:
+- Every candidate must include at least one evidence quote.
+- Evidence quotes must be copied verbatim from the page text.
+- Evidence must include the correct page number from the headers.
 
 Text:
 ${chunk}`,
@@ -194,42 +240,73 @@ ${chunk}`,
     });
 
     const content = response.choices[0]?.message?.content ?? "";
-    const parsed = parseJsonObject(content);
-    const candidates = toCandidateDrafts(parsed);
-    if (candidates.length === 0) {
-      warnings.push("A chunk returned no usable candidates.");
-      continue;
+    const parsedJson = parseJsonObject(content);
+    const candidateResult = candidateDraftsSchema.safeParse(parsedJson);
+    if (candidateResult.success) {
+      pass1Candidates.push(...candidateResult.data.candidates);
     }
-    passACandidates.push(...candidates);
   }
 
-  if (passACandidates.length === 0) {
-    return Response.json({ candidates: [], warnings: [...warnings, "No candidates were extracted."] }, { status: 200 });
+  if (pass1Candidates.length === 0) {
+    return Response.json(
+      {
+        ok: true,
+        docId,
+        stats: { pages: parsed.data.pages.length, totalChars, candidates: 0 },
+        decisions: [],
+      },
+      { status: 200 },
+    );
   }
+
+  const pass2System = `You normalize decision candidates into final decisions.
+Return JSON only.`;
 
   const refinementMessages: ChatCompletionMessageParam[] = [
-    { role: "system", content: systemMessage },
+    { role: "system", content: pass2System },
     {
       role: "user",
-      content: `Refine the decision candidates below.
+      content: `Normalize, dedupe, and enrich the decision candidates below.
 Tasks:
-- Dedupe near-duplicates.
-- Rewrite decisions to be verb-first commitments.
-- Drop fluff.
-- Assign strength based on:
-  - high: explicit commitment language (will/plan/approved/scheduled/committed) + a date/number/clear constraint
-  - medium: explicit intent but constraint is vague
-  - low: implied intent / strategic language / weak commitment
+- Merge near-duplicates.
+- Keep decisions verb-first and concrete.
+- Assign type and category.
+- Summarize constraints in plain language.
+- Provide confidence scores only if the evidence supports them.
+- Always include openQuestions (empty array if none).
 
 Return JSON only in this schema:
 {
-  "candidates": [
-    { "decision": "string", "evidence": "string", "pageNumber": number, "strength": "high|medium|low" }
+  "decisions": [
+    {
+      "title": "string",
+      "type": "commitment|plan|policy|tradeoff|risk|unknown",
+      "category": "Operations|Finance|Product|Hiring|Legal|Strategy|Other",
+      "summary": "string",
+      "evidence": [
+        { "page": number, "quote": "string" }
+      ],
+      "constraints": {
+        "impact": "string (optional)",
+        "cost": "string (optional)",
+        "risk": "string (optional)",
+        "urgency": "string (optional)",
+        "confidence": "string (optional)"
+      },
+      "dnScore": {
+        "impact": number,
+        "cost": number,
+        "risk": number,
+        "urgency": number,
+        "confidence": number
+      },
+      "openQuestions": ["string"]
+    }
   ]
 }
 
 Candidates:
-${JSON.stringify({ fileName, candidates: passACandidates })}`,
+${JSON.stringify({ docId, candidates: pass1Candidates })}`,
     },
   ];
 
@@ -242,16 +319,26 @@ ${JSON.stringify({ fileName, candidates: passACandidates })}`,
 
   const refinementContent = refinementResponse.choices[0]?.message?.content ?? "";
   const refinementParsed = parseJsonObject(refinementContent);
-  const refinedCandidates = toCandidateFinals(refinementParsed).slice(0, MAX_CANDIDATES);
-  const responseCandidates = refinedCandidates.map((candidate) => ({
-    ...candidate,
-    id: createDecisionId(candidate),
+  const decisionsParsed = decisionResponseSchema.safeParse(refinementParsed);
+
+  if (!decisionsParsed.success) {
+    return errorResponse(500, "parse", "Failed to parse model output.", decisionsParsed.error.flatten());
+  }
+
+  const decisions: DecisionResponse[] = decisionsParsed.data.decisions.map((decision) => ({
+    ...decision,
+    constraints: decision.constraints ?? {},
+    openQuestions: decision.openQuestions ?? [],
+    id: createDecisionId(decision),
   }));
 
-  const responseBody = warnings.length > 0 ? { candidates: responseCandidates, warnings } : { candidates: responseCandidates };
-  return Response.json(responseBody, { status: 200 });
-}
-
-export async function GET() {
-  return Response.json({ error: "Method not allowed." }, { status: 405 });
+  return Response.json(
+    {
+      ok: true,
+      docId,
+      stats: { pages: parsed.data.pages.length, totalChars, candidates: pass1Candidates.length },
+      decisions,
+    },
+    { status: 200 },
+  );
 }
