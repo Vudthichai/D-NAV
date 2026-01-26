@@ -23,11 +23,27 @@ interface ExtractedPage {
 interface DecisionCandidate {
   id: string;
   title: string;
-  type: "decision" | "constraint" | "assumption";
-  category: "Operations" | "Finance" | "Product" | "Hiring" | "Legal" | "Strategy" | "Other";
-  signal: { impact: number; cost: number; risk: number; urgency: number; confidence: number };
-  evidence: { page: number; quote: string };
-  notes: string;
+  strength: "hard" | "soft";
+  category:
+    | "Operations"
+    | "Finance"
+    | "Product"
+    | "Hiring"
+    | "Legal"
+    | "Strategy"
+    | "Sales/Go-to-market"
+    | "Other";
+  decision: string;
+  rationale: string;
+  constraints: {
+    impact: { score: number; evidence: string };
+    cost: { score: number; evidence: string };
+    risk: { score: number; evidence: string };
+    urgency: { score: number; evidence: string };
+    confidence: { score: number; evidence: string };
+  };
+  evidence: { page: number; quote: string; locationHint?: string };
+  tags: string[];
 }
 
 interface DecisionExtractSuccessResponse {
@@ -42,13 +58,6 @@ interface DecisionExtractErrorResponse {
   message?: string;
   totalChars?: number;
   limit?: number;
-}
-
-interface DecisionExtractStatusResponse {
-  ok: true;
-  route: string;
-  methods: string[];
-  timestamp: string;
 }
 
 interface SessionDecision {
@@ -137,12 +146,9 @@ export default function StressTestPage() {
     const checkApi = async () => {
       try {
         const response = await fetch("/api/decision-extract");
-        const data = (await response.json().catch(() => null)) as
-          | DecisionExtractStatusResponse
-          | DecisionExtractErrorResponse
-          | null;
+        const data = (await response.json().catch(() => null)) as DecisionExtractErrorResponse | null;
         if (!isMounted) return;
-        if (response.ok && data && "ok" in data && data.ok) {
+        if (response.status === 405) {
           setApiStatus({ state: "online" });
         } else {
           const message =
@@ -916,10 +922,11 @@ export default function StressTestPage() {
                               </p>
                             </div>
                             <span className="rounded-full border border-border/50 bg-background px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-foreground">
-                              {candidate.type}
+                              {candidate.strength}
                             </span>
                           </div>
-                          <p className="mt-2 text-[11px] text-muted-foreground">{candidate.notes}</p>
+                          <p className="mt-2 text-[11px] text-muted-foreground">{candidate.decision}</p>
+                          <p className="mt-1 text-[11px] text-muted-foreground">{candidate.rationale}</p>
                           {candidate.evidence.quote ? (
                             <p className="mt-2 text-[11px] text-muted-foreground">“{candidate.evidence.quote}”</p>
                           ) : null}
