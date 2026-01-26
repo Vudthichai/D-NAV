@@ -1,4 +1,5 @@
 import OpenAI from "openai";
+import pdfParse from "pdf-parse";
 import { NextResponse } from "next/server";
 import { extractPdfTextByPage } from "@/lib/pdf/extractPdfText";
 import type { PdfPageText } from "@/lib/decisionExtract/cleanText";
@@ -35,7 +36,7 @@ const CHUNK_CHAR_LIMIT = 12_000;
 const CHUNK_PAGE_LIMIT = 2;
 const MAX_CANDIDATES_PER_CHUNK = 30;
 const MAX_TOTAL_CHARS = 500_000;
-const MAX_CHUNKS = 8;
+const MAX_CHUNKS = 6;
 const MAX_PAGES = 20;
 const OPENAI_TIMEOUT_MS = 18_000;
 const CHUNK_CONCURRENCY = 2;
@@ -122,17 +123,19 @@ const truncateSnippet = (value: string, limit = 200) => {
   return `${sliced.slice(0, lastSpace > 60 ? lastSpace : limit).trim()}…`;
 };
 
-const withTimeout = async <T,>(promise: Promise<T>, ms: number) => {
+const withTimeout = async <T,>(task: (signal?: AbortSignal) => Promise<T>, ms: number) => {
   let timeoutId: NodeJS.Timeout | undefined;
+  const controller = typeof AbortController !== "undefined" ? new AbortController() : null;
   const timeout = new Promise<T>((_, reject) => {
     timeoutId = setTimeout(() => {
+      controller?.abort();
       const error = new Error(`Operation timed out after ${ms}ms`);
       error.name = "TimeoutError";
       reject(error);
     }, ms);
   });
   try {
-    return await Promise.race([promise, timeout]);
+    return await Promise.race([task(controller?.signal), timeout]);
   } finally {
     if (timeoutId) clearTimeout(timeoutId);
   }
@@ -300,6 +303,18 @@ const parseJson = (content: string) => {
   }
 };
 
+const parsePdfFallback = async (arrayBuffer: ArrayBuffer) => {
+  const data = await pdfParse(Buffer.from(arrayBuffer));
+  const rawText = data.text?.trim() ?? "";
+  if (!rawText) return [];
+  const pages = rawText
+    .split(/\f/g)
+    .map((page) => page.trim())
+    .filter(Boolean);
+  const normalizedPages = pages.length > 0 ? pages : [rawText];
+  return normalizedPages.map((text, index) => ({ pageNumber: index + 1, text }));
+};
+
 const extractCandidatesFromChunk = async (
   client: OpenAI,
   chunk: { fileName: string; pages: PdfPageText[]; text: string },
@@ -324,15 +339,17 @@ const extractCandidatesFromChunk = async (
 
   try {
     const completion = await withTimeout(
-      client.chat.completions.create({
-        model: MODEL,
-        temperature: 0.1,
-        response_format: { type: "json_object" },
-        messages: [
-          { role: "system", content: systemPrompt },
-          { role: "user", content: userPrompt },
-        ],
-      }),
+      (signal) =>
+        client.chat.completions.create({
+          model: MODEL,
+          temperature: 0.1,
+          response_format: { type: "json_object" },
+          messages: [
+            { role: "system", content: systemPrompt },
+            { role: "user", content: userPrompt },
+          ],
+          signal,
+        }),
       OPENAI_TIMEOUT_MS,
     );
 
@@ -405,171 +422,227 @@ const buildDecisionCandidate = (
 };
 
 export async function POST(request: Request) {
-  if (!process.env.OPENAI_API_KEY) {
-    return NextResponse.json({ error: "OpenAI API key not configured." }, { status: 500 });
-  }
-
-  const formData = await request.formData();
-  const memoKeys = ["memo", "text", "content"];
-  const fileKeys = ["files", "file", "pdf", "pdfs", "documents"];
-  const memo =
-    memoKeys
-      .map((key) => formData.get(key))
-      .find((value) => typeof value === "string")?.toString() ?? "";
-  const files = fileKeys.flatMap((key) =>
-    formData.getAll(key).filter((item): item is File => item instanceof File),
-  );
-  const filesByKey = new Map<string, File>();
-  for (const file of files) {
-    const dedupeKey = `${file.name}-${file.size}-${file.lastModified}`;
-    if (!filesByKey.has(dedupeKey)) filesByKey.set(dedupeKey, file);
-  }
-  const uniqueFiles = [...filesByKey.values()];
-
-  if (!memo.trim() && uniqueFiles.length === 0) {
-    return NextResponse.json(
-      {
-        error: "Add PDFs or paste text to extract decisions.",
-        hint: "Expected multipart form-data with keys memo/text/content and files/file/pdf/pdfs/documents.",
-      },
-      { status: 400 },
-    );
-  }
-
-  const pages: PdfPageText[] = [];
-  let totalChars = 0;
-  let truncated = false;
-  let pageLimitReached = false;
-
-  if (memo.trim()) {
-    const text = memo.trim();
-    const remaining = Math.max(0, MAX_TOTAL_CHARS - totalChars);
-    const slice = text.slice(0, remaining);
-    if (slice.length < text.length) truncated = true;
-    pages.push({ fileName: "Pasted text", pageNumber: 1, text: slice });
-    totalChars += slice.length;
-  }
-
-  for (const file of uniqueFiles) {
-    if (totalChars >= MAX_TOTAL_CHARS) {
-      truncated = true;
-      break;
+  try {
+    if (!process.env.OPENAI_API_KEY) {
+      return NextResponse.json({ error: "OpenAI API key not configured." }, { status: 500 });
     }
-    try {
-      const buffer = await file.arrayBuffer();
-      const pageTexts = await extractPdfTextByPage(buffer);
-      for (const page of pageTexts) {
-        if (pages.length >= MAX_PAGES) {
-          pageLimitReached = true;
-          break;
-        }
-        if (totalChars >= MAX_TOTAL_CHARS) {
-          truncated = true;
-          break;
-        }
-        const text = page.text.trim();
-        if (!text) continue;
-        const remaining = Math.max(0, MAX_TOTAL_CHARS - totalChars);
-        const slice = text.slice(0, remaining);
-        if (slice.length < text.length) truncated = true;
-        pages.push({ ...page, fileName: file.name, text: slice });
-        totalChars += slice.length;
-      }
-    } catch (error) {
-      console.error("PDF extraction failed", error);
+
+    const formData = await request.formData();
+    const memoKeys = ["memo", "text", "content"];
+    const fileKeys = ["files", "file", "pdf", "pdfs", "documents"];
+    const memo =
+      memoKeys
+        .map((key) => formData.get(key))
+        .find((value) => typeof value === "string")?.toString() ?? "";
+    const files = fileKeys.flatMap((key) =>
+      formData.getAll(key).filter((item): item is File => item instanceof File),
+    );
+    const filesByKey = new Map<string, File>();
+    for (const file of files) {
+      const dedupeKey = `${file.name}-${file.size}-${file.lastModified}`;
+      if (!filesByKey.has(dedupeKey)) filesByKey.set(dedupeKey, file);
+    }
+    const uniqueFiles = [...filesByKey.values()];
+
+    if (!memo.trim() && uniqueFiles.length === 0) {
       return NextResponse.json(
-        { error: "PDF extraction failed", details: "We could not read one of the uploaded PDFs." },
-        { status: 500 },
+        {
+          error: "Add PDFs or paste text to extract decisions.",
+          hint: "Expected multipart form-data with keys memo/text/content and files/file/pdf/pdfs/documents.",
+        },
+        { status: 400 },
       );
     }
-    if (pageLimitReached) break;
-  }
 
-  if (pages.length === 0) {
-    return NextResponse.json({ error: "No readable text found in the uploads." }, { status: 400 });
-  }
+    const pages: PdfPageText[] = [];
+    const warnings: string[] = [];
+    let totalChars = 0;
+    let truncated = false;
+    let pageLimitReached = false;
 
-  const chunks = buildChunks(pages);
-  const warnings: string[] = [];
-  if (chunks.length > MAX_CHUNKS) {
-    warnings.push(
-      `Processed first ${MAX_CHUNKS} chunks for speed. Upload a smaller excerpt or paste key sections for full coverage.`,
-    );
-  }
-  if (pageLimitReached) {
-    warnings.push(
-      `Processed only the first ${MAX_PAGES} pages to keep extraction fast. Upload fewer pages for full coverage.`,
-    );
-  }
-  const client = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
-
-  const rawCandidates: DecisionPayload[] = [];
-  const collected: DecisionCandidate[] = [];
-  const debugNotes: string[] = [];
-  const chunksToProcess = chunks.slice(0, MAX_CHUNKS);
-  const chunkResults = await runWithConcurrency(chunksToProcess, CHUNK_CONCURRENCY, async (chunk) =>
-    extractCandidatesFromChunk(client, chunk),
-  );
-  chunkResults.forEach((result, index) => {
-    if (result.warning) warnings.push(result.warning);
-    if (result.debugNote) debugNotes.push(`Chunk ${index + 1}: ${result.debugNote}`);
-    const chunk = chunksToProcess[index];
-    const chunkCandidates = result.candidates ?? [];
-    rawCandidates.push(...chunkCandidates.map((candidate) => ({ ...candidate, source: candidate.source ?? {} })));
-    for (const candidate of chunkCandidates) {
-      const built = buildDecisionCandidate(candidate, chunk);
-      if (built) collected.push(built);
+    if (memo.trim()) {
+      const text = memo.trim();
+      const remaining = Math.max(0, MAX_TOTAL_CHARS - totalChars);
+      const slice = text.slice(0, remaining);
+      if (slice.length < text.length) truncated = true;
+      pages.push({ fileName: "Pasted text", pageNumber: 1, text: slice });
+      totalChars += slice.length;
     }
-  });
 
-  const deduped = new Map<string, DecisionCandidate>();
-  for (const candidate of collected) {
-    const key = normalizeDecisionKey(candidate.decision);
-    const existing = deduped.get(key);
-    if (!existing) {
-      deduped.set(key, candidate);
-      continue;
-    }
-    const mergedSources = mergeSources(existing.sources, candidate.sources);
-    const winner = candidate.qualityScore >= existing.qualityScore ? candidate : existing;
-    deduped.set(key, { ...winner, sources: mergedSources });
-  }
-
-  const finalCandidates = [...deduped.values()];
-
-  const response: ExtractResponse = {
-    candidates: finalCandidates,
-    warning: [
-      truncated
-        ? `We analyzed only the first ${MAX_TOTAL_CHARS.toLocaleString()} characters to keep extraction fast.`
-        : null,
-      ...warnings,
-    ]
-      .filter(Boolean)
-      .join(" ")
-      .trim() || undefined,
-    debug:
-      process.env.NODE_ENV !== "production"
-        ? {
-            pagesExtracted: pages.length,
-            totalChars,
-            chunks: chunks.length,
-            candidatesExtracted: rawCandidates.length,
-            candidatesAfterQuality: finalCandidates.length,
-            notes: debugNotes.length > 0 ? debugNotes : undefined,
+    for (const file of uniqueFiles) {
+      if (totalChars >= MAX_TOTAL_CHARS) {
+        truncated = true;
+        break;
+      }
+      const errorId = `pdf-${Date.now()}-${Math.random().toString(16).slice(2, 8)}`;
+      try {
+        const buffer = await file.arrayBuffer();
+        let pageTexts: PdfPageText[];
+        try {
+          pageTexts = await extractPdfTextByPage(buffer);
+        } catch (extractError) {
+          console.error("PDF extraction failed", {
+            errorId,
+            fileName: file.name,
+            message: extractError instanceof Error ? extractError.message : String(extractError),
+            stack: extractError instanceof Error ? extractError.stack : undefined,
+          });
+          pageTexts = await parsePdfFallback(buffer);
+          if (pageTexts.length > 0) {
+            warnings.push(`Used fallback PDF parser for ${file.name}.`);
           }
-        : undefined,
-  };
+        }
 
-  if (process.env.NODE_ENV !== "production") {
-    console.debug("Stress Test intake", {
-      pagesExtracted: pages.length,
-      totalChars,
-      chunks: chunks.length,
-      candidatesExtracted: rawCandidates.length,
-      candidatesAfterQuality: finalCandidates.length,
+        if (pageTexts.length === 0) {
+          return NextResponse.json(
+            { error: "PDF extraction failed", fileName: file.name, errorId },
+            { status: 400 },
+          );
+        }
+
+        for (const page of pageTexts) {
+          if (pages.length >= MAX_PAGES) {
+            pageLimitReached = true;
+            break;
+          }
+          if (totalChars >= MAX_TOTAL_CHARS) {
+            truncated = true;
+            break;
+          }
+          const text = page.text.trim();
+          if (!text) continue;
+          const remaining = Math.max(0, MAX_TOTAL_CHARS - totalChars);
+          const slice = text.slice(0, remaining);
+          if (slice.length < text.length) truncated = true;
+          pages.push({ ...page, fileName: file.name, text: slice });
+          totalChars += slice.length;
+        }
+      } catch (error) {
+        console.error("PDF extraction failed", {
+          errorId,
+          fileName: file.name,
+          message: error instanceof Error ? error.message : String(error),
+          stack: error instanceof Error ? error.stack : undefined,
+        });
+        return NextResponse.json(
+          {
+            error: "PDF extraction failed",
+            fileName: file.name,
+            errorId,
+          },
+          { status: 400 },
+        );
+      }
+      if (pageLimitReached) break;
+    }
+
+    if (pages.length === 0) {
+      return NextResponse.json({ error: "No readable text found in the uploads." }, { status: 400 });
+    }
+
+    const chunks = buildChunks(pages);
+    if (chunks.length > MAX_CHUNKS) {
+      warnings.push(
+        `Processed first ${MAX_CHUNKS} chunks for speed. Upload a smaller excerpt or paste key sections for full coverage.`,
+      );
+    }
+    if (pageLimitReached) {
+      warnings.push(
+        `Processed only the first ${MAX_PAGES} pages to keep extraction fast. Upload fewer pages for full coverage.`,
+      );
+    }
+    const client = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+
+    const rawCandidates: DecisionPayload[] = [];
+    const collected: DecisionCandidate[] = [];
+    const debugNotes: string[] = [];
+    const chunksToProcess = chunks.slice(0, MAX_CHUNKS);
+    const chunkResults = await runWithConcurrency(chunksToProcess, CHUNK_CONCURRENCY, async (chunk) =>
+      extractCandidatesFromChunk(client, chunk),
+    );
+    chunkResults.forEach((result, index) => {
+      if (result.warning) warnings.push(result.warning);
+      if (result.debugNote) debugNotes.push(`Chunk ${index + 1}: ${result.debugNote}`);
+      const chunk = chunksToProcess[index];
+      const chunkCandidates = result.candidates ?? [];
+      rawCandidates.push(...chunkCandidates.map((candidate) => ({ ...candidate, source: candidate.source ?? {} })));
+      for (const candidate of chunkCandidates) {
+        const built = buildDecisionCandidate(candidate, chunk);
+        if (built) collected.push(built);
+      }
     });
-  }
 
-  return NextResponse.json(response);
+    const deduped = new Map<string, DecisionCandidate>();
+    for (const candidate of collected) {
+      const key = normalizeDecisionKey(candidate.decision);
+      const existing = deduped.get(key);
+      if (!existing) {
+        deduped.set(key, candidate);
+        continue;
+      }
+      const mergedSources = mergeSources(existing.sources, candidate.sources);
+      const winner = candidate.qualityScore >= existing.qualityScore ? candidate : existing;
+      deduped.set(key, { ...winner, sources: mergedSources });
+    }
+
+    const finalCandidates = [...deduped.values()];
+
+    const response: ExtractResponse = {
+      candidates: finalCandidates,
+      warning: [
+        truncated
+          ? `We analyzed only the first ${MAX_TOTAL_CHARS.toLocaleString()} characters to keep extraction fast.`
+          : null,
+        ...warnings,
+      ]
+        .filter(Boolean)
+        .join(" ")
+        .trim() || undefined,
+      debug:
+        process.env.NODE_ENV !== "production"
+          ? {
+              pagesExtracted: pages.length,
+              totalChars,
+              chunks: chunks.length,
+              candidatesExtracted: rawCandidates.length,
+              candidatesAfterQuality: finalCandidates.length,
+              notes: debugNotes.length > 0 ? debugNotes : undefined,
+            }
+          : undefined,
+    };
+
+    if (process.env.NODE_ENV !== "production") {
+      console.debug("Stress Test intake", {
+        pagesExtracted: pages.length,
+        totalChars,
+        chunks: chunks.length,
+        candidatesExtracted: rawCandidates.length,
+        candidatesAfterQuality: finalCandidates.length,
+      });
+    }
+
+    return NextResponse.json(response);
+  } catch (error) {
+    const errorId = `intake-${Date.now()}-${Math.random().toString(16).slice(2, 8)}`;
+    console.error("Stress test intake failed", {
+      errorId,
+      message: error instanceof Error ? error.message : String(error),
+      stack: error instanceof Error ? error.stack : undefined,
+      name: error instanceof Error ? error.name : undefined,
+      cause: error instanceof Error ? error.cause : undefined,
+    });
+    return NextResponse.json(
+      {
+        error: "Internal Error",
+        errorId,
+        details:
+          process.env.NODE_ENV !== "production"
+            ? error instanceof Error
+              ? error.message
+              : String(error)
+            : undefined,
+      },
+      { status: 500 },
+    );
+  }
 }

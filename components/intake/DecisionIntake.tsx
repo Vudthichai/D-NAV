@@ -60,6 +60,8 @@ type IntakeResponse = {
     notes?: string[];
   };
   error?: string;
+  errorId?: string;
+  details?: string;
 };
 
 export default function DecisionIntake({ onImportDecisions }: DecisionIntakeProps) {
@@ -285,9 +287,10 @@ export default function DecisionIntake({ onImportDecisions }: DecisionIntakeProp
         }
       }
       if (!response.ok) {
-        const errorMessage =
+        const baseMessage =
           typeof payload?.error === "string" ? payload.error : responseText || "Decision extraction failed.";
-        setError(errorMessage);
+        const errorIdText = payload?.errorId ? ` (Error ID: ${payload.errorId})` : "";
+        setError(`${baseMessage}${errorIdText}`);
         return;
       }
 
