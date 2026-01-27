@@ -108,6 +108,7 @@ export default function StressTestPage() {
   const [decisionCandidates, setDecisionCandidates] = useState<LocalDecisionCandidate[]>([]);
   const [sessionExtractedDecisions, setSessionExtractedDecisions] = useState<LocalDecisionCandidate[]>([]);
   const [extractError, setExtractError] = useState<string | null>(null);
+  const [extractNotice, setExtractNotice] = useState<string | null>(null);
   const [isReadingPdf, setIsReadingPdf] = useState(false);
   const [isExtracting, setIsExtracting] = useState(false);
   const [dismissedIds, setDismissedIds] = useState<Set<string>>(new Set());
@@ -469,6 +470,7 @@ export default function StressTestPage() {
     setDecisionCandidates([]);
     setSessionExtractedDecisions([]);
     setExtractError(null);
+    setExtractNotice(null);
     setShowAllCandidates(false);
     if (!file) return;
     if (file.type !== "application/pdf") {
@@ -520,19 +522,21 @@ export default function StressTestPage() {
     }
   }, []);
 
-  const runLocalExtract = useCallback(() => {
+  const runLocalExtract = useCallback((notice?: string) => {
     const localCandidates = extractDecisionCandidates(
       extractedPages.map((page) => ({ page: page.pageNumber, text: page.text })),
     );
     setDecisionCandidates(localCandidates);
     setDismissedIds(new Set());
     setShowAllCandidates(false);
+    setExtractNotice(notice ?? null);
   }, [extractedPages]);
 
   const handleExtractDecisions = useCallback(async () => {
     if (extractedPages.length === 0 || isExtracting) return;
     setIsExtracting(true);
     setExtractError(null);
+    setExtractNotice(null);
     try {
       if (!SMART_EXTRACT_ENABLED) {
         runLocalExtract();
@@ -573,10 +577,10 @@ export default function StressTestPage() {
       setDecisionCandidates(mapped);
       setDismissedIds(new Set());
       setShowAllCandidates(false);
+      setExtractNotice(null);
     } catch (error) {
       console.error("Decision extraction error.", error);
-      const message = error instanceof Error ? error.message : "Decision extraction failed.";
-      setExtractError(message);
+      runLocalExtract("Extraction complete (standard scan).");
     } finally {
       setIsExtracting(false);
     }
@@ -723,10 +727,12 @@ export default function StressTestPage() {
     });
   }, []);
 
-  const handleDismissAll = useCallback(() => {
-    setDecisionCandidates([]);
-    setDismissedIds(new Set());
-    setShowAllCandidates(false);
+  const handleDismissAll = useCallback((candidates: LocalDecisionCandidate[]) => {
+    setDismissedIds((prev) => {
+      const next = new Set(prev);
+      candidates.forEach((candidate) => next.add(candidate.id));
+      return next;
+    });
   }, []);
 
   const handleOpenEditDialog = useCallback((decision: SessionDecision) => {
@@ -1097,13 +1103,11 @@ export default function StressTestPage() {
               <div className="space-y-2">
                 <div className="flex flex-wrap items-start justify-between gap-3">
                   <div>
-                    <h2 className="text-base font-semibold text-foreground">Decision Extract (V1)</h2>
+                    <h2 className="text-base font-semibold text-foreground">Decision Extract</h2>
                     <p className="text-xs text-muted-foreground">
-                      Upload a decision brief PDF to extract explicit commitments before moving into the Stress Test.
+                      Upload a PDF. We’ll pull out decision candidates (commitments, launches, build/ramp statements,
+                      planned actions).
                     </p>
-                  </div>
-                  <div className="text-right text-[11px] text-muted-foreground">
-                    <p>Client-side PDF parsing (pdf.js).</p>
                   </div>
                 </div>
 
@@ -1144,15 +1148,16 @@ export default function StressTestPage() {
                 {decisionCandidates.length > 0 ? (
                   <div className="space-y-3">
                     <div className="flex flex-wrap items-center justify-between gap-2">
-                      <div>
+                      <div className="space-y-1">
                         <p className="text-sm font-semibold text-foreground">
-                          Decisions detected <span className="text-muted-foreground">({filteredCandidates.length})</span>
-                        </p>
-                        <p className="text-[11px] text-muted-foreground">
+                          Decisions detected <span className="text-muted-foreground">({filteredCandidates.length})</span> •{" "}
                           {showAllCandidates
-                            ? "Showing all detected decisions."
+                            ? "Showing all picks."
                             : `Showing top ${Math.min(TOP_PICK_LIMIT, filteredCandidates.length)} picks.`}
                         </p>
+                        {extractNotice ? (
+                          <p className="text-[11px] text-muted-foreground">{extractNotice}</p>
+                        ) : null}
                       </div>
                       <div className="flex flex-wrap items-center gap-2">
                         <Button
@@ -1162,18 +1167,29 @@ export default function StressTestPage() {
                           onClick={() => handleAddMultiple(visibleCandidates)}
                           disabled={visibleCandidates.length === 0}
                         >
-                          Add all (shown)
+                          ADD ALL (SHOWN)
                         </Button>
                         <Button
                           type="button"
                           size="sm"
                           variant="outline"
                           className="h-8 px-3 text-[11px] font-semibold uppercase tracking-wide"
-                          onClick={handleDismissAll}
-                          disabled={filteredCandidates.length === 0}
+                          onClick={() => handleDismissAll(visibleCandidates)}
+                          disabled={visibleCandidates.length === 0}
                         >
-                          Dismiss all
+                          DISMISS ALL
                         </Button>
+                        {hasMoreCandidates ? (
+                          <Button
+                            type="button"
+                            size="sm"
+                            variant="ghost"
+                            className="h-8 px-3 text-[11px] font-semibold uppercase tracking-wide"
+                            onClick={() => setShowAllCandidates((prev) => !prev)}
+                          >
+                            {showAllCandidates ? "SHOW LESS" : "SHOW MORE"}
+                          </Button>
+                        ) : null}
                       </div>
                     </div>
 
@@ -1192,26 +1208,32 @@ export default function StressTestPage() {
                                   {candidate.page ? `p. ${candidate.page}` : "Page n/a"}
                                 </p>
                               </div>
-                              {isAdded ? (
-                                <span className="rounded-full border border-emerald-500/40 bg-emerald-500/10 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-emerald-700">
-                                  Added ✓
-                                </span>
-                              ) : null}
                             </div>
                             {candidate.quote ? (
                               <p className="mt-2 text-[11px] text-muted-foreground">“{candidate.quote}”</p>
                             ) : null}
                             <div className="mt-3 flex flex-wrap items-center gap-2">
-                              <Button
-                                type="button"
-                                size="sm"
-                                variant="outline"
-                                className="h-7 px-2 text-[11px] font-semibold uppercase tracking-wide"
-                                onClick={() => handleAddToSession(candidate)}
-                                disabled={isAdded}
-                              >
-                                {isAdded ? "Added" : "Add to session"}
-                              </Button>
+                              {isAdded ? (
+                                <Button
+                                  type="button"
+                                  size="sm"
+                                  variant="outline"
+                                  className="h-7 px-2 text-[11px] font-semibold uppercase tracking-wide"
+                                  disabled
+                                >
+                                  Added ✓
+                                </Button>
+                              ) : (
+                                <Button
+                                  type="button"
+                                  size="sm"
+                                  variant="outline"
+                                  className="h-7 px-2 text-[11px] font-semibold uppercase tracking-wide"
+                                  onClick={() => handleAddToSession(candidate)}
+                                >
+                                  Add to session
+                                </Button>
+                              )}
                               {isAdded ? (
                                 <Button
                                   type="button"
@@ -1238,19 +1260,6 @@ export default function StressTestPage() {
                       })}
                     </div>
 
-                    {hasMoreCandidates ? (
-                      <div className="flex justify-center">
-                        <Button
-                          type="button"
-                          size="sm"
-                          variant="ghost"
-                          className="h-7 px-2 text-[11px] font-semibold uppercase tracking-wide"
-                          onClick={() => setShowAllCandidates((prev) => !prev)}
-                        >
-                          {showAllCandidates ? "Show less" : "Show more"}
-                        </Button>
-                      </div>
-                    ) : null}
                   </div>
                 ) : null}
               </div>
