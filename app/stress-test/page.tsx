@@ -12,15 +12,8 @@ import { MetricDistribution, type MetricDistributionSegment } from "@/components
 import { getSessionActionInsight } from "@/lib/sessionActionInsight";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Switch } from "@/components/ui/switch";
-import {
-  extractDecisionCandidates,
-  type DecisionStrength,
-  type LocalDecisionCandidate,
-} from "@/lib/decisionExtractLocal";
+import { extractDecisionCandidates, type LocalDecisionCandidate } from "@/lib/decisionExtractLocal";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
-import { Checkbox } from "@/components/ui/checkbox";
 import Link from "next/link";
 import { type ChangeEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
 
@@ -92,17 +85,6 @@ interface SessionDecision {
 }
 
 const SESSION_DECISIONS_KEY = "dnav:stressTest:sessionDecisions";
-const THRESHOLD_PRESETS = {
-  strict: 4.5,
-  balanced: 3,
-  loose: 1.8,
-} as const;
-
-const GROUP_CAPS: Record<DecisionStrength, number> = {
-  hard: 12,
-  medium: 12,
-  soft: 8,
-};
 
 const isSessionDecisionSnapshot = (value: unknown): value is SessionDecision => {
   if (!value || typeof value !== "object") return false;
@@ -125,21 +107,11 @@ export default function StressTestPage() {
   const [totalChars, setTotalChars] = useState(0);
   const [decisionCandidates, setDecisionCandidates] = useState<LocalDecisionCandidate[]>([]);
   const [sessionExtractedDecisions, setSessionExtractedDecisions] = useState<LocalDecisionCandidate[]>([]);
-  const [extractWarnings, setExtractWarnings] = useState<string[]>([]);
   const [extractError, setExtractError] = useState<string | null>(null);
-  const [apiStatus, setApiStatus] = useState<{ state: "loading" | "online" | "error"; message?: string }>({
-    state: "loading",
-  });
   const [isReadingPdf, setIsReadingPdf] = useState(false);
   const [isExtracting, setIsExtracting] = useState(false);
-  const [extractMode, setExtractMode] = useState<"local" | "smart">("local");
-  const [showTables, setShowTables] = useState(false);
-  const [thresholdPreset, setThresholdPreset] = useState<"strict" | "balanced" | "loose">("balanced");
-  const [sortMode, setSortMode] = useState<"score" | "page">("score");
-  const [showLowScore, setShowLowScore] = useState(false);
   const [dismissedIds, setDismissedIds] = useState<Set<string>>(new Set());
-  const [selectedCandidateIds, setSelectedCandidateIds] = useState<Set<string>>(new Set());
-  const [expandedGroups, setExpandedGroups] = useState<Set<DecisionStrength>>(new Set());
+  const [showAllCandidates, setShowAllCandidates] = useState(false);
   const [toastNotice, setToastNotice] = useState<{
     message: string;
     actionLabel?: string;
@@ -192,16 +164,7 @@ export default function StressTestPage() {
     }
   }, [sessionDecisions]);
 
-  useEffect(() => {
-    if (apiStatus.state === "error" && extractMode === "smart") {
-      setExtractMode("local");
-      setExtractWarnings((prev) => {
-        const next = new Set(prev);
-        next.add("Smart extractor unavailable; quick scan stays local.");
-        return Array.from(next);
-      });
-    }
-  }, [apiStatus.state, extractMode]);
+  const SMART_EXTRACT_ENABLED = false;
 
   const mapApiCandidateToLocal = useCallback((candidate: DecisionCandidate): LocalDecisionCandidate => {
     const page = candidate.evidence?.page ?? 0;
@@ -221,35 +184,7 @@ export default function StressTestPage() {
     };
   }, []);
 
-  useEffect(() => {
-    let isMounted = true;
-    const checkApi = async () => {
-      try {
-        const response = await fetch("/api/decision-extract");
-        const data = (await response.json().catch(() => null)) as DecisionExtractErrorResponse | null;
-        if (!isMounted) return;
-        if (response.status === 405 && data && "error" in data && data.error === "Method not allowed.") {
-          setApiStatus({ state: "online" });
-        } else if (response.ok) {
-          setApiStatus({ state: "online" });
-        } else {
-          const message =
-            data && "error" in data
-              ? data.message || data.error
-              : `HTTP ${response.status} ${response.statusText || "error"}`;
-          setApiStatus({ state: "error", message });
-        }
-      } catch (error) {
-        if (!isMounted) return;
-        console.error("Decision extract API status check failed.", error);
-        setApiStatus({ state: "error", message: "Network error" });
-      }
-    };
-    checkApi();
-    return () => {
-      isMounted = false;
-    };
-  }, []);
+  const TOP_PICK_LIMIT = 15;
 
   const handleSaveSessionDecision = useCallback((decision: StressTestDecisionSnapshot) => {
     const title = decision.name?.trim() || "Untitled decision";
@@ -533,8 +468,8 @@ export default function StressTestPage() {
     setTotalChars(0);
     setDecisionCandidates([]);
     setSessionExtractedDecisions([]);
-    setExtractWarnings([]);
     setExtractError(null);
+    setShowAllCandidates(false);
     if (!file) return;
     if (file.type !== "application/pdf") {
       setExtractError("Please upload a PDF file.");
@@ -575,7 +510,7 @@ export default function StressTestPage() {
       setTotalChars(charCount);
       const emptyPages = pages.filter((page) => page.charCount === 0).length;
       if (pages.length > 0 && emptyPages / pages.length >= 0.5) {
-        setExtractWarnings(["This PDF appears image-based; quick scan needs selectable text."]);
+        setExtractError("This PDF appears image-based; quick scan needs selectable text.");
       }
     } catch (error) {
       console.error("Failed to read PDF.", error);
@@ -591,9 +526,7 @@ export default function StressTestPage() {
     );
     setDecisionCandidates(localCandidates);
     setDismissedIds(new Set());
-    setShowLowScore(false);
-    setSelectedCandidateIds(new Set());
-    setExpandedGroups(new Set());
+    setShowAllCandidates(false);
   }, [extractedPages]);
 
   const handleExtractDecisions = useCallback(async () => {
@@ -601,7 +534,7 @@ export default function StressTestPage() {
     setIsExtracting(true);
     setExtractError(null);
     try {
-      if (extractMode === "local") {
+      if (!SMART_EXTRACT_ENABLED) {
         runLocalExtract();
         return;
       }
@@ -639,26 +572,15 @@ export default function StressTestPage() {
       const mapped = Array.isArray(data.candidates) ? data.candidates.map(mapApiCandidateToLocal) : [];
       setDecisionCandidates(mapped);
       setDismissedIds(new Set());
-      setShowLowScore(false);
-      setSelectedCandidateIds(new Set());
-      setExpandedGroups(new Set());
+      setShowAllCandidates(false);
     } catch (error) {
       console.error("Decision extraction error.", error);
-      if (extractMode === "smart") {
-        runLocalExtract();
-        setExtractWarnings((prev) => {
-          const next = new Set(prev);
-          next.add("Smart extractor failed; showing quick scan results.");
-          return Array.from(next);
-        });
-      } else {
-        const message = error instanceof Error ? error.message : "Decision extraction failed.";
-        setExtractError(message);
-      }
+      const message = error instanceof Error ? error.message : "Decision extraction failed.";
+      setExtractError(message);
     } finally {
       setIsExtracting(false);
     }
-  }, [extractedPages, extractMode, isExtracting, mapApiCandidateToLocal, runLocalExtract, selectedFileName]);
+  }, [SMART_EXTRACT_ENABLED, extractedPages, isExtracting, mapApiCandidateToLocal, runLocalExtract, selectedFileName]);
 
   const scrollToDecision = useCallback((decisionId: string) => {
     const row = document.getElementById(`decision-row-${decisionId}`);
@@ -716,11 +638,6 @@ export default function StressTestPage() {
           onAction: () => scrollToDecision(decisionId),
         });
       }
-      setSelectedCandidateIds((prev) => {
-        const next = new Set(prev);
-        next.delete(candidate.id);
-        return next;
-      });
     },
     [scrollToDecision, selectedFileName],
   );
@@ -784,7 +701,6 @@ export default function StressTestPage() {
           onAction: () => (lastAdded ? scrollToDecision(lastAdded) : undefined),
         });
       }
-      setSelectedCandidateIds(new Set());
     },
     [scrollToDecision, selectedFileName],
   );
@@ -793,11 +709,6 @@ export default function StressTestPage() {
     setDismissedIds((prev) => {
       const next = new Set(prev);
       next.add(candidate.id);
-      return next;
-    });
-    setSelectedCandidateIds((prev) => {
-      const next = new Set(prev);
-      next.delete(candidate.id);
       return next;
     });
     setToastNotice({
@@ -812,16 +723,10 @@ export default function StressTestPage() {
     });
   }, []);
 
-  const handleToggleSelected = useCallback((candidateId: string, checked: boolean) => {
-    setSelectedCandidateIds((prev) => {
-      const next = new Set(prev);
-      if (checked) {
-        next.add(candidateId);
-      } else {
-        next.delete(candidateId);
-      }
-      return next;
-    });
+  const handleDismissAll = useCallback(() => {
+    setDecisionCandidates([]);
+    setDismissedIds(new Set());
+    setShowAllCandidates(false);
   }, []);
 
   const handleOpenEditDialog = useCallback((decision: SessionDecision) => {
@@ -860,69 +765,26 @@ export default function StressTestPage() {
     setEditDraft(null);
   }, [editDraft]);
 
-  const filteredCandidates = useMemo(() => {
-    return decisionCandidates.filter((candidate) => {
-      if (dismissedIds.has(candidate.id)) return false;
-      if (candidate.isBoilerplate) return false;
-      if (!showTables && (candidate.isTableLike || candidate.isKpiOnly)) return false;
-      return true;
+  const rankedCandidates = useMemo(() => {
+    return [...decisionCandidates].sort((a, b) => {
+      if (b.score !== a.score) return b.score - a.score;
+      if (a.page !== b.page) return a.page - b.page;
+      return a.title.localeCompare(b.title);
     });
-  }, [decisionCandidates, dismissedIds, showTables]);
+  }, [decisionCandidates]);
 
-  const threshold = THRESHOLD_PRESETS[thresholdPreset];
-  const hiddenCount = filteredCandidates.filter((candidate) => candidate.score < threshold).length;
+  const filteredCandidates = useMemo(() => {
+    return rankedCandidates.filter((candidate) => !dismissedIds.has(candidate.id));
+  }, [dismissedIds, rankedCandidates]);
 
   const visibleCandidates = useMemo(() => {
-    const candidates = showLowScore
-      ? filteredCandidates
-      : filteredCandidates.filter((candidate) => candidate.score >= threshold);
-    const sorted = [...candidates].sort((a, b) => {
-      if (sortMode === "page") return a.page - b.page;
-      if (b.score !== a.score) return b.score - a.score;
-      return a.page - b.page;
-    });
-    return sorted;
-  }, [filteredCandidates, showLowScore, threshold, sortMode]);
+    return showAllCandidates ? filteredCandidates : filteredCandidates.slice(0, TOP_PICK_LIMIT);
+  }, [filteredCandidates, showAllCandidates, TOP_PICK_LIMIT]);
 
   const addedIds = useMemo(() => {
     return new Set(sessionExtractedDecisions.map((candidate) => candidate.id));
   }, [sessionExtractedDecisions]);
-
-  const groupedCandidates = useMemo(() => {
-    const groups: Record<DecisionStrength, LocalDecisionCandidate[]> = {
-      hard: [],
-      medium: [],
-      soft: [],
-    };
-    visibleCandidates.forEach((candidate) => {
-      groups[candidate.strength].push(candidate);
-    });
-    (Object.keys(groups) as DecisionStrength[]).forEach((key) => {
-      groups[key].sort((a, b) => {
-        if (b.score !== a.score) return b.score - a.score;
-        return a.page - b.page;
-      });
-    });
-    return groups;
-  }, [visibleCandidates]);
-
-  const selectedCandidates = useMemo(() => {
-    return visibleCandidates.filter((candidate) => selectedCandidateIds.has(candidate.id));
-  }, [selectedCandidateIds, visibleCandidates]);
-
-  const handleAddSelected = useCallback(() => {
-    if (selectedCandidates.length === 0) return;
-    handleAddMultiple(selectedCandidates);
-  }, [handleAddMultiple, selectedCandidates]);
-
-  const topCandidates = useMemo(() => {
-    return [...filteredCandidates]
-      .sort((a, b) => {
-        if (b.score !== a.score) return b.score - a.score;
-        return a.page - b.page;
-      })
-      .slice(0, 10);
-  }, [filteredCandidates]);
+  const hasMoreCandidates = filteredCandidates.length > TOP_PICK_LIMIT;
 
   // TODO: Rebuild Decision Intake v2
   // Intake will be redesigned around the Decision Atom:
@@ -1242,7 +1104,6 @@ export default function StressTestPage() {
                   </div>
                   <div className="text-right text-[11px] text-muted-foreground">
                     <p>Client-side PDF parsing (pdf.js).</p>
-                    <p>Quick scan stays local; smart extract sends pages to the API.</p>
                   </div>
                 </div>
 
@@ -1278,299 +1139,118 @@ export default function StressTestPage() {
                   >
                     {isExtracting ? "Extracting…" : "Extract decisions"}
                   </Button>
-                  <div className="flex flex-wrap items-center gap-2 text-[11px] text-muted-foreground">
-                    <span className="font-semibold text-foreground">Mode:</span>
-                    <div className="flex items-center gap-1 rounded-full border border-border/50 bg-muted/10 p-1">
-                      <Button
-                        type="button"
-                        size="sm"
-                        variant={extractMode === "local" ? "default" : "ghost"}
-                        className="h-7 px-3 text-[11px] font-semibold uppercase tracking-wide"
-                        onClick={() => setExtractMode("local")}
-                      >
-                        Quick Scan (Local)
-                      </Button>
-                      <Button
-                        type="button"
-                        size="sm"
-                        variant={extractMode === "smart" ? "default" : "ghost"}
-                        className="h-7 px-3 text-[11px] font-semibold uppercase tracking-wide"
-                        onClick={() => setExtractMode("smart")}
-                        disabled={apiStatus.state === "error"}
-                      >
-                        Smart Extract (Beta)
-                      </Button>
-                    </div>
-                  </div>
-                  <p className="text-[11px] text-muted-foreground">
-                    {apiStatus.state === "online"
-                      ? "API: online"
-                      : apiStatus.state === "error"
-                        ? `API: ${apiStatus.message ?? "error"}`
-                        : "API: checking…"}
-                  </p>
                 </div>
-
-                {extractWarnings.length > 0 ? (
-                  <div className="rounded-lg border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-[11px] text-amber-700">
-                    <p className="font-semibold uppercase tracking-wide text-amber-800">Warnings</p>
-                    <ul className="mt-1 list-disc space-y-1 pl-4">
-                      {extractWarnings.map((warning) => (
-                        <li key={warning}>{warning}</li>
-                      ))}
-                    </ul>
-                  </div>
-                ) : null}
 
                 {decisionCandidates.length > 0 ? (
                   <div className="space-y-3">
                     <div className="flex flex-wrap items-center justify-between gap-2">
                       <div>
-                        <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                          Decision candidates
+                        <p className="text-sm font-semibold text-foreground">
+                          Decisions detected <span className="text-muted-foreground">({filteredCandidates.length})</span>
                         </p>
                         <p className="text-[11px] text-muted-foreground">
-                          Showing {visibleCandidates.length} of {filteredCandidates.length} (threshold{" "}
-                          {THRESHOLD_PRESETS[thresholdPreset].toFixed(1)})
+                          {showAllCandidates
+                            ? "Showing all detected decisions."
+                            : `Showing top ${Math.min(TOP_PICK_LIMIT, filteredCandidates.length)} picks.`}
                         </p>
                       </div>
-                      <p className="text-[11px] text-muted-foreground">
-                        Added to session: {sessionExtractedDecisions.length}
-                      </p>
-                    </div>
-
-                    <div className="flex flex-wrap items-center gap-3 rounded-lg border border-border/50 bg-muted/10 px-3 py-2 text-[11px] text-muted-foreground">
-                      <div className="flex items-center gap-2">
-                        <Switch checked={showTables} onCheckedChange={setShowTables} />
-                        <span>Show tables/KPIs</span>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <span className="font-semibold text-foreground">Sort:</span>
-                        <Select value={sortMode} onValueChange={(value) => setSortMode(value as "score" | "page")}>
-                          <SelectTrigger className="h-7 w-[170px] text-[11px]">
-                            <SelectValue />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="score">Most decision-like</SelectItem>
-                            <SelectItem value="page">Page order</SelectItem>
-                          </SelectContent>
-                        </Select>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <span className="font-semibold text-foreground">Threshold:</span>
-                        <div className="flex items-center gap-1">
-                          {(["strict", "balanced", "loose"] as const).map((preset) => (
-                            <Button
-                              key={preset}
-                              type="button"
-                              size="sm"
-                              variant={thresholdPreset === preset ? "default" : "ghost"}
-                              className="h-7 px-2 text-[10px] font-semibold uppercase tracking-wide"
-                              onClick={() => {
-                                setThresholdPreset(preset);
-                                setShowLowScore(false);
-                              }}
-                            >
-                              {preset}
-                            </Button>
-                          ))}
-                        </div>
-                      </div>
-                      {hiddenCount > 0 ? (
+                      <div className="flex flex-wrap items-center gap-2">
+                        <Button
+                          type="button"
+                          size="sm"
+                          className="h-8 px-3 text-[11px] font-semibold uppercase tracking-wide"
+                          onClick={() => handleAddMultiple(visibleCandidates)}
+                          disabled={visibleCandidates.length === 0}
+                        >
+                          Add all (shown)
+                        </Button>
                         <Button
                           type="button"
                           size="sm"
                           variant="outline"
-                          className="h-7 px-2 text-[10px] font-semibold uppercase tracking-wide"
-                          onClick={() => setShowLowScore((prev) => !prev)}
+                          className="h-8 px-3 text-[11px] font-semibold uppercase tracking-wide"
+                          onClick={handleDismissAll}
+                          disabled={filteredCandidates.length === 0}
                         >
-                          {showLowScore ? "Hide low-signal" : `Show more (+${hiddenCount})`}
+                          Dismiss all
                         </Button>
-                      ) : null}
+                      </div>
                     </div>
 
-                    <div className="flex flex-wrap items-center gap-2">
-                      <Button
-                        type="button"
-                        size="sm"
-                        className="h-7 px-3 text-[10px] font-semibold uppercase tracking-wide"
-                        onClick={handleAddSelected}
-                        disabled={selectedCandidates.length === 0}
-                      >
-                        Add selected ({selectedCandidates.length})
-                      </Button>
-                      <Button
-                        type="button"
-                        size="sm"
-                        variant="outline"
-                        className="h-7 px-3 text-[10px] font-semibold uppercase tracking-wide"
-                        onClick={() => handleAddMultiple(groupedCandidates.hard)}
-                        disabled={groupedCandidates.hard.length === 0}
-                      >
-                        Add All (Hard)
-                      </Button>
-                      <Button
-                        type="button"
-                        size="sm"
-                        variant="outline"
-                        className="h-7 px-3 text-[10px] font-semibold uppercase tracking-wide"
-                        onClick={() => handleAddMultiple(visibleCandidates)}
-                        disabled={visibleCandidates.length === 0}
-                      >
-                        Add All (Shown)
-                      </Button>
-                      <Button
-                        type="button"
-                        size="sm"
-                        variant="outline"
-                        className="h-7 px-3 text-[10px] font-semibold uppercase tracking-wide"
-                        onClick={() => handleAddMultiple(topCandidates)}
-                        disabled={topCandidates.length === 0}
-                      >
-                        Add All (Top 10)
-                      </Button>
-                    </div>
-
-                    <div className="space-y-4">
-                      {(
-                        [
-                          { key: "hard", label: "Executed / Locked" },
-                          { key: "medium", label: "Committed / Scheduled" },
-                          { key: "soft", label: "Strategic / Directional" },
-                        ] as { key: DecisionStrength; label: string }[]
-                      ).map((group) => {
-                        const grouped = groupedCandidates[group.key];
-                        if (grouped.length === 0) return null;
-                        const cap = GROUP_CAPS[group.key];
-                        const isExpanded = expandedGroups.has(group.key);
-                        const displayed = isExpanded ? grouped : grouped.slice(0, cap);
-                        const hidden = grouped.length - displayed.length;
+                    <div className="space-y-2">
+                      {visibleCandidates.map((candidate) => {
+                        const isAdded = addedIds.has(candidate.id);
                         return (
-                          <div key={group.key} className="space-y-2">
-                            <div className="flex flex-wrap items-center justify-between gap-2 text-[11px] text-muted-foreground">
-                              <div className="flex flex-wrap items-center gap-2">
-                                <p className="font-semibold uppercase tracking-wide text-foreground">{group.label}</p>
-                                <span>{grouped.length} found</span>
+                          <div
+                            key={candidate.id}
+                            className="rounded-lg border border-border/60 bg-muted/10 px-3 py-3 text-xs text-muted-foreground"
+                          >
+                            <div className="flex flex-wrap items-start justify-between gap-2">
+                              <div className="space-y-1">
+                                <p className="text-sm font-semibold text-foreground">{candidate.title}</p>
+                                <p className="text-[11px] text-muted-foreground">
+                                  {candidate.page ? `p. ${candidate.page}` : "Page n/a"}
+                                </p>
                               </div>
-                              <div className="flex flex-wrap items-center gap-2">
+                              {isAdded ? (
+                                <span className="rounded-full border border-emerald-500/40 bg-emerald-500/10 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-emerald-700">
+                                  Added ✓
+                                </span>
+                              ) : null}
+                            </div>
+                            {candidate.quote ? (
+                              <p className="mt-2 text-[11px] text-muted-foreground">“{candidate.quote}”</p>
+                            ) : null}
+                            <div className="mt-3 flex flex-wrap items-center gap-2">
+                              <Button
+                                type="button"
+                                size="sm"
+                                variant="outline"
+                                className="h-7 px-2 text-[11px] font-semibold uppercase tracking-wide"
+                                onClick={() => handleAddToSession(candidate)}
+                                disabled={isAdded}
+                              >
+                                {isAdded ? "Added" : "Add to session"}
+                              </Button>
+                              {isAdded ? (
                                 <Button
                                   type="button"
                                   size="sm"
-                                  variant="outline"
-                                  className="h-7 px-2 text-[10px] font-semibold uppercase tracking-wide"
-                                  onClick={() => handleAddMultiple(grouped.slice(0, 10))}
-                                  disabled={grouped.length === 0}
+                                  variant="ghost"
+                                  className="h-7 px-2 text-[11px] font-semibold uppercase tracking-wide"
+                                  onClick={() => scrollToDecision(`extract-${candidate.id}`)}
                                 >
-                                  Add top 10 (recommended)
+                                  Jump to decision
                                 </Button>
-                                {hidden > 0 ? (
-                                  <Button
-                                    type="button"
-                                    size="sm"
-                                    variant="ghost"
-                                    className="h-7 px-2 text-[10px] font-semibold uppercase tracking-wide"
-                                    onClick={() =>
-                                      setExpandedGroups((prev) => {
-                                        const next = new Set(prev);
-                                        if (isExpanded) {
-                                          next.delete(group.key);
-                                        } else {
-                                          next.add(group.key);
-                                        }
-                                        return next;
-                                      })
-                                    }
-                                  >
-                                    {isExpanded ? "Show less" : `Show more (+${hidden})`}
-                                  </Button>
-                                ) : null}
-                              </div>
-                            </div>
-                            <div className="space-y-2">
-                              {displayed.map((candidate) => {
-                                const isAdded = addedIds.has(candidate.id);
-                                const isSelected = selectedCandidateIds.has(candidate.id);
-                                return (
-                                  <div
-                                    key={candidate.id}
-                                    className="rounded-lg border border-border/60 bg-muted/10 px-3 py-2 text-xs text-muted-foreground"
-                                  >
-                                    <div className="flex flex-wrap items-start justify-between gap-2">
-                                      <div className="flex flex-1 gap-2">
-                                        <Checkbox
-                                          checked={isSelected}
-                                          onCheckedChange={(checked) =>
-                                            handleToggleSelected(candidate.id, Boolean(checked))
-                                          }
-                                          aria-label={`Select ${candidate.title}`}
-                                          className="mt-0.5"
-                                        />
-                                        <div className="space-y-1">
-                                          <p className="text-sm font-semibold text-foreground">{candidate.title}</p>
-                                          <p className="text-[11px] text-muted-foreground">
-                                            {candidate.page ? `p. ${candidate.page}` : "Page n/a"}
-                                          </p>
-                                        </div>
-                                      </div>
-                                      <div className="flex flex-wrap items-center gap-2">
-                                        <span className="rounded-full border border-border/50 bg-background px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-foreground">
-                                          {candidate.strength}
-                                        </span>
-                                        {candidate.matchedTrigger ? (
-                                          <span className="rounded-full border border-border/50 bg-background px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-foreground">
-                                            {candidate.matchedTrigger}
-                                          </span>
-                                        ) : null}
-                                        {isAdded ? (
-                                          <span className="rounded-full border border-emerald-500/40 bg-emerald-500/10 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-emerald-700">
-                                            Added
-                                          </span>
-                                        ) : null}
-                                      </div>
-                                    </div>
-                                    {candidate.quote ? (
-                                      <p className="mt-2 text-[11px] text-muted-foreground">“{candidate.quote}”</p>
-                                    ) : null}
-                                    <div className="mt-2 flex flex-wrap items-center gap-2">
-                                      <Button
-                                        type="button"
-                                        size="sm"
-                                        variant="outline"
-                                        className="h-7 px-2 text-[11px] font-semibold uppercase tracking-wide"
-                                        onClick={() => handleAddToSession(candidate)}
-                                        disabled={isAdded}
-                                      >
-                                        {isAdded ? "Added ✓" : "Add to session"}
-                                      </Button>
-                                      {isAdded ? (
-                                        <Button
-                                          type="button"
-                                          size="sm"
-                                          variant="ghost"
-                                          className="h-7 px-2 text-[11px] font-semibold uppercase tracking-wide"
-                                          onClick={() => scrollToDecision(`extract-${candidate.id}`)}
-                                        >
-                                          Jump to decision
-                                        </Button>
-                                      ) : null}
-                                      <Button
-                                        type="button"
-                                        size="sm"
-                                        variant="ghost"
-                                        className="h-7 px-2 text-[11px] font-semibold uppercase tracking-wide"
-                                        onClick={() => handleDismissCandidate(candidate)}
-                                      >
-                                        Dismiss
-                                      </Button>
-                                    </div>
-                                  </div>
-                                );
-                              })}
+                              ) : null}
+                              <Button
+                                type="button"
+                                size="sm"
+                                variant="ghost"
+                                className="h-7 px-2 text-[11px] font-semibold uppercase tracking-wide"
+                                onClick={() => handleDismissCandidate(candidate)}
+                              >
+                                Dismiss
+                              </Button>
                             </div>
                           </div>
                         );
                       })}
                     </div>
+
+                    {hasMoreCandidates ? (
+                      <div className="flex justify-center">
+                        <Button
+                          type="button"
+                          size="sm"
+                          variant="ghost"
+                          className="h-7 px-2 text-[11px] font-semibold uppercase tracking-wide"
+                          onClick={() => setShowAllCandidates((prev) => !prev)}
+                        >
+                          {showAllCandidates ? "Show less" : "Show more"}
+                        </Button>
+                      </div>
+                    ) : null}
                   </div>
                 ) : null}
               </div>
