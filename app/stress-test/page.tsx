@@ -12,8 +12,13 @@ import { MetricDistribution, type MetricDistributionSegment } from "@/components
 import { getSessionActionInsight } from "@/lib/sessionActionInsight";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
-import { decisionExtractResponseSchema, type DecisionCandidate } from "@/app/api/decision-extract/schema";
+import {
+  localExtractDecisionCandidates,
+  type DecisionCandidateDraft,
+  type PageText,
+} from "@/lib/decisionExtract/localExtract";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import { Textarea } from "@/components/ui/textarea";
 import Link from "next/link";
 import { type ChangeEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
 
@@ -23,7 +28,7 @@ interface ExtractedPage {
   charCount: number;
 }
 
-type LocalDecisionCandidate = DecisionCandidate & { score: number };
+type LocalDecisionCandidate = DecisionCandidateDraft;
 
 interface SessionDecision {
   id: string;
@@ -48,11 +53,17 @@ interface SessionDecision {
 
 const SESSION_DECISIONS_KEY = "dnav:stressTest:sessionDecisions";
 
-const scoreCandidate = (candidate: DecisionCandidate) => {
-  const { impact, urgency, confidence } = candidate.constraints;
-  const base = impact.score + urgency.score + confidence.score;
-  return base + (candidate.strength === "hard" ? 5 : 0);
-};
+const LOCAL_EXTRACTION_NOTICE = "Local extraction (fast). Edit before saving.";
+const CATEGORY_OPTIONS: Array<DecisionCandidateDraft["category"]> = [
+  "Operations",
+  "Finance",
+  "Product",
+  "Hiring",
+  "Legal",
+  "Strategy",
+  "Sales/Go-to-market",
+  "Other",
+];
 
 const isSessionDecisionSnapshot = (value: unknown): value is SessionDecision => {
   if (!value || typeof value !== "object") return false;
@@ -487,46 +498,14 @@ export default function StressTestPage() {
     setDecisionCandidates([]);
     const refineTimer = window.setTimeout(() => setExtractStage("refining"), 1200);
     try {
-      const requestBody = {
-        docName: selectedFileName ?? "Uploaded PDF",
-        pages: extractedPages.map((page) => ({ page: page.pageNumber, text: page.text })),
-        options: { maxCandidatesPerPage: 8 },
-      };
-      console.info("decision-extract client request", {
-        docName: requestBody.docName,
-        pages: requestBody.pages.length,
-      });
-      const response = await fetch("/api/decision-extract", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(requestBody),
-      });
-      if (!response.ok) {
-        throw new Error(`Decision extract failed with status ${response.status}`);
-      }
-      const payload = await response.json();
-      const parsed = decisionExtractResponseSchema.safeParse(payload);
-      if (!parsed.success) {
-        console.error("Decision extract response invalid.", parsed.error.issues);
-        throw new Error("Decision extract response invalid.");
-      }
-      const candidates = parsed.data.candidates.map((candidate) => ({
-        ...candidate,
-        score: scoreCandidate(candidate),
-      }));
+      const pages: PageText[] = extractedPages.map((page) => ({ page: page.pageNumber, text: page.text }));
+      const candidates = localExtractDecisionCandidates(pages, { maxCandidates: 25, minScore: 6 });
       setDecisionCandidates(candidates);
+      setRefineNotice(null);
       setExtractStage("done");
-      const warningMessage = parsed.data.meta.warnings?.find((warning) =>
-        warning.toLowerCase().includes("refine unavailable"),
-      );
-      setRefineNotice(warningMessage ?? null);
-      console.info("decision-extract client response", {
-        candidatesLocal: candidates.length,
-        warnings: parsed.data.meta.warnings ?? [],
-      });
     } catch (error) {
       console.error("Decision extraction error.", error);
-      setExtractError("Decision extraction failed. Showing no candidates.");
+      setExtractError("Decision extraction failed. Please retry or try a different PDF.");
       setExtractStage("done");
     } finally {
       window.clearTimeout(refineTimer);
@@ -550,15 +529,9 @@ export default function StressTestPage() {
     window.setTimeout(() => row.classList.remove("ring-2", "ring-primary/50"), 1600);
   }, []);
 
-  const formatEvidence = useCallback((candidate: LocalDecisionCandidate) => {
-    const pageLabel = candidate.evidence.page ? ` (p. ${candidate.evidence.page})` : "";
-    return `${candidate.evidence.quote}${pageLabel}`;
-  }, []);
-
   const handleAddToSession = useCallback(
     (candidate: LocalDecisionCandidate) => {
       const title = candidate.title.trim() || "Untitled decision";
-      const evidence = formatEvidence(candidate);
       let nextTotal = 0;
       let added = false;
       const decisionId = `extract-${candidate.id}`;
@@ -570,8 +543,8 @@ export default function StressTestPage() {
         const sessionDecision: SessionDecision = {
           id: decisionId,
           decisionTitle: title,
-          decisionDetail: evidence,
-          category: "Strategy",
+          decisionDetail: candidate.decision,
+          category: candidate.category || "Strategy",
           impact: 0,
           cost: 0,
           risk: 0,
@@ -603,7 +576,7 @@ export default function StressTestPage() {
         });
       }
     },
-    [formatEvidence, scrollToDecision, selectedFileName],
+    [scrollToDecision, selectedFileName],
   );
 
   const handleAddMultiple = useCallback(
@@ -619,12 +592,11 @@ export default function StressTestPage() {
           const id = `extract-${candidate.id}`;
           if (existingIds.has(id)) return;
           const title = candidate.title.trim() || "Untitled decision";
-          const evidence = formatEvidence(candidate);
           additions.push({
             id,
             decisionTitle: title,
-            decisionDetail: evidence,
-            category: "Strategy",
+            decisionDetail: candidate.decision,
+            category: candidate.category || "Strategy",
             impact: 0,
             cost: 0,
             risk: 0,
@@ -665,7 +637,7 @@ export default function StressTestPage() {
         });
       }
     },
-    [formatEvidence, scrollToDecision, selectedFileName],
+    [scrollToDecision, selectedFileName],
   );
 
   const handleDismissCandidate = useCallback((candidate: LocalDecisionCandidate) => {
@@ -1096,6 +1068,7 @@ export default function StressTestPage() {
                       <span className="font-semibold text-foreground">Refining (optional)…</span>
                     ) : null}
                   </div>
+                  <p className="mt-2 text-[11px] text-emerald-600">{LOCAL_EXTRACTION_NOTICE}</p>
                   {refineNotice ? (
                     <p className="mt-2 text-[11px] text-amber-600">{refineNotice}</p>
                   ) : null}
@@ -1123,6 +1096,7 @@ export default function StressTestPage() {
                         <p className="text-[11px] text-muted-foreground">
                           {showAllCandidates ? "Showing all picks." : `Showing top ${TOP_PICK_LIMIT} picks.`}
                         </p>
+                        <p className="text-[11px] text-emerald-600">{LOCAL_EXTRACTION_NOTICE}</p>
                       </div>
                       <div className="flex flex-wrap items-center gap-2">
                         <Button
@@ -1168,10 +1142,95 @@ export default function StressTestPage() {
                           >
                             <div className="flex flex-wrap items-start justify-between gap-2">
                               <div className="space-y-1">
-                                <p className="text-sm font-semibold text-foreground">{candidate.title}</p>
+                                <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+                                  Title
+                                </p>
+                                <Input
+                                  value={candidate.title}
+                                  onChange={(event) => {
+                                    const next = event.target.value;
+                                    setDecisionCandidates((prev) =>
+                                      prev.map((item) =>
+                                        item.id === candidate.id ? { ...item, title: next } : item,
+                                      ),
+                                    );
+                                  }}
+                                  className="h-8 text-sm"
+                                />
                                 <p className="text-[11px] text-muted-foreground">
                                   {candidate.evidence.page ? `p. ${candidate.evidence.page}` : "Page n/a"}
                                 </p>
+                              </div>
+                            </div>
+                            <div className="mt-3 space-y-2">
+                              <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+                                Decision
+                              </p>
+                              <Textarea
+                                value={candidate.decision}
+                                onChange={(event) => {
+                                  const next = event.target.value;
+                                  setDecisionCandidates((prev) =>
+                                    prev.map((item) =>
+                                      item.id === candidate.id ? { ...item, decision: next } : item,
+                                    ),
+                                  );
+                                }}
+                                className="min-h-[84px] text-[11px]"
+                              />
+                              <div className="flex flex-wrap items-center gap-3">
+                                <div className="space-y-1">
+                                  <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+                                    Category
+                                  </p>
+                                  <select
+                                    value={candidate.category}
+                                    onChange={(event) => {
+                                      const next = event.target.value as DecisionCandidateDraft["category"];
+                                      setDecisionCandidates((prev) =>
+                                        prev.map((item) =>
+                                          item.id === candidate.id ? { ...item, category: next } : item,
+                                        ),
+                                      );
+                                    }}
+                                    className="h-8 rounded-md border border-border/60 bg-background px-2 text-[11px] text-foreground"
+                                  >
+                                    {CATEGORY_OPTIONS.map((option) => (
+                                      <option key={option} value={option}>
+                                        {option}
+                                      </option>
+                                    ))}
+                                  </select>
+                                </div>
+                                <div className="space-y-1">
+                                  <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+                                    Strength
+                                  </p>
+                                  <div className="flex gap-2">
+                                    {["hard", "soft"].map((strength) => (
+                                      <button
+                                        key={strength}
+                                        type="button"
+                                        onClick={() =>
+                                          setDecisionCandidates((prev) =>
+                                            prev.map((item) =>
+                                              item.id === candidate.id
+                                                ? { ...item, strength: strength as "hard" | "soft" }
+                                                : item,
+                                            ),
+                                          )
+                                        }
+                                        className={`h-8 rounded-md border px-3 text-[11px] font-semibold uppercase tracking-wide transition ${
+                                          candidate.strength === strength
+                                            ? "border-foreground bg-foreground text-background"
+                                            : "border-border/60 bg-background text-foreground"
+                                        }`}
+                                      >
+                                        {strength}
+                                      </button>
+                                    ))}
+                                  </div>
+                                </div>
                               </div>
                             </div>
                             {candidate.evidence.quote ? (
