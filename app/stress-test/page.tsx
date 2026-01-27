@@ -12,7 +12,7 @@ import { MetricDistribution, type MetricDistributionSegment } from "@/components
 import { getSessionActionInsight } from "@/lib/sessionActionInsight";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
-import { extractDecisionCandidates, type DecisionCandidate } from "@/lib/decisionExtractLocal";
+import { decisionExtractResponseSchema, type DecisionCandidate } from "@/app/api/decision-extract/schema";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import Link from "next/link";
 import { type ChangeEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
@@ -23,7 +23,7 @@ interface ExtractedPage {
   charCount: number;
 }
 
-type LocalDecisionCandidate = DecisionCandidate;
+type LocalDecisionCandidate = DecisionCandidate & { score: number };
 
 interface SessionDecision {
   id: string;
@@ -47,6 +47,12 @@ interface SessionDecision {
 }
 
 const SESSION_DECISIONS_KEY = "dnav:stressTest:sessionDecisions";
+
+const scoreCandidate = (candidate: DecisionCandidate) => {
+  const { impact, urgency, confidence } = candidate.constraints;
+  const base = impact.score + urgency.score + confidence.score;
+  return base + (candidate.strength === "hard" ? 5 : 0);
+};
 
 const isSessionDecisionSnapshot = (value: unknown): value is SessionDecision => {
   if (!value || typeof value !== "object") return false;
@@ -72,6 +78,9 @@ export default function StressTestPage() {
   const [extractError, setExtractError] = useState<string | null>(null);
   const [isReadingPdf, setIsReadingPdf] = useState(false);
   const [isExtracting, setIsExtracting] = useState(false);
+  const [extractStage, setExtractStage] = useState<"idle" | "finding" | "refining" | "done">("idle");
+  const [refineNotice, setRefineNotice] = useState<string | null>(null);
+  const [autoExtractPending, setAutoExtractPending] = useState(false);
   const [dismissedIds, setDismissedIds] = useState<Set<string>>(new Set());
   const [showAllCandidates, setShowAllCandidates] = useState(false);
   const [toastNotice, setToastNotice] = useState<{
@@ -450,6 +459,11 @@ export default function StressTestPage() {
       setExtractedPages(pages);
       setPagesRead(pages.length);
       setTotalChars(charCount);
+      setDecisionCandidates([]);
+      setDismissedIds(new Set());
+      setShowAllCandidates(false);
+      setRefineNotice(null);
+      setAutoExtractPending(true);
       const emptyPages = pages.filter((page) => page.charCount === 0).length;
       if (pages.length > 0 && emptyPages / pages.length >= 0.5) {
         setExtractError("This PDF appears image-based; quick scan needs selectable text.");
@@ -462,28 +476,71 @@ export default function StressTestPage() {
     }
   }, []);
 
-  const runLocalExtract = useCallback(() => {
-    const localCandidates = extractDecisionCandidates(
-      extractedPages.map((page) => ({ page: page.pageNumber, text: page.text })),
-    );
-    setDecisionCandidates(localCandidates);
-    setDismissedIds(new Set());
-    setShowAllCandidates(false);
-  }, [extractedPages]);
-
   const handleExtractDecisions = useCallback(async () => {
     if (extractedPages.length === 0 || isExtracting) return;
     setIsExtracting(true);
     setExtractError(null);
+    setRefineNotice(null);
+    setExtractStage("finding");
+    setDismissedIds(new Set());
+    setShowAllCandidates(false);
+    setDecisionCandidates([]);
+    const refineTimer = window.setTimeout(() => setExtractStage("refining"), 1200);
     try {
-      runLocalExtract();
+      const requestBody = {
+        docName: selectedFileName ?? "Uploaded PDF",
+        pages: extractedPages.map((page) => ({ page: page.pageNumber, text: page.text })),
+        options: { maxCandidatesPerPage: 8 },
+      };
+      console.info("decision-extract client request", {
+        docName: requestBody.docName,
+        pages: requestBody.pages.length,
+      });
+      const response = await fetch("/api/decision-extract", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(requestBody),
+      });
+      if (!response.ok) {
+        throw new Error(`Decision extract failed with status ${response.status}`);
+      }
+      const payload = await response.json();
+      const parsed = decisionExtractResponseSchema.safeParse(payload);
+      if (!parsed.success) {
+        console.error("Decision extract response invalid.", parsed.error.issues);
+        throw new Error("Decision extract response invalid.");
+      }
+      const candidates = parsed.data.candidates.map((candidate) => ({
+        ...candidate,
+        score: scoreCandidate(candidate),
+      }));
+      setDecisionCandidates(candidates);
+      setExtractStage("done");
+      const warningMessage = parsed.data.meta.warnings?.find((warning) =>
+        warning.toLowerCase().includes("refine unavailable"),
+      );
+      setRefineNotice(warningMessage ?? null);
+      console.info("decision-extract client response", {
+        candidatesLocal: candidates.length,
+        warnings: parsed.data.meta.warnings ?? [],
+      });
     } catch (error) {
       console.error("Decision extraction error.", error);
-      runLocalExtract();
+      setExtractError("Decision extraction failed. Showing no candidates.");
+      setExtractStage("done");
     } finally {
+      window.clearTimeout(refineTimer);
+      setExtractStage("done");
       setIsExtracting(false);
+      setAutoExtractPending(false);
     }
-  }, [extractedPages, isExtracting, runLocalExtract]);
+  }, [extractedPages, isExtracting, selectedFileName]);
+
+  useEffect(() => {
+    if (!autoExtractPending) return;
+    if (isReadingPdf || isExtracting || extractedPages.length === 0) return;
+    handleExtractDecisions();
+  }, [autoExtractPending, extractedPages.length, handleExtractDecisions, isExtracting, isReadingPdf]);
 
   const scrollToDecision = useCallback((decisionId: string) => {
     const row = document.getElementById(`decision-row-${decisionId}`);
@@ -494,13 +551,8 @@ export default function StressTestPage() {
   }, []);
 
   const formatEvidence = useCallback((candidate: LocalDecisionCandidate) => {
-    const sources = candidate.sources?.length ? candidate.sources : [{ quote: candidate.quote, page: candidate.page }];
-    return sources
-      .map((source) => {
-        const pageLabel = source.page ? ` (p. ${source.page})` : "";
-        return `${source.quote}${pageLabel}`;
-      })
-      .join(" • ");
+    const pageLabel = candidate.evidence.page ? ` (p. ${candidate.evidence.page})` : "";
+    return `${candidate.evidence.quote}${pageLabel}`;
   }, []);
 
   const handleAddToSession = useCallback(
@@ -530,8 +582,8 @@ export default function StressTestPage() {
           s: 0,
           dnav: 0,
           sourceFile: selectedFileName ?? undefined,
-          sourcePage: candidate.page || undefined,
-          excerpt: candidate.quote || undefined,
+          sourcePage: candidate.evidence.page || undefined,
+          excerpt: candidate.evidence.quote || undefined,
           sourceType: "intake",
           createdAt: Date.now(),
         };
@@ -583,8 +635,8 @@ export default function StressTestPage() {
             s: 0,
             dnav: 0,
             sourceFile: selectedFileName ?? undefined,
-            sourcePage: candidate.page || undefined,
-            excerpt: candidate.quote || undefined,
+            sourcePage: candidate.evidence.page || undefined,
+            excerpt: candidate.evidence.quote || undefined,
             sourceType: "intake",
             createdAt: Date.now(),
           });
@@ -681,7 +733,7 @@ export default function StressTestPage() {
   const rankedCandidates = useMemo(() => {
     return [...decisionCandidates].sort((a, b) => {
       if (b.score !== a.score) return b.score - a.score;
-      if (a.page !== b.page) return a.page - b.page;
+      if (a.evidence.page !== b.evidence.page) return a.evidence.page - b.evidence.page;
       return a.title.localeCompare(b.title);
     });
   }, [decisionCandidates]);
@@ -1037,7 +1089,16 @@ export default function StressTestPage() {
                     <span>Pages read: {pagesRead}</span>
                     <span>Total chars: {totalChars.toLocaleString()}</span>
                     {isReadingPdf ? <span className="font-semibold text-foreground">Reading PDF…</span> : null}
+                    {isExtracting && extractStage === "finding" ? (
+                      <span className="font-semibold text-foreground">Finding decision candidates…</span>
+                    ) : null}
+                    {isExtracting && extractStage === "refining" ? (
+                      <span className="font-semibold text-foreground">Refining (optional)…</span>
+                    ) : null}
                   </div>
+                  {refineNotice ? (
+                    <p className="mt-2 text-[11px] text-amber-600">{refineNotice}</p>
+                  ) : null}
                   {extractError ? <p className="mt-2 text-[11px] text-rose-500">{extractError}</p> : null}
                 </div>
 
@@ -1048,7 +1109,7 @@ export default function StressTestPage() {
                     onClick={handleExtractDecisions}
                     disabled={extractedPages.length === 0 || isReadingPdf || isExtracting}
                   >
-                    {isExtracting ? "Extracting…" : "Extract Decisions"}
+                    {isExtracting ? "Extracting…" : "Extract decisions"}
                   </Button>
                 </div>
 
@@ -1100,7 +1161,6 @@ export default function StressTestPage() {
                     <div className="space-y-2">
                       {visibleCandidates.map((candidate) => {
                         const isAdded = addedIds.has(candidate.id);
-                        const extraSources = (candidate.sources?.length ?? 0) - 1;
                         return (
                           <div
                             key={candidate.id}
@@ -1110,14 +1170,13 @@ export default function StressTestPage() {
                               <div className="space-y-1">
                                 <p className="text-sm font-semibold text-foreground">{candidate.title}</p>
                                 <p className="text-[11px] text-muted-foreground">
-                                  {candidate.page ? `p. ${candidate.page}` : "Page n/a"}
+                                  {candidate.evidence.page ? `p. ${candidate.evidence.page}` : "Page n/a"}
                                 </p>
                               </div>
                             </div>
-                            {candidate.quote ? (
+                            {candidate.evidence.quote ? (
                               <p className="mt-2 text-[11px] text-muted-foreground">
-                                “{candidate.quote}”
-                                {extraSources > 0 ? ` +${extraSources} source${extraSources > 1 ? "s" : ""}` : ""}
+                                “{candidate.evidence.quote}”
                               </p>
                             ) : null}
                             <div className="mt-3 flex flex-wrap items-center gap-2">
