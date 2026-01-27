@@ -24,12 +24,14 @@ const TRIGGERS = [
   { label: "begin", regex: /\bbegin(?:ning)?\b|\bbegan\b/i, score: 3, strength: "medium" as const },
   { label: "implemented", regex: /\bimplement(?:ed|ing)?\b/i, score: 3, strength: "hard" as const },
   { label: "ramping", regex: /\bramp(?:ed|ing)?\b/i, score: 2, strength: "medium" as const },
+  { label: "commission", regex: /\bcommission(?:ed|ing)?\b/i, score: 3, strength: "medium" as const },
   { label: "will", regex: /\bwill\b/i, score: 2, strength: "medium" as const },
   { label: "scheduled", regex: /\bscheduled\b/i, score: 3, strength: "medium" as const },
   { label: "on track", regex: /\bon track\b/i, score: 2, strength: "medium" as const },
   { label: "planned", regex: /\bplanned\b/i, score: 2, strength: "medium" as const },
   { label: "set to", regex: /\bset to\b/i, score: 2, strength: "medium" as const },
   { label: "targeting", regex: /\btargeting\b/i, score: 2, strength: "medium" as const },
+  { label: "expand", regex: /\bexpand(?:ed|ing)?\b/i, score: 2, strength: "medium" as const },
   { label: "prioritize", regex: /\bprioriti[sz]e\b/i, score: 3, strength: "soft" as const },
   { label: "focus", regex: /\bfocus(?:ed|ing)? on\b/i, score: 2, strength: "soft" as const },
   { label: "investing in", regex: /\binvest(?:ing)? in\b/i, score: 3, strength: "soft" as const },
@@ -40,6 +42,7 @@ const TRIGGERS = [
   { label: "before investing in", regex: /\bbefore investing in\b/i, score: 2, strength: "soft" as const },
   { label: "will manage", regex: /\bwill manage\b/i, score: 2, strength: "soft" as const },
   { label: "delivered", regex: /\bdelivered\b/i, score: 2, strength: "medium" as const },
+  { label: "introduce", regex: /\bintroduc(?:e|ed|ing)\b/i, score: 2, strength: "medium" as const },
   { label: "expect", regex: /\bexpect\b/i, score: 1, strength: "soft" as const },
 ];
 
@@ -48,6 +51,10 @@ const ACTOR_TOKENS = [
   "our",
   "tesla",
   "the company",
+  "company",
+  "management",
+  "leadership",
+  "board",
   "model",
   "factory",
   "megafactory",
@@ -118,6 +125,48 @@ const NEGATIVE_KEYWORDS = [
   "yoy",
   "gwh",
   "quarter-end",
+];
+
+const NOISE_LAUNCH_KEYWORDS = [
+  "weather",
+  "precipitation",
+  "forecast",
+  "temperature",
+  "app store",
+  "ios",
+  "android",
+  "siriusxm",
+  "podcast",
+  "radio",
+  "streaming",
+];
+
+const PRODUCT_OPERATIONS_KEYWORDS = [
+  "factory",
+  "production",
+  "manufacturing",
+  "plant",
+  "line",
+  "lines",
+  "ramp",
+  "ramping",
+  "deployment",
+  "deploy",
+  "commission",
+  "commissioning",
+  "facility",
+  "capex",
+  "capacity",
+  "rollout",
+  "roll out",
+  "introduce",
+  "release",
+  "platform",
+  "vehicle",
+  "fleet",
+  "build",
+  "expansion",
+  "expand",
 ];
 
 const TIME_CUES = [
@@ -228,16 +277,20 @@ const containsTimeCue = (sentence: string) => {
 
 const containsActorToken = (sentence: string) => {
   const lowered = sentence.toLowerCase();
-  return ACTOR_TOKENS.some((token) => {
+  const hasToken = ACTOR_TOKENS.some((token) => {
     if (token.includes(" ")) {
       return lowered.includes(token);
     }
     return new RegExp(`\\b${escapeRegExp(token)}\\b`, "i").test(sentence);
   });
+  if (hasToken) return true;
+  return /(?:^|[\s(])([A-Z][a-z0-9&.-]+(?:\s+[A-Z][a-z0-9&.-]+){0,2})(?:\b|[,\s)]).{0,18}\b(will|plans|plan|expects|expected|launch|build|deploy|begin|start)\b/.test(
+    sentence,
+  );
 };
 
 const hasCommitmentVerb = (sentence: string) => {
-  return /\b(launch(?:ed|ing)?|begin(?:ning)?|began|start(?:ed|ing)?|build(?:ing)?|deploy(?:ed|ing)?|complete(?:d|ing)?|roll(?:ed)? out|implement(?:ed|ing)?|ramp(?:ed|ing)?|scheduled|planned|on track|set to|targeting|prioriti[sz]e|focus(?:ed|ing)? on|invest(?:ing)? in|continue to pursue|enable(?:s|d|ing)?|will manage|pursue)\b/i.test(
+  return /\b(launch(?:ed|ing)?|begin(?:ning)?|began|start(?:ed|ing)?|build(?:ing)?|deploy(?:ed|ing)?|complete(?:d|ing)?|roll(?:ed)? out|implement(?:ed|ing)?|ramp(?:ed|ing)?|commission(?:ed|ing)?|schedule(?:d)?|planned|on track|set to|targeting|prioriti[sz]e|focus(?:ed|ing)? on|invest(?:ing)? in|continue to pursue|enable(?:s|d|ing)?|will manage|introduce|expand(?:ed|ing)?|roll out|pursue)\b/i.test(
     sentence,
   );
 };
@@ -263,11 +316,16 @@ const looksLikeTableRow = (sentence: string) => {
   const numericRatio = tokens.length ? numericTokens.length / tokens.length : 0;
   const numberCount = extractNumbers(sentence).length;
   const repeatedColumns = /(?:\d+(?:[.,]\d+)?%?\s+){2,}\d+/.test(sentence);
+  const pipeColumns = (sentence.match(/\|/g) ?? []).length >= 2;
+  const tabColumns = (sentence.match(/\t/g) ?? []).length >= 2;
+  const multiSpaceColumns = (sentence.match(/ {2,}/g) ?? []).length >= 2;
+  const separatorColumns = (sentence.match(/[-–—]{2,}/g) ?? []).length >= 1;
   const commaCount = (sentence.match(/,/g) ?? []).length;
   const percentCount = (sentence.match(/%/g) ?? []).length;
   if (digitRatio(sentence) > 0.2) return true;
   if (numericRatio > 0.25 || numberCount >= 4) return true;
   if (repeatedColumns) return true;
+  if (pipeColumns || tabColumns || multiSpaceColumns || separatorColumns) return true;
   if (commaCount >= 3 || percentCount >= 2) return true;
   if (/\b(YoY|QoQ)\b/i.test(sentence) && numberCount >= 3) return true;
   return false;
@@ -324,6 +382,17 @@ const trimTrailingClauses = (value: string) => {
   return value.trim();
 };
 
+const detectEntity = (sentence: string) => {
+  const entityMatches = sentence.match(
+    /\b([A-Z][a-z0-9&.-]+(?:\s+(?:[A-Z][a-z0-9&.-]+|&))+|[A-Z][a-z0-9&.-]+)\b/g,
+  );
+  if (!entityMatches) return null;
+  const filtered = entityMatches.filter(
+    (token) => !["In", "On", "By", "As", "The", "A", "An", "We", "Our"].includes(token),
+  );
+  return filtered.length > 0 ? filtered[0] : null;
+};
+
 const stripLeadingFillers = (sentence: string) => {
   return sentence
     .replace(/^(in\s+q[1-4]\s+\d{4},?\s*)/i, "")
@@ -351,7 +420,7 @@ const normalizeTitle = (sentence: string, trigger: string, useTesla: boolean) =>
   const triggerIndex = lowered.indexOf(trigger.toLowerCase());
   const startIndex = triggerIndex >= 0 ? triggerIndex : 0;
   const fragment = trimTrailingClauses(normalized.slice(startIndex));
-  const subject = useTesla ? "Tesla" : "Company";
+  const subject = useTesla ? "Tesla" : detectEntity(normalized) ?? "Company";
   const payload = cleanTitle(fragment).replace(/^we\s+/i, "").replace(/^our\s+/i, "");
   const base = payload ? `${subject} ${payload}` : `${subject} ${cleanTitle(normalized)}`;
   const withTime = timeQualifier && !base.toLowerCase().includes(timeQualifier.toLowerCase()) ? `${base} ${timeQualifier}` : base;
@@ -365,17 +434,36 @@ const scoreSentence = (sentence: string, trigger: string, hasAction: boolean, ha
   const triggerMatch = TRIGGERS.find((item) => item.label === trigger);
   if (triggerMatch) score += triggerMatch.score;
   if (hasAction) score += 2;
+  if (PRODUCT_OPERATIONS_KEYWORDS.some((keyword) => sentence.toLowerCase().includes(keyword))) score += 2;
+  if (/\b(will|scheduled|planned|on track)\b/i.test(sentence)) score += 2;
   if (/\b(will begin|scheduled|planned|on track|launch)\b/i.test(sentence)) score += 2;
   if (/\bexpect\b/i.test(sentence) && !hasAction) score -= 2;
   if (/\bachieved\b/i.test(sentence)) score -= 2;
+  if (digitRatio(sentence) > 0.1 && !hasAction) score -= 3;
   return score;
 };
+
+const isNoisyLaunchSentence = (sentence: string, hasActor: boolean) => {
+  const lowered = sentence.toLowerCase();
+  if (!/\blaunch(?:ed|ing)?\b/.test(lowered)) return false;
+  if (!NOISE_LAUNCH_KEYWORDS.some((keyword) => lowered.includes(keyword))) return false;
+  const hasProductContext = PRODUCT_OPERATIONS_KEYWORDS.some((keyword) => lowered.includes(keyword));
+  return !(hasProductContext && hasActor);
+};
+
+const normalizeSentenceKey = (sentence: string) =>
+  sentence
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
 
 export const extractDecisionCandidates = (
   pages: { page: number; text: string }[],
 ): LocalDecisionCandidate[] => {
   const candidates: LocalDecisionCandidate[] = [];
   const seen = new Set<string>();
+  const seenNormalized: string[] = [];
   const isTeslaDoc = pages.some((page) => /\btesla\b|\btsla\b/i.test(page.text));
 
   pages.forEach((page) => {
@@ -397,6 +485,8 @@ export const extractDecisionCandidates = (
       if (shouldIgnoreSentence(normalized, hasTrigger)) return;
       if (hasWebcastKeywords(normalized)) return;
       if (hasEligibilityKeywords(normalized)) return;
+      const hasActor = containsActorToken(normalized);
+      if (isNoisyLaunchSentence(normalized, hasActor)) return;
       const hasTimeCue = containsTimeCue(normalized);
       const hasAction = hasCommitmentVerb(normalized);
       const hasDirection = /\b(prioriti[sz]e|focus|strategy|approach|continue to pursue|invest(?:ing)? in|enable)\b/i.test(
@@ -410,7 +500,7 @@ export const extractDecisionCandidates = (
       }
       if (hasFinanceKeywords(normalized) && !(hasAction || hasDirection)) return;
       if (METRIC_ONLY_KEYWORDS.some((keyword) => normalized.toLowerCase().includes(keyword)) && !hasAction) return;
-      if (!containsActorToken(normalized)) return;
+      if (!hasActor) return;
       if (
         !hasAction &&
         !hasDirection &&
@@ -423,12 +513,18 @@ export const extractDecisionCandidates = (
         return;
       }
       if (triggerMatch.label === "delivered" && hasFinanceKeywords(normalized)) return;
+      if (digitRatio(normalized) > 0.1 && !hasAction) return;
       const matchedTrigger = normalized.match(triggerMatch.regex)?.[0] ?? triggerMatch.label;
       const title = normalizeTitle(normalized, matchedTrigger, isTeslaDoc);
       if (!title) return;
       const titleKey = `${page.page}-${title.toLowerCase().replace(/[^a-z0-9]+/g, " ").trim()}`;
       if (seen.has(titleKey)) return;
+      const normalizedKey = normalizeSentenceKey(normalized);
+      if (seenNormalized.some((key) => key === normalizedKey || key.startsWith(normalizedKey) || normalizedKey.startsWith(key))) {
+        return;
+      }
       seen.add(titleKey);
+      seenNormalized.push(normalizedKey);
       const quote = normalized.length > 260 ? `${normalized.slice(0, 257)}…` : normalized;
       const score = scoreSentence(normalized, triggerMatch.label, hasAction, hasTimeCue);
       candidates.push({
