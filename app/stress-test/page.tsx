@@ -147,6 +147,13 @@ export default function StressTestPage() {
   }, [sessionDecisions]);
 
   const TOP_PICK_LIMIT = 15;
+  const formatQuote = useCallback((quote: string) => {
+    const normalized = quote.trim().replace(/\s+/g, " ");
+    if (normalized.length <= 280) return normalized;
+    const clipped = normalized.slice(0, 279);
+    const lastSpace = clipped.lastIndexOf(" ");
+    return `${clipped.slice(0, Math.max(lastSpace, 200))}…`;
+  }, []);
 
   const handleSaveSessionDecision = useCallback((decision: StressTestDecisionSnapshot) => {
     const title = decision.name?.trim() || "Untitled decision";
@@ -499,8 +506,11 @@ export default function StressTestPage() {
     const refineTimer = window.setTimeout(() => setExtractStage("refining"), 1200);
     try {
       const pages: PageText[] = extractedPages.map((page) => ({ page: page.pageNumber, text: page.text }));
-      const candidates = localExtractDecisionCandidates(pages, { maxCandidates: 25, minScore: 6 });
+      const candidates = localExtractDecisionCandidates(pages, { maxCandidates: 25 });
       setDecisionCandidates(candidates);
+      if (candidates.length === 0) {
+        setExtractError("No clear commitments found. Try a different PDF or expand detection.");
+      }
       setRefineNotice(null);
       setExtractStage("done");
     } catch (error) {
@@ -1235,7 +1245,7 @@ export default function StressTestPage() {
                             </div>
                             {candidate.evidence.quote ? (
                               <p className="mt-2 text-[11px] text-muted-foreground">
-                                “{candidate.evidence.quote}”
+                                “{formatQuote(candidate.evidence.quote)}”
                               </p>
                             ) : null}
                             <div className="mt-3 flex flex-wrap items-center gap-2">
