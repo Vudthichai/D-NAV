@@ -12,16 +12,12 @@ export const dynamic = "force-dynamic";
 
 const MAX_TOTAL_CHARS = 250_000;
 const FULL_TEXT_CHAR_LIMIT = 90_000;
-const MAX_PRIMARY_PAGES = 16;
-const MAX_SECONDARY_PAGES = 14;
 const MODEL_TIMEOUT_MS = 35_000;
-const DEFAULT_MODEL = "gpt-4o-mini";
-const DEFAULT_MAX_CANDIDATES_PER_PAGE = 10;
+const DEFAULT_MAX_CANDIDATES_PER_PAGE = 12;
+const MODEL_PREFERENCE = ["gpt-4o", "gpt-4.1-mini", "gpt-4o-mini"] as const;
 
-const HARD_SYSTEM_PROMPT =
-  "You extract ONLY explicit commitments and executed actions. Include clear commitments (will, plan, on track, scheduled, remain on track, preparations are underway, expect, target, begin, ramp, start of production) AND executed actions (completed, launched, unveiled, added, deployed, achieved). Output JSON object with a 'candidates' array of DecisionCandidate. Use ONLY the provided snippets; every item must include an exact quote from a snippet and a 1-indexed page number. No hallucinations.";
-const SOFT_SYSTEM_PROMPT =
-  "You extract implicit strategic decisions (intent, priorities, posture, sequencing, investment focus, deprioritization) and softer commitments (aim, expect, scheduled, remain on track, preparations are underway). These are decisions with lower confidence. Output JSON object with a 'candidates' array of DecisionCandidate with strength='soft'. Use ONLY the provided snippets; every item must include an exact quote from a snippet and a 1-indexed page number. No hallucinations.";
+const REFINE_SYSTEM_PROMPT =
+  "You refine existing decision candidates. Use ONLY the provided candidates and quotes; do not add new facts. Improve titles/decisions/rationales for clarity, adjust category/tags, and optionally drop obvious junk, but keep at least the minimum count requested. Evidence quotes and page numbers must stay unchanged. Output JSON with top-level 'candidates' array matching the DecisionCandidate schema.";
 
 const SCORE_FIELDS = ["impact", "cost", "risk", "urgency", "confidence"] as const;
 const CATEGORY_VALUES = [
@@ -73,54 +69,6 @@ const STOP_WORDS = new Set([
   "via",
 ]);
 
-const DECISION_KEYWORDS = [
-  "will",
-  "plan",
-  "plans",
-  "on track",
-  "scheduled",
-  "remain on track",
-  "preparations are underway",
-  "we expect",
-  "expect",
-  "expected",
-  "target",
-  "targets",
-  "pilot production",
-  "start of production",
-  "ramp beginning",
-  "volume production planned",
-  "launch",
-  "begin",
-  "ramping",
-  "ramp",
-  "completed",
-  "launched",
-  "unveiled",
-  "added",
-  "deployed",
-  "achieved",
-  "prioritize",
-  "prioritizing",
-  "invest",
-  "investing",
-  "defer",
-  "deferring",
-  "approve",
-  "approved",
-  "expand",
-  "expanding",
-  "focus",
-  "guidance",
-  "outlook",
-  "strategy",
-  "strategic",
-  "positioned",
-  "aim",
-  "aims",
-  "delay",
-  "delaying",
-];
 
 export async function GET() {
   return Response.json({ error: "Method not allowed." }, { status: 405 });
@@ -130,6 +78,12 @@ const createOpenAIClient = () =>
   new OpenAI({
     apiKey: process.env.OPENAI_API_KEY,
   });
+
+const resolveDefaultModel = () => {
+  const envModel = process.env.OPENAI_MODEL ?? process.env.OPENAI_DEFAULT_MODEL;
+  if (envModel && envModel.trim().length > 0) return envModel.trim();
+  return MODEL_PREFERENCE[2];
+};
 
 type NormalizedRequest = {
   docName: string;
@@ -146,7 +100,7 @@ const normalizeRequest = (data: DecisionExtractRequest): NormalizedRequest => {
       pageCount: data.pages.length,
       pages: data.pages,
       maxCandidatesPerPage: data.options?.maxCandidatesPerPage ?? DEFAULT_MAX_CANDIDATES_PER_PAGE,
-      model: data.options?.model ?? DEFAULT_MODEL,
+      model: data.options?.model ?? resolveDefaultModel(),
     };
   }
 
@@ -155,7 +109,7 @@ const normalizeRequest = (data: DecisionExtractRequest): NormalizedRequest => {
     pageCount: data.doc.pageCount,
     pages: data.pages.map((page) => ({ page: page.page, text: page.text })),
     maxCandidatesPerPage: data.options.maxCandidatesPerPage ?? DEFAULT_MAX_CANDIDATES_PER_PAGE,
-    model: data.options.model ?? DEFAULT_MODEL,
+    model: data.options.model ?? resolveDefaultModel(),
   };
 };
 
@@ -172,97 +126,293 @@ const normalizeText = (value: string) =>
     .replace(/\s+/g, " ")
     .trim();
 
-const splitIntoSnippets = (text: string) => {
-  const cleaned = text.replace(/\s+/g, " ").trim();
-  if (!cleaned) return [];
-  const roughSplits = cleaned
-    .split(/(?<=[.!?])\s+|;\s+|:\s+|\s-\s|\n+/g)
-    .map((snippet) => snippet.trim())
-    .filter((snippet) => snippet.length > 0);
-  const snippets: string[] = [];
-  for (const snippet of roughSplits) {
-    if (snippet.length <= 360) {
-      snippets.push(snippet);
-    } else {
-      for (let i = 0; i < snippet.length; i += 300) {
-        snippets.push(snippet.slice(i, i + 300).trim());
+const COMMITMENT_PHRASES = [
+  "will",
+  "scheduled",
+  "scheduled to start",
+  "plan",
+  "plans",
+  "planned",
+  "expect",
+  "expected",
+  "on track",
+  "remain on track",
+  "preparations are underway",
+  "begin",
+  "ramp",
+  "start",
+  "starting",
+  "launch",
+  "launched",
+  "continue to work on launching",
+  "target",
+  "aim",
+  "volume production planned",
+  "commission",
+  "completed",
+  "deployed",
+  "delivered",
+  "unveiled",
+  "added",
+  "achieved",
+  "expanded",
+];
+
+const HARD_COMMITMENT_PHRASES = [
+  "will",
+  "scheduled",
+  "scheduled to start",
+  "volume production planned",
+  "completed",
+  "launched",
+  "deployed",
+  "delivered",
+  "unveiled",
+  "achieved",
+  "commission",
+  "added",
+  "expanded",
+];
+
+const SOFT_COMMITMENT_PHRASES = [
+  "expect",
+  "expected",
+  "on track",
+  "remain on track",
+  "preparations are underway",
+  "aim",
+  "target",
+  "plan",
+  "plans",
+  "planned",
+  "begin",
+  "ramp",
+  "start",
+  "starting",
+  "continue to work on launching",
+];
+
+const TIME_ANCHOR_PATTERNS = [
+  /\bq[1-4]\b/i,
+  /\b20\d{2}\b/,
+  /\bthis quarter\b/i,
+  /\bnext quarter\b/i,
+  /\bfirst half\b/i,
+  /\bsecond half\b/i,
+  /\bby end of\b/i,
+  /\bby the end of\b/i,
+  /\bby mid\b/i,
+];
+
+const NUMBER_ANCHOR_PATTERN =
+  /\b\d{1,3}(?:[.,]\d+)?\s?(%|k|m|b|bn|billion|million|gwh|gw|mw|kwh|mwh|h100|v4)?\b/i;
+
+const CATEGORY_RULES: Array<{ category: (typeof CATEGORY_VALUES)[number]; match: RegExp }> = [
+  { category: "Finance", match: /\b(cash|margin|capex|opex|free cash|profit|revenue|guidance)\b/i },
+  { category: "Operations", match: /\b(factory|plant|megafactory|gigafactory|ramp|production|line|construction|build)\b/i },
+  {
+    category: "Product",
+    match: /\b(fsd|autonomy|robotaxi|cybercab|cybertruck|semi|supercharger|battery|energy|powerwall|megapack|cortex|doj[oa])\b/i,
+  },
+  { category: "Sales/Go-to-market", match: /\b(launch|deliveries|orders|pricing|customers|market)\b/i },
+  { category: "Strategy", match: /\b(strategy|strategic|priorit(y|ize)|focus|roadmap|platform)\b/i },
+  { category: "Hiring", match: /\b(hire|hiring|headcount|talent|workforce)\b/i },
+  { category: "Legal", match: /\b(regulatory|regulation|legal|compliance|approval|litigation)\b/i },
+];
+
+const TAG_RULES: Array<{ tag: string; match: RegExp }> = [
+  { tag: "autonomy", match: /\b(fsd|autonomy|robotaxi)\b/i },
+  { tag: "factory", match: /\b(factory|gigafactory|megafactory|plant)\b/i },
+  { tag: "ramp", match: /\b(ramp|ramping|production)\b/i },
+  { tag: "launch", match: /\b(launch|launched|unveiled)\b/i },
+  { tag: "energy", match: /\b(energy|megapack|powerwall|battery)\b/i },
+  { tag: "supercharger", match: /\b(supercharger|v4)\b/i },
+  { tag: "cybercab", match: /\b(cybercab)\b/i },
+  { tag: "semi", match: /\b(semi)\b/i },
+  { tag: "cortex", match: /\b(cortex|h100)\b/i },
+  { tag: "capex", match: /\b(capex|opex|investment)\b/i },
+];
+
+const hashText = (value: string) => {
+  let hash = 5381;
+  for (let index = 0; index < value.length; index += 1) {
+    hash = (hash * 33) ^ value.charCodeAt(index);
+  }
+  return Math.abs(hash).toString(36);
+};
+
+const splitIntoClauses = (text: string) => {
+  const normalized = text
+    .replace(/\r/g, "\n")
+    .replace(/\u00ad/g, "")
+    .replace(/([a-zA-Z])\-\n([a-zA-Z])/g, "$1$2")
+    .replace(/[•\u2022]/g, "•")
+    .replace(/[ \t]+/g, " ")
+    .trim();
+  if (!normalized) return [] as string[];
+
+  const lines = normalized
+    .split(/\n+/)
+    .map((line) => line.trim())
+    .filter(Boolean);
+
+  const merged: string[] = [];
+  let current = "";
+  lines.forEach((line) => {
+    const isBullet = /^[-–•]\s+/.test(line);
+    if (isBullet) {
+      if (current) {
+        merged.push(current);
+        current = "";
       }
+      merged.push(line.replace(/^[-–•]\s+/, "").trim());
+      return;
     }
-  }
-  return snippets;
+    if (!current) {
+      current = line;
+      return;
+    }
+    const endsSentence = /[.!?]$/.test(current);
+    const nextLooksContinuation = /^[a-z0-9(]/.test(line);
+    if (!endsSentence && nextLooksContinuation) {
+      current = `${current} ${line}`.trim();
+    } else {
+      merged.push(current);
+      current = line;
+    }
+  });
+  if (current) merged.push(current);
+
+  const clauses: string[] = [];
+  merged.forEach((line) => {
+    line
+      .split(/(?<=[.!?])\s+|;\s+|:\s+/)
+      .map((clause) => clause.trim())
+      .filter(Boolean)
+      .forEach((clause) => clauses.push(clause));
+  });
+  return clauses;
 };
 
-const scoreSnippet = (snippet: string) => {
-  const normalized = normalizeText(snippet);
-  if (!normalized) return 0;
-  let score = 0;
-  for (const keyword of DECISION_KEYWORDS) {
-    const regex = new RegExp(`\\b${keyword.replace(/\s+/g, "\\s+")}\\b`, "g");
-    const matches = normalized.match(regex);
-    if (matches) score += matches.length * 2;
-  }
-  if (/\b(complete|completed|launch|launched|unveil|unveiled|added|deploy|deployed)\b/.test(normalized)) {
-    score += 2;
-  }
-  if (/\b(2024|2025|2026|2027|q[1-4])\b/.test(normalized)) {
-    score += 1;
-  }
-  return score;
+const countPhraseHits = (normalized: string, phrases: string[]) => {
+  let hits = 0;
+  phrases.forEach((phrase) => {
+    const pattern = new RegExp(`\\b${phrase.replace(/\s+/g, "\\s+")}\\b`, "g");
+    const matches = normalized.match(pattern);
+    if (matches) hits += matches.length;
+  });
+  return hits;
 };
 
-const extractCandidateSnippets = (text: string, maxSnippets: number) => {
-  const snippets = splitIntoSnippets(text);
-  if (snippets.length <= maxSnippets) return snippets;
-  const scored = snippets.map((snippet, index) => ({
-    snippet,
-    index,
-    score: scoreSnippet(snippet),
-  }));
-  const sorted = scored
-    .slice()
-    .sort((a, b) => (b.score === a.score ? a.index - b.index : b.score - a.score));
-  return sorted.slice(0, maxSnippets).map((item) => item.snippet);
+const hasTimeAnchor = (normalized: string) => TIME_ANCHOR_PATTERNS.some((pattern) => pattern.test(normalized));
+
+const hasNumberAnchor = (normalized: string) => NUMBER_ANCHOR_PATTERN.test(normalized);
+
+const scoreClause = (normalized: string) => {
+  const commitmentHits = countPhraseHits(normalized, COMMITMENT_PHRASES);
+  if (commitmentHits === 0) return { score: 0, commitmentHits: 0 };
+  const timeHits = TIME_ANCHOR_PATTERNS.reduce((count, pattern) => (pattern.test(normalized) ? count + 1 : count), 0);
+  const numberHits = hasNumberAnchor(normalized) ? 1 : 0;
+  const score = commitmentHits * 3 + timeHits * 2 + numberHits;
+  return { score, commitmentHits };
 };
 
-const scorePageForDecisions = (text: string) => {
-  const normalized = normalizeText(text);
-  if (!normalized) return 0;
-  let score = 0;
-  for (const keyword of DECISION_KEYWORDS) {
-    const regex = new RegExp(`\\b${keyword.replace(/\s+/g, "\\s+")}\\b`, "g");
-    const matches = normalized.match(regex);
-    if (matches) score += matches.length;
+const inferStrength = (normalized: string) => {
+  if (countPhraseHits(normalized, HARD_COMMITMENT_PHRASES) > 0) return "hard";
+  if (countPhraseHits(normalized, SOFT_COMMITMENT_PHRASES) > 0) return "soft";
+  return "soft";
+};
+
+const buildTitle = (quote: string) => {
+  const stripped = quote.replace(/^(In|By|During|For|As of|On)\s+[^,]{0,40},\s*/i, "").trim();
+  const words = stripped.split(/\s+/).filter(Boolean);
+  const title = words.slice(0, 8).join(" ").replace(/[.,;:]+$/, "");
+  return title || stripped || quote;
+};
+
+const buildDecision = (quote: string) => {
+  const trimmed = quote.trim();
+  if (trimmed.length <= 180) return trimmed;
+  return `${trimmed.slice(0, 177).trim()}...`;
+};
+
+const buildRationale = (strength: "hard" | "soft") =>
+  strength === "hard"
+    ? "Stated in document; indicates a firm commitment or executed action."
+    : "Stated in document; indicates an expected or planned action.";
+
+const inferCategory = (quote: string) => {
+  for (const rule of CATEGORY_RULES) {
+    if (rule.match.test(quote)) return rule.category;
   }
-  return score;
+  return "Other";
 };
 
-const selectDecisionPages = (
-  pages: Array<{ page: number; text: string }>,
-  maxPages: number,
-) => {
-  if (pages.length <= maxPages) return pages;
-  const scored = pages.map((page, index) => ({
-    page,
-    index,
-    score: scorePageForDecisions(page.text),
-  }));
-  const sorted = scored
-    .slice()
-    .sort((a, b) => (b.score === a.score ? a.index - b.index : b.score - a.score));
-  const selected = sorted.slice(0, maxPages).map((item) => item.page);
-  const pageOrder = new Set(selected.map((page) => page.page));
-  return pages.filter((page) => pageOrder.has(page.page));
+const inferTags = (quote: string) => {
+  const tags = TAG_RULES.filter((rule) => rule.match.test(quote)).map((rule) => rule.tag);
+  return Array.from(new Set(tags));
 };
 
-const buildSnippetPages = (
+const buildDefaultConstraints = (quote: string): DecisionCandidate["constraints"] =>
+  SCORE_FIELDS.reduce(
+    (acc, field) => {
+      acc[field] = { score: 5, evidence: quote };
+      return acc;
+    },
+    {} as DecisionCandidate["constraints"],
+  );
+
+const extractCandidatesLocal = (
   pages: Array<{ page: number; text: string }>,
   maxCandidatesPerPage: number,
 ) => {
-  const snippetLimit = Math.min(14, Math.max(maxCandidatesPerPage, 8));
-  return pages.map((page) => ({
-    page: page.page,
-    snippets: extractCandidateSnippets(page.text, snippetLimit),
-  }));
+  const perPageLimit = Math.min(8, Math.max(5, maxCandidatesPerPage));
+  const candidates: Array<DecisionCandidate & { score: number }> = [];
+
+  pages.forEach((page) => {
+    const clauses = splitIntoClauses(page.text);
+    const scoredClauses = clauses
+      .map((clause, index) => {
+        const cleaned = clause.replace(/\s+/g, " ").trim();
+        if (cleaned.length < 40) return null;
+        const normalized = normalizeText(cleaned);
+        if (!normalized) return null;
+        const { score, commitmentHits } = scoreClause(normalized);
+        if (commitmentHits === 0) return null;
+        const scoreBoost = (hasTimeAnchor(normalized) ? 2 : 0) + (hasNumberAnchor(normalized) ? 1 : 0);
+        return { clause: cleaned, index, score: score + scoreBoost };
+      })
+      .filter(Boolean) as Array<{ clause: string; index: number; score: number }>;
+
+    const topClauses = scoredClauses
+      .slice()
+      .sort((a, b) => (b.score === a.score ? a.index - b.index : b.score - a.score))
+      .slice(0, perPageLimit);
+
+    topClauses.forEach((item) => {
+      const normalized = normalizeText(item.clause);
+      const strength = inferStrength(normalized);
+      const quote = clampQuote(item.clause);
+      const title = buildTitle(quote);
+      const decision = buildDecision(quote);
+      const candidate: DecisionCandidate & { score: number } = {
+        id: `local-${page.page}-${item.index}-${hashText(quote)}`,
+        title,
+        strength,
+        category: inferCategory(quote),
+        decision,
+        rationale: buildRationale(strength),
+        constraints: buildDefaultConstraints(quote),
+        evidence: { page: page.page, quote },
+        tags: inferTags(quote),
+        score: item.score,
+      };
+      candidates.push(candidate);
+    });
+  });
+
+  const sorted = candidates.sort((a, b) => (b.score === a.score ? a.evidence.page - b.evidence.page : b.score - a.score));
+  return sorted.slice(0, 30).map(({ score: _score, ...candidate }) => candidate);
 };
 
 const extractKeyTerms = (value: string) => {
@@ -288,7 +438,7 @@ const isDuplicateCandidate = (a: DecisionCandidate, b: DecisionCandidate) => {
   const termsA = extractKeyTerms(`${a.title} ${a.decision}`);
   const termsB = extractKeyTerms(`${b.title} ${b.decision}`);
   const similarity = jaccardSimilarity(termsA, termsB);
-  return similarity >= 0.55;
+  return similarity >= 0.65;
 };
 
 const pickPreferredCandidate = (a: DecisionCandidate, b: DecisionCandidate) => {
@@ -336,16 +486,17 @@ const normalizeConstraint = (
   return { score: 5, evidence: fallbackEvidence };
 };
 
-const deriveDecision = (title: string, quote: string) => {
-  if (title) return title;
+const deriveDecision = (quote: string) => {
   const trimmed = quote.trim();
   if (trimmed.length <= 160) return trimmed;
   return `${trimmed.slice(0, 157).trim()}...`;
 };
 
-const deriveTitle = (decision: string, quote: string) => {
-  if (decision) return decision;
+const deriveTitle = (quote: string) => {
   const trimmed = quote.trim();
+  const words = trimmed.split(/\s+/).filter(Boolean);
+  const title = words.slice(0, 8).join(" ").replace(/[.,;:]+$/, "");
+  if (title) return title;
   if (trimmed.length <= 100) return trimmed;
   return `${trimmed.slice(0, 97).trim()}...`;
 };
@@ -367,13 +518,9 @@ const normalizeCandidate = (
   const decisionRaw = typeof candidate.decision === "string" ? candidate.decision.trim() : "";
   const rationaleRaw = typeof candidate.rationale === "string" ? candidate.rationale.trim() : "";
 
-  const decision = decisionRaw || deriveDecision(titleRaw, quote);
-  const title = titleRaw || deriveTitle(decision, quote);
-  const rationale = rationaleRaw || "Stated commitment in document; see quote.";
-
-  if (!title || !decision) {
-    return { candidate: null, droppedReason: "missing_fields" };
-  }
+  const decision = decisionRaw || deriveDecision(quote);
+  const title = titleRaw || deriveTitle(quote);
+  const rationale = rationaleRaw || "Extracted from document quote.";
 
   const strengthValue = candidate.strength === "hard" || candidate.strength === "soft" ? candidate.strength : strength;
   const category =
@@ -445,10 +592,10 @@ const extractJsonArray = (content: string) => {
   return [];
 };
 
-const buildUserPrompt = (
+const buildRefinePrompt = (
   docName: string,
-  pages: Array<{ page: number; snippets: string[] }>,
-  maxPerPage: number,
+  candidates: DecisionCandidate[],
+  minCount: number,
 ) =>
   [
     "Return JSON object only with a top-level 'candidates' array. Follow this DecisionCandidate schema exactly for each item:",
@@ -469,11 +616,12 @@ const buildUserPrompt = (
   "evidence": { "page": 1, "quote": "<=280 chars", "locationHint": "optional" },
   "tags": ["string"]
 }`,
-    `Limit to at most ${maxPerPage} candidates per page.`,
-    "Use ONLY the provided snippets as evidence. Quotes must be exact substrings of snippets.",
+    `Keep at least ${minCount} candidates (unless fewer were provided).`,
+    "Do not invent evidence. Keep evidence.quote and evidence.page exactly as provided.",
+    "Only remove obvious junk (boilerplate or irrelevant).",
     `Document name: ${docName}`,
-    "Pages JSON (snippets per page):",
-    JSON.stringify(pages, null, 2),
+    "Candidates JSON:",
+    JSON.stringify(candidates, null, 2),
   ].join("\n");
 
 const withTimeout = async <T,>(promise: Promise<T>, timeoutMs: number) => {
@@ -492,22 +640,18 @@ const withTimeout = async <T,>(promise: Promise<T>, timeoutMs: number) => {
   }
 };
 
-const extractCandidates = async ({
-  strength,
-  systemPrompt,
+const refineCandidates = async ({
   docName,
-  pages,
+  candidates,
   model,
-  maxCandidatesPerPage,
   timeoutMs,
+  minCount,
 }: {
-  strength: "hard" | "soft";
-  systemPrompt: string;
   docName: string;
-  pages: Array<{ page: number; snippets: string[] }>;
+  candidates: DecisionCandidate[];
   model: string;
-  maxCandidatesPerPage: number;
   timeoutMs: number;
+  minCount: number;
 }) => {
   if (!process.env.OPENAI_API_KEY) {
     console.error("decision-extract missing OPENAI_API_KEY");
@@ -516,12 +660,12 @@ const extractCandidates = async ({
       warning: "Missing OpenAI API key",
       durationMs: 0,
       rawCount: 0,
-      droppedMissingFields: 0,
+      droppedInvalid: 0,
     };
   }
 
   const openai = createOpenAIClient();
-  const userPrompt = buildUserPrompt(docName, pages, maxCandidatesPerPage);
+  const userPrompt = buildRefinePrompt(docName, candidates, minCount);
   const start = Date.now();
   let completion: Awaited<ReturnType<typeof openai.chat.completions.create>>;
   try {
@@ -530,7 +674,7 @@ const extractCandidates = async ({
         model,
         temperature: 0.2,
         messages: [
-          { role: "system", content: systemPrompt },
+          { role: "system", content: REFINE_SYSTEM_PROMPT },
           { role: "user", content: userPrompt },
         ],
         response_format: { type: "json_object" },
@@ -545,7 +689,7 @@ const extractCandidates = async ({
       warning,
       durationMs: Date.now() - start,
       rawCount: 0,
-      droppedMissingFields: 0,
+      droppedInvalid: 0,
     };
   }
 
@@ -560,7 +704,7 @@ const extractCandidates = async ({
       warning: "Model response invalid JSON",
       durationMs: Date.now() - start,
       rawCount: 0,
-      droppedMissingFields: 0,
+      droppedInvalid: 0,
     };
   }
   if (!Array.isArray(raw)) {
@@ -569,20 +713,20 @@ const extractCandidates = async ({
       warning: "Model response not array",
       durationMs: Date.now() - start,
       rawCount: Array.isArray(raw) ? raw.length : 0,
-      droppedMissingFields: 0,
+      droppedInvalid: 0,
     };
   }
-  let droppedMissingFields = 0;
-  const candidates: DecisionCandidate[] = [];
+  let droppedInvalid = 0;
+  const refined: DecisionCandidate[] = [];
   raw.forEach((item, index) => {
-    const result = normalizeCandidate(item, strength, index);
+    const result = normalizeCandidate(item, "soft", index);
     if (result.candidate) {
-      candidates.push(result.candidate);
-    } else if (result.droppedReason === "missing_fields") {
-      droppedMissingFields += 1;
+      refined.push(result.candidate);
+    } else {
+      droppedInvalid += 1;
     }
   });
-  return { candidates, durationMs: Date.now() - start, rawCount: raw.length, droppedMissingFields };
+  return { candidates: refined, durationMs: Date.now() - start, rawCount: raw.length, droppedInvalid };
 };
 
 export async function POST(request: Request) {
@@ -601,94 +745,69 @@ export async function POST(request: Request) {
   }
 
   const normalized = normalizeRequest(parsed.data);
-  const totalChars = normalized.pages.reduce((total, page) => total + page.text.length, 0);
-  const warnings: string[] = [];
-  const shouldLimitPages =
-    totalChars > FULL_TEXT_CHAR_LIMIT || normalized.pages.length > MAX_PRIMARY_PAGES;
-  const primaryPages = shouldLimitPages
-    ? selectDecisionPages(normalized.pages, MAX_PRIMARY_PAGES)
-    : normalized.pages;
-  const primaryPageSet = new Set(primaryPages.map((page) => page.page));
-  const secondaryPages = shouldLimitPages
-    ? selectDecisionPages(
-        normalized.pages.filter((page) => !primaryPageSet.has(page.page)),
-        MAX_SECONDARY_PAGES,
-      )
-    : [];
-  const primarySnippetPages = buildSnippetPages(primaryPages, normalized.maxCandidatesPerPage);
-  const secondarySnippetPages = buildSnippetPages(secondaryPages, normalized.maxCandidatesPerPage);
-  const snippetCounts = {
-    primary: primarySnippetPages.reduce((total, page) => total + page.snippets.length, 0),
-    secondary: secondarySnippetPages.reduce((total, page) => total + page.snippets.length, 0),
-  };
-
-  if (totalChars > MAX_TOTAL_CHARS) {
-    warnings.push("Input too large; limiting pages sent to model.");
-  }
-
-  console.info("decision-extract request", {
+  console.info("decision-extract POST", {
     docName: normalized.docName,
     pages: normalized.pages.length,
+  });
+  const totalChars = normalized.pages.reduce((total, page) => total + page.text.length, 0);
+  const warnings: string[] = [];
+  if (totalChars > MAX_TOTAL_CHARS) {
+    warnings.push("Input too large; extracting locally from full text.");
+  }
+  if (totalChars > FULL_TEXT_CHAR_LIMIT) {
+    warnings.push("Large document; refine may be slower.");
+  }
+
+  const localCandidatesRaw = extractCandidatesLocal(normalized.pages, normalized.maxCandidatesPerPage);
+  const localCandidates: DecisionCandidate[] = [];
+  for (const candidate of localCandidatesRaw) {
+    const existingIndex = localCandidates.findIndex((existing) => isDuplicateCandidate(existing, candidate));
+    if (existingIndex === -1) {
+      localCandidates.push(candidate);
+    } else {
+      localCandidates[existingIndex] = mergeCandidates(localCandidates[existingIndex], candidate);
+    }
+  }
+
+  console.info("decision-extract local", {
     totalChars,
-    selectedPrimaryPages: primaryPages.length,
-    selectedSecondaryPages: secondaryPages.length,
-    primaryPageNumbers: primaryPages.map((page) => page.page),
-    secondaryPageNumbers: secondaryPages.map((page) => page.page),
-    snippetCounts,
+    pages: normalized.pages.length,
+    localCandidates: localCandidates.length,
   });
 
-  let hardCandidates: DecisionCandidate[] = [];
-  let softCandidates: DecisionCandidate[] = [];
-  const extractPass = async (pages: Array<{ page: number; snippets: string[] }>, label: string) => {
-    const hardResult = await extractCandidates({
-      strength: "hard",
-      systemPrompt: HARD_SYSTEM_PROMPT,
+  let refinedCandidates = localCandidates;
+  let droppedInvalid = 0;
+  if (process.env.OPENAI_API_KEY && localCandidates.length > 0) {
+    const minCount = Math.min(12, localCandidates.length);
+    const refineResult = await refineCandidates({
       docName: normalized.docName,
-      pages,
+      candidates: localCandidates,
       model: normalized.model,
-      maxCandidatesPerPage: normalized.maxCandidatesPerPage,
       timeoutMs: MODEL_TIMEOUT_MS,
+      minCount,
     });
-    const softResult = await extractCandidates({
-      strength: "soft",
-      systemPrompt: SOFT_SYSTEM_PROMPT,
-      docName: normalized.docName,
-      pages,
-      model: normalized.model,
-      maxCandidatesPerPage: normalized.maxCandidatesPerPage,
-      timeoutMs: MODEL_TIMEOUT_MS,
+    droppedInvalid = refineResult.droppedInvalid;
+    if (refineResult.warning) {
+      warnings.push("Refine unavailable — showing local results");
+      warnings.push(refineResult.warning);
+    } else if (refineResult.candidates.length < minCount) {
+      warnings.push("Refine unavailable — showing local results");
+    } else {
+      refinedCandidates = refineResult.candidates;
+    }
+
+    console.info("decision-extract refine", {
+      refineMs: refineResult.durationMs,
+      refinedCandidates: refineResult.candidates.length,
+      rawCount: refineResult.rawCount,
+      droppedInvalid,
     });
-
-    if (hardResult.warning) warnings.push(hardResult.warning);
-    if (softResult.warning) warnings.push(softResult.warning);
-
-    console.info("decision-extract pass timing", {
-      label,
-      hardMs: hardResult.durationMs,
-      softMs: softResult.durationMs,
-      hardCandidates: hardResult.candidates.length,
-      softCandidates: softResult.candidates.length,
-      hardRaw: hardResult.rawCount,
-      softRaw: softResult.rawCount,
-      hardDroppedMissingFields: hardResult.droppedMissingFields,
-      softDroppedMissingFields: softResult.droppedMissingFields,
-    });
-
-    return { hard: hardResult.candidates, soft: softResult.candidates };
-  };
-
-  const primaryResults = await extractPass(primarySnippetPages, "primary");
-  hardCandidates = primaryResults.hard;
-  softCandidates = primaryResults.soft;
-
-  if (hardCandidates.length + softCandidates.length === 0 && secondarySnippetPages.length > 0) {
-    const secondaryResults = await extractPass(secondarySnippetPages, "secondary");
-    hardCandidates = [...hardCandidates, ...secondaryResults.hard];
-    softCandidates = [...softCandidates, ...secondaryResults.soft];
+  } else if (!process.env.OPENAI_API_KEY) {
+    warnings.push("Refine unavailable — showing local results");
   }
 
   const mergedCandidates: DecisionCandidate[] = [];
-  for (const candidate of [...hardCandidates, ...softCandidates]) {
+  for (const candidate of refinedCandidates) {
     const existingIndex = mergedCandidates.findIndex((existing) => isDuplicateCandidate(existing, candidate));
     if (existingIndex === -1) {
       mergedCandidates.push(candidate);
@@ -698,9 +817,10 @@ export async function POST(request: Request) {
   }
 
   console.info("decision-extract summary", {
-    hardCandidates: hardCandidates.length,
-    softCandidates: softCandidates.length,
+    localCandidates: localCandidates.length,
+    refinedCandidates: refinedCandidates.length,
     mergedCandidates: mergedCandidates.length,
+    droppedInvalid,
     sampleTitles: mergedCandidates.slice(0, 2).map((candidate) => candidate.title),
   });
 
