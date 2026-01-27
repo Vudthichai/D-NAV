@@ -20,6 +20,7 @@ import {
   type LocalDecisionCandidate,
 } from "@/lib/decisionExtractLocal";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import { Checkbox } from "@/components/ui/checkbox";
 import Link from "next/link";
 import { type ChangeEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
 
@@ -97,6 +98,12 @@ const THRESHOLD_PRESETS = {
   loose: 1.8,
 } as const;
 
+const GROUP_CAPS: Record<DecisionStrength, number> = {
+  hard: 12,
+  medium: 12,
+  soft: 8,
+};
+
 const isSessionDecisionSnapshot = (value: unknown): value is SessionDecision => {
   if (!value || typeof value !== "object") return false;
   const candidate = value as Partial<SessionDecision>;
@@ -131,6 +138,8 @@ export default function StressTestPage() {
   const [sortMode, setSortMode] = useState<"score" | "page">("score");
   const [showLowScore, setShowLowScore] = useState(false);
   const [dismissedIds, setDismissedIds] = useState<Set<string>>(new Set());
+  const [selectedCandidateIds, setSelectedCandidateIds] = useState<Set<string>>(new Set());
+  const [expandedGroups, setExpandedGroups] = useState<Set<DecisionStrength>>(new Set());
   const [toastNotice, setToastNotice] = useState<{
     message: string;
     actionLabel?: string;
@@ -186,6 +195,11 @@ export default function StressTestPage() {
   useEffect(() => {
     if (apiStatus.state === "error" && extractMode === "smart") {
       setExtractMode("local");
+      setExtractWarnings((prev) => {
+        const next = new Set(prev);
+        next.add("Smart extractor unavailable; quick scan stays local.");
+        return Array.from(next);
+      });
     }
   }, [apiStatus.state, extractMode]);
 
@@ -578,6 +592,8 @@ export default function StressTestPage() {
     setDecisionCandidates(localCandidates);
     setDismissedIds(new Set());
     setShowLowScore(false);
+    setSelectedCandidateIds(new Set());
+    setExpandedGroups(new Set());
   }, [extractedPages]);
 
   const handleExtractDecisions = useCallback(async () => {
@@ -624,6 +640,8 @@ export default function StressTestPage() {
       setDecisionCandidates(mapped);
       setDismissedIds(new Set());
       setShowLowScore(false);
+      setSelectedCandidateIds(new Set());
+      setExpandedGroups(new Set());
     } catch (error) {
       console.error("Decision extraction error.", error);
       if (extractMode === "smart") {
@@ -642,15 +660,29 @@ export default function StressTestPage() {
     }
   }, [extractedPages, extractMode, isExtracting, mapApiCandidateToLocal, runLocalExtract, selectedFileName]);
 
+  const scrollToDecision = useCallback((decisionId: string) => {
+    const row = document.getElementById(`decision-row-${decisionId}`);
+    if (!row) return;
+    row.scrollIntoView({ behavior: "smooth", block: "center" });
+    row.classList.add("ring-2", "ring-primary/50");
+    window.setTimeout(() => row.classList.remove("ring-2", "ring-primary/50"), 1600);
+  }, []);
+
   const handleAddToSession = useCallback(
     (candidate: LocalDecisionCandidate) => {
       const title = candidate.title.trim() || "Untitled decision";
       const pageLabel = candidate.page ? ` (p. ${candidate.page})` : "";
       const evidence = candidate.quote ? `${candidate.quote}${pageLabel}` : "";
+      let nextTotal = 0;
+      let added = false;
+      const decisionId = `extract-${candidate.id}`;
       setSessionDecisions((prev) => {
-        if (prev.some((decision) => decision.id === `extract-${candidate.id}`)) return prev;
+        if (prev.some((decision) => decision.id === decisionId)) {
+          nextTotal = prev.length;
+          return prev;
+        }
         const sessionDecision: SessionDecision = {
-          id: `extract-${candidate.id}`,
+          id: decisionId,
           decisionTitle: title,
           decisionDetail: evidence,
           category: "Strategy",
@@ -669,21 +701,36 @@ export default function StressTestPage() {
           sourceType: "intake",
           createdAt: Date.now(),
         };
+        added = true;
+        nextTotal = prev.length + 1;
         return [sessionDecision, ...prev];
       });
       setSessionExtractedDecisions((prev) => {
         if (prev.some((item) => item.id === candidate.id)) return prev;
         return [candidate, ...prev];
       });
-      setToastNotice({ message: "Added to session" });
+      if (added) {
+        setToastNotice({
+          message: `Added to session (${nextTotal} total)`,
+          actionLabel: "Jump to decision",
+          onAction: () => scrollToDecision(decisionId),
+        });
+      }
+      setSelectedCandidateIds((prev) => {
+        const next = new Set(prev);
+        next.delete(candidate.id);
+        return next;
+      });
     },
-    [selectedFileName],
+    [scrollToDecision, selectedFileName],
   );
 
   const handleAddMultiple = useCallback(
     (candidates: LocalDecisionCandidate[]) => {
       if (candidates.length === 0) return;
       let addedCount = 0;
+      let nextTotal = 0;
+      let lastAdded: string | null = null;
       setSessionDecisions((prev) => {
         const existingIds = new Set(prev.map((decision) => decision.id));
         const additions: SessionDecision[] = [];
@@ -713,9 +760,11 @@ export default function StressTestPage() {
             sourceType: "intake",
             createdAt: Date.now(),
           });
+          lastAdded = id;
         });
         addedCount = additions.length;
         if (additions.length === 0) return prev;
+        nextTotal = prev.length + additions.length;
         return [...additions, ...prev];
       });
       setSessionExtractedDecisions((prev) => {
@@ -729,16 +778,26 @@ export default function StressTestPage() {
         return next;
       });
       if (addedCount > 0) {
-        setToastNotice({ message: `Added ${addedCount} to session` });
+        setToastNotice({
+          message: `Added ${addedCount} to session (${nextTotal} total)`,
+          actionLabel: "Jump to decision",
+          onAction: () => (lastAdded ? scrollToDecision(lastAdded) : undefined),
+        });
       }
+      setSelectedCandidateIds(new Set());
     },
-    [selectedFileName],
+    [scrollToDecision, selectedFileName],
   );
 
   const handleDismissCandidate = useCallback((candidate: LocalDecisionCandidate) => {
     setDismissedIds((prev) => {
       const next = new Set(prev);
       next.add(candidate.id);
+      return next;
+    });
+    setSelectedCandidateIds((prev) => {
+      const next = new Set(prev);
+      next.delete(candidate.id);
       return next;
     });
     setToastNotice({
@@ -750,6 +809,18 @@ export default function StressTestPage() {
           next.delete(candidate.id);
           return next;
         }),
+    });
+  }, []);
+
+  const handleToggleSelected = useCallback((candidateId: string, checked: boolean) => {
+    setSelectedCandidateIds((prev) => {
+      const next = new Set(prev);
+      if (checked) {
+        next.add(candidateId);
+      } else {
+        next.delete(candidateId);
+      }
+      return next;
     });
   }, []);
 
@@ -826,11 +897,31 @@ export default function StressTestPage() {
     visibleCandidates.forEach((candidate) => {
       groups[candidate.strength].push(candidate);
     });
+    (Object.keys(groups) as DecisionStrength[]).forEach((key) => {
+      groups[key].sort((a, b) => {
+        if (b.score !== a.score) return b.score - a.score;
+        return a.page - b.page;
+      });
+    });
     return groups;
   }, [visibleCandidates]);
 
+  const selectedCandidates = useMemo(() => {
+    return visibleCandidates.filter((candidate) => selectedCandidateIds.has(candidate.id));
+  }, [selectedCandidateIds, visibleCandidates]);
+
+  const handleAddSelected = useCallback(() => {
+    if (selectedCandidates.length === 0) return;
+    handleAddMultiple(selectedCandidates);
+  }, [handleAddMultiple, selectedCandidates]);
+
   const topCandidates = useMemo(() => {
-    return [...filteredCandidates].sort((a, b) => b.score - a.score).slice(0, 10);
+    return [...filteredCandidates]
+      .sort((a, b) => {
+        if (b.score !== a.score) return b.score - a.score;
+        return a.page - b.page;
+      })
+      .slice(0, 10);
   }, [filteredCandidates]);
 
   // TODO: Rebuild Decision Intake v2
@@ -933,11 +1024,22 @@ export default function StressTestPage() {
                     {sessionDecisions.map((decision) => (
                       <div
                         key={decision.id}
+                        id={`decision-row-${decision.id}`}
                         className="grid cursor-pointer grid-cols-[minmax(180px,1.6fr)_repeat(5,minmax(48px,0.5fr))_repeat(3,minmax(40px,0.4fr))_minmax(56px,0.5fr)_minmax(64px,0.6fr)] items-center gap-2 rounded-lg border border-border/40 bg-muted/10 px-3 py-1 text-[11px] text-muted-foreground transition hover:border-border/70 hover:bg-muted/20"
                         onClick={() => handleOpenEditDialog(decision)}
                       >
                         <div className="min-w-0">
-                          <p className="truncate font-semibold text-foreground">{decision.decisionTitle}</p>
+                          <div className="flex flex-wrap items-center gap-2">
+                            <p className="truncate font-semibold text-foreground">{decision.decisionTitle}</p>
+                            {decision.sourceType === "intake" &&
+                            [decision.impact, decision.cost, decision.risk, decision.urgency, decision.confidence].every(
+                              (value) => value === 0,
+                            ) ? (
+                              <span className="rounded-full border border-amber-500/40 bg-amber-500/10 px-2 py-0.5 text-[9px] font-semibold uppercase tracking-wide text-amber-700">
+                                Needs scoring
+                              </span>
+                            ) : null}
+                          </div>
                           <p className="truncate text-[10px] text-muted-foreground">{decision.category}</p>
                         </div>
                         <span className="text-center tabular-nums">{formatCompact(decision.impact)}</span>
@@ -1292,6 +1394,16 @@ export default function StressTestPage() {
                         type="button"
                         size="sm"
                         className="h-7 px-3 text-[10px] font-semibold uppercase tracking-wide"
+                        onClick={handleAddSelected}
+                        disabled={selectedCandidates.length === 0}
+                      >
+                        Add selected ({selectedCandidates.length})
+                      </Button>
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="outline"
+                        className="h-7 px-3 text-[10px] font-semibold uppercase tracking-wide"
                         onClick={() => handleAddMultiple(groupedCandidates.hard)}
                         disabled={groupedCandidates.hard.length === 0}
                       >
@@ -1329,26 +1441,76 @@ export default function StressTestPage() {
                       ).map((group) => {
                         const grouped = groupedCandidates[group.key];
                         if (grouped.length === 0) return null;
+                        const cap = GROUP_CAPS[group.key];
+                        const isExpanded = expandedGroups.has(group.key);
+                        const displayed = isExpanded ? grouped : grouped.slice(0, cap);
+                        const hidden = grouped.length - displayed.length;
                         return (
                           <div key={group.key} className="space-y-2">
-                            <div className="flex items-center justify-between text-[11px] text-muted-foreground">
-                              <p className="font-semibold uppercase tracking-wide text-foreground">{group.label}</p>
-                              <span>{grouped.length} found</span>
+                            <div className="flex flex-wrap items-center justify-between gap-2 text-[11px] text-muted-foreground">
+                              <div className="flex flex-wrap items-center gap-2">
+                                <p className="font-semibold uppercase tracking-wide text-foreground">{group.label}</p>
+                                <span>{grouped.length} found</span>
+                              </div>
+                              <div className="flex flex-wrap items-center gap-2">
+                                <Button
+                                  type="button"
+                                  size="sm"
+                                  variant="outline"
+                                  className="h-7 px-2 text-[10px] font-semibold uppercase tracking-wide"
+                                  onClick={() => handleAddMultiple(grouped.slice(0, 10))}
+                                  disabled={grouped.length === 0}
+                                >
+                                  Add top 10 (recommended)
+                                </Button>
+                                {hidden > 0 ? (
+                                  <Button
+                                    type="button"
+                                    size="sm"
+                                    variant="ghost"
+                                    className="h-7 px-2 text-[10px] font-semibold uppercase tracking-wide"
+                                    onClick={() =>
+                                      setExpandedGroups((prev) => {
+                                        const next = new Set(prev);
+                                        if (isExpanded) {
+                                          next.delete(group.key);
+                                        } else {
+                                          next.add(group.key);
+                                        }
+                                        return next;
+                                      })
+                                    }
+                                  >
+                                    {isExpanded ? "Show less" : `Show more (+${hidden})`}
+                                  </Button>
+                                ) : null}
+                              </div>
                             </div>
                             <div className="space-y-2">
-                              {grouped.map((candidate) => {
+                              {displayed.map((candidate) => {
                                 const isAdded = addedIds.has(candidate.id);
+                                const isSelected = selectedCandidateIds.has(candidate.id);
                                 return (
                                   <div
                                     key={candidate.id}
                                     className="rounded-lg border border-border/60 bg-muted/10 px-3 py-2 text-xs text-muted-foreground"
                                   >
                                     <div className="flex flex-wrap items-start justify-between gap-2">
-                                      <div className="space-y-1">
-                                        <p className="text-sm font-semibold text-foreground">{candidate.title}</p>
-                                        <p className="text-[11px] text-muted-foreground">
-                                          {candidate.page ? `p. ${candidate.page}` : "Page n/a"}
-                                        </p>
+                                      <div className="flex flex-1 gap-2">
+                                        <Checkbox
+                                          checked={isSelected}
+                                          onCheckedChange={(checked) =>
+                                            handleToggleSelected(candidate.id, Boolean(checked))
+                                          }
+                                          aria-label={`Select ${candidate.title}`}
+                                          className="mt-0.5"
+                                        />
+                                        <div className="space-y-1">
+                                          <p className="text-sm font-semibold text-foreground">{candidate.title}</p>
+                                          <p className="text-[11px] text-muted-foreground">
+                                            {candidate.page ? `p. ${candidate.page}` : "Page n/a"}
+                                          </p>
+                                        </div>
                                       </div>
                                       <div className="flex flex-wrap items-center gap-2">
                                         <span className="rounded-full border border-border/50 bg-background px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-foreground">
@@ -1378,8 +1540,19 @@ export default function StressTestPage() {
                                         onClick={() => handleAddToSession(candidate)}
                                         disabled={isAdded}
                                       >
-                                        {isAdded ? "Added" : "Add to session"}
+                                        {isAdded ? "Added ✓" : "Add to session"}
                                       </Button>
+                                      {isAdded ? (
+                                        <Button
+                                          type="button"
+                                          size="sm"
+                                          variant="ghost"
+                                          className="h-7 px-2 text-[11px] font-semibold uppercase tracking-wide"
+                                          onClick={() => scrollToDecision(`extract-${candidate.id}`)}
+                                        >
+                                          Jump to decision
+                                        </Button>
+                                      ) : null}
                                       <Button
                                         type="button"
                                         size="sm"
