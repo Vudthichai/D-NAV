@@ -12,16 +12,16 @@ export const dynamic = "force-dynamic";
 
 const MAX_TOTAL_CHARS = 250_000;
 const FULL_TEXT_CHAR_LIMIT = 90_000;
-const MAX_PRIMARY_PAGES = 10;
-const MAX_SECONDARY_PAGES = 8;
-const MODEL_TIMEOUT_MS = 20_000;
+const MAX_PRIMARY_PAGES = 16;
+const MAX_SECONDARY_PAGES = 14;
+const MODEL_TIMEOUT_MS = 35_000;
 const DEFAULT_MODEL = "gpt-4o-mini";
-const DEFAULT_MAX_CANDIDATES_PER_PAGE = 6;
+const DEFAULT_MAX_CANDIDATES_PER_PAGE = 10;
 
 const HARD_SYSTEM_PROMPT =
-  "You extract ONLY explicit commitments and concrete decisions. Include only statements with clear commitment verbs (will, launch, begin, approved, signed, committed, decided, execute). Output JSON array of DecisionCandidate. Every item must include a direct quote and a 1-indexed page number.";
+  "You extract ONLY explicit commitments and executed actions. Include clear commitments (will, plan, on track, scheduled, remain on track, preparations are underway, expect, target, begin, ramp, start of production) AND executed actions (completed, launched, unveiled, added, deployed, achieved). Output JSON object with a 'candidates' array of DecisionCandidate. Use ONLY the provided snippets; every item must include an exact quote from a snippet and a 1-indexed page number. No hallucinations.";
 const SOFT_SYSTEM_PROMPT =
-  "You extract implicit strategic decisions (intent, priorities, posture, sequencing, investment focus, deprioritization). These are decisions with lower confidence. Output JSON array of DecisionCandidate with strength='soft'. Every item must include a direct quote and a 1-indexed page number. No hallucinations.";
+  "You extract implicit strategic decisions (intent, priorities, posture, sequencing, investment focus, deprioritization) and softer commitments (aim, expect, scheduled, remain on track, preparations are underway). These are decisions with lower confidence. Output JSON object with a 'candidates' array of DecisionCandidate with strength='soft'. Use ONLY the provided snippets; every item must include an exact quote from a snippet and a 1-indexed page number. No hallucinations.";
 
 const SCORE_FIELDS = ["impact", "cost", "risk", "urgency", "confidence"] as const;
 const CATEGORY_VALUES = [
@@ -77,12 +77,29 @@ const DECISION_KEYWORDS = [
   "will",
   "plan",
   "plans",
+  "on track",
+  "scheduled",
+  "remain on track",
+  "preparations are underway",
+  "we expect",
   "expect",
   "expected",
   "target",
   "targets",
+  "pilot production",
+  "start of production",
+  "ramp beginning",
+  "volume production planned",
   "launch",
   "begin",
+  "ramping",
+  "ramp",
+  "completed",
+  "launched",
+  "unveiled",
+  "added",
+  "deployed",
+  "achieved",
   "prioritize",
   "prioritizing",
   "invest",
@@ -155,12 +172,64 @@ const normalizeText = (value: string) =>
     .replace(/\s+/g, " ")
     .trim();
 
+const splitIntoSnippets = (text: string) => {
+  const cleaned = text.replace(/\s+/g, " ").trim();
+  if (!cleaned) return [];
+  const roughSplits = cleaned
+    .split(/(?<=[.!?])\s+|;\s+|:\s+|\s-\s|\n+/g)
+    .map((snippet) => snippet.trim())
+    .filter((snippet) => snippet.length > 0);
+  const snippets: string[] = [];
+  for (const snippet of roughSplits) {
+    if (snippet.length <= 360) {
+      snippets.push(snippet);
+    } else {
+      for (let i = 0; i < snippet.length; i += 300) {
+        snippets.push(snippet.slice(i, i + 300).trim());
+      }
+    }
+  }
+  return snippets;
+};
+
+const scoreSnippet = (snippet: string) => {
+  const normalized = normalizeText(snippet);
+  if (!normalized) return 0;
+  let score = 0;
+  for (const keyword of DECISION_KEYWORDS) {
+    const regex = new RegExp(`\\b${keyword.replace(/\s+/g, "\\s+")}\\b`, "g");
+    const matches = normalized.match(regex);
+    if (matches) score += matches.length * 2;
+  }
+  if (/\b(complete|completed|launch|launched|unveil|unveiled|added|deploy|deployed)\b/.test(normalized)) {
+    score += 2;
+  }
+  if (/\b(2024|2025|2026|2027|q[1-4])\b/.test(normalized)) {
+    score += 1;
+  }
+  return score;
+};
+
+const extractCandidateSnippets = (text: string, maxSnippets: number) => {
+  const snippets = splitIntoSnippets(text);
+  if (snippets.length <= maxSnippets) return snippets;
+  const scored = snippets.map((snippet, index) => ({
+    snippet,
+    index,
+    score: scoreSnippet(snippet),
+  }));
+  const sorted = scored
+    .slice()
+    .sort((a, b) => (b.score === a.score ? a.index - b.index : b.score - a.score));
+  return sorted.slice(0, maxSnippets).map((item) => item.snippet);
+};
+
 const scorePageForDecisions = (text: string) => {
   const normalized = normalizeText(text);
   if (!normalized) return 0;
   let score = 0;
   for (const keyword of DECISION_KEYWORDS) {
-    const regex = new RegExp(`\\b${keyword}\\b`, "g");
+    const regex = new RegExp(`\\b${keyword.replace(/\s+/g, "\\s+")}\\b`, "g");
     const matches = normalized.match(regex);
     if (matches) score += matches.length;
   }
@@ -185,9 +254,30 @@ const selectDecisionPages = (
   return pages.filter((page) => pageOrder.has(page.page));
 };
 
+const buildSnippetPages = (
+  pages: Array<{ page: number; text: string }>,
+  maxCandidatesPerPage: number,
+) => {
+  const snippetLimit = Math.min(14, Math.max(maxCandidatesPerPage, 8));
+  return pages.map((page) => ({
+    page: page.page,
+    snippets: extractCandidateSnippets(page.text, snippetLimit),
+  }));
+};
+
 const extractKeyTerms = (value: string) => {
   const words = normalizeText(value).split(" ");
   return new Set(words.filter((word) => word.length > 3 && !STOP_WORDS.has(word)));
+};
+
+const jaccardSimilarity = (a: Set<string>, b: Set<string>) => {
+  if (a.size === 0 || b.size === 0) return 0;
+  let intersection = 0;
+  for (const value of a) {
+    if (b.has(value)) intersection += 1;
+  }
+  const union = a.size + b.size - intersection;
+  return union === 0 ? 0 : intersection / union;
 };
 
 const isDuplicateCandidate = (a: DecisionCandidate, b: DecisionCandidate) => {
@@ -195,16 +285,10 @@ const isDuplicateCandidate = (a: DecisionCandidate, b: DecisionCandidate) => {
   const normalizedTitleB = normalizeText(b.title);
   if (normalizedTitleA && normalizedTitleA === normalizedTitleB) return true;
 
-  if (a.evidence.page !== b.evidence.page) return false;
   const termsA = extractKeyTerms(`${a.title} ${a.decision}`);
   const termsB = extractKeyTerms(`${b.title} ${b.decision}`);
-  if (termsA.size === 0 || termsB.size === 0) return false;
-  let overlap = 0;
-  for (const term of termsA) {
-    if (termsB.has(term)) overlap += 1;
-    if (overlap >= 2) return true;
-  }
-  return false;
+  const similarity = jaccardSimilarity(termsA, termsB);
+  return similarity >= 0.55;
 };
 
 const pickPreferredCandidate = (a: DecisionCandidate, b: DecisionCandidate) => {
@@ -252,23 +336,44 @@ const normalizeConstraint = (
   return { score: 5, evidence: fallbackEvidence };
 };
 
+const deriveDecision = (title: string, quote: string) => {
+  if (title) return title;
+  const trimmed = quote.trim();
+  if (trimmed.length <= 160) return trimmed;
+  return `${trimmed.slice(0, 157).trim()}...`;
+};
+
+const deriveTitle = (decision: string, quote: string) => {
+  if (decision) return decision;
+  const trimmed = quote.trim();
+  if (trimmed.length <= 100) return trimmed;
+  return `${trimmed.slice(0, 97).trim()}...`;
+};
+
 const normalizeCandidate = (
   raw: unknown,
   strength: "hard" | "soft",
   index: number,
-): DecisionCandidate | null => {
-  if (!raw || typeof raw !== "object") return null;
+): { candidate: DecisionCandidate | null; droppedReason?: string } => {
+  if (!raw || typeof raw !== "object") return { candidate: null, droppedReason: "invalid" };
   const candidate = raw as Record<string, unknown>;
   const evidence = candidate.evidence as { page?: unknown; quote?: unknown; locationHint?: unknown } | undefined;
   const page = typeof evidence?.page === "number" ? Math.round(evidence.page) : null;
   const quote = typeof evidence?.quote === "string" ? clampQuote(evidence.quote) : "";
 
-  if (!page || page < 1 || !quote) return null;
+  if (!page || page < 1 || !quote) return { candidate: null, droppedReason: "missing_evidence" };
 
-  const title = typeof candidate.title === "string" ? candidate.title.trim() : "";
-  const decision = typeof candidate.decision === "string" ? candidate.decision.trim() : "";
-  const rationale = typeof candidate.rationale === "string" ? candidate.rationale.trim() : "";
-  if (!title || !decision || !rationale) return null;
+  const titleRaw = typeof candidate.title === "string" ? candidate.title.trim() : "";
+  const decisionRaw = typeof candidate.decision === "string" ? candidate.decision.trim() : "";
+  const rationaleRaw = typeof candidate.rationale === "string" ? candidate.rationale.trim() : "";
+
+  const decision = decisionRaw || deriveDecision(titleRaw, quote);
+  const title = titleRaw || deriveTitle(decision, quote);
+  const rationale = rationaleRaw || "Stated commitment in document; see quote.";
+
+  if (!title || !decision) {
+    return { candidate: null, droppedReason: "missing_fields" };
+  }
 
   const strengthValue = candidate.strength === "hard" || candidate.strength === "soft" ? candidate.strength : strength;
   const category =
@@ -310,8 +415,8 @@ const normalizeCandidate = (
   };
 
   const parsed = decisionCandidateSchema.safeParse(normalized);
-  if (!parsed.success) return null;
-  return parsed.data;
+  if (!parsed.success) return { candidate: null, droppedReason: "schema" };
+  return { candidate: parsed.data };
 };
 
 const extractJsonArray = (content: string) => {
@@ -320,9 +425,17 @@ const extractJsonArray = (content: string) => {
   if (trimmed.startsWith("[")) {
     return JSON.parse(trimmed);
   }
+  if (trimmed.startsWith("{")) {
+    const parsed = JSON.parse(trimmed) as { candidates?: unknown };
+    if (Array.isArray(parsed?.candidates)) {
+      return parsed.candidates;
+    }
+  }
   const fenced = trimmed.match(/```(?:json)?\s*([\s\S]*?)\s*```/i);
   if (fenced?.[1]) {
-    return JSON.parse(fenced[1]);
+    const parsed = JSON.parse(fenced[1]) as { candidates?: unknown };
+    if (Array.isArray(parsed?.candidates)) return parsed.candidates;
+    return parsed;
   }
   const start = trimmed.indexOf("[");
   const end = trimmed.lastIndexOf("]");
@@ -332,9 +445,13 @@ const extractJsonArray = (content: string) => {
   return [];
 };
 
-const buildUserPrompt = (docName: string, pages: Array<{ page: number; text: string }>, maxPerPage: number) =>
+const buildUserPrompt = (
+  docName: string,
+  pages: Array<{ page: number; snippets: string[] }>,
+  maxPerPage: number,
+) =>
   [
-    "Return JSON array only. Follow this DecisionCandidate schema exactly:",
+    "Return JSON object only with a top-level 'candidates' array. Follow this DecisionCandidate schema exactly for each item:",
     `{
   "id": "string",
   "title": "string",
@@ -353,13 +470,10 @@ const buildUserPrompt = (docName: string, pages: Array<{ page: number; text: str
   "tags": ["string"]
 }`,
     `Limit to at most ${maxPerPage} candidates per page.`,
+    "Use ONLY the provided snippets as evidence. Quotes must be exact substrings of snippets.",
     `Document name: ${docName}`,
-    "Pages JSON:",
-    JSON.stringify(
-      pages.map((page) => ({ page: page.page, text: page.text })),
-      null,
-      2,
-    ),
+    "Pages JSON (snippets per page):",
+    JSON.stringify(pages, null, 2),
   ].join("\n");
 
 const withTimeout = async <T,>(promise: Promise<T>, timeoutMs: number) => {
@@ -390,14 +504,20 @@ const extractCandidates = async ({
   strength: "hard" | "soft";
   systemPrompt: string;
   docName: string;
-  pages: Array<{ page: number; text: string }>;
+  pages: Array<{ page: number; snippets: string[] }>;
   model: string;
   maxCandidatesPerPage: number;
   timeoutMs: number;
 }) => {
   if (!process.env.OPENAI_API_KEY) {
     console.error("decision-extract missing OPENAI_API_KEY");
-    return { candidates: [] as DecisionCandidate[], warning: "Missing OpenAI API key", durationMs: 0 };
+    return {
+      candidates: [] as DecisionCandidate[],
+      warning: "Missing OpenAI API key",
+      durationMs: 0,
+      rawCount: 0,
+      droppedMissingFields: 0,
+    };
   }
 
   const openai = createOpenAIClient();
@@ -413,13 +533,20 @@ const extractCandidates = async ({
           { role: "system", content: systemPrompt },
           { role: "user", content: userPrompt },
         ],
+        response_format: { type: "json_object" },
       }),
       timeoutMs,
     );
   } catch (error) {
     const warning = error instanceof Error && error.name === "TimeoutError" ? "Model timeout" : "Model error";
     console.error("decision-extract model error", warning);
-    return { candidates: [] as DecisionCandidate[], warning, durationMs: Date.now() - start };
+    return {
+      candidates: [] as DecisionCandidate[],
+      warning,
+      durationMs: Date.now() - start,
+      rawCount: 0,
+      droppedMissingFields: 0,
+    };
   }
 
   const content = completion.choices[0]?.message?.content ?? "[]";
@@ -428,15 +555,34 @@ const extractCandidates = async ({
     raw = extractJsonArray(content);
   } catch (error) {
     console.error("decision-extract json parse error", error);
-    return { candidates: [] as DecisionCandidate[], warning: "Model response invalid JSON", durationMs: Date.now() - start };
+    return {
+      candidates: [] as DecisionCandidate[],
+      warning: "Model response invalid JSON",
+      durationMs: Date.now() - start,
+      rawCount: 0,
+      droppedMissingFields: 0,
+    };
   }
   if (!Array.isArray(raw)) {
-    return { candidates: [] as DecisionCandidate[], warning: "Model response not array", durationMs: Date.now() - start };
+    return {
+      candidates: [] as DecisionCandidate[],
+      warning: "Model response not array",
+      durationMs: Date.now() - start,
+      rawCount: Array.isArray(raw) ? raw.length : 0,
+      droppedMissingFields: 0,
+    };
   }
-  const candidates = raw
-    .map((item, index) => normalizeCandidate(item, strength, index))
-    .filter((item): item is DecisionCandidate => Boolean(item));
-  return { candidates, durationMs: Date.now() - start };
+  let droppedMissingFields = 0;
+  const candidates: DecisionCandidate[] = [];
+  raw.forEach((item, index) => {
+    const result = normalizeCandidate(item, strength, index);
+    if (result.candidate) {
+      candidates.push(result.candidate);
+    } else if (result.droppedReason === "missing_fields") {
+      droppedMissingFields += 1;
+    }
+  });
+  return { candidates, durationMs: Date.now() - start, rawCount: raw.length, droppedMissingFields };
 };
 
 export async function POST(request: Request) {
@@ -469,6 +615,12 @@ export async function POST(request: Request) {
         MAX_SECONDARY_PAGES,
       )
     : [];
+  const primarySnippetPages = buildSnippetPages(primaryPages, normalized.maxCandidatesPerPage);
+  const secondarySnippetPages = buildSnippetPages(secondaryPages, normalized.maxCandidatesPerPage);
+  const snippetCounts = {
+    primary: primarySnippetPages.reduce((total, page) => total + page.snippets.length, 0),
+    secondary: secondarySnippetPages.reduce((total, page) => total + page.snippets.length, 0),
+  };
 
   if (totalChars > MAX_TOTAL_CHARS) {
     warnings.push("Input too large; limiting pages sent to model.");
@@ -480,11 +632,14 @@ export async function POST(request: Request) {
     totalChars,
     selectedPrimaryPages: primaryPages.length,
     selectedSecondaryPages: secondaryPages.length,
+    primaryPageNumbers: primaryPages.map((page) => page.page),
+    secondaryPageNumbers: secondaryPages.map((page) => page.page),
+    snippetCounts,
   });
 
   let hardCandidates: DecisionCandidate[] = [];
   let softCandidates: DecisionCandidate[] = [];
-  const extractPass = async (pages: Array<{ page: number; text: string }>, label: string) => {
+  const extractPass = async (pages: Array<{ page: number; snippets: string[] }>, label: string) => {
     const hardResult = await extractCandidates({
       strength: "hard",
       systemPrompt: HARD_SYSTEM_PROMPT,
@@ -513,17 +668,21 @@ export async function POST(request: Request) {
       softMs: softResult.durationMs,
       hardCandidates: hardResult.candidates.length,
       softCandidates: softResult.candidates.length,
+      hardRaw: hardResult.rawCount,
+      softRaw: softResult.rawCount,
+      hardDroppedMissingFields: hardResult.droppedMissingFields,
+      softDroppedMissingFields: softResult.droppedMissingFields,
     });
 
     return { hard: hardResult.candidates, soft: softResult.candidates };
   };
 
-  const primaryResults = await extractPass(primaryPages, "primary");
+  const primaryResults = await extractPass(primarySnippetPages, "primary");
   hardCandidates = primaryResults.hard;
   softCandidates = primaryResults.soft;
 
-  if (hardCandidates.length + softCandidates.length === 0 && secondaryPages.length > 0) {
-    const secondaryResults = await extractPass(secondaryPages, "secondary");
+  if (hardCandidates.length + softCandidates.length === 0 && secondarySnippetPages.length > 0) {
+    const secondaryResults = await extractPass(secondarySnippetPages, "secondary");
     hardCandidates = [...hardCandidates, ...secondaryResults.hard];
     softCandidates = [...softCandidates, ...secondaryResults.soft];
   }
