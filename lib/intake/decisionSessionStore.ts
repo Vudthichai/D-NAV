@@ -19,12 +19,19 @@ export type DecisionSessionActionPayloadMap = {
   };
 };
 
-export type DecisionSessionAction = {
-  [K in keyof DecisionSessionActionPayloadMap]: {
-    type: K;
-    payload: DecisionSessionActionPayloadMap[K];
-  };
-}[keyof DecisionSessionActionPayloadMap];
+export type DecisionSessionAction =
+  | {
+      type: "setExtractedCandidates";
+      payload: DecisionSessionActionPayloadMap["setExtractedCandidates"];
+    }
+  | {
+      type: "updateExtractedCandidate";
+      payload: DecisionSessionActionPayloadMap["updateExtractedCandidate"];
+    }
+  | {
+      type: "dismissExtractedCandidate";
+      payload: DecisionSessionActionPayloadMap["dismissExtractedCandidate"];
+    };
 
 export const decisionSessionReducer = (
   state: DecisionSessionState,

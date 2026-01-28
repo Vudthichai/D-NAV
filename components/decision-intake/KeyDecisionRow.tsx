@@ -2,6 +2,7 @@
 
 import { cn } from "@/lib/utils";
 import type { DecisionCandidate, DecisionCategory } from "@/lib/intake/decisionExtractLocal";
+import { computeRpsDnav } from "@/lib/intake/decisionMetrics";
 import { Button } from "@/components/ui/button";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -41,6 +42,16 @@ export default function KeyDecisionRow({
   onStrengthChange,
 }: KeyDecisionRowProps) {
   const pageLabel = candidate.evidence.page ? `p.${candidate.evidence.page}` : "p.n/a";
+  const metrics = computeRpsDnav(candidate.sliders);
+  const formatSignal = (value: number) => {
+    if (!Number.isFinite(value)) return "0";
+    const formatted = value.toFixed(1).replace(/\.0$/, "");
+    return value > 0 ? `+${formatted}` : formatted;
+  };
+  const formatCompact = (value: number) => {
+    if (!Number.isFinite(value)) return "0";
+    return value.toFixed(1).replace(/\.0$/, "");
+  };
 
   return (
     <div className="rounded-xl border border-border/60 bg-white/70 px-5 py-5 text-xs text-muted-foreground shadow-sm dark:bg-white/10">
@@ -188,6 +199,19 @@ export default function KeyDecisionRow({
                   onChange={(value) => onMetricChange(candidate.id, metric.key, value)}
                 />
               ))}
+            </div>
+          </div>
+          <div className="space-y-2">
+            <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">RPS + D-NAV</p>
+            <div className="flex flex-wrap items-center gap-2 rounded-full border border-border/60 bg-muted/10 px-3 py-2 text-[11px]">
+              <span className="font-semibold uppercase tracking-wide text-muted-foreground">R</span>
+              <span className="font-semibold text-foreground tabular-nums">{formatSignal(metrics.r)}</span>
+              <span className="font-semibold uppercase tracking-wide text-muted-foreground">P</span>
+              <span className="font-semibold text-foreground tabular-nums">{formatSignal(metrics.p)}</span>
+              <span className="font-semibold uppercase tracking-wide text-muted-foreground">S</span>
+              <span className="font-semibold text-foreground tabular-nums">{formatSignal(metrics.s)}</span>
+              <span className="ml-1 font-semibold uppercase tracking-wide text-muted-foreground">D-NAV</span>
+              <span className="font-semibold text-foreground tabular-nums">{formatCompact(metrics.dnav)}</span>
             </div>
           </div>
         </div>

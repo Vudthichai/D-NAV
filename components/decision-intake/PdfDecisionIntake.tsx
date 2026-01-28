@@ -154,6 +154,20 @@ export default function PdfDecisionIntake({ onAddDecision, onAddDecisions }: Pdf
   }, [filteredCandidates, showAll]);
 
   const hasMore = filteredCandidates.length > visibleCandidates.length;
+  const evidenceByDecision = useMemo(() => {
+    const map = new Map<string, LocalSummary["supportingEvidence"]>();
+    summary?.supportingEvidence.forEach((evidence) => {
+      if (!evidence.relatedDecisionId) return;
+      const existing = map.get(evidence.relatedDecisionId) ?? [];
+      existing.push(evidence);
+      map.set(evidence.relatedDecisionId, existing);
+    });
+    return map;
+  }, [summary]);
+  const unlinkedEvidence = useMemo(
+    () => summary?.supportingEvidence.filter((evidence) => !evidence.relatedDecisionId) ?? [],
+    [summary],
+  );
 
   const handleAdd = useCallback(
     (candidate: DecisionCandidate) => {
@@ -188,7 +202,7 @@ export default function PdfDecisionIntake({ onAddDecision, onAddDecisions }: Pdf
         </p>
       </div>
 
-      <div className="grid gap-4 lg:grid-cols-[minmax(0,1.2fr)_minmax(0,1fr)]">
+      <div className="space-y-4">
         <div className="dnav-dark-glass-surface rounded-xl border border-border/60 bg-white/70 p-4 shadow-sm dark:bg-white/10">
           <div className="flex flex-wrap items-start justify-between gap-3">
             <div className="space-y-1">
@@ -232,23 +246,14 @@ export default function PdfDecisionIntake({ onAddDecision, onAddDecisions }: Pdf
           </p>
           {summary ? (
             <div className="mt-2 space-y-2 text-[11px] text-muted-foreground">
-              <p className="text-sm font-semibold text-foreground">{summary.intro}</p>
               {summary.sections.length > 0 ? (
-                <div className="space-y-3">
+                <div className="grid gap-3 md:grid-cols-2">
                   {summary.sections.map((section) => (
-                    <div key={section.heading} className="space-y-1">
+                    <div key={section.heading} className="space-y-1 rounded-lg border border-border/50 bg-muted/10 p-3">
                       <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
-                        {section.heading}
+                        {section.heading.toUpperCase()}
                       </p>
                       <p className="text-[11px] text-muted-foreground">{section.summary}</p>
-                      <ul className="space-y-1">
-                        {section.decisions.map((decision) => (
-                          <li key={decision.id} className="flex gap-2">
-                            <span className="mt-1 h-1.5 w-1.5 rounded-full bg-primary" />
-                            <span>{decision.text}</span>
-                          </li>
-                        ))}
-                      </ul>
                     </div>
                   ))}
                 </div>
@@ -267,14 +272,6 @@ export default function PdfDecisionIntake({ onAddDecision, onAddDecisions }: Pdf
                   ))}
                 </div>
               ) : null}
-              <div className="pt-2">
-                <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
-                  Supporting Decisions
-                </p>
-                <p className="mt-1 text-[11px] text-muted-foreground">
-                  Review the extracted supporting decisions below to connect the summary to specific statements.
-                </p>
-              </div>
             </div>
           ) : (
             <p className="mt-2 text-[11px] text-muted-foreground">Summary populates after extraction.</p>
@@ -332,19 +329,41 @@ export default function PdfDecisionIntake({ onAddDecision, onAddDecisions }: Pdf
           <div className="space-y-2">
             {visibleCandidates.map((candidate) => {
               const isAdded = addedIds.has(candidate.id);
+              const evidence = evidenceByDecision.get(candidate.id) ?? [];
               return (
-                <KeyDecisionRow
-                  key={candidate.id}
-                  candidate={candidate}
-                  isAdded={isAdded}
-                  categoryOptions={CATEGORY_OPTIONS}
-                  pdfUrl={pdfUrl}
-                  onAdd={handleAdd}
-                  onDismiss={handleDismiss}
-                  onCategoryChange={(id, category) => updateCandidate(id, { category })}
-                  onMetricChange={(id, key, value) => updateSlider(id, key, value)}
-                  onStrengthChange={(id, strength) => updateCandidate(id, { strength })}
-                />
+                <div key={candidate.id} className="space-y-2">
+                  <KeyDecisionRow
+                    candidate={candidate}
+                    isAdded={isAdded}
+                    categoryOptions={CATEGORY_OPTIONS}
+                    pdfUrl={pdfUrl}
+                    onAdd={handleAdd}
+                    onDismiss={handleDismiss}
+                    onCategoryChange={(id, category) => updateCandidate(id, { category })}
+                    onMetricChange={(id, key, value) => updateSlider(id, key, value)}
+                    onStrengthChange={(id, strength) => updateCandidate(id, { strength })}
+                  />
+                  {evidence.length > 0 ? (
+                    <div className="rounded-lg border border-dashed border-border/60 bg-muted/10 px-4 py-3 text-[11px] text-muted-foreground">
+                      <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+                        Supporting Evidence
+                      </p>
+                      <ul className="mt-2 space-y-1">
+                        {evidence.map((item) => (
+                          <li key={item.id} className="flex gap-2">
+                            <span className="mt-1 h-1.5 w-1.5 rounded-full bg-primary" />
+                            <span>
+                              {item.text}{" "}
+                              <span className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+                                {item.page ? `p.${item.page}` : "p.n/a"}
+                              </span>
+                            </span>
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  ) : null}
+                </div>
               );
             })}
 
@@ -357,6 +376,29 @@ export default function PdfDecisionIntake({ onAddDecision, onAddDecisions }: Pdf
                 >
                   Load More Decisions
                 </button>
+              </div>
+            ) : null}
+            {unlinkedEvidence.length > 0 ? (
+              <div className="rounded-lg border border-dashed border-border/60 bg-muted/10 px-4 py-3 text-[11px] text-muted-foreground">
+                <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+                  Additional Evidence
+                </p>
+                <p className="mt-1 text-[11px] text-muted-foreground">
+                  Informational statements captured from the document that support the decision context.
+                </p>
+                <ul className="mt-2 space-y-1">
+                  {unlinkedEvidence.map((item) => (
+                    <li key={item.id} className="flex gap-2">
+                      <span className="mt-1 h-1.5 w-1.5 rounded-full bg-primary" />
+                      <span>
+                        {item.text}{" "}
+                        <span className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+                          {item.page ? `p.${item.page}` : "p.n/a"}
+                        </span>
+                      </span>
+                    </li>
+                  ))}
+                </ul>
               </div>
             ) : null}
           </div>
