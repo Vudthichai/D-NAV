@@ -1,6 +1,9 @@
+export type StatementKind = "decision" | "commitment" | "evidence";
+
 export interface DecisionLikenessResult {
   score: number;
   isDecision: boolean;
+  kind: StatementKind;
   rewritten: string;
   evidenceText: string;
 }
@@ -12,6 +15,9 @@ const COMMITMENT_PATTERNS = [
   /\baims? to\b/i,
   /\bintends? to\b/i,
   /\bcommits? to\b/i,
+  /\bcontinue(?:s)? to\b/i,
+  /\bscheduled\b/i,
+  /\bremain on track\b/i,
   /\bcontinue\b/i,
   /\blaunch\b/i,
   /\bdeploy\b/i,
@@ -37,6 +43,24 @@ const ACTION_PATTERNS = [
   /\bincrease\b/i,
 ];
 
+const DECISION_ACTION_PATTERNS = [
+  /\breassign\b/i,
+  /\bapprove\b/i,
+  /\bbuild\b/i,
+  /\blaunch\b/i,
+  /\binvest\b/i,
+  /\bacquire\b/i,
+  /\brelocate\b/i,
+  /\bdivest\b/i,
+  /\bexit\b/i,
+  /\bclose\b/i,
+  /\bcancel\b/i,
+  /\bpause\b/i,
+  /\bresume\b/i,
+  /\bhire\b/i,
+  /\bcut\b/i,
+];
+
 const TIME_PATTERNS = [
   /\bQ[1-4]\b/i,
   /\b20\d{2}\b/i,
@@ -53,6 +77,7 @@ const INFORMATIONAL_PATTERNS = [
   /\bdelivered\b/i,
   /\bproduced\b/i,
   /\bcompleted\b/i,
+  /\badded\b/i,
   /\bwas\b/i,
   /\bwere\b/i,
   /\bended\b/i,
@@ -72,6 +97,10 @@ const ACTION_PREFIXES = [
   "aim to",
   "intends to",
   "intend to",
+  "commits to",
+  "commit to",
+  "continues to",
+  "continue to",
   "is",
   "are",
   "has",
@@ -110,6 +139,8 @@ const CONSTRAINT_PATTERNS = [
 
 const normalizeWhitespace = (value: string) => value.replace(/\s+/g, " ").trim();
 
+const capitalize = (value: string) => (value ? value.charAt(0).toUpperCase() + value.slice(1) : value);
+
 const normalizeAction = (text: string) => {
   const trimmed = normalizeWhitespace(text.replace(/[.]+$/, ""));
   const withoutActor = trimmed.replace(ACTOR_REGEX, "");
@@ -145,16 +176,34 @@ const toPresentTense = (value: string) => {
   return replacements.reduce((acc, [pattern, replacement]) => acc.replace(pattern, replacement), value);
 };
 
-const buildDecisionRewrite = (text: string) => {
+const buildStatementRewrite = (text: string, kind: StatementKind) => {
   const cleaned = normalizeWhitespace(text);
   const action = toPresentTense(normalizeAction(cleaned));
   const constraint = extractConstraint(cleaned);
   const suffix = constraint ? ` (${constraint})` : "";
+  if (kind === "evidence") {
+    return cleaned;
+  }
   if (!action) return cleaned;
-  return `Commit to ${action}${suffix}.`;
+  if (kind === "commitment") {
+    return `Plans to ${action}${suffix}.`;
+  }
+  return `${capitalize(action)}${suffix}.`;
 };
 
 const matchesAny = (value: string, patterns: RegExp[]) => patterns.some((pattern) => pattern.test(value));
+
+export const classifyStatementKind = (text: string): StatementKind => {
+  const cleaned = normalizeWhitespace(text);
+  const hasCommitment = matchesAny(cleaned, COMMITMENT_PATTERNS);
+  const hasAction = matchesAny(cleaned, DECISION_ACTION_PATTERNS) || matchesAny(cleaned, ACTION_PATTERNS);
+  const isInformational = matchesAny(cleaned, INFORMATIONAL_PATTERNS);
+
+  if (isInformational && !hasCommitment && !hasAction) return "evidence";
+  if (hasAction) return "decision";
+  if (hasCommitment) return "commitment";
+  return isInformational ? "evidence" : "decision";
+};
 
 export const assessDecisionLikeness = (text: string): DecisionLikenessResult => {
   const cleaned = normalizeWhitespace(text);
@@ -162,6 +211,7 @@ export const assessDecisionLikeness = (text: string): DecisionLikenessResult => 
   const hasAction = matchesAny(cleaned, ACTION_PATTERNS);
   const hasTime = matchesAny(cleaned, TIME_PATTERNS);
   const isInformational = matchesAny(cleaned, INFORMATIONAL_PATTERNS);
+  const kind = classifyStatementKind(cleaned);
 
   let score = 0;
   if (hasCommitment) score += 3;
@@ -169,10 +219,11 @@ export const assessDecisionLikeness = (text: string): DecisionLikenessResult => 
   if (hasTime) score += 1;
   if (isInformational && !hasCommitment && !hasAction) score -= 2;
 
-  const rewritten = buildDecisionRewrite(cleaned);
+  const rewritten = buildStatementRewrite(cleaned, kind);
   return {
     score,
     isDecision: score >= 3,
+    kind,
     rewritten,
     evidenceText: cleaned,
   };

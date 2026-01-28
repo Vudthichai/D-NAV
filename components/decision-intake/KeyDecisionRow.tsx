@@ -43,6 +43,18 @@ export default function KeyDecisionRow({
 }: KeyDecisionRowProps) {
   const pageLabel = candidate.evidence.page ? `p.${candidate.evidence.page}` : "p.n/a";
   const metrics = computeRpsDnav(candidate.sliders);
+  const statementLabel =
+    candidate.statementType === "decision"
+      ? "Decision"
+      : candidate.statementType === "commitment"
+        ? "Commitment"
+        : "Evidence";
+  const badgeClass =
+    candidate.statementType === "decision"
+      ? "border-emerald-500/40 bg-emerald-500/10 text-emerald-700"
+      : candidate.statementType === "commitment"
+        ? "border-amber-500/40 bg-amber-500/10 text-amber-700"
+        : "border-slate-400/40 bg-slate-200/60 text-slate-600";
   const formatSignal = (value: number) => {
     if (!Number.isFinite(value)) return "0";
     const formatted = value.toFixed(1).replace(/\.0$/, "");
@@ -57,9 +69,12 @@ export default function KeyDecisionRow({
     <div className="rounded-xl border border-border/60 bg-white/70 px-5 py-5 text-xs text-muted-foreground shadow-sm dark:bg-white/10">
       <div className="flex flex-col gap-5">
         <div className="rounded-lg border border-border/50 border-l-4 border-l-primary/30 bg-muted/5 px-4 py-4">
-          <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-muted-foreground">
-            Decision Statement
-          </p>
+          <div className="flex flex-wrap items-center gap-2 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+            <span className={cn("rounded-full border px-2 py-0.5", badgeClass)}>{statementLabel}</span>
+            <span>
+              {candidate.category} · {pageLabel}
+            </span>
+          </div>
           <p className="mt-2 line-clamp-3 text-base font-semibold leading-relaxed text-foreground sm:text-lg">
             {candidate.decision}
           </p>
@@ -131,9 +146,6 @@ export default function KeyDecisionRow({
                 ))}
               </SelectContent>
             </Select>
-            <span className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
-              Source: {pageLabel}
-            </span>
             {pdfUrl ? (
               <a
                 href={pdfUrl}

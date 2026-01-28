@@ -1,4 +1,5 @@
 import { assignSections, type PageText, type SectionedPage } from "./sectionSplit";
+import { assessDecisionLikeness } from "./decisionLikeness";
 import { scoreSentence, splitSentences } from "./decisionScoring";
 import { buildLocalSummary, type LocalSummary } from "./summaryLocal";
 
@@ -12,11 +13,23 @@ export type DecisionCategory =
   | "Sales/Go-to-market"
   | "Other";
 
+export const DECISION_CATEGORIES: DecisionCategory[] = [
+  "Operations",
+  "Finance",
+  "Product",
+  "Hiring",
+  "Legal",
+  "Strategy",
+  "Sales/Go-to-market",
+  "Other",
+];
+
 export interface DecisionCandidate {
   id: string;
   title: string;
   decision: string;
   category: DecisionCategory;
+  statementType: "decision" | "commitment" | "evidence";
   strength: "committed" | "indicative";
   evidence: {
     page?: number;
@@ -122,11 +135,13 @@ const buildCandidate = (
   strength: DecisionCandidate["strength"],
 ): DecisionCandidate => {
   const trimmed = sentence.trim();
+  const decisionCheck = assessDecisionLikeness(trimmed);
   return {
     id: `local-${page}-${hashString(trimmed)}`,
     title: buildTitle(trimmed),
-    decision: trimmed,
+    decision: decisionCheck.rewritten,
     category,
+    statementType: decisionCheck.kind,
     strength,
     evidence: {
       page,
@@ -187,37 +202,8 @@ export function extractDecisionCandidatesLocal(
   const deduped = dedupeCandidates(candidates);
   const summary = buildLocalSummary(sectioned, deduped, docName);
 
-  const normalizedCandidates: DecisionCandidate[] =
-    summary.decisionBullets.length > 0
-      ? summary.decisionBullets.map((bullet) => {
-          const scoreResult = scoreSentence(bullet.source);
-          const strength = scoreResult.hasCommitment && scoreResult.hasTimeAnchor ? "committed" : "indicative";
-          return {
-            id: bullet.id,
-            title: buildTitle(bullet.text),
-            decision: bullet.text,
-            category: scoreResult.category,
-            strength,
-            evidence: {
-              page: bullet.page,
-              quote: bullet.source.slice(0, 280),
-              full: bullet.source,
-            },
-            score: scoreResult.score,
-            sliders: {
-              impact: DEFAULT_SLIDER_VALUE,
-              cost: DEFAULT_SLIDER_VALUE,
-              risk: DEFAULT_SLIDER_VALUE,
-              urgency: DEFAULT_SLIDER_VALUE,
-              confidence: DEFAULT_SLIDER_VALUE,
-            },
-            flags: scoreResult.flags,
-          };
-        })
-      : deduped;
-
   return {
-    candidates: normalizedCandidates,
+    candidates: deduped,
     summary,
     pages: sectioned,
   };

@@ -3,45 +3,24 @@ import { assessDecisionLikeness } from "./decisionLikeness";
 import { isBoilerplate, isTableLike, splitSentences } from "./decisionScoring";
 import type { SectionedPage } from "./sectionSplit";
 
-export interface DecisionStatement {
+interface DecisionStatement {
   id: string;
   text: string;
   source: string;
 }
 
-export type SummaryHeading =
-  | "What happened"
-  | "What was done"
-  | "What’s being bet on"
-  | "What changes next";
+export type SummarySectionKey = "happened" | "done" | "betting" | "next";
 
 export interface SummarySection {
-  heading: SummaryHeading;
-  summary: string;
-}
-
-export interface DecisionBullet {
-  id: string;
-  section: SummaryHeading;
-  text: string;
-  source: string;
-  page?: number;
-}
-
-export interface SupportingEvidence {
-  id: string;
-  text: string;
-  page?: number;
-  sourceType: "candidate" | "highlight";
-  relatedDecisionId?: string;
+  key: SummarySectionKey;
+  title: string;
+  mapSentence: string;
+  supporting: DecisionCandidate[];
 }
 
 export interface LocalSummary {
-  intro: string;
+  summaryHeadline: string;
   sections: SummarySection[];
-  themes: string[];
-  decisionBullets: DecisionBullet[];
-  supportingEvidence: SupportingEvidence[];
 }
 
 const STOPWORDS = new Set([
@@ -60,11 +39,18 @@ const STOPWORDS = new Set([
   "their",
 ]);
 
+const SECTION_CONFIG: Array<{ key: SummarySectionKey; title: string }> = [
+  { key: "happened", title: "What happened" },
+  { key: "done", title: "What was done" },
+  { key: "betting", title: "What’s being bet on" },
+  { key: "next", title: "What changes next" },
+];
+
 const buildThemes = (candidates: DecisionCandidate[]): string[] => {
   const counts = new Map<string, number>();
   candidates.forEach((candidate) => {
-    candidate.decision
-      .toLowerCase()
+    candidate.evidence.full
+      ?.toLowerCase()
       .replace(/[^a-z0-9\s]/g, " ")
       .split(/\s+/)
       .filter((token) => token.length > 3 && !STOPWORDS.has(token))
@@ -83,7 +69,7 @@ const pickHighlightSentences = (
   pages: SectionedPage[],
   candidates: DecisionCandidate[],
 ): Array<{ sentence: string; page: number }> => {
-  const excluded = new Set(candidates.map((candidate) => candidate.decision));
+  const excluded = new Set(candidates.map((candidate) => candidate.evidence.full ?? candidate.decision));
   const scored: Array<{ sentence: string; score: number; page: number }> = [];
 
   pages
@@ -108,13 +94,6 @@ const pickHighlightSentences = (
     }));
 };
 
-const SECTION_HEADINGS: SummaryHeading[] = [
-  "What happened",
-  "What was done",
-  "What’s being bet on",
-  "What changes next",
-];
-
 const hashString = (value: string) => {
   let hash = 0;
   for (let i = 0; i < value.length; i += 1) {
@@ -124,21 +103,21 @@ const hashString = (value: string) => {
   return Math.abs(hash).toString(36);
 };
 
-const classifySection = (text: string): SummaryHeading => {
+const classifySection = (text: string): SummarySectionKey => {
   const lower = text.toLowerCase();
   if (/\b(completed|launched|delivered|achieved|began|started|deployed|commissioned|expanded|added)\b/.test(lower)) {
-    return "What happened";
+    return "happened";
   }
   if (/\b(will|plans|plan|scheduled|begin|start|launch|ramp|deploy|build|expand)\b/.test(lower)) {
-    return "What was done";
+    return "done";
   }
   if (/\b(expect|expects|aim|aims|target|intends|intend|prioritize|focus|strategy)\b/.test(lower)) {
-    return "What’s being bet on";
+    return "betting";
   }
   if (/\b(next|by|in\s+\d{4}|in\s+q[1-4]|in\s+h[12]|after|before|within|over)\b/.test(lower)) {
-    return "What changes next";
+    return "next";
   }
-  return "What was done";
+  return "done";
 };
 
 const extractTokens = (text: string): string[] =>
@@ -148,7 +127,7 @@ const extractTokens = (text: string): string[] =>
     .split(/\s+/)
     .filter((token) => token.length > 3 && !STOPWORDS.has(token));
 
-const buildSectionSummary = (heading: SummaryHeading, statements: DecisionStatement[]) => {
+const buildSectionSummary = (key: SummarySectionKey, statements: DecisionStatement[]) => {
   const tokens = new Map<string, number>();
   statements.forEach((statement) => {
     extractTokens(statement.source).forEach((token) => {
@@ -160,16 +139,16 @@ const buildSectionSummary = (heading: SummaryHeading, statements: DecisionStatem
     .map(([token]) => token)
     .slice(0, 2);
   const topic = [first, second].filter(Boolean).join(" and ");
-  if (heading === "What happened") {
-    return topic ? `Recent commitments center on ${topic}.` : "Recent commitments are concentrated in a few areas.";
+  if (key === "happened") {
+    return topic ? `Recent shifts center on ${topic}.` : "Recent shifts are concentrated in a few areas.";
   }
-  if (heading === "What was done") {
-    return topic ? `The active push is toward ${topic}.` : "Active commitments show a clear operational push.";
+  if (key === "done") {
+    return topic ? `The active push is toward ${topic}.` : "Active execution shows a clear operational push.";
   }
-  if (heading === "What’s being bet on") {
+  if (key === "betting") {
     return topic ? `Strategic bets cluster around ${topic}.` : "Strategic bets are starting to take shape.";
   }
-  return topic ? `Next shifts point to ${topic}.` : "Near-term shifts are beginning to surface.";
+  return topic ? `Next changes point to ${topic}.` : "Near-term changes are beginning to surface.";
 };
 
 export function buildLocalSummary(
@@ -185,92 +164,42 @@ export function buildLocalSummary(
   const introBase = docLabel
     ? `${docLabel} surfaces near-term commitments and operational focus areas.`
     : "This document surfaces near-term commitments and operational focus areas.";
-  const intro = introTheme
+  const summaryHeadline = introTheme
     ? `${introBase} The signal clusters around ${introTheme}.`
     : introBase;
+
   const statements: DecisionStatement[] = [];
-  const decisionBullets: DecisionBullet[] = [];
-  const supportingEvidence: SupportingEvidence[] = [];
-  const decisionKeys = new Set<string>();
-  const evidenceKeys = new Set<string>();
-  const evidenceIndex = new Map<string, number>();
-
-  const buildSupportingEvidence = (
-    source: string,
-    page: number | undefined,
-    sourceType: SupportingEvidence["sourceType"],
-    relatedDecisionId?: string,
-  ) => {
-    const key = source.toLowerCase();
-    if (evidenceKeys.has(key)) {
-      const existingIndex = evidenceIndex.get(key);
-      if (existingIndex !== undefined && relatedDecisionId) {
-        supportingEvidence[existingIndex].relatedDecisionId ??= relatedDecisionId;
-      }
-      return;
-    }
-    evidenceKeys.add(key);
-    const entry: SupportingEvidence = {
-      id: `evidence-${hashString(source)}`,
-      text: source,
-      page,
-      sourceType,
-      relatedDecisionId,
-    };
-    evidenceIndex.set(key, supportingEvidence.length);
-    supportingEvidence.push(entry);
-  };
-
-  const ingestStatement = (
-    source: string,
-    page: number | undefined,
-    sourceType: SupportingEvidence["sourceType"],
-    id: string,
-  ) => {
-    const decisionCheck = assessDecisionLikeness(source);
-    const heading = classifySection(source);
-    statements.push({ id, text: decisionCheck.rewritten, source });
-
-    if (decisionCheck.isDecision) {
-      const key = decisionCheck.rewritten.toLowerCase();
-      if (!decisionKeys.has(key)) {
-        const decisionId = `decision-${hashString(decisionCheck.rewritten)}`;
-        decisionKeys.add(key);
-        decisionBullets.push({
-          id: decisionId,
-          section: heading,
-          text: decisionCheck.rewritten,
-          source,
-          page,
-        });
-        buildSupportingEvidence(source, page, sourceType, decisionId);
-        return;
-      }
-    }
-
-    buildSupportingEvidence(source, page, sourceType);
-  };
 
   candidates.forEach((candidate) => {
-    ingestStatement(candidate.decision, candidate.evidence.page, "candidate", `candidate-${candidate.id}`);
+    const sourceText = candidate.evidence.full ?? candidate.decision;
+    statements.push({
+      id: `candidate-${candidate.id}`,
+      text: candidate.decision,
+      source: sourceText,
+    });
   });
 
   highlights.forEach((highlight) => {
-    ingestStatement(highlight.sentence, highlight.page, "highlight", `highlight-${hashString(highlight.sentence)}`);
+    const decisionCheck = assessDecisionLikeness(highlight.sentence);
+    statements.push({
+      id: `highlight-${hashString(highlight.sentence)}`,
+      text: decisionCheck.rewritten,
+      source: highlight.sentence,
+    });
   });
 
-  const buckets = new Map<SummaryHeading, DecisionStatement[]>();
+  const buckets = new Map<SummarySectionKey, DecisionStatement[]>();
   statements.forEach((statement) => {
-    const heading = classifySection(statement.source);
-    const list = buckets.get(heading) ?? [];
+    const key = classifySection(statement.source);
+    const list = buckets.get(key) ?? [];
     list.push(statement);
-    buckets.set(heading, list);
+    buckets.set(key, list);
   });
 
   const fallbackPool = [...statements];
 
-  const sections: SummarySection[] = SECTION_HEADINGS.map((heading) => {
-    const primary = buckets.get(heading) ?? [];
+  const sections: SummarySection[] = SECTION_CONFIG.map(({ key, title }) => {
+    const primary = buckets.get(key) ?? [];
     const selected: DecisionStatement[] = [...primary];
     fallbackPool.forEach((statement) => {
       if (selected.length >= 4) return;
@@ -280,17 +209,21 @@ export function buildLocalSummary(
       }
     });
     const ensured = selected.slice(0, Math.max(2, Math.min(4, selected.length)));
+    const supporting = candidates
+      .filter((candidate) => classifySection(candidate.evidence.full ?? candidate.decision) === key)
+      .sort((a, b) => b.score - a.score)
+      .slice(0, 8);
+
     return {
-      heading,
-      summary: buildSectionSummary(heading, ensured),
+      key,
+      title,
+      mapSentence: buildSectionSummary(key, ensured),
+      supporting,
     };
   });
 
   return {
-    intro,
+    summaryHeadline,
     sections,
-    themes,
-    decisionBullets,
-    supportingEvidence,
   };
 }
