@@ -13,32 +13,17 @@ import { getSessionActionInsight } from "@/lib/sessionActionInsight";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { Input } from "@/components/ui/input";
-import PdfDecisionIntake from "@/components/decision-intake/PdfDecisionIntake";
-import type { DecisionCandidate } from "@/lib/intake/decisionExtractLocal";
+import PdfDecisionIntake, { type PdfDecisionIntakeHandle } from "@/components/decision-intake/PdfDecisionIntake";
+import { DECISION_CATEGORIES, type DecisionCandidate, type DecisionCategory } from "@/lib/intake/decisionExtractLocal";
 import { computeRpsDnav } from "@/lib/intake/decisionMetrics";
+import {
+  buildSessionDecisionFromCandidate,
+  getCandidateIdFromSessionDecision,
+  syncSessionDecisionsFromCandidate,
+  type SessionDecision,
+} from "@/lib/intake/decisionSessionSync";
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-
-interface SessionDecision {
-  id: string;
-  decisionTitle: string;
-  decisionDetail?: string;
-  category: string;
-  impact: number;
-  cost: number;
-  risk: number;
-  urgency: number;
-  confidence: number;
-  r: number;
-  p: number;
-  s: number;
-  dnav: number;
-  sourceFile?: string;
-  sourcePage?: number;
-  excerpt?: string;
-  sourceType?: "manual" | "intake";
-  createdAt: number;
-}
 
 const SESSION_DECISIONS_KEY = "dnav:stressTest:sessionDecisions";
 
@@ -77,6 +62,7 @@ export default function StressTestPage() {
     }
   });
   const calculatorRef = useRef<StressTestCalculatorHandle>(null);
+  const intakeRef = useRef<PdfDecisionIntakeHandle>(null);
   const [isSessionAnalysisOpen, setIsSessionAnalysisOpen] = useState(false);
   const sessionAnalysisRef = useRef<HTMLDivElement>(null);
   const [editingDecision, setEditingDecision] = useState<SessionDecision | null>(null);
@@ -396,58 +382,20 @@ export default function StressTestPage() {
 
   const handleAddToSession = useCallback(
     (candidate: DecisionCandidate, sourceFileName?: string) => {
-      const title = candidate.title.trim() || "Untitled decision";
       let nextTotal = 0;
       let added = false;
       const decisionId = `extract-${candidate.id}`;
-      const metrics = computeRpsDnav(candidate.sliders);
       setSessionDecisions((prev) => {
         const existing = prev.find((decision) => decision.id === decisionId);
         if (existing) {
           nextTotal = prev.length;
           return prev.map((decision) =>
             decision.id === decisionId
-              ? {
-                  ...decision,
-                  decisionTitle: title,
-                  decisionDetail: candidate.decision,
-                  category: candidate.category || "Strategy",
-                  impact: candidate.sliders.impact,
-                  cost: candidate.sliders.cost,
-                  risk: candidate.sliders.risk,
-                  urgency: candidate.sliders.urgency,
-                  confidence: candidate.sliders.confidence,
-                  r: metrics.r,
-                  p: metrics.p,
-                  s: metrics.s,
-                  dnav: metrics.dnav,
-                  sourceFile: sourceFileName ?? existing.sourceFile,
-                  sourcePage: candidate.evidence.page || existing.sourcePage,
-                  excerpt: candidate.evidence.quote || existing.excerpt,
-                }
+              ? buildSessionDecisionFromCandidate(candidate, sourceFileName, decision)
               : decision,
           );
         }
-        const sessionDecision: SessionDecision = {
-          id: decisionId,
-          decisionTitle: title,
-          decisionDetail: candidate.decision,
-          category: candidate.category || "Strategy",
-          impact: candidate.sliders.impact,
-          cost: candidate.sliders.cost,
-          risk: candidate.sliders.risk,
-          urgency: candidate.sliders.urgency,
-          confidence: candidate.sliders.confidence,
-          r: metrics.r,
-          p: metrics.p,
-          s: metrics.s,
-          dnav: metrics.dnav,
-          sourceFile: sourceFileName ?? undefined,
-          sourcePage: candidate.evidence.page || undefined,
-          excerpt: candidate.evidence.quote || undefined,
-          sourceType: "intake",
-          createdAt: Date.now(),
-        };
+        const sessionDecision = buildSessionDecisionFromCandidate(candidate, sourceFileName);
         added = true;
         nextTotal = prev.length + 1;
         return [sessionDecision, ...prev];
@@ -475,34 +423,14 @@ export default function StressTestPage() {
         const updates: SessionDecision[] = [];
         candidates.forEach((candidate) => {
           const id = `extract-${candidate.id}`;
-          const title = candidate.title.trim() || "Untitled decision";
-          const metrics = computeRpsDnav(candidate.sliders);
-          const nextDecision: SessionDecision = {
-            id,
-            decisionTitle: title,
-            decisionDetail: candidate.decision,
-            category: candidate.category || "Strategy",
-            impact: candidate.sliders.impact,
-            cost: candidate.sliders.cost,
-            risk: candidate.sliders.risk,
-            urgency: candidate.sliders.urgency,
-            confidence: candidate.sliders.confidence,
-            r: metrics.r,
-            p: metrics.p,
-            s: metrics.s,
-            dnav: metrics.dnav,
-            sourceFile: sourceFileName ?? undefined,
-            sourcePage: candidate.evidence.page || undefined,
-            excerpt: candidate.evidence.quote || undefined,
-            sourceType: "intake",
-            createdAt: Date.now(),
-          };
-          if (existingIds.has(id)) {
+          const existing = prev.find((decision) => decision.id === id);
+          const nextDecision = buildSessionDecisionFromCandidate(candidate, sourceFileName, existing);
+          if (existingIds.has(nextDecision.id)) {
             updates.push(nextDecision);
           } else {
             additions.push(nextDecision);
           }
-          lastAdded = id;
+          lastAdded = nextDecision.id;
         });
         addedCount = additions.length;
         nextTotal = prev.length + additions.length;
@@ -522,6 +450,10 @@ export default function StressTestPage() {
     },
     [scrollToDecision],
   );
+
+  const handleCandidateUpdate = useCallback((candidate: DecisionCandidate) => {
+    setSessionDecisions((prev) => syncSessionDecisionsFromCandidate(prev, candidate));
+  }, []);
 
   const handleOpenEditDialog = useCallback((decision: SessionDecision) => {
     setEditingDecision(decision);
@@ -566,9 +498,26 @@ export default function StressTestPage() {
           : decision,
       ),
     );
+    const candidateId = editingDecision ? getCandidateIdFromSessionDecision(editingDecision) : null;
+    if (candidateId) {
+      const normalizedCategory = DECISION_CATEGORIES.includes(editDraft.category as DecisionCategory)
+        ? (editDraft.category as DecisionCategory)
+        : "Other";
+      intakeRef.current?.syncCandidate(candidateId, {
+        title: editDraft.decisionTitle,
+        category: normalizedCategory,
+        sliders: {
+          impact: editDraft.impact,
+          cost: editDraft.cost,
+          risk: editDraft.risk,
+          urgency: editDraft.urgency,
+          confidence: editDraft.confidence,
+        },
+      });
+    }
     setEditingDecision(null);
     setEditDraft(null);
-  }, [editDraft]);
+  }, [editDraft, editingDecision]);
 
   return (
     <TooltipProvider>
@@ -873,7 +822,12 @@ export default function StressTestPage() {
               </div>
             ) : null}
 
-            <PdfDecisionIntake onAddDecision={handleAddToSession} onAddDecisions={handleAddMultiple} />
+            <PdfDecisionIntake
+              ref={intakeRef}
+              onAddDecision={handleAddToSession}
+              onAddDecisions={handleAddMultiple}
+              onCandidateUpdate={handleCandidateUpdate}
+            />
 
             {toastNotice ? (
               <div className="fixed bottom-4 right-4 z-50 flex items-center gap-3 rounded-lg border border-border/60 bg-white/90 px-4 py-3 text-[11px] text-foreground shadow-lg">
