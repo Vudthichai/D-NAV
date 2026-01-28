@@ -233,15 +233,25 @@ export default function PdfDecisionIntake({ onAddDecision, onAddDecisions }: Pdf
           {summary ? (
             <div className="mt-2 space-y-2 text-[11px] text-muted-foreground">
               <p className="text-sm font-semibold text-foreground">{summary.intro}</p>
-              {summary.bullets.length > 0 ? (
-                <ul className="space-y-1">
-                  {summary.bullets.map((bullet) => (
-                    <li key={bullet} className="flex gap-2">
-                      <span className="mt-1 h-1.5 w-1.5 rounded-full bg-primary" />
-                      <span>{bullet}</span>
-                    </li>
+              {summary.sections.length > 0 ? (
+                <div className="space-y-3">
+                  {summary.sections.map((section) => (
+                    <div key={section.heading} className="space-y-1">
+                      <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+                        {section.heading}
+                      </p>
+                      <p className="text-[11px] text-muted-foreground">{section.summary}</p>
+                      <ul className="space-y-1">
+                        {section.decisions.map((decision) => (
+                          <li key={decision.id} className="flex gap-2">
+                            <span className="mt-1 h-1.5 w-1.5 rounded-full bg-primary" />
+                            <span>{decision.text}</span>
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
                   ))}
-                </ul>
+                </div>
               ) : (
                 <p>Upload a PDF to generate a local summary.</p>
               )}
