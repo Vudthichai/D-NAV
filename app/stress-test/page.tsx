@@ -12,6 +12,7 @@ import { MetricDistribution, type MetricDistributionSegment } from "@/components
 import { getSessionActionInsight } from "@/lib/sessionActionInsight";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import { Input } from "@/components/ui/input";
 import PdfDecisionIntake from "@/components/decision-intake/PdfDecisionIntake";
 import type { DecisionCandidate } from "@/lib/intake/decisionExtractLocal";
 import Link from "next/link";
@@ -869,7 +870,7 @@ export default function StressTestPage() {
                       <label className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
                         Title
                       </label>
-                      <input
+                      <Input
                         value={editDraft.decisionTitle}
                         onChange={(event) =>
                           setEditDraft((prev) => (prev ? { ...prev, decisionTitle: event.target.value } : prev))
@@ -881,7 +882,7 @@ export default function StressTestPage() {
                       <label className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
                         Category
                       </label>
-                      <input
+                      <Input
                         value={editDraft.category}
                         onChange={(event) =>
                           setEditDraft((prev) => (prev ? { ...prev, category: event.target.value } : prev))
@@ -903,7 +904,7 @@ export default function StressTestPage() {
                           <label className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
                             {field.label}
                           </label>
-                          <input
+                          <Input
                             type="number"
                             min={0}
                             max={10}

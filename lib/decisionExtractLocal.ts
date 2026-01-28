@@ -218,7 +218,6 @@ const matchVerb = (sentence: string) => {
 };
 
 const extractTimeframe = (text: string) => {
-  const lowered = text.toLowerCase();
   const match = TIME_PATTERNS.map((regex) => text.match(regex)?.[0]).find(Boolean);
   if (!match) return null;
   if (/^q[1-4]/i.test(match)) return match.toUpperCase();

@@ -9,6 +9,7 @@ import {
   type DecisionCategory,
 } from "@/lib/intake/decisionExtractLocal";
 import type { LocalSummary } from "@/lib/intake/summaryLocal";
+import DecisionRowCompact from "@/components/decision-intake/DecisionRowCompact";
 
 interface PdfDecisionIntakeProps {
   onAddDecision: (candidate: DecisionCandidate, sourceFileName?: string) => void;
@@ -26,18 +27,7 @@ const CATEGORY_OPTIONS: DecisionCategory[] = [
   "Other",
 ];
 
-const SLIDER_FIELDS = [
-  { key: "impact", label: "Impact" },
-  { key: "cost", label: "Cost" },
-  { key: "risk", label: "Risk" },
-  { key: "urgency", label: "Urgency" },
-  { key: "confidence", label: "Confidence" },
-] as const;
-
-const INPUT_CLASS =
-  "w-full rounded-md border border-border/60 bg-background px-2 py-2 text-xs text-foreground shadow-sm outline-none transition focus:border-primary/60 focus:ring-2 focus:ring-primary/30";
-const TEXTAREA_CLASS =
-  "w-full rounded-md border border-border/60 bg-background px-2 py-2 text-xs text-foreground shadow-sm outline-none transition focus:border-primary/60 focus:ring-2 focus:ring-primary/30";
+type SliderKey = keyof DecisionCandidate["sliders"];
 
 const pillClass = (active: boolean) =>
   cn(
@@ -62,10 +52,7 @@ export default function PdfDecisionIntake({ onAddDecision, onAddDecisions }: Pdf
   const [showAll, setShowAll] = useState(false);
   const [hardOnly, setHardOnly] = useState(false);
   const [hideTables, setHideTables] = useState(true);
-  const [expandedDecisionIds, setExpandedDecisionIds] = useState<Set<string>>(new Set());
-  const [expandedQuoteIds, setExpandedQuoteIds] = useState<Set<string>>(new Set());
-
-  const resetState = () => {
+  const resetState = useCallback(() => {
     setPagesRead(0);
     setPageCount(0);
     setTotalChars(0);
@@ -75,9 +62,7 @@ export default function PdfDecisionIntake({ onAddDecision, onAddDecisions }: Pdf
     setAddedIds(new Set());
     setShowAll(false);
     setExtractError(null);
-    setExpandedDecisionIds(new Set());
-    setExpandedQuoteIds(new Set());
-  };
+  }, []);
 
   const handleUpload = useCallback(async (event: ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0] ?? null;
@@ -123,13 +108,13 @@ export default function PdfDecisionIntake({ onAddDecision, onAddDecisions }: Pdf
       setIsReading(false);
       setIsExtracting(false);
     }
-  }, []);
+  }, [resetState]);
 
   const updateCandidate = useCallback((id: string, updates: Partial<DecisionCandidate>) => {
     setCandidates((prev) => prev.map((candidate) => (candidate.id === id ? { ...candidate, ...updates } : candidate)));
   }, []);
 
-  const updateSlider = useCallback((id: string, key: typeof SLIDER_FIELDS[number]["key"], value: number) => {
+  const updateSlider = useCallback((id: string, key: SliderKey, value: number) => {
     setCandidates((prev) =>
       prev.map((candidate) =>
         candidate.id === id
@@ -137,7 +122,7 @@ export default function PdfDecisionIntake({ onAddDecision, onAddDecisions }: Pdf
               ...candidate,
               sliders: {
                 ...candidate.sliders,
-                [key]: value,
+                [key]: Math.max(1, Math.min(10, value)),
               },
             }
           : candidate,
@@ -183,30 +168,6 @@ export default function PdfDecisionIntake({ onAddDecision, onAddDecisions }: Pdf
   const handleDismissAll = useCallback(() => {
     setDismissedIds((prev) => new Set([...prev, ...visibleCandidates.map((candidate) => candidate.id)]));
   }, [visibleCandidates]);
-
-  const toggleDecision = useCallback((id: string) => {
-    setExpandedDecisionIds((prev) => {
-      const next = new Set(prev);
-      if (next.has(id)) {
-        next.delete(id);
-      } else {
-        next.add(id);
-      }
-      return next;
-    });
-  }, []);
-
-  const toggleQuote = useCallback((id: string) => {
-    setExpandedQuoteIds((prev) => {
-      const next = new Set(prev);
-      if (next.has(id)) {
-        next.delete(id);
-      } else {
-        next.add(id);
-      }
-      return next;
-    });
-  }, []);
 
   return (
     <div className="space-y-4 rounded-2xl border border-border/60 bg-white/80 p-4 shadow-sm dark:bg-white/5">
@@ -326,216 +287,17 @@ export default function PdfDecisionIntake({ onAddDecision, onAddDecisions }: Pdf
           <div className="space-y-2">
             {visibleCandidates.map((candidate) => {
               const isAdded = addedIds.has(candidate.id);
-              const isExpanded = expandedDecisionIds.has(candidate.id);
-              const isQuoteExpanded = expandedQuoteIds.has(candidate.id);
-              const decisionPreview =
-                candidate.decision.length > 120 ? `${candidate.decision.slice(0, 120).trim()}…` : candidate.decision;
-              const pageLabel = candidate.evidence.page ? `p.${candidate.evidence.page}` : "p.n/a";
               return (
-                <div
+                <DecisionRowCompact
                   key={candidate.id}
-                  className="rounded-lg border border-border/60 bg-muted/10 px-3 py-2 text-xs text-muted-foreground"
-                >
-                  <div className="flex flex-wrap items-center justify-between gap-2">
-                    <button
-                      type="button"
-                      className="min-w-0 flex-1 text-left text-[11px] text-foreground"
-                      onClick={() => toggleDecision(candidate.id)}
-                    >
-                      <span className="truncate">{decisionPreview}</span>
-                    </button>
-                    <div className="flex flex-wrap items-center gap-2">
-                      <span className={pillClass(candidate.strength === "hard")}>Hard</span>
-                      <span className={pillClass(candidate.strength === "soft")}>Soft</span>
-                      <span className="rounded-full border border-border/60 bg-muted/20 px-2 py-1 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
-                        {candidate.category}
-                      </span>
-                      <span className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
-                        {pageLabel}
-                      </span>
-                    </div>
-                    <div className="flex flex-wrap items-center gap-2">
-                      {SLIDER_FIELDS.map((field) => (
-                        <button
-                          key={field.key}
-                          type="button"
-                          className="rounded-full border border-border/60 bg-foreground/5 px-2 py-1 text-[10px] font-semibold text-foreground"
-                          onClick={() => toggleDecision(candidate.id)}
-                        >
-                          {field.label.charAt(0)}
-                          {candidate.sliders[field.key]}
-                        </button>
-                      ))}
-                    </div>
-                    <div className="flex flex-wrap items-center gap-2">
-                      <button
-                        type="button"
-                        className={cn(
-                          "rounded-full border px-3 py-1 text-[10px] font-semibold uppercase tracking-wide",
-                          isAdded
-                            ? "border-emerald-500/40 bg-emerald-500/10 text-emerald-600"
-                            : "border-border/60 bg-foreground/5 text-foreground hover:bg-foreground/10",
-                        )}
-                        onClick={() => handleAdd(candidate)}
-                        disabled={isAdded}
-                      >
-                        {isAdded ? "Added ✓" : "Add to Session"}
-                      </button>
-                      <button
-                        type="button"
-                        className={cn(
-                          "rounded-full border px-3 py-1 text-[10px] font-semibold uppercase tracking-wide",
-                          "border-border/60 bg-transparent text-muted-foreground hover:border-border/80 hover:text-foreground",
-                        )}
-                        onClick={() => toggleDecision(candidate.id)}
-                      >
-                        {isExpanded ? "Collapse ⌃" : "Expand ⌄"}
-                      </button>
-                    </div>
-                  </div>
-
-                  {isExpanded ? (
-                    <div className="mt-3 space-y-3 border-t border-border/60 pt-3">
-                      <div className="space-y-2">
-                        <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
-                          Decision
-                        </p>
-                        <textarea
-                          value={candidate.decision}
-                          onChange={(event) => updateCandidate(candidate.id, { decision: event.target.value })}
-                          className={TEXTAREA_CLASS}
-                          rows={4}
-                        />
-                      </div>
-
-                      <div className="space-y-2">
-                        <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
-                          Evidence
-                        </p>
-                        <div className="rounded-lg border border-border/60 bg-background/60 p-3 text-[11px] text-muted-foreground">
-                          <div className="flex flex-wrap items-center justify-between gap-2 text-[10px] uppercase tracking-wide text-muted-foreground">
-                            <span>Page {candidate.evidence.page ?? "n/a"}</span>
-                            {candidate.evidence.quote ? <span>Paraphrase</span> : null}
-                          </div>
-                          {candidate.evidence.quote ? (
-                            <p className="mt-2 text-foreground">{candidate.evidence.quote}</p>
-                          ) : (
-                            <p className="mt-2">No quote captured.</p>
-                          )}
-                          {candidate.evidence.full ? (
-                            <div className="mt-3 space-y-1">
-                              <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
-                                Full quote
-                              </p>
-                              <p className="text-foreground">
-                                {isQuoteExpanded || candidate.evidence.full.length <= 280
-                                  ? candidate.evidence.full
-                                  : `${candidate.evidence.full.slice(0, 280)}…`}
-                              </p>
-                              {candidate.evidence.full.length > 280 ? (
-                                <button
-                                  type="button"
-                                  className="text-[10px] font-semibold uppercase tracking-wide text-primary"
-                                  onClick={() => toggleQuote(candidate.id)}
-                                >
-                                  {isQuoteExpanded ? "Show less" : "Expand quote"}
-                                </button>
-                              ) : null}
-                            </div>
-                          ) : null}
-                        </div>
-                      </div>
-
-                      <div className="flex flex-wrap items-center gap-3">
-                        <div className="space-y-1">
-                          <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
-                            Category
-                          </p>
-                          <select
-                            value={candidate.category}
-                            onChange={(event) =>
-                              updateCandidate(candidate.id, { category: event.target.value as DecisionCategory })
-                            }
-                            className={cn(INPUT_CLASS, "h-8")}
-                          >
-                            {CATEGORY_OPTIONS.map((option) => (
-                              <option key={option} value={option}>
-                                {option}
-                              </option>
-                            ))}
-                          </select>
-                        </div>
-                        <div className="space-y-1">
-                          <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
-                            Strength
-                          </p>
-                          <div className="flex gap-2">
-                            {(["hard", "soft"] as const).map((strength) => (
-                              <button
-                                key={strength}
-                                type="button"
-                                onClick={() => updateCandidate(candidate.id, { strength })}
-                                className={pillClass(candidate.strength === strength)}
-                              >
-                                {strength}
-                              </button>
-                            ))}
-                          </div>
-                        </div>
-                      </div>
-
-                      <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
-                        {SLIDER_FIELDS.map((field) => (
-                          <label key={field.key} className="space-y-1 text-[11px] text-muted-foreground">
-                            <span className="font-semibold uppercase tracking-wide text-muted-foreground">
-                              {field.label}
-                            </span>
-                            <div className="flex items-center gap-2">
-                              <input
-                                type="range"
-                                min={0}
-                                max={10}
-                                step={1}
-                                value={candidate.sliders[field.key]}
-                                onChange={(event) => updateSlider(candidate.id, field.key, Number(event.target.value))}
-                                className="w-full accent-foreground"
-                              />
-                              <span className="w-6 text-right text-[11px] text-foreground">
-                                {candidate.sliders[field.key]}
-                              </span>
-                            </div>
-                          </label>
-                        ))}
-                      </div>
-
-                      <div className="flex flex-wrap items-center gap-2">
-                        <button
-                          type="button"
-                          className={cn(
-                            "rounded-full border px-3 py-1 text-[10px] font-semibold uppercase tracking-wide",
-                            isAdded
-                              ? "border-emerald-500/40 bg-emerald-500/10 text-emerald-600"
-                              : "border-border/60 bg-foreground/5 text-foreground hover:bg-foreground/10",
-                          )}
-                          onClick={() => handleAdd(candidate)}
-                          disabled={isAdded}
-                        >
-                          {isAdded ? "Added ✓" : "Add to Session"}
-                        </button>
-                        <button
-                          type="button"
-                          className={cn(
-                            "rounded-full border px-3 py-1 text-[10px] font-semibold uppercase tracking-wide",
-                            "border-border/60 bg-transparent text-muted-foreground hover:border-border/80 hover:text-foreground",
-                          )}
-                          onClick={() => handleDismiss(candidate.id)}
-                        >
-                          Dismiss
-                        </button>
-                      </div>
-                    </div>
-                  ) : null}
-                </div>
+                  candidate={candidate}
+                  isAdded={isAdded}
+                  categoryOptions={CATEGORY_OPTIONS}
+                  onAdd={handleAdd}
+                  onDismiss={handleDismiss}
+                  onCategoryChange={(id, category) => updateCandidate(id, { category })}
+                  onMetricChange={(id, key, value) => updateSlider(id, key, value)}
+                />
               );
             })}
 
