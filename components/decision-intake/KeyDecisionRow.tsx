@@ -21,6 +21,7 @@ interface KeyDecisionRowProps {
   candidate: DecisionCandidate;
   categoryOptions: DecisionCategory[];
   isAdded: boolean;
+  pdfUrl?: string | null;
   onAdd: (candidate: DecisionCandidate) => void;
   onDismiss: (id: string) => void;
   onCategoryChange: (id: string, category: DecisionCategory) => void;
@@ -32,6 +33,7 @@ export default function KeyDecisionRow({
   candidate,
   categoryOptions,
   isAdded,
+  pdfUrl,
   onAdd,
   onDismiss,
   onCategoryChange,
@@ -41,18 +43,18 @@ export default function KeyDecisionRow({
   const pageLabel = candidate.evidence.page ? `p.${candidate.evidence.page}` : "p.n/a";
 
   return (
-    <div className="rounded-xl border border-border/60 bg-white/70 px-4 py-4 text-xs text-muted-foreground shadow-sm dark:bg-white/10">
-      <div className="flex flex-col gap-4">
-        <div className="rounded-lg border border-border/50 border-l-4 border-l-primary/30 bg-muted/5 px-4 py-3">
+    <div className="rounded-xl border border-border/60 bg-white/70 px-5 py-5 text-xs text-muted-foreground shadow-sm dark:bg-white/10">
+      <div className="flex flex-col gap-5">
+        <div className="rounded-lg border border-border/50 border-l-4 border-l-primary/30 bg-muted/5 px-4 py-4">
           <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-muted-foreground">
             Decision Statement
           </p>
-          <p className="mt-2 text-base font-semibold leading-relaxed text-foreground sm:text-lg">
+          <p className="mt-2 line-clamp-3 text-base font-semibold leading-relaxed text-foreground sm:text-lg">
             {candidate.decision}
           </p>
         </div>
 
-        <div className="flex flex-wrap items-center justify-between gap-3">
+        <div className="flex flex-wrap items-center justify-between gap-4">
           <div className="flex flex-wrap items-center gap-2 text-[11px] text-muted-foreground">
             <div className="flex items-center gap-1 rounded-full border border-border/60 bg-muted/10 p-0.5">
               <button
@@ -94,11 +96,11 @@ export default function KeyDecisionRow({
                 <PopoverContent align="start" className="w-56 rounded-xl border border-border/60 bg-background/95 p-3 text-xs">
                   <p className="font-semibold text-foreground">Committed</p>
                   <p className="text-[11px] text-muted-foreground">
-                    Explicit commitment, scheduled action, or completed work.
+                    Explicit promise, plan, or irreversible direction.
                   </p>
                   <p className="mt-2 font-semibold text-foreground">Indicative</p>
                   <p className="text-[11px] text-muted-foreground">
-                    Directional signal or guidance &mdash; not guaranteed.
+                    Signal, expectation, or forecast &mdash; less binding.
                   </p>
                 </PopoverContent>
               </Popover>
@@ -118,12 +120,19 @@ export default function KeyDecisionRow({
                 ))}
               </SelectContent>
             </Select>
-            <span className="rounded-full border border-border/60 bg-muted/20 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
-              {pageLabel}
-            </span>
             <span className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
               Source: {pageLabel}
             </span>
+            {pdfUrl ? (
+              <a
+                href={pdfUrl}
+                target="_blank"
+                rel="noreferrer"
+                className="text-[10px] font-semibold uppercase tracking-wide text-primary hover:underline"
+              >
+                View PDF
+              </a>
+            ) : null}
           </div>
           <div className="flex flex-wrap items-center gap-2 lg:justify-end">
             <Button
@@ -139,7 +148,7 @@ export default function KeyDecisionRow({
               onClick={() => onAdd(candidate)}
               disabled={isAdded}
             >
-              {isAdded ? "Added ✓" : "Add to session"}
+              {isAdded ? "Added ✓" : "Add to Session"}
             </Button>
             <button
               type="button"
@@ -168,7 +177,7 @@ export default function KeyDecisionRow({
           </div>
           <div className="space-y-2">
             <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
-              Timing &amp; Conviction
+              Urgency &amp; Confidence
             </p>
             <div className="flex flex-wrap items-center gap-2">
               {METRICS.slice(3).map((metric) => (

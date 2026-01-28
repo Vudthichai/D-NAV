@@ -15,6 +15,7 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/comp
 import { Input } from "@/components/ui/input";
 import PdfDecisionIntake from "@/components/decision-intake/PdfDecisionIntake";
 import type { DecisionCandidate } from "@/lib/intake/decisionExtractLocal";
+import { computeMetrics } from "@/lib/calculations";
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
@@ -56,6 +57,22 @@ const isSessionDecisionSnapshot = (value: unknown): value is SessionDecision => 
     typeof candidate.s === "number" &&
     typeof candidate.dnav === "number"
   );
+};
+
+const computeSessionMetrics = (vars: {
+  impact: number;
+  cost: number;
+  risk: number;
+  urgency: number;
+  confidence: number;
+}) => {
+  const metrics = computeMetrics(vars);
+  return {
+    r: metrics.return,
+    p: metrics.pressure,
+    s: metrics.stability,
+    dnav: metrics.dnav,
+  };
 };
 
 export default function StressTestPage() {
@@ -399,6 +416,7 @@ export default function StressTestPage() {
       let nextTotal = 0;
       let added = false;
       const decisionId = `extract-${candidate.id}`;
+      const metrics = computeSessionMetrics(candidate.sliders);
       setSessionDecisions((prev) => {
         if (prev.some((decision) => decision.id === decisionId)) {
           nextTotal = prev.length;
@@ -414,10 +432,10 @@ export default function StressTestPage() {
           risk: candidate.sliders.risk,
           urgency: candidate.sliders.urgency,
           confidence: candidate.sliders.confidence,
-          r: 0,
-          p: 0,
-          s: 0,
-          dnav: 0,
+          r: metrics.r,
+          p: metrics.p,
+          s: metrics.s,
+          dnav: metrics.dnav,
           sourceFile: sourceFileName ?? undefined,
           sourcePage: candidate.evidence.page || undefined,
           excerpt: candidate.evidence.quote || undefined,
@@ -452,6 +470,7 @@ export default function StressTestPage() {
           const id = `extract-${candidate.id}`;
           if (existingIds.has(id)) return;
           const title = candidate.title.trim() || "Untitled decision";
+          const metrics = computeSessionMetrics(candidate.sliders);
           additions.push({
             id,
             decisionTitle: title,
@@ -462,10 +481,10 @@ export default function StressTestPage() {
             risk: candidate.sliders.risk,
             urgency: candidate.sliders.urgency,
             confidence: candidate.sliders.confidence,
-            r: 0,
-            p: 0,
-            s: 0,
-            dnav: 0,
+            r: metrics.r,
+            p: metrics.p,
+            s: metrics.s,
+            dnav: metrics.dnav,
             sourceFile: sourceFileName ?? undefined,
             sourcePage: candidate.evidence.page || undefined,
             excerpt: candidate.evidence.quote || undefined,
@@ -506,6 +525,13 @@ export default function StressTestPage() {
 
   const handleSaveEdit = useCallback(() => {
     if (!editDraft) return;
+    const metrics = computeSessionMetrics({
+      impact: editDraft.impact,
+      cost: editDraft.cost,
+      risk: editDraft.risk,
+      urgency: editDraft.urgency,
+      confidence: editDraft.confidence,
+    });
     setSessionDecisions((prev) =>
       prev.map((decision) =>
         decision.id === editDraft.id
@@ -518,6 +544,10 @@ export default function StressTestPage() {
               risk: editDraft.risk,
               urgency: editDraft.urgency,
               confidence: editDraft.confidence,
+              r: metrics.r,
+              p: metrics.p,
+              s: metrics.s,
+              dnav: metrics.dnav,
             }
           : decision,
       ),

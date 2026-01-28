@@ -227,6 +227,9 @@ export default function PdfDecisionIntake({ onAddDecision, onAddDecisions }: Pdf
 
         <div className="dnav-dark-glass-surface rounded-xl border border-border/60 bg-white/70 p-4 shadow-sm dark:bg-white/10">
           <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Document Summary</p>
+          <p className="mt-1 text-[11px] text-muted-foreground">
+            Summary maps the document’s narrative for orientation, not a decision list.
+          </p>
           {summary ? (
             <div className="mt-2 space-y-2 text-[11px] text-muted-foreground">
               <p className="text-sm font-semibold text-foreground">{summary.intro}</p>
@@ -254,6 +257,14 @@ export default function PdfDecisionIntake({ onAddDecision, onAddDecisions }: Pdf
                   ))}
                 </div>
               ) : null}
+              <div className="pt-2">
+                <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+                  Supporting Decisions
+                </p>
+                <p className="mt-1 text-[11px] text-muted-foreground">
+                  Review the extracted supporting decisions below to connect the summary to specific statements.
+                </p>
+              </div>
             </div>
           ) : (
             <p className="mt-2 text-[11px] text-muted-foreground">Summary populates after extraction.</p>
@@ -317,6 +328,7 @@ export default function PdfDecisionIntake({ onAddDecision, onAddDecisions }: Pdf
                   candidate={candidate}
                   isAdded={isAdded}
                   categoryOptions={CATEGORY_OPTIONS}
+                  pdfUrl={pdfUrl}
                   onAdd={handleAdd}
                   onDismiss={handleDismiss}
                   onCategoryChange={(id, category) => updateCandidate(id, { category })}

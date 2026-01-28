@@ -15,11 +15,11 @@ export default function DecisionLegend({ className }: DecisionLegendProps) {
       <div className="mt-2 space-y-2 rounded-lg border border-border/60 bg-muted/10 p-3">
         <div className="space-y-1">
           <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Committed</p>
-          <p>Explicit commitment, scheduled action, or completed action.</p>
+          <p>Explicit promise, plan, or irreversible direction.</p>
         </div>
         <div className="space-y-1">
           <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Indicative</p>
-          <p>Directional signal, expectation, or guidance (not guaranteed).</p>
+          <p>Signal, expectation, or forecast (less binding).</p>
         </div>
         <div className="space-y-1">
           <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Variables</p>
