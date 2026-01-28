@@ -685,7 +685,7 @@ export default function StressTestPage() {
             {isSessionAnalysisOpen ? (
               <div
                 ref={sessionAnalysisRef}
-                className="dnav-dark-glass-surface space-y-4 rounded-2xl border border-border/60 bg-white/70 p-4 shadow-sm"
+                className="dnav-dark-glass-surface space-y-4 rounded-2xl border border-amber-200/60 bg-amber-50/70 p-4 shadow-sm dark:border-border/60 dark:bg-white/10"
               >
                 <div className="flex flex-wrap items-start justify-between gap-3">
                   <div className="space-y-1">
@@ -822,12 +822,14 @@ export default function StressTestPage() {
               </div>
             ) : null}
 
-            <PdfDecisionIntake
-              ref={intakeRef}
-              onAddDecision={handleAddToSession}
-              onAddDecisions={handleAddMultiple}
-              onCandidateUpdate={handleCandidateUpdate}
-            />
+            <div className="mt-6">
+              <PdfDecisionIntake
+                ref={intakeRef}
+                onAddDecision={handleAddToSession}
+                onAddDecisions={handleAddMultiple}
+                onCandidateUpdate={handleCandidateUpdate}
+              />
+            </div>
 
             {toastNotice ? (
               <div className="fixed bottom-4 right-4 z-50 flex items-center gap-3 rounded-lg border border-border/60 bg-white/90 px-4 py-3 text-[11px] text-foreground shadow-lg">

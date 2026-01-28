@@ -41,20 +41,13 @@ export default function KeyDecisionRow({
   onMetricChange,
   onStrengthChange,
 }: KeyDecisionRowProps) {
-  const pageLabel = candidate.evidence.page ? `p.${candidate.evidence.page}` : "p.n/a";
+  const pageLabel = candidate.evidence.page ? `Source p.${candidate.evidence.page}` : "Source p.n/a";
   const metrics = computeRpsDnav(candidate.sliders);
-  const statementLabel =
-    candidate.statementType === "decision"
-      ? "Decision"
-      : candidate.statementType === "commitment"
-        ? "Commitment"
-        : "Evidence";
-  const badgeClass =
-    candidate.statementType === "decision"
+  const statusLabel = candidate.strength === "committed" ? "Committed" : "Indicative";
+  const statusBadgeClass =
+    candidate.strength === "committed"
       ? "border-emerald-500/40 bg-emerald-500/10 text-emerald-700"
-      : candidate.statementType === "commitment"
-        ? "border-amber-500/40 bg-amber-500/10 text-amber-700"
-        : "border-slate-400/40 bg-slate-200/60 text-slate-600";
+      : "border-amber-500/40 bg-amber-500/10 text-amber-700";
   const formatSignal = (value: number) => {
     if (!Number.isFinite(value)) return "0";
     const formatted = value.toFixed(1).replace(/\.0$/, "");
@@ -64,19 +57,38 @@ export default function KeyDecisionRow({
     if (!Number.isFinite(value)) return "0";
     return value.toFixed(1).replace(/\.0$/, "");
   };
+  const cleanDecisionText = (value: string) =>
+    value.replace(/^(?:the\s+)?company\s+commits?\s+to\s+/i, "").trim();
+  const findTimeframe = (value?: string) => {
+    if (!value) return null;
+    const patterns = [
+      /\bQ[1-4]\b[^,.]*/i,
+      /\bH[1-2]\b[^,.]*/i,
+      /\b20\d{2}\b[^,.]*/i,
+      /\bthis (year|quarter|month)\b/i,
+      /\bnext (year|quarter|month)\b/i,
+      /\bby [^,.]+/i,
+      /\bwithin \d{1,2} months\b/i,
+    ];
+    for (const pattern of patterns) {
+      const match = value.match(pattern);
+      if (match?.[0]) return match[0].trim();
+    }
+    return null;
+  };
+  const timeframe = findTimeframe(candidate.evidence.full ?? candidate.decision);
+  const metadata = [candidate.category, pageLabel, timeframe].filter(Boolean).join(" · ");
 
   return (
     <div className="rounded-xl border border-border/60 bg-white/70 px-5 py-5 text-xs text-muted-foreground shadow-sm dark:bg-white/10">
       <div className="flex flex-col gap-5">
         <div className="rounded-lg border border-border/50 border-l-4 border-l-primary/30 bg-muted/5 px-4 py-4">
           <div className="flex flex-wrap items-center gap-2 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
-            <span className={cn("rounded-full border px-2 py-0.5", badgeClass)}>{statementLabel}</span>
-            <span>
-              {candidate.category} · {pageLabel}
-            </span>
+            <span className={cn("rounded-full border px-2 py-0.5", statusBadgeClass)}>{statusLabel}</span>
+            <span>{metadata}</span>
           </div>
           <p className="mt-2 line-clamp-3 text-base font-semibold leading-relaxed text-foreground sm:text-lg">
-            {candidate.decision}
+            {cleanDecisionText(candidate.decision)}
           </p>
         </div>
 

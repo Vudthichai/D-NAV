@@ -25,6 +25,9 @@ export interface SessionDecision {
 
 export const getSessionDecisionId = (candidateId: string) => `extract-${candidateId}`;
 
+const cleanDecisionText = (value: string) =>
+  value.replace(/^(?:the\s+)?company\s+commits?\s+to\s+/i, "").trim();
+
 export const getCandidateIdFromSessionDecision = (decision: SessionDecision): string | null => {
   if (decision.sourceCandidateId) return decision.sourceCandidateId;
   if (decision.id.startsWith("extract-")) {
@@ -43,7 +46,7 @@ export const buildSessionDecisionFromCandidate = (
   return {
     id: existing?.id ?? getSessionDecisionId(candidate.id),
     decisionTitle: title,
-    decisionDetail: candidate.decision,
+    decisionDetail: cleanDecisionText(candidate.decision),
     category: candidate.category || "Strategy",
     impact: candidate.sliders.impact,
     cost: candidate.sliders.cost,
