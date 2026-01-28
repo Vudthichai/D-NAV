@@ -297,6 +297,7 @@ export default function PdfDecisionIntake({ onAddDecision, onAddDecisions }: Pdf
                   onDismiss={handleDismiss}
                   onCategoryChange={(id, category) => updateCandidate(id, { category })}
                   onMetricChange={(id, key, value) => updateSlider(id, key, value)}
+                  onStrengthChange={(id, strength) => updateCandidate(id, { strength })}
                 />
               );
             })}
