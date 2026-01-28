@@ -5,11 +5,11 @@ import type { DecisionCandidate, DecisionCategory } from "@/lib/intake/decisionE
 import MetricStepperPill from "@/components/decision-intake/MetricStepperPill";
 
 const METRICS = [
-  { key: "impact", label: "I" },
-  { key: "cost", label: "C" },
-  { key: "risk", label: "R" },
-  { key: "urgency", label: "U" },
-  { key: "confidence", label: "CF" },
+  { key: "impact", label: "Impact", tooltip: "How big is the upside if true?" },
+  { key: "cost", label: "Cost", tooltip: "Money/time/effort required." },
+  { key: "risk", label: "Risk", tooltip: "Probability * severity of downside." },
+  { key: "urgency", label: "Timing", tooltip: "How time-sensitive is this?" },
+  { key: "confidence", label: "Conviction", tooltip: "How confident is the author/evidence?" },
 ] as const;
 
 type MetricKey = (typeof METRICS)[number]["key"];
@@ -49,18 +49,18 @@ export default function DecisionRowCompact({
           </div>
           <div className="flex w-[380px] shrink-0 items-center justify-end gap-2 whitespace-nowrap">
             <div className="flex items-center gap-1 rounded-full border border-border/60 bg-muted/10 p-0.5">
-              <button
-                type="button"
-                onClick={() => onStrengthChange(candidate.id, "committed")}
-                className={cn(
-                  "rounded-full px-3 py-1 text-[10px] font-semibold uppercase tracking-wide transition",
+            <button
+              type="button"
+              onClick={() => onStrengthChange(candidate.id, "committed")}
+              className={cn(
+                "rounded-full px-3 py-1 text-[10px] font-semibold uppercase tracking-wide transition",
                   candidate.strength === "committed"
                     ? "border border-foreground bg-foreground text-background shadow-sm"
                     : "border border-transparent text-muted-foreground hover:text-foreground",
                 )}
                 aria-pressed={candidate.strength === "committed"}
               >
-                Committed
+                COMMITTED
               </button>
               <button
                 type="button"
@@ -73,7 +73,7 @@ export default function DecisionRowCompact({
                 )}
                 aria-pressed={candidate.strength === "indicative"}
               >
-                Indicative
+                INDICATIVE
               </button>
             </div>
             <select
@@ -118,6 +118,7 @@ export default function DecisionRowCompact({
             <MetricStepperPill
               key={metric.key}
               label={metric.label}
+              tooltip={metric.tooltip}
               value={candidate.sliders[metric.key]}
               onChange={(value) => onMetricChange(candidate.id, metric.key, value)}
             />

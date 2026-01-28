@@ -15,29 +15,16 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/comp
 import { Input } from "@/components/ui/input";
 import PdfDecisionIntake from "@/components/decision-intake/PdfDecisionIntake";
 import type { DecisionCandidate } from "@/lib/intake/decisionExtractLocal";
+import {
+  buildSessionDecisionFromCandidate,
+  type DecisionSessionState,
+  type DecisionCandidatePatch,
+  type SessionDecision,
+  updateDecisionInState,
+  updateSessionDecisionInState,
+} from "@/lib/intake/decisionSessionStore";
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-
-interface SessionDecision {
-  id: string;
-  decisionTitle: string;
-  decisionDetail?: string;
-  category: string;
-  impact: number;
-  cost: number;
-  risk: number;
-  urgency: number;
-  confidence: number;
-  r: number;
-  p: number;
-  s: number;
-  dnav: number;
-  sourceFile?: string;
-  sourcePage?: number;
-  excerpt?: string;
-  sourceType?: "manual" | "intake";
-  createdAt: number;
-}
 
 const SESSION_DECISIONS_KEY = "dnav:stressTest:sessionDecisions";
 
@@ -64,17 +51,21 @@ export default function StressTestPage() {
     actionLabel?: string;
     onAction?: () => void;
   } | null>(null);
-  const [sessionDecisions, setSessionDecisions] = useState<SessionDecision[]>(() => {
-    if (typeof window === "undefined") return [];
+  const [decisionState, setDecisionState] = useState<DecisionSessionState>(() => {
+    if (typeof window === "undefined") {
+      return { extractedDecisions: [], sessionDecisions: [] };
+    }
     try {
       const stored = window.sessionStorage.getItem(SESSION_DECISIONS_KEY);
       const parsed = stored ? JSON.parse(stored) : null;
-      return Array.isArray(parsed) ? parsed.filter(isSessionDecisionSnapshot) : [];
+      const sessionDecisions = Array.isArray(parsed) ? parsed.filter(isSessionDecisionSnapshot) : [];
+      return { extractedDecisions: [], sessionDecisions };
     } catch (error) {
       console.error("Failed to load stress test session decisions.", error);
-      return [];
+      return { extractedDecisions: [], sessionDecisions: [] };
     }
   });
+  const { extractedDecisions, sessionDecisions } = decisionState;
   const calculatorRef = useRef<StressTestCalculatorHandle>(null);
   const [isSessionAnalysisOpen, setIsSessionAnalysisOpen] = useState(false);
   const sessionAnalysisRef = useRef<HTMLDivElement>(null);
@@ -111,6 +102,14 @@ export default function StressTestPage() {
     }
   }, [sessionDecisions]);
 
+  const handleUpdateDecision = useCallback((id: string, patch: DecisionCandidatePatch) => {
+    setDecisionState((prev) => updateDecisionInState(prev, id, patch));
+  }, []);
+
+  const handleSetExtractedDecisions = useCallback((candidates: DecisionCandidate[]) => {
+    setDecisionState((prev) => ({ ...prev, extractedDecisions: candidates }));
+  }, []);
+
   const handleSaveSessionDecision = useCallback((decision: StressTestDecisionSnapshot) => {
     const title = decision.name?.trim() || "Untitled decision";
     const sessionDecision: SessionDecision = {
@@ -130,7 +129,7 @@ export default function StressTestPage() {
       sourceType: "manual",
       createdAt: decision.createdAt,
     };
-    setSessionDecisions((prev) => [sessionDecision, ...prev]);
+    setDecisionState((prev) => ({ ...prev, sessionDecisions: [sessionDecision, ...prev.sessionDecisions] }));
   }, []);
 
   const decisionCount = sessionDecisions.length;
@@ -326,7 +325,7 @@ export default function StressTestPage() {
   const handleClearSession = useCallback(() => {
     if (typeof window === "undefined") return;
     if (!window.confirm("Clear saved session decisions?")) return;
-    setSessionDecisions([]);
+    setDecisionState((prev) => ({ ...prev, sessionDecisions: [] }));
     setIsSessionAnalysisOpen(false);
     calculatorRef.current?.resetSavedState();
     try {
@@ -395,38 +394,18 @@ export default function StressTestPage() {
 
   const handleAddToSession = useCallback(
     (candidate: DecisionCandidate, sourceFileName?: string) => {
-      const title = candidate.title.trim() || "Untitled decision";
       let nextTotal = 0;
       let added = false;
       const decisionId = `extract-${candidate.id}`;
-      setSessionDecisions((prev) => {
-        if (prev.some((decision) => decision.id === decisionId)) {
-          nextTotal = prev.length;
+      setDecisionState((prev) => {
+        if (prev.sessionDecisions.some((decision) => decision.id === decisionId)) {
+          nextTotal = prev.sessionDecisions.length;
           return prev;
         }
-        const sessionDecision: SessionDecision = {
-          id: decisionId,
-          decisionTitle: title,
-          decisionDetail: candidate.decision,
-          category: candidate.category || "Strategy",
-          impact: candidate.sliders.impact,
-          cost: candidate.sliders.cost,
-          risk: candidate.sliders.risk,
-          urgency: candidate.sliders.urgency,
-          confidence: candidate.sliders.confidence,
-          r: 0,
-          p: 0,
-          s: 0,
-          dnav: 0,
-          sourceFile: sourceFileName ?? undefined,
-          sourcePage: candidate.evidence.page || undefined,
-          excerpt: candidate.evidence.quote || undefined,
-          sourceType: "intake",
-          createdAt: Date.now(),
-        };
+        const sessionDecision = buildSessionDecisionFromCandidate(candidate, sourceFileName ?? undefined);
         added = true;
-        nextTotal = prev.length + 1;
-        return [sessionDecision, ...prev];
+        nextTotal = prev.sessionDecisions.length + 1;
+        return { ...prev, sessionDecisions: [sessionDecision, ...prev.sessionDecisions] };
       });
       if (added) {
         setToastNotice({
@@ -445,39 +424,19 @@ export default function StressTestPage() {
       let addedCount = 0;
       let nextTotal = 0;
       let lastAdded: string | null = null;
-      setSessionDecisions((prev) => {
-        const existingIds = new Set(prev.map((decision) => decision.id));
+      setDecisionState((prev) => {
+        const existingIds = new Set(prev.sessionDecisions.map((decision) => decision.id));
         const additions: SessionDecision[] = [];
         candidates.forEach((candidate) => {
           const id = `extract-${candidate.id}`;
           if (existingIds.has(id)) return;
-          const title = candidate.title.trim() || "Untitled decision";
-          additions.push({
-            id,
-            decisionTitle: title,
-            decisionDetail: candidate.decision,
-            category: candidate.category || "Strategy",
-            impact: candidate.sliders.impact,
-            cost: candidate.sliders.cost,
-            risk: candidate.sliders.risk,
-            urgency: candidate.sliders.urgency,
-            confidence: candidate.sliders.confidence,
-            r: 0,
-            p: 0,
-            s: 0,
-            dnav: 0,
-            sourceFile: sourceFileName ?? undefined,
-            sourcePage: candidate.evidence.page || undefined,
-            excerpt: candidate.evidence.quote || undefined,
-            sourceType: "intake",
-            createdAt: Date.now(),
-          });
+          additions.push(buildSessionDecisionFromCandidate(candidate, sourceFileName ?? undefined));
           lastAdded = id;
         });
         addedCount = additions.length;
         if (additions.length === 0) return prev;
-        nextTotal = prev.length + additions.length;
-        return [...additions, ...prev];
+        nextTotal = prev.sessionDecisions.length + additions.length;
+        return { ...prev, sessionDecisions: [...additions, ...prev.sessionDecisions] };
       });
       if (addedCount > 0) {
         setToastNotice({
@@ -506,21 +465,16 @@ export default function StressTestPage() {
 
   const handleSaveEdit = useCallback(() => {
     if (!editDraft) return;
-    setSessionDecisions((prev) =>
-      prev.map((decision) =>
-        decision.id === editDraft.id
-          ? {
-              ...decision,
-              decisionTitle: editDraft.decisionTitle.trim() || decision.decisionTitle,
-              category: editDraft.category.trim() || decision.category,
-              impact: editDraft.impact,
-              cost: editDraft.cost,
-              risk: editDraft.risk,
-              urgency: editDraft.urgency,
-              confidence: editDraft.confidence,
-            }
-          : decision,
-      ),
+    setDecisionState((prev) =>
+      updateSessionDecisionInState(prev, editDraft.id, {
+        decisionTitle: editDraft.decisionTitle.trim() || undefined,
+        category: editDraft.category.trim() || undefined,
+        impact: editDraft.impact,
+        cost: editDraft.cost,
+        risk: editDraft.risk,
+        urgency: editDraft.urgency,
+        confidence: editDraft.confidence,
+      }),
     );
     setEditingDecision(null);
     setEditDraft(null);
@@ -829,7 +783,13 @@ export default function StressTestPage() {
               </div>
             ) : null}
 
-            <PdfDecisionIntake onAddDecision={handleAddToSession} onAddDecisions={handleAddMultiple} />
+            <PdfDecisionIntake
+              extractedDecisions={extractedDecisions}
+              onExtractedDecisionsChange={handleSetExtractedDecisions}
+              updateDecision={handleUpdateDecision}
+              onAddDecision={handleAddToSession}
+              onAddDecisions={handleAddMultiple}
+            />
 
             {toastNotice ? (
               <div className="fixed bottom-4 right-4 z-50 flex items-center gap-3 rounded-lg border border-border/60 bg-white/90 px-4 py-3 text-[11px] text-foreground shadow-lg">

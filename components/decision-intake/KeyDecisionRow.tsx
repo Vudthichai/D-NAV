@@ -8,11 +8,11 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import MetricStepperPill from "@/components/decision-intake/MetricStepperPill";
 
 const METRICS = [
-  { key: "impact", label: "I", name: "Impact" },
-  { key: "cost", label: "C", name: "Cost" },
-  { key: "risk", label: "R", name: "Risk" },
-  { key: "urgency", label: "U", name: "Urgency" },
-  { key: "confidence", label: "CF", name: "Confidence" },
+  { key: "impact", label: "Impact", tooltip: "How big is the upside if true?" },
+  { key: "cost", label: "Cost", tooltip: "Money/time/effort required." },
+  { key: "risk", label: "Risk", tooltip: "Probability * severity of downside." },
+  { key: "urgency", label: "Timing", tooltip: "How time-sensitive is this?" },
+  { key: "confidence", label: "Conviction", tooltip: "How confident is the author/evidence?" },
 ] as const;
 
 type MetricKey = (typeof METRICS)[number]["key"];
@@ -23,6 +23,7 @@ interface KeyDecisionRowProps {
   isAdded: boolean;
   onAdd: (candidate: DecisionCandidate) => void;
   onDismiss: (id: string) => void;
+  onOpenSource: (decisionId: string, page?: number) => void;
   onCategoryChange: (id: string, category: DecisionCategory) => void;
   onMetricChange: (id: string, key: MetricKey, value: number) => void;
   onStrengthChange: (id: string, strength: DecisionCandidate["strength"]) => void;
@@ -34,6 +35,7 @@ export default function KeyDecisionRow({
   isAdded,
   onAdd,
   onDismiss,
+  onOpenSource,
   onCategoryChange,
   onMetricChange,
   onStrengthChange,
@@ -41,18 +43,19 @@ export default function KeyDecisionRow({
   const pageLabel = candidate.evidence.page ? `p.${candidate.evidence.page}` : "p.n/a";
 
   return (
-    <div className="rounded-xl border border-border/60 bg-white/70 px-4 py-4 text-xs text-muted-foreground shadow-sm dark:bg-white/10">
+    <div
+      id={`decision-tile-${candidate.id}`}
+      className="rounded-2xl border border-border/60 bg-white/80 px-5 py-5 text-xs text-muted-foreground shadow-sm transition dark:bg-white/10"
+    >
       <div className="flex flex-col gap-4">
         <div className="rounded-lg border border-border/50 border-l-4 border-l-primary/30 bg-muted/5 px-4 py-3">
-          <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-muted-foreground">
-            Decision Statement
-          </p>
+          <p className="text-sm font-semibold text-foreground">Decision statement</p>
           <p className="mt-2 text-base font-semibold leading-relaxed text-foreground sm:text-lg">
             {candidate.decision}
           </p>
         </div>
 
-        <div className="flex flex-wrap items-center justify-between gap-3">
+        <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
           <div className="flex flex-wrap items-center gap-2 text-[11px] text-muted-foreground">
             <div className="flex items-center gap-1 rounded-full border border-border/60 bg-muted/10 p-0.5">
               <button
@@ -91,14 +94,14 @@ export default function KeyDecisionRow({
                     ?
                   </button>
                 </PopoverTrigger>
-                <PopoverContent align="start" className="w-56 rounded-xl border border-border/60 bg-background/95 p-3 text-xs">
+                <PopoverContent align="start" className="w-60 rounded-xl border border-border/60 bg-background/95 p-3 text-xs">
                   <p className="font-semibold text-foreground">Committed</p>
                   <p className="text-[11px] text-muted-foreground">
-                    Explicit commitment, scheduled action, or completed work.
+                    Explicit commitment, action, or target with a time anchor.
                   </p>
                   <p className="mt-2 font-semibold text-foreground">Indicative</p>
                   <p className="text-[11px] text-muted-foreground">
-                    Directional signal or guidance &mdash; not guaranteed.
+                    Directional language or expectation without a firm commitment.
                   </p>
                 </PopoverContent>
               </Popover>
@@ -118,12 +121,13 @@ export default function KeyDecisionRow({
                 ))}
               </SelectContent>
             </Select>
-            <span className="rounded-full border border-border/60 bg-muted/20 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
-              {pageLabel}
-            </span>
-            <span className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+            <button
+              type="button"
+              className="rounded-full border border-border/60 bg-muted/20 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground transition hover:border-border/80 hover:text-foreground"
+              onClick={() => onOpenSource(candidate.id, candidate.evidence.page)}
+            >
               Source: {pageLabel}
-            </span>
+            </button>
           </div>
           <div className="flex flex-wrap items-center gap-2 lg:justify-end">
             <Button
@@ -143,23 +147,26 @@ export default function KeyDecisionRow({
             </Button>
             <button
               type="button"
-              className="grid h-8 w-8 place-items-center rounded-full border border-border/60 bg-transparent text-[14px] font-semibold text-muted-foreground transition hover:border-border/80 hover:text-foreground"
+              className="flex items-center gap-1 rounded-full border border-border/60 px-3 py-2 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground transition hover:border-border/80 hover:text-foreground"
               onClick={() => onDismiss(candidate.id)}
               aria-label="Dismiss decision"
             >
-              ×
+              Dismiss <span className="text-sm">×</span>
             </button>
           </div>
         </div>
 
-        <div className="flex flex-wrap gap-4">
+        <div className="grid gap-4 lg:grid-cols-2">
           <div className="space-y-2">
-            <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Outcome Load</p>
+            <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+              Outcome Load: Impact, Cost, Risk
+            </p>
             <div className="flex flex-wrap items-center gap-2">
               {METRICS.slice(0, 3).map((metric) => (
                 <MetricStepperPill
                   key={metric.key}
                   label={metric.label}
+                  tooltip={metric.tooltip}
                   value={candidate.sliders[metric.key]}
                   onChange={(value) => onMetricChange(candidate.id, metric.key, value)}
                 />
@@ -167,14 +174,15 @@ export default function KeyDecisionRow({
             </div>
           </div>
           <div className="space-y-2">
-            <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
-              Timing &amp; Conviction
+            <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+              Timing &amp; Conviction: Timing (Urgency), Conviction (Confidence)
             </p>
             <div className="flex flex-wrap items-center gap-2">
               {METRICS.slice(3).map((metric) => (
                 <MetricStepperPill
                   key={metric.key}
                   label={metric.label}
+                  tooltip={metric.tooltip}
                   value={candidate.sliders[metric.key]}
                   onChange={(value) => onMetricChange(candidate.id, metric.key, value)}
                 />
