@@ -62,7 +62,8 @@ export default function PdfDecisionIntake({ onAddDecision, onAddDecisions }: Pdf
   const [showAll, setShowAll] = useState(false);
   const [hardOnly, setHardOnly] = useState(false);
   const [hideTables, setHideTables] = useState(true);
-  const [expandedEvidenceIds, setExpandedEvidenceIds] = useState<Set<string>>(new Set());
+  const [expandedDecisionIds, setExpandedDecisionIds] = useState<Set<string>>(new Set());
+  const [expandedQuoteIds, setExpandedQuoteIds] = useState<Set<string>>(new Set());
 
   const resetState = () => {
     setPagesRead(0);
@@ -74,7 +75,8 @@ export default function PdfDecisionIntake({ onAddDecision, onAddDecisions }: Pdf
     setAddedIds(new Set());
     setShowAll(false);
     setExtractError(null);
-    setExpandedEvidenceIds(new Set());
+    setExpandedDecisionIds(new Set());
+    setExpandedQuoteIds(new Set());
   };
 
   const handleUpload = useCallback(async (event: ChangeEvent<HTMLInputElement>) => {
@@ -182,8 +184,20 @@ export default function PdfDecisionIntake({ onAddDecision, onAddDecisions }: Pdf
     setDismissedIds((prev) => new Set([...prev, ...visibleCandidates.map((candidate) => candidate.id)]));
   }, [visibleCandidates]);
 
-  const toggleEvidence = useCallback((id: string) => {
-    setExpandedEvidenceIds((prev) => {
+  const toggleDecision = useCallback((id: string) => {
+    setExpandedDecisionIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) {
+        next.delete(id);
+      } else {
+        next.add(id);
+      }
+      return next;
+    });
+  }, []);
+
+  const toggleQuote = useCallback((id: string) => {
+    setExpandedQuoteIds((prev) => {
       const next = new Set(prev);
       if (next.has(id)) {
         next.delete(id);
@@ -309,144 +323,218 @@ export default function PdfDecisionIntake({ onAddDecision, onAddDecisions }: Pdf
             Upload a PDF to see decision candidates.
           </div>
         ) : (
-          <div className="space-y-3">
+          <div className="space-y-2">
             {visibleCandidates.map((candidate) => {
               const isAdded = addedIds.has(candidate.id);
-              const isExpanded = expandedEvidenceIds.has(candidate.id);
+              const isExpanded = expandedDecisionIds.has(candidate.id);
+              const isQuoteExpanded = expandedQuoteIds.has(candidate.id);
+              const decisionPreview =
+                candidate.decision.length > 120 ? `${candidate.decision.slice(0, 120).trim()}…` : candidate.decision;
+              const pageLabel = candidate.evidence.page ? `p.${candidate.evidence.page}` : "p.n/a";
               return (
                 <div
                   key={candidate.id}
-                  className="rounded-lg border border-border/60 bg-muted/10 px-3 py-3 text-xs text-muted-foreground"
+                  className="rounded-lg border border-border/60 bg-muted/10 px-3 py-2 text-xs text-muted-foreground"
                 >
-                  <div className="flex flex-wrap items-start justify-between gap-2">
-                    <div className="space-y-1">
-                      <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Title</p>
-                      <input
-                        value={candidate.title}
-                        onChange={(event) => updateCandidate(candidate.id, { title: event.target.value })}
-                        className={INPUT_CLASS}
-                      />
-                      <p className="text-[11px] text-muted-foreground">
-                        {candidate.evidence.page ? `p. ${candidate.evidence.page}` : "Page n/a"}
-                      </p>
-                    </div>
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <button
+                      type="button"
+                      className="min-w-0 flex-1 text-left text-[11px] text-foreground"
+                      onClick={() => toggleDecision(candidate.id)}
+                    >
+                      <span className="truncate">{decisionPreview}</span>
+                    </button>
                     <div className="flex flex-wrap items-center gap-2">
                       <span className={pillClass(candidate.strength === "hard")}>Hard</span>
                       <span className={pillClass(candidate.strength === "soft")}>Soft</span>
+                      <span className="rounded-full border border-border/60 bg-muted/20 px-2 py-1 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+                        {candidate.category}
+                      </span>
+                      <span className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+                        {pageLabel}
+                      </span>
                     </div>
-                  </div>
-
-                  <div className="mt-3 space-y-2">
-                    <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Decision</p>
-                    <textarea
-                      value={candidate.decision}
-                      onChange={(event) => updateCandidate(candidate.id, { decision: event.target.value })}
-                      className={TEXTAREA_CLASS}
-                      rows={4}
-                    />
-                    <div className="flex flex-wrap items-center gap-3">
-                      <div className="space-y-1">
-                        <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Category</p>
-                        <select
-                          value={candidate.category}
-                          onChange={(event) =>
-                            updateCandidate(candidate.id, { category: event.target.value as DecisionCategory })
-                          }
-                          className={cn(INPUT_CLASS, "h-8")}
+                    <div className="flex flex-wrap items-center gap-2">
+                      {SLIDER_FIELDS.map((field) => (
+                        <button
+                          key={field.key}
+                          type="button"
+                          className="rounded-full border border-border/60 bg-foreground/5 px-2 py-1 text-[10px] font-semibold text-foreground"
+                          onClick={() => toggleDecision(candidate.id)}
                         >
-                          {CATEGORY_OPTIONS.map((option) => (
-                            <option key={option} value={option}>
-                              {option}
-                            </option>
-                          ))}
-                        </select>
-                      </div>
-                      <div className="space-y-1">
-                        <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Strength</p>
-                        <div className="flex gap-2">
-                          {(["hard", "soft"] as const).map((strength) => (
-                            <button
-                              key={strength}
-                              type="button"
-                              onClick={() => updateCandidate(candidate.id, { strength })}
-                              className={pillClass(candidate.strength === strength)}
-                            >
-                              {strength}
-                            </button>
-                          ))}
-                        </div>
-                      </div>
+                          {field.label.charAt(0)}
+                          {candidate.sliders[field.key]}
+                        </button>
+                      ))}
+                    </div>
+                    <div className="flex flex-wrap items-center gap-2">
+                      <button
+                        type="button"
+                        className={cn(
+                          "rounded-full border px-3 py-1 text-[10px] font-semibold uppercase tracking-wide",
+                          isAdded
+                            ? "border-emerald-500/40 bg-emerald-500/10 text-emerald-600"
+                            : "border-border/60 bg-foreground/5 text-foreground hover:bg-foreground/10",
+                        )}
+                        onClick={() => handleAdd(candidate)}
+                        disabled={isAdded}
+                      >
+                        {isAdded ? "Added ✓" : "Add to Session"}
+                      </button>
+                      <button
+                        type="button"
+                        className={cn(
+                          "rounded-full border px-3 py-1 text-[10px] font-semibold uppercase tracking-wide",
+                          "border-border/60 bg-transparent text-muted-foreground hover:border-border/80 hover:text-foreground",
+                        )}
+                        onClick={() => toggleDecision(candidate.id)}
+                      >
+                        {isExpanded ? "Collapse ⌃" : "Expand ⌄"}
+                      </button>
                     </div>
                   </div>
 
-                  <div className="mt-3 grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
-                    {SLIDER_FIELDS.map((field) => (
-                      <label key={field.key} className="space-y-1 text-[11px] text-muted-foreground">
-                        <span className="font-semibold uppercase tracking-wide text-muted-foreground">
-                          {field.label}
-                        </span>
-                        <div className="flex items-center gap-2">
-                          <input
-                            type="range"
-                            min={0}
-                            max={10}
-                            step={1}
-                            value={candidate.sliders[field.key]}
-                            onChange={(event) => updateSlider(candidate.id, field.key, Number(event.target.value))}
-                            className="w-full accent-foreground"
-                          />
-                          <span className="w-6 text-right text-[11px] text-foreground">
-                            {candidate.sliders[field.key]}
-                          </span>
-                        </div>
-                      </label>
-                    ))}
-                  </div>
+                  {isExpanded ? (
+                    <div className="mt-3 space-y-3 border-t border-border/60 pt-3">
+                      <div className="space-y-2">
+                        <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+                          Decision
+                        </p>
+                        <textarea
+                          value={candidate.decision}
+                          onChange={(event) => updateCandidate(candidate.id, { decision: event.target.value })}
+                          className={TEXTAREA_CLASS}
+                          rows={4}
+                        />
+                      </div>
 
-                  {candidate.evidence.full ? (
-                    <div className="mt-3 space-y-1 text-[11px] text-muted-foreground">
-                      <p>
-                        {isExpanded || candidate.evidence.full.length <= 240
-                          ? candidate.evidence.full
-                          : `${candidate.evidence.full.slice(0, 240)}…`}
-                      </p>
-                      {candidate.evidence.full.length > 240 ? (
+                      <div className="space-y-2">
+                        <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+                          Evidence
+                        </p>
+                        <div className="rounded-lg border border-border/60 bg-background/60 p-3 text-[11px] text-muted-foreground">
+                          <div className="flex flex-wrap items-center justify-between gap-2 text-[10px] uppercase tracking-wide text-muted-foreground">
+                            <span>Page {candidate.evidence.page ?? "n/a"}</span>
+                            {candidate.evidence.quote ? <span>Paraphrase</span> : null}
+                          </div>
+                          {candidate.evidence.quote ? (
+                            <p className="mt-2 text-foreground">{candidate.evidence.quote}</p>
+                          ) : (
+                            <p className="mt-2">No quote captured.</p>
+                          )}
+                          {candidate.evidence.full ? (
+                            <div className="mt-3 space-y-1">
+                              <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+                                Full quote
+                              </p>
+                              <p className="text-foreground">
+                                {isQuoteExpanded || candidate.evidence.full.length <= 280
+                                  ? candidate.evidence.full
+                                  : `${candidate.evidence.full.slice(0, 280)}…`}
+                              </p>
+                              {candidate.evidence.full.length > 280 ? (
+                                <button
+                                  type="button"
+                                  className="text-[10px] font-semibold uppercase tracking-wide text-primary"
+                                  onClick={() => toggleQuote(candidate.id)}
+                                >
+                                  {isQuoteExpanded ? "Show less" : "Expand quote"}
+                                </button>
+                              ) : null}
+                            </div>
+                          ) : null}
+                        </div>
+                      </div>
+
+                      <div className="flex flex-wrap items-center gap-3">
+                        <div className="space-y-1">
+                          <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+                            Category
+                          </p>
+                          <select
+                            value={candidate.category}
+                            onChange={(event) =>
+                              updateCandidate(candidate.id, { category: event.target.value as DecisionCategory })
+                            }
+                            className={cn(INPUT_CLASS, "h-8")}
+                          >
+                            {CATEGORY_OPTIONS.map((option) => (
+                              <option key={option} value={option}>
+                                {option}
+                              </option>
+                            ))}
+                          </select>
+                        </div>
+                        <div className="space-y-1">
+                          <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+                            Strength
+                          </p>
+                          <div className="flex gap-2">
+                            {(["hard", "soft"] as const).map((strength) => (
+                              <button
+                                key={strength}
+                                type="button"
+                                onClick={() => updateCandidate(candidate.id, { strength })}
+                                className={pillClass(candidate.strength === strength)}
+                              >
+                                {strength}
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+                        {SLIDER_FIELDS.map((field) => (
+                          <label key={field.key} className="space-y-1 text-[11px] text-muted-foreground">
+                            <span className="font-semibold uppercase tracking-wide text-muted-foreground">
+                              {field.label}
+                            </span>
+                            <div className="flex items-center gap-2">
+                              <input
+                                type="range"
+                                min={0}
+                                max={10}
+                                step={1}
+                                value={candidate.sliders[field.key]}
+                                onChange={(event) => updateSlider(candidate.id, field.key, Number(event.target.value))}
+                                className="w-full accent-foreground"
+                              />
+                              <span className="w-6 text-right text-[11px] text-foreground">
+                                {candidate.sliders[field.key]}
+                              </span>
+                            </div>
+                          </label>
+                        ))}
+                      </div>
+
+                      <div className="flex flex-wrap items-center gap-2">
                         <button
                           type="button"
-                          className="text-[10px] font-semibold uppercase tracking-wide text-primary"
-                          onClick={() => toggleEvidence(candidate.id)}
+                          className={cn(
+                            "rounded-full border px-3 py-1 text-[10px] font-semibold uppercase tracking-wide",
+                            isAdded
+                              ? "border-emerald-500/40 bg-emerald-500/10 text-emerald-600"
+                              : "border-border/60 bg-foreground/5 text-foreground hover:bg-foreground/10",
+                          )}
+                          onClick={() => handleAdd(candidate)}
+                          disabled={isAdded}
                         >
-                          {isExpanded ? "Show less" : "Expand evidence"}
+                          {isAdded ? "Added ✓" : "Add to Session"}
                         </button>
-                      ) : null}
+                        <button
+                          type="button"
+                          className={cn(
+                            "rounded-full border px-3 py-1 text-[10px] font-semibold uppercase tracking-wide",
+                            "border-border/60 bg-transparent text-muted-foreground hover:border-border/80 hover:text-foreground",
+                          )}
+                          onClick={() => handleDismiss(candidate.id)}
+                        >
+                          Dismiss
+                        </button>
+                      </div>
                     </div>
                   ) : null}
-
-                  <div className="mt-3 flex flex-wrap items-center gap-2">
-                    <button
-                      type="button"
-                      className={cn(
-                        "rounded-full border px-3 py-1 text-[10px] font-semibold uppercase tracking-wide",
-                        isAdded
-                          ? "border-emerald-500/40 bg-emerald-500/10 text-emerald-600"
-                          : "border-border/60 bg-foreground/5 text-foreground hover:bg-foreground/10",
-                      )}
-                      onClick={() => handleAdd(candidate)}
-                      disabled={isAdded}
-                    >
-                      {isAdded ? "Added ✓" : "Add to Session"}
-                    </button>
-                    <button
-                      type="button"
-                      className={cn(
-                        "rounded-full border px-3 py-1 text-[10px] font-semibold uppercase tracking-wide",
-                        "border-border/60 bg-transparent text-muted-foreground hover:border-border/80 hover:text-foreground",
-                      )}
-                      onClick={() => handleDismiss(candidate.id)}
-                    >
-                      Dismiss
-                    </button>
-                  </div>
                 </div>
               );
             })}
