@@ -9,10 +9,14 @@ import {
   type DecisionCategory,
 } from "@/lib/intake/decisionExtractLocal";
 import type { LocalSummary } from "@/lib/intake/summaryLocal";
+import type { DecisionCandidatePatch } from "@/lib/intake/decisionSessionStore";
 import KeyDecisionRow from "@/components/decision-intake/KeyDecisionRow";
 import DecisionLegend from "@/components/decision-intake/DecisionLegend";
 
 interface PdfDecisionIntakeProps {
+  extractedDecisions: DecisionCandidate[];
+  onExtractedDecisionsChange: (candidates: DecisionCandidate[]) => void;
+  updateDecision: (id: string, patch: DecisionCandidatePatch) => void;
   onAddDecision: (candidate: DecisionCandidate, sourceFileName?: string) => void;
   onAddDecisions: (candidates: DecisionCandidate[], sourceFileName?: string) => void;
 }
@@ -38,7 +42,13 @@ const pillClass = (active: boolean) =>
       : "border-border/60 bg-transparent text-muted-foreground hover:border-border/80 hover:text-foreground",
   );
 
-export default function PdfDecisionIntake({ onAddDecision, onAddDecisions }: PdfDecisionIntakeProps) {
+export default function PdfDecisionIntake({
+  extractedDecisions,
+  onExtractedDecisionsChange,
+  updateDecision,
+  onAddDecision,
+  onAddDecisions,
+}: PdfDecisionIntakeProps) {
   const [selectedFileName, setSelectedFileName] = useState<string | null>(null);
   const [pagesRead, setPagesRead] = useState(0);
   const [pageCount, setPageCount] = useState(0);
@@ -47,7 +57,6 @@ export default function PdfDecisionIntake({ onAddDecision, onAddDecisions }: Pdf
   const [isExtracting, setIsExtracting] = useState(false);
   const [extractError, setExtractError] = useState<string | null>(null);
   const [summary, setSummary] = useState<LocalSummary | null>(null);
-  const [candidates, setCandidates] = useState<DecisionCandidate[]>([]);
   const [dismissedIds, setDismissedIds] = useState<Set<string>>(new Set());
   const [addedIds, setAddedIds] = useState<Set<string>>(new Set());
   const [showAll, setShowAll] = useState(false);
@@ -59,7 +68,7 @@ export default function PdfDecisionIntake({ onAddDecision, onAddDecisions }: Pdf
     setPageCount(0);
     setTotalChars(0);
     setSummary(null);
-    setCandidates([]);
+    onExtractedDecisionsChange([]);
     setDismissedIds(new Set());
     setAddedIds(new Set());
     setShowAll(false);
@@ -107,7 +116,7 @@ export default function PdfDecisionIntake({ onAddDecision, onAddDecisions }: Pdf
       );
 
       setSummary(extraction.summary);
-      setCandidates(extraction.candidates);
+      onExtractedDecisionsChange(extraction.candidates);
       if (extraction.candidates.length === 0) {
         setExtractError("No clear commitments detected. Try a different PDF or expand the filters.");
       }
@@ -120,34 +129,26 @@ export default function PdfDecisionIntake({ onAddDecision, onAddDecisions }: Pdf
     }
   }, [resetState]);
 
-  const updateCandidate = useCallback((id: string, updates: Partial<DecisionCandidate>) => {
-    setCandidates((prev) => prev.map((candidate) => (candidate.id === id ? { ...candidate, ...updates } : candidate)));
-  }, []);
+  const updateCandidate = useCallback(
+    (id: string, updates: DecisionCandidatePatch) => {
+      updateDecision(id, updates);
+    },
+    [updateDecision],
+  );
 
   const updateSlider = useCallback((id: string, key: SliderKey, value: number) => {
-    setCandidates((prev) =>
-      prev.map((candidate) =>
-        candidate.id === id
-          ? {
-              ...candidate,
-              sliders: {
-                ...candidate.sliders,
-                [key]: Math.max(0, Math.min(10, value)),
-              },
-            }
-          : candidate,
-      ),
-    );
-  }, []);
+    updateDecision(id, { sliders: { [key]: Math.max(1, Math.min(10, value)) } });
+  }, [updateDecision]);
 
   const filteredCandidates = useMemo(() => {
-    return candidates.filter((candidate) => {
+    return extractedDecisions.filter((candidate) => {
       if (dismissedIds.has(candidate.id)) return false;
-      if (committedOnly && candidate.strength !== "committed") return false;
+      if (candidate.decisionType === "non-decision") return false;
+      if (committedOnly && candidate.decisionType !== "commitment") return false;
       if (hideTables && candidate.flags.isTableLike) return false;
       return true;
     });
-  }, [candidates, dismissedIds, committedOnly, hideTables]);
+  }, [extractedDecisions, dismissedIds, committedOnly, hideTables]);
 
   const visibleCandidates = useMemo(() => {
     return showAll ? filteredCandidates : filteredCandidates.slice(0, 15);
@@ -178,6 +179,65 @@ export default function PdfDecisionIntake({ onAddDecision, onAddDecisions }: Pdf
   const handleDismissAll = useCallback(() => {
     setDismissedIds((prev) => new Set([...prev, ...visibleCandidates.map((candidate) => candidate.id)]));
   }, [visibleCandidates]);
+
+  const supportingDecisionMap = useMemo(() => {
+    if (!summary || summary.bullets.length === 0 || extractedDecisions.length === 0) return new Map<string, string[]>();
+    const stopwords = new Set(["the", "and", "for", "with", "that", "this", "from", "will", "are", "was", "were"]);
+    const tokenize = (value: string) =>
+      value
+        .toLowerCase()
+        .replace(/[^a-z0-9\s]/g, " ")
+        .split(/\s+/)
+        .filter((token) => token.length > 3 && !stopwords.has(token));
+
+    const decisionTokens = extractedDecisions.map((candidate) => ({
+      id: candidate.id,
+      tokens: new Set(tokenize(candidate.decision)),
+    }));
+
+    return new Map(
+      summary.bullets.map((bullet) => {
+        const bulletTokens = tokenize(bullet.text);
+        const matches = decisionTokens
+          .map(({ id, tokens }) => ({
+            id,
+            score: bulletTokens.reduce((sum, token) => (tokens.has(token) ? sum + 1 : sum), 0),
+          }))
+          .filter((match) => match.score > 0)
+          .sort((a, b) => b.score - a.score)
+          .slice(0, 4)
+          .map((match) => match.id);
+        return [bullet.id, matches];
+      }),
+    );
+  }, [extractedDecisions, summary]);
+
+  const handleScrollToSupport = useCallback((decisionIds: string[]) => {
+    if (decisionIds.length === 0) return;
+    const first = document.getElementById(`decision-tile-${decisionIds[0]}`);
+    first?.scrollIntoView({ behavior: "smooth", block: "center" });
+    decisionIds.forEach((id) => {
+      const tile = document.getElementById(`decision-tile-${id}`);
+      if (!tile) return;
+      tile.classList.add("ring-2", "ring-primary/40", "bg-primary/5");
+      window.setTimeout(() => tile.classList.remove("ring-2", "ring-primary/40", "bg-primary/5"), 1800);
+    });
+  }, []);
+
+  const handleOpenSource = useCallback(
+    (decisionId: string, page?: number) => {
+      if (pdfUrl) {
+        const url = page ? `${pdfUrl}#page=${page}` : pdfUrl;
+        window.open(url, "_blank", "noopener,noreferrer");
+      }
+      const tile = document.getElementById(`decision-tile-${decisionId}`);
+      if (tile) {
+        tile.classList.add("ring-2", "ring-primary/30", "bg-primary/5");
+        window.setTimeout(() => tile.classList.remove("ring-2", "ring-primary/30", "bg-primary/5"), 1500);
+      }
+    },
+    [pdfUrl],
+  );
 
   return (
     <div className="space-y-4 rounded-2xl border border-border/60 bg-white/80 p-4 shadow-sm dark:bg-white/5">
@@ -232,12 +292,26 @@ export default function PdfDecisionIntake({ onAddDecision, onAddDecisions }: Pdf
               <p className="text-sm font-semibold text-foreground">{summary.intro}</p>
               {summary.bullets.length > 0 ? (
                 <ul className="space-y-1">
-                  {summary.bullets.map((bullet) => (
-                    <li key={bullet} className="flex gap-2">
+                  {summary.bullets.map((bullet) => {
+                    const supports = supportingDecisionMap.get(bullet.id) ?? [];
+                    return (
+                      <li key={bullet.id} className="flex gap-2">
                       <span className="mt-1 h-1.5 w-1.5 rounded-full bg-primary" />
-                      <span>{bullet}</span>
+                      <div>
+                        <span>{bullet.text}</span>
+                        {supports.length > 0 ? (
+                          <button
+                            type="button"
+                            className="ml-2 inline-flex items-center text-[10px] font-semibold uppercase tracking-wide text-primary hover:underline"
+                            onClick={() => handleScrollToSupport(supports)}
+                          >
+                            Supporting decisions ({supports.length})
+                          </button>
+                        ) : null}
+                      </div>
                     </li>
-                  ))}
+                    );
+                  })}
                 </ul>
               ) : (
                 <p>Upload a PDF to generate a local summary.</p>
@@ -319,9 +393,15 @@ export default function PdfDecisionIntake({ onAddDecision, onAddDecisions }: Pdf
                   categoryOptions={CATEGORY_OPTIONS}
                   onAdd={handleAdd}
                   onDismiss={handleDismiss}
+                  onOpenSource={handleOpenSource}
                   onCategoryChange={(id, category) => updateCandidate(id, { category })}
                   onMetricChange={(id, key, value) => updateSlider(id, key, value)}
-                  onStrengthChange={(id, strength) => updateCandidate(id, { strength })}
+                  onStrengthChange={(id, strength) =>
+                    updateCandidate(id, {
+                      strength,
+                      decisionType: strength === "committed" ? "commitment" : "indicative",
+                    })
+                  }
                 />
               );
             })}

@@ -1,21 +1,26 @@
 "use client";
 
 import { cn } from "@/lib/utils";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 
 interface MetricStepperPillProps {
-  label: "I" | "C" | "R" | "U" | "CF";
+  label: string;
+  tooltip?: string;
   value: number;
   onChange: (value: number) => void;
   min?: number;
   max?: number;
+  scaleLabel?: string;
 }
 
 export default function MetricStepperPill({
   label,
+  tooltip,
   value,
   onChange,
   min = 1,
   max = 10,
+  scaleLabel = "1–10",
 }: MetricStepperPillProps) {
   const clampValue = (nextValue: number) => Math.max(min, Math.min(max, nextValue));
 
@@ -43,7 +48,25 @@ export default function MetricStepperPill({
         intensity,
       )}
     >
-      <span className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">{label}</span>
+      <div className="flex flex-col">
+        {tooltip ? (
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <span className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+                {label}
+              </span>
+            </TooltipTrigger>
+            <TooltipContent side="top" className="max-w-[180px] text-[11px]">
+              {tooltip}
+            </TooltipContent>
+          </Tooltip>
+        ) : (
+          <span className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">{label}</span>
+        )}
+        <span className="text-[9px] font-semibold uppercase tracking-wide text-muted-foreground/70">
+          {scaleLabel}
+        </span>
+      </div>
       <button
         type="button"
         onClick={handleDecrease}

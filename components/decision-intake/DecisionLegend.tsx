@@ -15,15 +15,15 @@ export default function DecisionLegend({ className }: DecisionLegendProps) {
       <div className="mt-2 space-y-2 rounded-lg border border-border/60 bg-muted/10 p-3">
         <div className="space-y-1">
           <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Committed</p>
-          <p>Explicit commitment, scheduled action, or completed action.</p>
+          <p>Explicit commitment, action, or target with a time anchor.</p>
         </div>
         <div className="space-y-1">
           <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Indicative</p>
-          <p>Directional signal, expectation, or guidance (not guaranteed).</p>
+          <p>Directional signal or expectation without a firm commitment.</p>
         </div>
         <div className="space-y-1">
           <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Variables</p>
-          <p>I = Impact · C = Cost · R = Risk · U = Urgency · CF = Confidence</p>
+          <p>Impact · Cost · Risk · Timing (Urgency) · Conviction (Confidence)</p>
         </div>
       </div>
     </details>

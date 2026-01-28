@@ -4,7 +4,7 @@ import type { SectionedPage } from "./sectionSplit";
 
 export interface LocalSummary {
   intro: string;
-  bullets: string[];
+  bullets: Array<{ id: string; text: string }>;
   themes: string[];
 }
 
@@ -23,6 +23,15 @@ const STOPWORDS = new Set([
   "into",
   "their",
 ]);
+
+const hashString = (value: string): string => {
+  let hash = 0;
+  for (let i = 0; i < value.length; i += 1) {
+    hash = (hash << 5) - hash + value.charCodeAt(i);
+    hash |= 0;
+  }
+  return Math.abs(hash).toString(36);
+};
 
 const buildThemes = (candidates: DecisionCandidate[]): string[] => {
   const counts = new Map<string, number>();
@@ -88,9 +97,10 @@ export function buildLocalSummary(
     .map((label, index) => {
       const sentence = highlights[index];
       if (!sentence) return null;
-      return `${label} — ${sentence}`;
+      const text = `${label} — ${sentence}`;
+      return { id: `summary-${index}-${hashString(text)}`, text };
     })
-    .filter((value): value is string => Boolean(value));
+    .filter((value): value is { id: string; text: string } => Boolean(value));
 
   return {
     intro,
