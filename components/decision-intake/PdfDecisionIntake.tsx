@@ -9,7 +9,9 @@ import {
   type DecisionCategory,
 } from "@/lib/intake/decisionExtractLocal";
 import type { LocalSummary } from "@/lib/intake/summaryLocal";
-import DecisionRowCompact from "@/components/decision-intake/DecisionRowCompact";
+import KeyDecisionRow from "@/components/decision-intake/KeyDecisionRow";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import { Info } from "lucide-react";
 
 interface PdfDecisionIntakeProps {
   onAddDecision: (candidate: DecisionCandidate, sourceFileName?: string) => void;
@@ -50,8 +52,9 @@ export default function PdfDecisionIntake({ onAddDecision, onAddDecisions }: Pdf
   const [dismissedIds, setDismissedIds] = useState<Set<string>>(new Set());
   const [addedIds, setAddedIds] = useState<Set<string>>(new Set());
   const [showAll, setShowAll] = useState(false);
-  const [hardOnly, setHardOnly] = useState(false);
+  const [committedOnly, setCommittedOnly] = useState(false);
   const [hideTables, setHideTables] = useState(true);
+  const [pdfUrl, setPdfUrl] = useState<string | null>(null);
   const resetState = useCallback(() => {
     setPagesRead(0);
     setPageCount(0);
@@ -62,12 +65,20 @@ export default function PdfDecisionIntake({ onAddDecision, onAddDecisions }: Pdf
     setAddedIds(new Set());
     setShowAll(false);
     setExtractError(null);
+    setPdfUrl((prev) => {
+      if (prev) URL.revokeObjectURL(prev);
+      return null;
+    });
   }, []);
 
   const handleUpload = useCallback(async (event: ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0] ?? null;
     setSelectedFileName(file?.name ?? null);
     resetState();
+    setPdfUrl((prev) => {
+      if (prev) URL.revokeObjectURL(prev);
+      return file ? URL.createObjectURL(file) : null;
+    });
 
     if (!file) return;
     if (file.type !== "application/pdf") {
@@ -122,7 +133,7 @@ export default function PdfDecisionIntake({ onAddDecision, onAddDecisions }: Pdf
               ...candidate,
               sliders: {
                 ...candidate.sliders,
-                [key]: Math.max(1, Math.min(10, value)),
+                [key]: Math.max(0, Math.min(10, value)),
               },
             }
           : candidate,
@@ -133,11 +144,11 @@ export default function PdfDecisionIntake({ onAddDecision, onAddDecisions }: Pdf
   const filteredCandidates = useMemo(() => {
     return candidates.filter((candidate) => {
       if (dismissedIds.has(candidate.id)) return false;
-      if (hardOnly && candidate.strength !== "hard") return false;
+      if (committedOnly && candidate.strength !== "committed") return false;
       if (hideTables && candidate.flags.isTableLike) return false;
       return true;
     });
-  }, [candidates, dismissedIds, hardOnly, hideTables]);
+  }, [candidates, dismissedIds, committedOnly, hideTables]);
 
   const visibleCandidates = useMemo(() => {
     return showAll ? filteredCandidates : filteredCandidates.slice(0, 15);
@@ -186,6 +197,16 @@ export default function PdfDecisionIntake({ onAddDecision, onAddDecisions }: Pdf
               <p className="text-[11px] text-muted-foreground">
                 {selectedFileName ? `Selected: ${selectedFileName}` : "Choose a PDF to extract per-page text."}
               </p>
+              {pdfUrl ? (
+                <a
+                  href={pdfUrl}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="inline-flex items-center text-[11px] font-semibold text-primary hover:underline"
+                >
+                  View PDF
+                </a>
+              ) : null}
             </div>
             <input
               type="file"
@@ -243,15 +264,39 @@ export default function PdfDecisionIntake({ onAddDecision, onAddDecisions }: Pdf
 
       <div className="dnav-dark-glass-surface space-y-3 rounded-xl border border-border/60 bg-white/70 p-4 shadow-sm dark:bg-white/10">
         <div className="flex flex-wrap items-center justify-between gap-2">
-          <div>
-            <p className="text-sm font-semibold text-foreground">
-              Key Decisions <span className="text-muted-foreground">({filteredCandidates.length})</span>
-            </p>
+          <div className="space-y-1">
+            <div className="flex items-center gap-2">
+              <p className="text-sm font-semibold text-foreground">
+                Key Decisions <span className="text-muted-foreground">({filteredCandidates.length})</span>
+              </p>
+              <TooltipProvider>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <button
+                      type="button"
+                      className="grid h-6 w-6 place-items-center rounded-full border border-border/60 text-muted-foreground transition hover:text-foreground"
+                      aria-label="Commitment definitions"
+                    >
+                      <Info className="h-3.5 w-3.5" />
+                    </button>
+                  </TooltipTrigger>
+                  <TooltipContent side="bottom" className="max-w-xs text-xs">
+                    <p className="font-semibold text-foreground">Commitment tags</p>
+                    <p className="mt-1 text-muted-foreground">
+                      COMMITTED = action-backed commitment (will/began/completed/scheduled)
+                    </p>
+                    <p className="mt-1 text-muted-foreground">
+                      INDICATIVE = intent or expectation (expect/plan/aim/on track)
+                    </p>
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
+            </div>
             <p className="text-[11px] text-muted-foreground">Edit, score, and add to session.</p>
           </div>
           <div className="flex flex-wrap items-center gap-2">
-            <button type="button" className={pillClass(hardOnly)} onClick={() => setHardOnly((prev) => !prev)}>
-              Hard-only
+            <button type="button" className={pillClass(committedOnly)} onClick={() => setCommittedOnly((prev) => !prev)}>
+              Committed only
             </button>
             <button type="button" className={pillClass(hideTables)} onClick={() => setHideTables((prev) => !prev)}>
               Hide tables
@@ -288,7 +333,7 @@ export default function PdfDecisionIntake({ onAddDecision, onAddDecisions }: Pdf
             {visibleCandidates.map((candidate) => {
               const isAdded = addedIds.has(candidate.id);
               return (
-                <DecisionRowCompact
+                <KeyDecisionRow
                   key={candidate.id}
                   candidate={candidate}
                   isAdded={isAdded}

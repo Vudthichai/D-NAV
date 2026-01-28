@@ -17,7 +17,7 @@ export interface DecisionCandidate {
   title: string;
   decision: string;
   category: DecisionCategory;
-  strength: "hard" | "soft";
+  strength: "committed" | "indicative";
   evidence: {
     page?: number;
     quote?: string;
@@ -104,7 +104,7 @@ const dedupeCandidates = (candidates: DecisionCandidate[]): DecisionCandidate[] 
       const existing = kept[duplicateIndex];
       const shouldReplace =
         candidate.score > existing.score ||
-        (candidate.strength === "hard" && existing.strength === "soft") ||
+        (candidate.strength === "committed" && existing.strength === "indicative") ||
         candidate.decision.length < existing.decision.length;
       if (shouldReplace) {
         kept[duplicateIndex] = candidate;
@@ -113,7 +113,14 @@ const dedupeCandidates = (candidates: DecisionCandidate[]): DecisionCandidate[] 
   return kept;
 };
 
-const buildCandidate = (sentence: string, page: number, flags: DecisionCandidate["flags"], score: number, category: DecisionCategory, strength: "hard" | "soft"): DecisionCandidate => {
+const buildCandidate = (
+  sentence: string,
+  page: number,
+  flags: DecisionCandidate["flags"],
+  score: number,
+  category: DecisionCategory,
+  strength: DecisionCandidate["strength"],
+): DecisionCandidate => {
   const trimmed = sentence.trim();
   return {
     id: `local-${page}-${hashString(trimmed)}`,
@@ -160,7 +167,7 @@ export function extractDecisionCandidatesLocal(
         if (scoreResult.flags.isBoilerplate) return null;
         if (page.isLowSignal && scoreResult.score < minLowSignalScore) return null;
         if (scoreResult.score < minScore) return null;
-        const strength = scoreResult.hasCommitment && scoreResult.hasTimeAnchor ? "hard" : "soft";
+        const strength = scoreResult.hasCommitment && scoreResult.hasTimeAnchor ? "committed" : "indicative";
         return buildCandidate(
           trimmed,
           page.page,

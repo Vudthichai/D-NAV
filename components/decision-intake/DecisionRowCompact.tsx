@@ -51,29 +51,29 @@ export default function DecisionRowCompact({
             <div className="flex items-center gap-1 rounded-full border border-border/60 bg-muted/10 p-0.5">
               <button
                 type="button"
-                onClick={() => onStrengthChange(candidate.id, "hard")}
+                onClick={() => onStrengthChange(candidate.id, "committed")}
                 className={cn(
                   "rounded-full px-3 py-1 text-[10px] font-semibold uppercase tracking-wide transition",
-                  candidate.strength === "hard"
+                  candidate.strength === "committed"
                     ? "border border-foreground bg-foreground text-background shadow-sm"
                     : "border border-transparent text-muted-foreground hover:text-foreground",
                 )}
-                aria-pressed={candidate.strength === "hard"}
+                aria-pressed={candidate.strength === "committed"}
               >
-                Hard
+                Committed
               </button>
               <button
                 type="button"
-                onClick={() => onStrengthChange(candidate.id, "soft")}
+                onClick={() => onStrengthChange(candidate.id, "indicative")}
                 className={cn(
                   "rounded-full border px-3 py-1 text-[10px] font-semibold uppercase tracking-wide transition",
-                  candidate.strength === "soft"
+                  candidate.strength === "indicative"
                     ? "border-foreground bg-transparent text-foreground"
                     : "border-transparent text-muted-foreground hover:text-foreground",
                 )}
-                aria-pressed={candidate.strength === "soft"}
+                aria-pressed={candidate.strength === "indicative"}
               >
-                Soft
+                Indicative
               </button>
             </div>
             <select
