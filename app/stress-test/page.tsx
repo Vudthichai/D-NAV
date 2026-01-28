@@ -11,24 +11,11 @@ import { Callout } from "@/components/ui/Callout";
 import { MetricDistribution, type MetricDistributionSegment } from "@/components/reports/MetricDistribution";
 import { getSessionActionInsight } from "@/lib/sessionActionInsight";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { Input } from "@/components/ui/input";
-import {
-  localExtractDecisionCandidates,
-  type DecisionCandidateDraft,
-  type PageText,
-} from "@/lib/decisionExtract/localExtract";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
-import { Textarea } from "@/components/ui/textarea";
+import PdfDecisionIntake from "@/components/decision-intake/PdfDecisionIntake";
+import type { DecisionCandidate } from "@/lib/intake/decisionExtractLocal";
 import Link from "next/link";
-import { type ChangeEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
-
-interface ExtractedPage {
-  pageNumber: number;
-  text: string;
-  charCount: number;
-}
-
-type LocalDecisionCandidate = DecisionCandidateDraft;
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 interface SessionDecision {
   id: string;
@@ -53,17 +40,8 @@ interface SessionDecision {
 
 const SESSION_DECISIONS_KEY = "dnav:stressTest:sessionDecisions";
 
-const LOCAL_EXTRACTION_NOTICE = "Local extraction (fast). Edit before saving.";
-const CATEGORY_OPTIONS: Array<DecisionCandidateDraft["category"]> = [
-  "Operations",
-  "Finance",
-  "Product",
-  "Hiring",
-  "Legal",
-  "Strategy",
-  "Sales/Go-to-market",
-  "Other",
-];
+const INPUT_BASE_CLASSNAME =
+  "file:text-foreground placeholder:text-muted-foreground selection:bg-primary selection:text-primary-foreground dark:bg-input/30 border-input h-9 w-full min-w-0 rounded-md border bg-transparent px-3 py-1 text-base shadow-xs transition-[color,box-shadow] outline-none file:inline-flex file:h-7 file:border-0 file:bg-transparent file:text-sm file:font-medium disabled:pointer-events-none disabled:cursor-not-allowed disabled:opacity-50 md:text-sm focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:ring-[3px] aria-invalid:ring-destructive/20 dark:aria-invalid:ring-destructive/40 aria-invalid:border-destructive";
 
 const isSessionDecisionSnapshot = (value: unknown): value is SessionDecision => {
   if (!value || typeof value !== "object") return false;
@@ -80,20 +58,6 @@ const isSessionDecisionSnapshot = (value: unknown): value is SessionDecision => 
 };
 
 export default function StressTestPage() {
-  const [selectedFileName, setSelectedFileName] = useState<string | null>(null);
-  const [extractedPages, setExtractedPages] = useState<ExtractedPage[]>([]);
-  const [pagesRead, setPagesRead] = useState(0);
-  const [totalChars, setTotalChars] = useState(0);
-  const [decisionCandidates, setDecisionCandidates] = useState<LocalDecisionCandidate[]>([]);
-  const [sessionExtractedDecisions, setSessionExtractedDecisions] = useState<LocalDecisionCandidate[]>([]);
-  const [extractError, setExtractError] = useState<string | null>(null);
-  const [isReadingPdf, setIsReadingPdf] = useState(false);
-  const [isExtracting, setIsExtracting] = useState(false);
-  const [extractStage, setExtractStage] = useState<"idle" | "finding" | "refining" | "done">("idle");
-  const [refineNotice, setRefineNotice] = useState<string | null>(null);
-  const [autoExtractPending, setAutoExtractPending] = useState(false);
-  const [dismissedIds, setDismissedIds] = useState<Set<string>>(new Set());
-  const [showAllCandidates, setShowAllCandidates] = useState(false);
   const [toastNotice, setToastNotice] = useState<{
     message: string;
     actionLabel?: string;
@@ -145,15 +109,6 @@ export default function StressTestPage() {
       console.error("Failed to persist stress test session decisions.", error);
     }
   }, [sessionDecisions]);
-
-  const TOP_PICK_LIMIT = 15;
-  const formatQuote = useCallback((quote: string) => {
-    const normalized = quote.trim().replace(/\s+/g, " ");
-    if (normalized.length <= 280) return normalized;
-    const clipped = normalized.slice(0, 279);
-    const lastSpace = clipped.lastIndexOf(" ");
-    return `${clipped.slice(0, Math.max(lastSpace, 200))}…`;
-  }, []);
 
   const handleSaveSessionDecision = useCallback((decision: StressTestDecisionSnapshot) => {
     const title = decision.name?.trim() || "Untitled decision";
@@ -429,108 +384,6 @@ export default function StressTestPage() {
     window.setTimeout(() => URL.revokeObjectURL(url), 0);
   }, [sessionDecisions]);
 
-  const handlePdfUpload = useCallback(async (event: ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0] ?? null;
-    setSelectedFileName(file?.name ?? null);
-    setExtractedPages([]);
-    setPagesRead(0);
-    setTotalChars(0);
-    setDecisionCandidates([]);
-    setSessionExtractedDecisions([]);
-    setExtractError(null);
-    setShowAllCandidates(false);
-    if (!file) return;
-    if (file.type !== "application/pdf") {
-      setExtractError("Please upload a PDF file.");
-      return;
-    }
-
-    setIsReadingPdf(true);
-    try {
-      const pdfjsLib = (await import("pdfjs-dist")) as typeof import("pdfjs-dist");
-      pdfjsLib.GlobalWorkerOptions.workerSrc = `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/pdf.worker.min.mjs`;
-      const buffer = await file.arrayBuffer();
-      const loadingTask = pdfjsLib.getDocument({ data: buffer });
-      const pdf = await loadingTask.promise;
-      const pages: ExtractedPage[] = [];
-      let charCount = 0;
-
-      for (let index = 1; index <= pdf.numPages; index += 1) {
-        const page = await pdf.getPage(index);
-        const content = await page.getTextContent();
-        const text = content.items
-          .map((item) => {
-            if (!("str" in item)) return "";
-            const suffix = (item as { hasEOL?: boolean }).hasEOL ? "\n" : " ";
-            return `${item.str}${suffix}`;
-          })
-          .join("")
-          .replace(/[ \t]+\n/g, "\n")
-          .replace(/[ \t]{2,}/g, " ")
-          .replace(/\n{2,}/g, "\n")
-          .trim();
-        const pageCharCount = text.length;
-        pages.push({ pageNumber: index, text, charCount: pageCharCount });
-        charCount += pageCharCount;
-      }
-
-      setExtractedPages(pages);
-      setPagesRead(pages.length);
-      setTotalChars(charCount);
-      setDecisionCandidates([]);
-      setDismissedIds(new Set());
-      setShowAllCandidates(false);
-      setRefineNotice(null);
-      setAutoExtractPending(true);
-      const emptyPages = pages.filter((page) => page.charCount === 0).length;
-      if (pages.length > 0 && emptyPages / pages.length >= 0.5) {
-        setExtractError("This PDF appears image-based; quick scan needs selectable text.");
-      }
-    } catch (error) {
-      console.error("Failed to read PDF.", error);
-      setExtractError("Failed to read the PDF. Please try a different file.");
-    } finally {
-      setIsReadingPdf(false);
-    }
-  }, []);
-
-  const handleExtractDecisions = useCallback(async () => {
-    if (extractedPages.length === 0 || isExtracting) return;
-    setIsExtracting(true);
-    setExtractError(null);
-    setRefineNotice(null);
-    setExtractStage("finding");
-    setDismissedIds(new Set());
-    setShowAllCandidates(false);
-    setDecisionCandidates([]);
-    const refineTimer = window.setTimeout(() => setExtractStage("refining"), 1200);
-    try {
-      const pages: PageText[] = extractedPages.map((page) => ({ page: page.pageNumber, text: page.text }));
-      const candidates = localExtractDecisionCandidates(pages, { maxCandidates: 25 });
-      setDecisionCandidates(candidates);
-      if (candidates.length === 0) {
-        setExtractError("No clear commitments found. Try a different PDF or expand detection.");
-      }
-      setRefineNotice(null);
-      setExtractStage("done");
-    } catch (error) {
-      console.error("Decision extraction error.", error);
-      setExtractError("Decision extraction failed. Please retry or try a different PDF.");
-      setExtractStage("done");
-    } finally {
-      window.clearTimeout(refineTimer);
-      setExtractStage("done");
-      setIsExtracting(false);
-      setAutoExtractPending(false);
-    }
-  }, [extractedPages, isExtracting, selectedFileName]);
-
-  useEffect(() => {
-    if (!autoExtractPending) return;
-    if (isReadingPdf || isExtracting || extractedPages.length === 0) return;
-    handleExtractDecisions();
-  }, [autoExtractPending, extractedPages.length, handleExtractDecisions, isExtracting, isReadingPdf]);
-
   const scrollToDecision = useCallback((decisionId: string) => {
     const row = document.getElementById(`decision-row-${decisionId}`);
     if (!row) return;
@@ -540,7 +393,7 @@ export default function StressTestPage() {
   }, []);
 
   const handleAddToSession = useCallback(
-    (candidate: LocalDecisionCandidate) => {
+    (candidate: DecisionCandidate, sourceFileName?: string) => {
       const title = candidate.title.trim() || "Untitled decision";
       let nextTotal = 0;
       let added = false;
@@ -555,16 +408,16 @@ export default function StressTestPage() {
           decisionTitle: title,
           decisionDetail: candidate.decision,
           category: candidate.category || "Strategy",
-          impact: 0,
-          cost: 0,
-          risk: 0,
-          urgency: 0,
-          confidence: 0,
+          impact: candidate.sliders.impact,
+          cost: candidate.sliders.cost,
+          risk: candidate.sliders.risk,
+          urgency: candidate.sliders.urgency,
+          confidence: candidate.sliders.confidence,
           r: 0,
           p: 0,
           s: 0,
           dnav: 0,
-          sourceFile: selectedFileName ?? undefined,
+          sourceFile: sourceFileName ?? undefined,
           sourcePage: candidate.evidence.page || undefined,
           excerpt: candidate.evidence.quote || undefined,
           sourceType: "intake",
@@ -574,10 +427,6 @@ export default function StressTestPage() {
         nextTotal = prev.length + 1;
         return [sessionDecision, ...prev];
       });
-      setSessionExtractedDecisions((prev) => {
-        if (prev.some((item) => item.id === candidate.id)) return prev;
-        return [candidate, ...prev];
-      });
       if (added) {
         setToastNotice({
           message: `Added to session (${nextTotal} total)`,
@@ -586,11 +435,11 @@ export default function StressTestPage() {
         });
       }
     },
-    [scrollToDecision, selectedFileName],
+    [scrollToDecision],
   );
 
   const handleAddMultiple = useCallback(
-    (candidates: LocalDecisionCandidate[]) => {
+    (candidates: DecisionCandidate[], sourceFileName?: string) => {
       if (candidates.length === 0) return;
       let addedCount = 0;
       let nextTotal = 0;
@@ -607,16 +456,16 @@ export default function StressTestPage() {
             decisionTitle: title,
             decisionDetail: candidate.decision,
             category: candidate.category || "Strategy",
-            impact: 0,
-            cost: 0,
-            risk: 0,
-            urgency: 0,
-            confidence: 0,
+            impact: candidate.sliders.impact,
+            cost: candidate.sliders.cost,
+            risk: candidate.sliders.risk,
+            urgency: candidate.sliders.urgency,
+            confidence: candidate.sliders.confidence,
             r: 0,
             p: 0,
             s: 0,
             dnav: 0,
-            sourceFile: selectedFileName ?? undefined,
+            sourceFile: sourceFileName ?? undefined,
             sourcePage: candidate.evidence.page || undefined,
             excerpt: candidate.evidence.quote || undefined,
             sourceType: "intake",
@@ -629,16 +478,6 @@ export default function StressTestPage() {
         nextTotal = prev.length + additions.length;
         return [...additions, ...prev];
       });
-      setSessionExtractedDecisions((prev) => {
-        const existing = new Set(prev.map((item) => item.id));
-        const next = [...prev];
-        candidates.forEach((candidate) => {
-          if (existing.has(candidate.id)) return;
-          next.unshift(candidate);
-          existing.add(candidate.id);
-        });
-        return next;
-      });
       if (addedCount > 0) {
         setToastNotice({
           message: `Added ${addedCount} to session (${nextTotal} total)`,
@@ -647,34 +486,8 @@ export default function StressTestPage() {
         });
       }
     },
-    [scrollToDecision, selectedFileName],
+    [scrollToDecision],
   );
-
-  const handleDismissCandidate = useCallback((candidate: LocalDecisionCandidate) => {
-    setDismissedIds((prev) => {
-      const next = new Set(prev);
-      next.add(candidate.id);
-      return next;
-    });
-    setToastNotice({
-      message: "Candidate dismissed",
-      actionLabel: "Undo",
-      onAction: () =>
-        setDismissedIds((prev) => {
-          const next = new Set(prev);
-          next.delete(candidate.id);
-          return next;
-        }),
-    });
-  }, []);
-
-  const handleDismissAll = useCallback((candidates: LocalDecisionCandidate[]) => {
-    setDismissedIds((prev) => {
-      const next = new Set(prev);
-      candidates.forEach((candidate) => next.add(candidate.id));
-      return next;
-    });
-  }, []);
 
   const handleOpenEditDialog = useCallback((decision: SessionDecision) => {
     setEditingDecision(decision);
@@ -711,31 +524,6 @@ export default function StressTestPage() {
     setEditingDecision(null);
     setEditDraft(null);
   }, [editDraft]);
-
-  const rankedCandidates = useMemo(() => {
-    return [...decisionCandidates].sort((a, b) => {
-      if (b.score !== a.score) return b.score - a.score;
-      if (a.evidence.page !== b.evidence.page) return a.evidence.page - b.evidence.page;
-      return a.title.localeCompare(b.title);
-    });
-  }, [decisionCandidates]);
-
-  const filteredCandidates = useMemo(() => {
-    return rankedCandidates.filter((candidate) => !dismissedIds.has(candidate.id));
-  }, [dismissedIds, rankedCandidates]);
-
-  const visibleCandidates = useMemo(() => {
-    return showAllCandidates ? filteredCandidates : filteredCandidates.slice(0, TOP_PICK_LIMIT);
-  }, [filteredCandidates, showAllCandidates, TOP_PICK_LIMIT]);
-
-  const addedIds = useMemo(() => {
-    return new Set(sessionExtractedDecisions.map((candidate) => candidate.id));
-  }, [sessionExtractedDecisions]);
-  const hasMoreCandidates = filteredCandidates.length > TOP_PICK_LIMIT;
-
-  // TODO: Rebuild Decision Intake v2
-  // Intake will be redesigned around the Decision Atom:
-  // Actor + Action + Object + Constraint
 
   return (
     <TooltipProvider>
@@ -1040,266 +828,7 @@ export default function StressTestPage() {
               </div>
             ) : null}
 
-            <div className="rounded-2xl border border-border/60 bg-white/80 p-4 shadow-sm">
-              <div className="space-y-2">
-                <div className="flex flex-wrap items-start justify-between gap-3">
-                  <div>
-                    <h2 className="text-base font-semibold text-foreground">Decision Extract</h2>
-                    <p className="text-xs text-muted-foreground">
-                      Upload a PDF. We’ll pull out decision candidates (commitments, launches, build/ramp statements,
-                      planned actions).
-                    </p>
-                  </div>
-                </div>
-
-                <div className="rounded-lg border border-dashed border-border/70 bg-muted/10 px-4 py-4">
-                  <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                    <div className="space-y-1">
-                      <p className="text-sm font-semibold text-foreground">Upload PDF</p>
-                      <p className="text-[11px] text-muted-foreground">
-                        {selectedFileName ? `Selected: ${selectedFileName}` : "Choose a PDF to extract per-page text."}
-                      </p>
-                    </div>
-                    <input
-                      type="file"
-                      accept="application/pdf"
-                      onChange={handlePdfUpload}
-                      className="text-xs text-muted-foreground file:mr-3 file:rounded-md file:border-0 file:bg-primary file:px-3 file:py-2 file:text-xs file:font-semibold file:text-primary-foreground"
-                    />
-                  </div>
-                  <div className="mt-3 flex flex-wrap gap-4 text-[11px] text-muted-foreground">
-                    <span>Pages read: {pagesRead}</span>
-                    <span>Total chars: {totalChars.toLocaleString()}</span>
-                    {isReadingPdf ? <span className="font-semibold text-foreground">Reading PDF…</span> : null}
-                    {isExtracting && extractStage === "finding" ? (
-                      <span className="font-semibold text-foreground">Finding decision candidates…</span>
-                    ) : null}
-                    {isExtracting && extractStage === "refining" ? (
-                      <span className="font-semibold text-foreground">Refining (optional)…</span>
-                    ) : null}
-                  </div>
-                  <p className="mt-2 text-[11px] text-emerald-600">{LOCAL_EXTRACTION_NOTICE}</p>
-                  {refineNotice ? (
-                    <p className="mt-2 text-[11px] text-amber-600">{refineNotice}</p>
-                  ) : null}
-                  {extractError ? <p className="mt-2 text-[11px] text-rose-500">{extractError}</p> : null}
-                </div>
-
-                <div className="flex flex-wrap items-center gap-3">
-                  <Button
-                    type="button"
-                    className="h-9 px-4 text-xs font-semibold uppercase tracking-wide"
-                    onClick={handleExtractDecisions}
-                    disabled={extractedPages.length === 0 || isReadingPdf || isExtracting}
-                  >
-                    {isExtracting ? "Extracting…" : "Extract decisions"}
-                  </Button>
-                </div>
-
-                {decisionCandidates.length > 0 ? (
-                  <div className="space-y-3">
-                    <div className="flex flex-wrap items-center justify-between gap-2">
-                      <div className="space-y-1">
-                        <p className="text-sm font-semibold text-foreground">
-                          Decisions detected <span className="text-muted-foreground">({decisionCandidates.length})</span>
-                        </p>
-                        <p className="text-[11px] text-muted-foreground">
-                          {showAllCandidates ? "Showing all picks." : `Showing top ${TOP_PICK_LIMIT} picks.`}
-                        </p>
-                        <p className="text-[11px] text-emerald-600">{LOCAL_EXTRACTION_NOTICE}</p>
-                      </div>
-                      <div className="flex flex-wrap items-center gap-2">
-                        <Button
-                          type="button"
-                          size="sm"
-                          className="h-8 px-3 text-[11px] font-semibold uppercase tracking-wide"
-                          onClick={() => handleAddMultiple(visibleCandidates)}
-                          disabled={visibleCandidates.length === 0}
-                        >
-                          ADD ALL (SHOWN)
-                        </Button>
-                        <Button
-                          type="button"
-                          size="sm"
-                          variant="outline"
-                          className="h-8 px-3 text-[11px] font-semibold uppercase tracking-wide"
-                          onClick={() => handleDismissAll(visibleCandidates)}
-                          disabled={visibleCandidates.length === 0}
-                        >
-                          DISMISS ALL
-                        </Button>
-                        {hasMoreCandidates && !showAllCandidates ? (
-                          <Button
-                            type="button"
-                            size="sm"
-                            variant="ghost"
-                            className="h-8 px-3 text-[11px] font-semibold uppercase tracking-wide"
-                            onClick={() => setShowAllCandidates(true)}
-                          >
-                            SHOW MORE
-                          </Button>
-                        ) : null}
-                      </div>
-                    </div>
-
-                    <div className="space-y-2">
-                      {visibleCandidates.map((candidate) => {
-                        const isAdded = addedIds.has(candidate.id);
-                        return (
-                          <div
-                            key={candidate.id}
-                            className="rounded-lg border border-border/60 bg-muted/10 px-3 py-3 text-xs text-muted-foreground"
-                          >
-                            <div className="flex flex-wrap items-start justify-between gap-2">
-                              <div className="space-y-1">
-                                <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
-                                  Title
-                                </p>
-                                <Input
-                                  value={candidate.title}
-                                  onChange={(event) => {
-                                    const next = event.target.value;
-                                    setDecisionCandidates((prev) =>
-                                      prev.map((item) =>
-                                        item.id === candidate.id ? { ...item, title: next } : item,
-                                      ),
-                                    );
-                                  }}
-                                  className="h-8 text-sm"
-                                />
-                                <p className="text-[11px] text-muted-foreground">
-                                  {candidate.evidence.page ? `p. ${candidate.evidence.page}` : "Page n/a"}
-                                </p>
-                              </div>
-                            </div>
-                            <div className="mt-3 space-y-2">
-                              <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
-                                Decision
-                              </p>
-                              <Textarea
-                                value={candidate.decision}
-                                onChange={(event) => {
-                                  const next = event.target.value;
-                                  setDecisionCandidates((prev) =>
-                                    prev.map((item) =>
-                                      item.id === candidate.id ? { ...item, decision: next } : item,
-                                    ),
-                                  );
-                                }}
-                                className="min-h-[84px] text-[11px]"
-                              />
-                              <div className="flex flex-wrap items-center gap-3">
-                                <div className="space-y-1">
-                                  <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
-                                    Category
-                                  </p>
-                                  <select
-                                    value={candidate.category}
-                                    onChange={(event) => {
-                                      const next = event.target.value as DecisionCandidateDraft["category"];
-                                      setDecisionCandidates((prev) =>
-                                        prev.map((item) =>
-                                          item.id === candidate.id ? { ...item, category: next } : item,
-                                        ),
-                                      );
-                                    }}
-                                    className="h-8 rounded-md border border-border/60 bg-background px-2 text-[11px] text-foreground"
-                                  >
-                                    {CATEGORY_OPTIONS.map((option) => (
-                                      <option key={option} value={option}>
-                                        {option}
-                                      </option>
-                                    ))}
-                                  </select>
-                                </div>
-                                <div className="space-y-1">
-                                  <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
-                                    Strength
-                                  </p>
-                                  <div className="flex gap-2">
-                                    {["hard", "soft"].map((strength) => (
-                                      <button
-                                        key={strength}
-                                        type="button"
-                                        onClick={() =>
-                                          setDecisionCandidates((prev) =>
-                                            prev.map((item) =>
-                                              item.id === candidate.id
-                                                ? { ...item, strength: strength as "hard" | "soft" }
-                                                : item,
-                                            ),
-                                          )
-                                        }
-                                        className={`h-8 rounded-md border px-3 text-[11px] font-semibold uppercase tracking-wide transition ${
-                                          candidate.strength === strength
-                                            ? "border-foreground bg-foreground text-background"
-                                            : "border-border/60 bg-background text-foreground"
-                                        }`}
-                                      >
-                                        {strength}
-                                      </button>
-                                    ))}
-                                  </div>
-                                </div>
-                              </div>
-                            </div>
-                            {candidate.evidence.quote ? (
-                              <p className="mt-2 text-[11px] text-muted-foreground">
-                                “{formatQuote(candidate.evidence.quote)}”
-                              </p>
-                            ) : null}
-                            <div className="mt-3 flex flex-wrap items-center gap-2">
-                              {isAdded ? (
-                                <Button
-                                  type="button"
-                                  size="sm"
-                                  variant="outline"
-                                  className="h-7 px-2 text-[11px] font-semibold uppercase tracking-wide"
-                                  disabled
-                                >
-                                  ADDED ✓
-                                </Button>
-                              ) : (
-                                <Button
-                                  type="button"
-                                  size="sm"
-                                  variant="outline"
-                                  className="h-7 px-2 text-[11px] font-semibold uppercase tracking-wide"
-                                  onClick={() => handleAddToSession(candidate)}
-                                >
-                                  ADD TO SESSION
-                                </Button>
-                              )}
-                              {isAdded ? (
-                                <Button
-                                  type="button"
-                                  size="sm"
-                                  variant="ghost"
-                                  className="h-7 px-2 text-[11px] font-semibold uppercase tracking-wide"
-                                  onClick={() => scrollToDecision(`extract-${candidate.id}`)}
-                                >
-                                  JUMP TO DECISION
-                                </Button>
-                              ) : null}
-                              <Button
-                                type="button"
-                                size="sm"
-                                variant="ghost"
-                                className="h-7 px-2 text-[11px] font-semibold uppercase tracking-wide"
-                                onClick={() => handleDismissCandidate(candidate)}
-                              >
-                                DISMISS
-                              </Button>
-                            </div>
-                          </div>
-                        );
-                      })}
-                    </div>
-
-                  </div>
-                ) : null}
-              </div>
-            </div>
+            <PdfDecisionIntake onAddDecision={handleAddToSession} onAddDecisions={handleAddMultiple} />
 
             {toastNotice ? (
               <div className="fixed bottom-4 right-4 z-50 flex items-center gap-3 rounded-lg border border-border/60 bg-white/90 px-4 py-3 text-[11px] text-foreground shadow-lg">
@@ -1340,22 +869,24 @@ export default function StressTestPage() {
                       <label className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
                         Title
                       </label>
-                      <Input
+                      <input
                         value={editDraft.decisionTitle}
                         onChange={(event) =>
                           setEditDraft((prev) => (prev ? { ...prev, decisionTitle: event.target.value } : prev))
                         }
+                        className={`${INPUT_BASE_CLASSNAME} h-8 text-sm`}
                       />
                     </div>
                     <div className="space-y-1">
                       <label className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
                         Category
                       </label>
-                      <Input
+                      <input
                         value={editDraft.category}
                         onChange={(event) =>
                           setEditDraft((prev) => (prev ? { ...prev, category: event.target.value } : prev))
                         }
+                        className={`${INPUT_BASE_CLASSNAME} h-8 text-sm`}
                       />
                     </div>
                     <div className="grid grid-cols-2 gap-3">
@@ -1372,7 +903,7 @@ export default function StressTestPage() {
                           <label className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
                             {field.label}
                           </label>
-                          <Input
+                          <input
                             type="number"
                             min={0}
                             max={10}
@@ -1384,6 +915,7 @@ export default function StressTestPage() {
                                   : prev,
                               )
                             }
+                            className={`${INPUT_BASE_CLASSNAME} h-8 text-sm`}
                           />
                         </div>
                       ))}
