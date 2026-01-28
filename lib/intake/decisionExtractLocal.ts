@@ -185,10 +185,40 @@ export function extractDecisionCandidatesLocal(
   });
 
   const deduped = dedupeCandidates(candidates);
+  const summary = buildLocalSummary(sectioned, deduped, docName);
+
+  const normalizedCandidates: DecisionCandidate[] =
+    summary.decisionBullets.length > 0
+      ? summary.decisionBullets.map((bullet) => {
+          const scoreResult = scoreSentence(bullet.source);
+          const strength = scoreResult.hasCommitment && scoreResult.hasTimeAnchor ? "committed" : "indicative";
+          return {
+            id: bullet.id,
+            title: buildTitle(bullet.text),
+            decision: bullet.text,
+            category: scoreResult.category,
+            strength,
+            evidence: {
+              page: bullet.page,
+              quote: bullet.source.slice(0, 280),
+              full: bullet.source,
+            },
+            score: scoreResult.score,
+            sliders: {
+              impact: DEFAULT_SLIDER_VALUE,
+              cost: DEFAULT_SLIDER_VALUE,
+              risk: DEFAULT_SLIDER_VALUE,
+              urgency: DEFAULT_SLIDER_VALUE,
+              confidence: DEFAULT_SLIDER_VALUE,
+            },
+            flags: scoreResult.flags,
+          };
+        })
+      : deduped;
 
   return {
-    candidates: deduped,
-    summary: buildLocalSummary(sectioned, deduped, docName),
+    candidates: normalizedCandidates,
+    summary,
     pages: sectioned,
   };
 }

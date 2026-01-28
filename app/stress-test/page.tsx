@@ -15,7 +15,7 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/comp
 import { Input } from "@/components/ui/input";
 import PdfDecisionIntake from "@/components/decision-intake/PdfDecisionIntake";
 import type { DecisionCandidate } from "@/lib/intake/decisionExtractLocal";
-import { computeMetrics } from "@/lib/calculations";
+import { computeRpsDnav } from "@/lib/intake/decisionMetrics";
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
@@ -57,22 +57,6 @@ const isSessionDecisionSnapshot = (value: unknown): value is SessionDecision => 
     typeof candidate.s === "number" &&
     typeof candidate.dnav === "number"
   );
-};
-
-const computeSessionMetrics = (vars: {
-  impact: number;
-  cost: number;
-  risk: number;
-  urgency: number;
-  confidence: number;
-}) => {
-  const metrics = computeMetrics(vars);
-  return {
-    r: metrics.return,
-    p: metrics.pressure,
-    s: metrics.stability,
-    dnav: metrics.dnav,
-  };
 };
 
 export default function StressTestPage() {
@@ -416,11 +400,33 @@ export default function StressTestPage() {
       let nextTotal = 0;
       let added = false;
       const decisionId = `extract-${candidate.id}`;
-      const metrics = computeSessionMetrics(candidate.sliders);
+      const metrics = computeRpsDnav(candidate.sliders);
       setSessionDecisions((prev) => {
-        if (prev.some((decision) => decision.id === decisionId)) {
+        const existing = prev.find((decision) => decision.id === decisionId);
+        if (existing) {
           nextTotal = prev.length;
-          return prev;
+          return prev.map((decision) =>
+            decision.id === decisionId
+              ? {
+                  ...decision,
+                  decisionTitle: title,
+                  decisionDetail: candidate.decision,
+                  category: candidate.category || "Strategy",
+                  impact: candidate.sliders.impact,
+                  cost: candidate.sliders.cost,
+                  risk: candidate.sliders.risk,
+                  urgency: candidate.sliders.urgency,
+                  confidence: candidate.sliders.confidence,
+                  r: metrics.r,
+                  p: metrics.p,
+                  s: metrics.s,
+                  dnav: metrics.dnav,
+                  sourceFile: sourceFileName ?? existing.sourceFile,
+                  sourcePage: candidate.evidence.page || existing.sourcePage,
+                  excerpt: candidate.evidence.quote || existing.excerpt,
+                }
+              : decision,
+          );
         }
         const sessionDecision: SessionDecision = {
           id: decisionId,
@@ -466,12 +472,12 @@ export default function StressTestPage() {
       setSessionDecisions((prev) => {
         const existingIds = new Set(prev.map((decision) => decision.id));
         const additions: SessionDecision[] = [];
+        const updates: SessionDecision[] = [];
         candidates.forEach((candidate) => {
           const id = `extract-${candidate.id}`;
-          if (existingIds.has(id)) return;
           const title = candidate.title.trim() || "Untitled decision";
-          const metrics = computeSessionMetrics(candidate.sliders);
-          additions.push({
+          const metrics = computeRpsDnav(candidate.sliders);
+          const nextDecision: SessionDecision = {
             id,
             decisionTitle: title,
             decisionDetail: candidate.decision,
@@ -490,13 +496,21 @@ export default function StressTestPage() {
             excerpt: candidate.evidence.quote || undefined,
             sourceType: "intake",
             createdAt: Date.now(),
-          });
+          };
+          if (existingIds.has(id)) {
+            updates.push(nextDecision);
+          } else {
+            additions.push(nextDecision);
+          }
           lastAdded = id;
         });
         addedCount = additions.length;
-        if (additions.length === 0) return prev;
         nextTotal = prev.length + additions.length;
-        return [...additions, ...prev];
+        if (additions.length === 0 && updates.length === 0) return prev;
+        if (updates.length === 0) return [...additions, ...prev];
+        const updatesById = new Map(updates.map((decision) => [decision.id, decision]));
+        const refreshed = prev.map((decision) => updatesById.get(decision.id) ?? decision);
+        return [...additions, ...refreshed];
       });
       if (addedCount > 0) {
         setToastNotice({
@@ -525,7 +539,7 @@ export default function StressTestPage() {
 
   const handleSaveEdit = useCallback(() => {
     if (!editDraft) return;
-    const metrics = computeSessionMetrics({
+    const metrics = computeRpsDnav({
       impact: editDraft.impact,
       cost: editDraft.cost,
       risk: editDraft.risk,
