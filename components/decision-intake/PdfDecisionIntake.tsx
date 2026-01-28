@@ -48,6 +48,7 @@ const PdfDecisionIntake = forwardRef<PdfDecisionIntakeHandle, PdfDecisionIntakeP
   const [dismissedIds, setDismissedIds] = useState<Set<string>>(new Set());
   const [addedIds, setAddedIds] = useState<Set<string>>(new Set());
   const [showAll, setShowAll] = useState(false);
+  const [showSummaryCandidates, setShowSummaryCandidates] = useState(false);
   const [committedOnly, setCommittedOnly] = useState(false);
   const [hideTables, setHideTables] = useState(true);
   const [pdfUrl, setPdfUrl] = useState<string | null>(null);
@@ -60,6 +61,7 @@ const PdfDecisionIntake = forwardRef<PdfDecisionIntakeHandle, PdfDecisionIntakeP
     setDismissedIds(new Set());
     setAddedIds(new Set());
     setShowAll(false);
+    setShowSummaryCandidates(false);
     setExtractError(null);
     setPdfUrl((prev) => {
       if (prev) URL.revokeObjectURL(prev);
@@ -221,6 +223,15 @@ const PdfDecisionIntake = forwardRef<PdfDecisionIntakeHandle, PdfDecisionIntakeP
 
   const hasMore = filteredCandidates.length > visibleCandidates.length;
 
+  const summaryInlineSections = useMemo(
+    () =>
+      filteredSections.map((section) => ({
+        ...section,
+        supporting: section.supporting.slice(0, 2),
+      })),
+    [filteredSections],
+  );
+
   const handleAdd = useCallback(
     (candidate: DecisionCandidate) => {
       onAddDecision(candidate, selectedFileName ?? undefined);
@@ -292,27 +303,88 @@ const PdfDecisionIntake = forwardRef<PdfDecisionIntakeHandle, PdfDecisionIntakeP
         </div>
 
         <div className="dnav-dark-glass-surface rounded-xl border border-border/60 bg-white/70 p-4 shadow-sm dark:bg-white/10">
-          <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Document Summary</p>
-          <p className="mt-1 text-[11px] text-muted-foreground">
-            Summary maps the document’s narrative for orientation, not a decision list.
-          </p>
+          <div className="flex flex-wrap items-start justify-between gap-2">
+            <div>
+              <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Document Summary</p>
+              <p className="mt-1 text-[11px] text-muted-foreground">
+                Summary maps the document’s narrative for orientation, not a decision list.
+              </p>
+            </div>
+            {summary && filteredCandidates.length > 0 ? (
+              <button
+                type="button"
+                className="rounded-full border border-border/60 px-3 py-1 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground transition hover:border-border/80 hover:text-foreground"
+                onClick={() => setShowSummaryCandidates((prev) => !prev)}
+              >
+                {showSummaryCandidates ? "Hide decision candidates" : "View decision candidates"}
+              </button>
+            ) : null}
+          </div>
           {summary ? (
-            <div className="mt-3 space-y-3">
-              <p className="text-sm font-semibold text-foreground">{summary.summaryHeadline}</p>
-              {summary.sections.length > 0 ? (
-                <div className="grid gap-3 md:grid-cols-2">
-                  {summary.sections.map((section) => (
-                    <div key={section.key} className="space-y-1 rounded-lg border border-border/50 bg-muted/10 p-3">
-                      <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
-                        {section.title.toUpperCase()}
-                      </p>
-                      <p className="text-[11px] text-muted-foreground">{section.mapSentence}</p>
-                    </div>
-                  ))}
+            <div className="mt-3 space-y-4">
+              <div className="space-y-2">
+                <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Map</p>
+                <p className="text-sm font-semibold text-foreground">{summary.summaryHeadline}</p>
+                {summary.sections.length > 0 ? (
+                  <div className="grid gap-3 md:grid-cols-2">
+                    {summary.sections.map((section) => (
+                      <div key={section.key} className="space-y-1 rounded-lg border border-border/50 bg-muted/10 p-3">
+                        <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+                          {section.title.toUpperCase()}
+                        </p>
+                        <p className="text-[11px] text-muted-foreground">{section.mapSentence}</p>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="text-[11px] text-muted-foreground">Upload a PDF to generate a local summary.</p>
+                )}
+              </div>
+              {showSummaryCandidates ? (
+                <div className="space-y-3">
+                  <div className="flex items-center justify-between gap-2">
+                    <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Decisions</p>
+                    <span className="text-[10px] text-muted-foreground">
+                      {filteredCandidates.length} candidates
+                    </span>
+                  </div>
+                  <div className="space-y-2">
+                    {summaryInlineSections.map((section) =>
+                      section.supporting.length > 0 ? (
+                        <div key={section.key} className="space-y-2">
+                          <div className="flex items-center justify-between gap-2">
+                            <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+                              {section.title}
+                            </p>
+                            <span className="text-[10px] text-muted-foreground">
+                              {section.supporting.length} shown
+                            </span>
+                          </div>
+                          <div className="space-y-2">
+                            {section.supporting.map((candidate) => {
+                              const isAdded = addedIds.has(candidate.id);
+                              return (
+                                <KeyDecisionRow
+                                  key={candidate.id}
+                                  candidate={candidate}
+                                  isAdded={isAdded}
+                                  categoryOptions={DECISION_CATEGORIES}
+                                  pdfUrl={pdfUrl}
+                                  onAdd={handleAdd}
+                                  onDismiss={handleDismiss}
+                                  onCategoryChange={(id, category) => updateCandidate(id, { category })}
+                                  onMetricChange={(id, key, value) => updateSlider(id, key, value)}
+                                  onStrengthChange={(id, strength) => updateCandidate(id, { strength })}
+                                />
+                              );
+                            })}
+                          </div>
+                        </div>
+                      ) : null,
+                    )}
+                  </div>
                 </div>
-              ) : (
-                <p className="text-[11px] text-muted-foreground">Upload a PDF to generate a local summary.</p>
-              )}
+              ) : null}
             </div>
           ) : (
             <p className="mt-2 text-[11px] text-muted-foreground">Summary populates after extraction.</p>
