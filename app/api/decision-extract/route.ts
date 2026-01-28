@@ -412,7 +412,11 @@ const extractCandidatesLocal = (
   });
 
   const sorted = candidates.sort((a, b) => (b.score === a.score ? a.evidence.page - b.evidence.page : b.score - a.score));
-  return sorted.slice(0, 30).map(({ score: _score, ...candidate }) => candidate);
+  return sorted.slice(0, 30).map((candidate) => {
+    const { score: _score, ...rest } = candidate;
+    void _score;
+    return rest;
+  });
 };
 
 const extractKeyTerms = (value: string) => {
