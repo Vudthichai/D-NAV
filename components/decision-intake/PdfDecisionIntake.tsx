@@ -10,8 +10,7 @@ import {
 } from "@/lib/intake/decisionExtractLocal";
 import type { LocalSummary } from "@/lib/intake/summaryLocal";
 import KeyDecisionRow from "@/components/decision-intake/KeyDecisionRow";
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
-import { Info } from "lucide-react";
+import DecisionLegend from "@/components/decision-intake/DecisionLegend";
 
 interface PdfDecisionIntakeProps {
   onAddDecision: (candidate: DecisionCandidate, sourceFileName?: string) => void;
@@ -264,35 +263,15 @@ export default function PdfDecisionIntake({ onAddDecision, onAddDecisions }: Pdf
 
       <div className="dnav-dark-glass-surface space-y-3 rounded-xl border border-border/60 bg-white/70 p-4 shadow-sm dark:bg-white/10">
         <div className="flex flex-wrap items-center justify-between gap-2">
-          <div className="space-y-1">
-            <div className="flex items-center gap-2">
-              <p className="text-sm font-semibold text-foreground">
-                Key Decisions <span className="text-muted-foreground">({filteredCandidates.length})</span>
-              </p>
-              <TooltipProvider>
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <button
-                      type="button"
-                      className="grid h-6 w-6 place-items-center rounded-full border border-border/60 text-muted-foreground transition hover:text-foreground"
-                      aria-label="Commitment definitions"
-                    >
-                      <Info className="h-3.5 w-3.5" />
-                    </button>
-                  </TooltipTrigger>
-                  <TooltipContent side="bottom" className="max-w-xs text-xs">
-                    <p className="font-semibold text-foreground">Commitment tags</p>
-                    <p className="mt-1 text-muted-foreground">
-                      COMMITTED = action-backed commitment (will/began/completed/scheduled)
-                    </p>
-                    <p className="mt-1 text-muted-foreground">
-                      INDICATIVE = intent or expectation (expect/plan/aim/on track)
-                    </p>
-                  </TooltipContent>
-                </Tooltip>
-              </TooltipProvider>
-            </div>
-            <p className="text-[11px] text-muted-foreground">Edit, score, and add to session.</p>
+          <div className="space-y-2">
+            <p className="text-sm font-semibold text-foreground">
+              Key Decisions <span className="text-muted-foreground">({filteredCandidates.length})</span>
+            </p>
+            <p className="text-[11px] text-muted-foreground">
+              Review and score extracted decisions to see where commitments, risk, and momentum concentrate—then add
+              the ones that matter to your session.
+            </p>
+            <DecisionLegend />
           </div>
           <div className="flex flex-wrap items-center gap-2">
             <button type="button" className={pillClass(committedOnly)} onClick={() => setCommittedOnly((prev) => !prev)}>
@@ -354,7 +333,7 @@ export default function PdfDecisionIntake({ onAddDecision, onAddDecisions }: Pdf
                   className="rounded-full border border-border/60 px-3 py-1 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground hover:border-border/80 hover:text-foreground"
                   onClick={() => setShowAll(true)}
                 >
-                  Show More
+                  Load More Decisions
                 </button>
               </div>
             ) : null}
