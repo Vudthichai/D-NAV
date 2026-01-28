@@ -6,10 +6,10 @@ import MetricStepperPill from "@/components/decision-intake/MetricStepperPill";
 
 const METRICS = [
   { key: "impact", label: "I" },
-  { key: "cost", label: "Co" },
+  { key: "cost", label: "C" },
   { key: "risk", label: "R" },
   { key: "urgency", label: "U" },
-  { key: "confidence", label: "Cf" },
+  { key: "confidence", label: "CF" },
 ] as const;
 
 type MetricKey = (typeof METRICS)[number]["key"];
