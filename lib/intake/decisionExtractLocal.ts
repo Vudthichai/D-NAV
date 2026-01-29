@@ -66,6 +66,18 @@ export interface LocalExtractResult {
   candidates: DecisionCandidate[];
   summary: LocalSummary;
   pages: SectionedPage[];
+  filteringNote: string;
+  filteringStats: {
+    totalSentences: number;
+    filteredOut: number;
+    reasons: {
+      boilerplate: number;
+      tableLike: number;
+      lowSignalScore: number;
+      belowScoreThreshold: number;
+      nonDecision: number;
+    };
+  };
 }
 
 const DEFAULT_SLIDER_VALUE = 5;
@@ -139,9 +151,9 @@ const buildCandidate = (
   score: number,
   category: DecisionCategory,
   strength: DecisionCandidate["strength"],
+  decisionCheck: ReturnType<typeof assessDecisionLikeness>,
 ): DecisionCandidate => {
   const trimmed = sentence.trim();
-  const decisionCheck = assessDecisionLikeness(trimmed);
   const statementVerbatim = trimmed;
   const statementNormalized = normalizeDecisionStatement(trimmed);
   return {
@@ -183,6 +195,17 @@ export function extractDecisionCandidatesLocal(
 
   const sectioned = assignSections(pages);
   const candidates: DecisionCandidate[] = [];
+  const filteringStats: LocalExtractResult["filteringStats"] = {
+    totalSentences: 0,
+    filteredOut: 0,
+    reasons: {
+      boilerplate: 0,
+      tableLike: 0,
+      lowSignalScore: 0,
+      belowScoreThreshold: 0,
+      nonDecision: 0,
+    },
+  };
 
   sectioned.forEach((page) => {
     const sentences = splitSentences(page.text);
@@ -190,10 +213,34 @@ export function extractDecisionCandidatesLocal(
       .map((sentence) => {
         const trimmed = sentence.trim();
         if (!trimmed) return null;
+        filteringStats.totalSentences += 1;
         const scoreResult = scoreSentence(trimmed);
-        if (scoreResult.flags.isBoilerplate) return null;
-        if (page.isLowSignal && scoreResult.score < minLowSignalScore) return null;
-        if (scoreResult.score < minScore) return null;
+        if (scoreResult.flags.isBoilerplate) {
+          filteringStats.filteredOut += 1;
+          filteringStats.reasons.boilerplate += 1;
+          return null;
+        }
+        if (scoreResult.flags.isTableLike) {
+          filteringStats.filteredOut += 1;
+          filteringStats.reasons.tableLike += 1;
+          return null;
+        }
+        if (page.isLowSignal && scoreResult.score < minLowSignalScore) {
+          filteringStats.filteredOut += 1;
+          filteringStats.reasons.lowSignalScore += 1;
+          return null;
+        }
+        if (scoreResult.score < minScore) {
+          filteringStats.filteredOut += 1;
+          filteringStats.reasons.belowScoreThreshold += 1;
+          return null;
+        }
+        const decisionCheck = assessDecisionLikeness(trimmed);
+        if (!decisionCheck.isDecision) {
+          filteringStats.filteredOut += 1;
+          filteringStats.reasons.nonDecision += 1;
+          return null;
+        }
         const strength = scoreResult.hasCommitment && scoreResult.hasTimeAnchor ? "committed" : "indicative";
         return buildCandidate(
           trimmed,
@@ -202,6 +249,7 @@ export function extractDecisionCandidatesLocal(
           scoreResult.score,
           scoreResult.category,
           strength,
+          decisionCheck,
         );
       })
       .filter((value): value is DecisionCandidate => Boolean(value))
@@ -213,11 +261,21 @@ export function extractDecisionCandidatesLocal(
 
   const deduped = dedupeCandidates(candidates);
   const summary = buildLocalSummary(sectioned, deduped, docName);
+  const filteringNote =
+    filteringStats.filteredOut > 0
+      ? `Filtered out ${filteringStats.filteredOut} sentences (boilerplate/table: ${
+          filteringStats.reasons.boilerplate + filteringStats.reasons.tableLike
+        }, low-signal/score: ${
+          filteringStats.reasons.lowSignalScore + filteringStats.reasons.belowScoreThreshold
+        }, non-decision: ${filteringStats.reasons.nonDecision}).`
+      : "Filtered out 0 sentences.";
 
   return {
     candidates: deduped,
     summary,
     pages: sectioned,
+    filteringNote,
+    filteringStats,
   };
 }
 

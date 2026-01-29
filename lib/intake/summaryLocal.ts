@@ -34,119 +34,146 @@ const STOPWORDS = new Set([
   "their",
 ]);
 
-const NARRATIVE_MIN_CHARS = 350;
-const NARRATIVE_MAX_CHARS = 550;
-
-const PRIORITY_PHRASES = [
-  "we expect",
-  "will",
-  "aim",
-  "plan",
-  "scheduled",
-  "begin ramping",
-  "launch",
-  "on track",
-  "completed",
-  "continues to",
-  "in 2025",
-];
-
-const SIGNAL_KEYWORDS = [
-  "powerwall",
-  "megapack",
-  "energy",
-  "storage",
-  "autonomy",
-  "fsd",
-  "robotaxi",
-  "optimus",
-  "manufacturing",
-  "factory",
-  "ramp",
-  "production",
-  "capacity",
-  "compute",
-  "capex",
-  "cogs",
-  "cost",
-  "margin",
-  "battery",
-  "4680",
-  "supply",
-];
-
-const trimToLength = (text: string, maxChars: number) => {
-  if (text.length <= maxChars) return text;
-  const clipped = text.slice(0, maxChars);
-  const lastSentenceEnd = Math.max(clipped.lastIndexOf("."), clipped.lastIndexOf("!"), clipped.lastIndexOf("?"));
-  if (lastSentenceEnd >= NARRATIVE_MIN_CHARS) {
-    return clipped.slice(0, lastSentenceEnd + 1);
-  }
-  const lastSpace = clipped.lastIndexOf(" ");
-  return `${clipped.slice(0, Math.max(0, lastSpace))}…`.trim();
+const SUMMARY_SIGNALS = {
+  constraints: [
+    { re: /\bmargin\b|\bprofitability\b|\bcost\b|\bcogs\b/i, phrase: "margin and cost pressure" },
+    { re: /\bmacro\b|\bdemand\b|\binflation\b|\binterest rate\b|\bvolatility\b|\bfx\b/i, phrase: "macro and demand volatility" },
+    { re: /\bliquidity\b|\bcash\b|\bbalance sheet\b|\bfunding\b|\bcapital discipline\b/i, phrase: "liquidity and capital discipline" },
+    { re: /\bsupply\b|\blogistics\b|\bcommodity\b|\bavailability\b|\bconstraint\b/i, phrase: "supply chain constraints" },
+    { re: /\bregulator\b|\bregulatory\b|\bcompliance\b/i, phrase: "regulatory constraints" },
+  ],
+  investments: [
+    { re: /\bcapex\b|\bcapital expenditure\b|\binvest(?:ing|ment)?\b/i, phrase: "capital investment and cost focus" },
+    { re: /\bcapacity\b|\bfactory\b|\bplant\b|\bfacility\b|\bline\b|\bmanufacturing\b/i, phrase: "capacity expansion and manufacturing buildout" },
+    { re: /\bproduct\b|\bplatform\b|\broadmap\b|\blaunch\b|\bprogram\b/i, phrase: "product and platform execution" },
+    { re: /\bsoftware\b|\bai\b|\bautonomy\b|\bautomation\b|\bcompute\b/i, phrase: "software, automation, and technology development" },
+    { re: /\benergy\b|\bstorage\b|\binfrastructure\b|\bgrid\b/i, phrase: "infrastructure and energy deployment" },
+    { re: /\bpricing\b|\bmarket\b|\bgo-to-market\b|\bchannel\b|\bdistribution\b/i, phrase: "market expansion and go-to-market moves" },
+    { re: /\bhire\b|\bhiring\b|\bheadcount\b|\btalent\b/i, phrase: "talent and organizational build" },
+  ],
+  scale: [
+    { re: /\bramp\b|\bscale\b|\bvolume\b|\bthroughput\b/i, phrase: "scale-up execution across operations" },
+    { re: /\bproduction\b|\bmanufacturing\b|\bfactory\b|\bplant\b/i, phrase: "manufacturing and production execution" },
+    { re: /\bdeliver(?:y|ies)\b|\bdeployment\b|\binstall\b/i, phrase: "delivery and deployment execution" },
+    { re: /\befficiency\b|\bquality\b|\boperations\b/i, phrase: "operational efficiency gains" },
+  ],
 };
 
-const scoreNarrativeSentence = (sentence: string) => {
-  const lower = sentence.toLowerCase();
-  let score = 0;
-  PRIORITY_PHRASES.forEach((phrase) => {
-    if (lower.includes(phrase)) score += 4;
-  });
-  SIGNAL_KEYWORDS.forEach((keyword) => {
-    if (lower.includes(keyword)) score += 2;
-  });
-  if (/\b20(2[4-9]|3[0-2])\b/.test(lower)) score += 2;
-  if (sentence.length >= 60 && sentence.length <= 220) score += 1;
-  const decisionCheck = assessDecisionLikeness(sentence);
-  score += Math.min(4, Math.max(0, decisionCheck.score));
-  return score;
-};
+const NEAR_TERM_PATTERNS = [
+  /\bthis year\b/i,
+  /\bthis quarter\b/i,
+  /\bQ[1-4]\b/i,
+  /\bnext quarter\b/i,
+  /\bH[12]\b/i,
+];
 
-const buildNarrativeSummary = (pages: SectionedPage[]) => {
-  const scored: Array<{ sentence: string; score: number; page: number; index: number }> = [];
-  let globalIndex = 0;
+const LONG_TERM_PATTERNS = [
+  /\b2026\b/i,
+  /\b2027\b/i,
+  /\b2028\b/i,
+  /\b2029\b/i,
+  /\b2030\b/i,
+  /\blong[-\s]?term\b/i,
+  /\bmulti[-\s]?year\b/i,
+  /\bdecade\b/i,
+];
 
+const YEAR_PATTERN = /\b20\d{2}\b/g;
+
+const joinPhrases = (phrases: string[], fallback: string) => (phrases.length ? phrases.join(" and ") : fallback);
+
+const collectSentences = (pages: SectionedPage[]): string[] => {
+  const sentences: string[] = [];
   pages.forEach((page) => {
     if (page.isLowSignal) return;
     splitSentences(page.text).forEach((sentence) => {
       const trimmed = sentence.trim();
-      globalIndex += 1;
       if (!trimmed) return;
       if (isBoilerplate(trimmed) || isTableLike(trimmed)) return;
-      const score = scoreNarrativeSentence(trimmed);
-      if (score < 5) return;
-      scored.push({ sentence: trimmed, score, page: page.page, index: globalIndex });
+      sentences.push(trimmed);
     });
   });
+  return sentences;
+};
 
-  const topCandidates = scored.sort((a, b) => b.score - a.score).slice(0, 8);
-  const ordered = [...topCandidates].sort((a, b) => (a.page - b.page) || (a.index - b.index));
-
-  const selected: string[] = [];
-  let totalLength = 0;
-  ordered.forEach((candidate) => {
-    if (selected.length >= 4) return;
-    if (totalLength >= NARRATIVE_MAX_CHARS) return;
-    selected.push(candidate.sentence);
-    totalLength += candidate.sentence.length + 1;
+const mostCommonYear = (sentences: string[]): number | null => {
+  const counts = new Map<number, number>();
+  sentences.forEach((sentence) => {
+    const matches = sentence.match(YEAR_PATTERN);
+    matches?.forEach((value) => {
+      const year = Number(value);
+      if (!Number.isNaN(year)) {
+        counts.set(year, (counts.get(year) ?? 0) + 1);
+      }
+    });
   });
+  const [year] = [...counts.entries()].sort((a, b) => b[1] - a[1])[0] ?? [];
+  return year ?? null;
+};
 
-  if (selected.length === 0) {
-    return "This document outlines operational priorities, capacity ramps, and near-term product plans.";
+const collectSignalPhrases = (
+  sentences: string[],
+  signals: Array<{ re: RegExp; phrase: string }>,
+  max = 2,
+): string[] => {
+  const counts = new Map<string, number>();
+  sentences.forEach((sentence) => {
+    signals.forEach(({ re, phrase }) => {
+      if (!re.test(sentence)) return;
+      counts.set(phrase, (counts.get(phrase) ?? 0) + 1);
+    });
+  });
+  return [...counts.entries()]
+    .sort((a, b) => b[1] - a[1])
+    .map(([phrase]) => phrase)
+    .slice(0, max);
+};
+
+const buildNarrativeSummary = (pages: SectionedPage[], docLabel: string) => {
+  const sentences = collectSentences(pages);
+  if (sentences.length === 0) {
+    return "This document frames the period as one of focused execution while balancing constraints, outlining where effort is concentrated and how near-term delivery links to the longer strategic arc.";
   }
 
-  const summaryText = selected.join(" ").replace(/\s+/g, " ").trim();
-  if (summaryText.length < NARRATIVE_MIN_CHARS && topCandidates.length > selected.length) {
-    topCandidates
-      .filter((candidate) => !selected.includes(candidate.sentence))
-      .some((candidate) => {
-        if (selected.length >= 4) return true;
-        selected.push(candidate.sentence);
-        return false;
-      });
-  }
+  const year = mostCommonYear(sentences);
+  const periodLabel = year ? `${year}` : "the period";
+  const nextYearLabel = year ? `${year + 1}` : "the next year";
+  const subject = docLabel ? docLabel : "The document";
 
-  return trimToLength(selected.join(" ").replace(/\s+/g, " ").trim(), NARRATIVE_MAX_CHARS);
+  const constraints = collectSignalPhrases(sentences, SUMMARY_SIGNALS.constraints, 2);
+  const investments = collectSignalPhrases(sentences, SUMMARY_SIGNALS.investments, 2);
+  const scaleSignals = collectSignalPhrases(sentences, SUMMARY_SIGNALS.scale, 1);
+
+  const nearTermSentences = sentences.filter((sentence) => NEAR_TERM_PATTERNS.some((pattern) => pattern.test(sentence)));
+  const longTermSentences = sentences.filter((sentence) => LONG_TERM_PATTERNS.some((pattern) => pattern.test(sentence)));
+
+  const nearTermThemes = collectSignalPhrases(
+    nearTermSentences.length ? nearTermSentences : sentences,
+    SUMMARY_SIGNALS.investments,
+    2,
+  );
+  const longTermThemes = collectSignalPhrases(
+    longTermSentences.length ? longTermSentences : sentences,
+    SUMMARY_SIGNALS.scale,
+    1,
+  );
+
+  const constraintPhrase = joinPhrases(constraints, "operational and financial constraints");
+  const investmentPhrase = joinPhrases(investments, "capacity expansion and product execution");
+  const scalePhrase = joinPhrases(scaleSignals, "core operational execution");
+  const nearTermPhrase = joinPhrases(nearTermThemes, investmentPhrase);
+  const longTermPhrase = joinPhrases(longTermThemes, "the next growth curve and platform build");
+
+  const sentencesOut: string[] = [];
+  sentencesOut.push(`${subject} frames ${periodLabel} as a period of execution under ${constraintPhrase}.`);
+  sentencesOut.push(`Capital and effort were directed toward ${investmentPhrase}, with leadership attention on operational delivery.`);
+  sentencesOut.push(`What is already working at scale is the momentum in ${scalePhrase}, without relying on headline metrics.`);
+  sentencesOut.push(
+    `Near-term execution centers on ${nearTermPhrase}, while the longer-term arc emphasizes ${longTermPhrase}.`,
+  );
+  sentencesOut.push(`Looking into ${nextYearLabel}, the narrative bridges toward scaling these priorities into the next phase.`);
+
+  return sentencesOut.slice(0, 5).join(" ");
 };
 
 const buildThemes = (candidates: DecisionCandidate[]): string[] => {
@@ -245,7 +272,7 @@ export function buildLocalSummary(
   const docLabel = docName.replace(/\.pdf$/i, "").trim();
   const themes = buildThemes(candidates);
   const highlights = pickHighlightSentences(pages, candidates);
-  const narrativeSummary = buildNarrativeSummary(pages);
+  const narrativeSummary = buildNarrativeSummary(pages, docLabel);
 
   const introTheme = themes.slice(0, 2).join(" and ");
   const introBase = docLabel
