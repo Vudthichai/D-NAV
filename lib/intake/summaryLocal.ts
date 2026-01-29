@@ -9,7 +9,7 @@ interface DecisionStatement {
   source: string;
 }
 
-export type SummarySectionKey = "happened" | "done" | "betting" | "next";
+export type SummarySectionKey = "happened" | "done" | "bet" | "next";
 
 export interface SummarySection {
   key: SummarySectionKey;
@@ -21,6 +21,7 @@ export interface SummarySection {
 export interface LocalSummary {
   summaryHeadline: string;
   sections: SummarySection[];
+  tags: string[];
 }
 
 const STOPWORDS = new Set([
@@ -42,7 +43,7 @@ const STOPWORDS = new Set([
 const SECTION_CONFIG: Array<{ key: SummarySectionKey; title: string }> = [
   { key: "happened", title: "What happened" },
   { key: "done", title: "What was done" },
-  { key: "betting", title: "What’s being bet on" },
+  { key: "bet", title: "What’s being bet on" },
   { key: "next", title: "What changes next" },
 ];
 
@@ -112,7 +113,7 @@ const classifySection = (text: string): SummarySectionKey => {
     return "done";
   }
   if (/\b(expect|expects|aim|aims|target|intends|intend|prioritize|focus|strategy)\b/.test(lower)) {
-    return "betting";
+    return "bet";
   }
   if (/\b(next|by|in\s+\d{4}|in\s+q[1-4]|in\s+h[12]|after|before|within|over)\b/.test(lower)) {
     return "next";
@@ -145,7 +146,7 @@ const buildSectionSummary = (key: SummarySectionKey, statements: DecisionStateme
   if (key === "done") {
     return topic ? `The active push is toward ${topic}.` : "Active execution shows a clear operational push.";
   }
-  if (key === "betting") {
+  if (key === "bet") {
     return topic ? `Strategic bets cluster around ${topic}.` : "Strategic bets are starting to take shape.";
   }
   return topic ? `Next changes point to ${topic}.` : "Near-term changes are beginning to surface.";
@@ -225,5 +226,6 @@ export function buildLocalSummary(
   return {
     summaryHeadline,
     sections,
+    tags: themes.map((theme) => theme.charAt(0).toUpperCase() + theme.slice(1)),
   };
 }

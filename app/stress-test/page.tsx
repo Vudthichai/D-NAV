@@ -822,13 +822,15 @@ export default function StressTestPage() {
               </div>
             ) : null}
 
-            <div className="mt-6">
-              <PdfDecisionIntake
-                ref={intakeRef}
-                onAddDecision={handleAddToSession}
-                onAddDecisions={handleAddMultiple}
-                onCandidateUpdate={handleCandidateUpdate}
-              />
+            <div className="mt-8 border-t border-border/60 pt-6">
+              <div className="rounded-3xl bg-muted/5 p-2">
+                <PdfDecisionIntake
+                  ref={intakeRef}
+                  onAddDecision={handleAddToSession}
+                  onAddDecisions={handleAddMultiple}
+                  onCandidateUpdate={handleCandidateUpdate}
+                />
+              </div>
             </div>
 
             {toastNotice ? (
