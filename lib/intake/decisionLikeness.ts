@@ -6,6 +6,13 @@ export interface DecisionLikenessResult {
   kind: StatementKind;
   rewritten: string;
   evidenceText: string;
+  signals: {
+    hasCommitment: boolean;
+    hasAllocation: boolean;
+    hasPrioritization: boolean;
+    hasTime: boolean;
+    isInformational: boolean;
+  };
 }
 
 const COMMITMENT_PATTERNS = [
@@ -15,17 +22,13 @@ const COMMITMENT_PATTERNS = [
   /\baims? to\b/i,
   /\bintends? to\b/i,
   /\bcommits? to\b/i,
-  /\bcontinue(?:s)? to\b/i,
   /\bscheduled\b/i,
   /\bremain on track\b/i,
-  /\bcontinue\b/i,
-  /\blaunch\b/i,
-  /\bdeploy\b/i,
-  /\bexpand\b/i,
-  /\bramp\b/i,
-  /\bbegin\b/i,
-  /\bstart\b/i,
-  /\binvest\b/i,
+  /\btarget(?:s|ing)?\b/i,
+  /\bbegin(?:s|ning)?\b/i,
+  /\bstart(?:s|ing)?\b/i,
+  /\blaunch(?:es|ing)?\b/i,
+  /\bramp(?:s|ing)?\b/i,
 ];
 
 const ACTION_PATTERNS = [
@@ -41,6 +44,28 @@ const ACTION_PATTERNS = [
   /\bshift\b/i,
   /\breduce\b/i,
   /\bincrease\b/i,
+];
+
+const RESOURCE_PATTERNS = [
+  /\binvest(?:ing|ment)?\b/i,
+  /\bcapex\b/i,
+  /\bcapital (?:allocation|deployment)\b/i,
+  /\bexpand(?:ing)? capacity\b/i,
+  /\bbuild(?:ing)?\b/i,
+  /\bscale(?:d|ing)?\b/i,
+  /\bdeploy(?:ing)? capital\b/i,
+  /\bhiring\b/i,
+  /\bheadcount\b/i,
+  /\bresource allocation\b/i,
+];
+
+const PRIORITIZATION_PATTERNS = [
+  /\bfocus on\b/i,
+  /\bdouble down\b/i,
+  /\bprioritiz(?:e|ing)\b/i,
+  /\bposition(?:ing)?\b/i,
+  /\bshift(?:ing)? resources\b/i,
+  /\brebalance\b/i,
 ];
 
 const DECISION_ACTION_PATTERNS = [
@@ -66,9 +91,11 @@ const TIME_PATTERNS = [
   /\b20\d{2}\b/i,
   /\bthis (year|quarter|month)\b/i,
   /\bnext (year|quarter|month)\b/i,
+  /\blater this year\b/i,
   /\bend of \d{4}\b/i,
   /\bby \d{4}\b/i,
   /\bwithin \d{1,2} months\b/i,
+  /\bin \d{4}\b/i,
 ];
 
 const INFORMATIONAL_PATTERNS = [
@@ -84,6 +111,9 @@ const INFORMATIONAL_PATTERNS = [
   /\bgrew\b/i,
   /\bincreased\b/i,
   /\bdecreased\b/i,
+  /\bresulted\b/i,
+  /\bwas best[-\s]?selling\b/i,
+  /\brecord\b/i,
 ];
 
 const ACTOR_REGEX = /^(?:the\s+)?(company|management|board|team|we|tesla)\b[,:-]?\s*/i;
@@ -196,12 +226,15 @@ const matchesAny = (value: string, patterns: RegExp[]) => patterns.some((pattern
 export const classifyStatementKind = (text: string): StatementKind => {
   const cleaned = normalizeWhitespace(text);
   const hasCommitment = matchesAny(cleaned, COMMITMENT_PATTERNS);
+  const hasAllocation = matchesAny(cleaned, RESOURCE_PATTERNS);
+  const hasPrioritization = matchesAny(cleaned, PRIORITIZATION_PATTERNS);
   const hasAction = matchesAny(cleaned, DECISION_ACTION_PATTERNS) || matchesAny(cleaned, ACTION_PATTERNS);
   const isInformational = matchesAny(cleaned, INFORMATIONAL_PATTERNS);
+  const hasDecisionSignal = hasCommitment || hasAllocation || hasPrioritization || hasAction;
 
-  if (isInformational && !hasCommitment && !hasAction) return "evidence";
+  if (isInformational && !hasDecisionSignal) return "evidence";
   if (hasAction) return "decision";
-  if (hasCommitment) return "commitment";
+  if (hasCommitment || hasAllocation || hasPrioritization) return "commitment";
   return isInformational ? "evidence" : "decision";
 };
 
@@ -209,22 +242,35 @@ export const assessDecisionLikeness = (text: string): DecisionLikenessResult => 
   const cleaned = normalizeWhitespace(text);
   const hasCommitment = matchesAny(cleaned, COMMITMENT_PATTERNS);
   const hasAction = matchesAny(cleaned, ACTION_PATTERNS);
+  const hasAllocation = matchesAny(cleaned, RESOURCE_PATTERNS);
+  const hasPrioritization = matchesAny(cleaned, PRIORITIZATION_PATTERNS);
   const hasTime = matchesAny(cleaned, TIME_PATTERNS);
   const isInformational = matchesAny(cleaned, INFORMATIONAL_PATTERNS);
   const kind = classifyStatementKind(cleaned);
+  const hasDecisionSignal = hasCommitment || hasAllocation || hasPrioritization || hasAction;
 
   let score = 0;
   if (hasCommitment) score += 3;
-  if (hasAction) score += 2;
+  if (hasAllocation) score += 3;
+  if (hasPrioritization) score += 2;
+  if (hasAction) score += 1;
   if (hasTime) score += 1;
-  if (isInformational && !hasCommitment && !hasAction) score -= 2;
+  if (isInformational && !hasDecisionSignal) score -= 3;
+  if (!hasDecisionSignal && hasTime) score -= 1;
 
   const rewritten = buildStatementRewrite(cleaned, kind);
   return {
     score,
-    isDecision: score >= 3,
+    isDecision: hasDecisionSignal && score >= 3,
     kind,
     rewritten,
     evidenceText: cleaned,
+    signals: {
+      hasCommitment,
+      hasAllocation,
+      hasPrioritization,
+      hasTime,
+      isInformational,
+    },
   };
 };
