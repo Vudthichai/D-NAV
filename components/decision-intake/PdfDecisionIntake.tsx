@@ -48,7 +48,6 @@ const PdfDecisionIntake = forwardRef<PdfDecisionIntakeHandle, PdfDecisionIntakeP
   const [dismissedIds, setDismissedIds] = useState<Set<string>>(new Set());
   const [addedIds, setAddedIds] = useState<Set<string>>(new Set());
   const [showAll, setShowAll] = useState(false);
-  const [showSummaryCandidates, setShowSummaryCandidates] = useState(false);
   const [committedOnly, setCommittedOnly] = useState(false);
   const [hideTables, setHideTables] = useState(true);
   const [pdfUrl, setPdfUrl] = useState<string | null>(null);
@@ -61,7 +60,6 @@ const PdfDecisionIntake = forwardRef<PdfDecisionIntakeHandle, PdfDecisionIntakeP
     setDismissedIds(new Set());
     setAddedIds(new Set());
     setShowAll(false);
-    setShowSummaryCandidates(false);
     setExtractError(null);
     setPdfUrl((prev) => {
       if (prev) URL.revokeObjectURL(prev);
@@ -223,15 +221,6 @@ const PdfDecisionIntake = forwardRef<PdfDecisionIntakeHandle, PdfDecisionIntakeP
 
   const hasMore = filteredCandidates.length > visibleCandidates.length;
 
-  const summaryInlineSections = useMemo(
-    () =>
-      filteredSections.map((section) => ({
-        ...section,
-        supporting: section.supporting.slice(0, 2),
-      })),
-    [filteredSections],
-  );
-
   const handleAdd = useCallback(
     (candidate: DecisionCandidate) => {
       onAddDecision(candidate, selectedFileName ?? undefined);
@@ -310,25 +299,15 @@ const PdfDecisionIntake = forwardRef<PdfDecisionIntakeHandle, PdfDecisionIntakeP
                 Summary maps the document’s narrative for orientation, not a decision list.
               </p>
             </div>
-            {summary && filteredCandidates.length > 0 ? (
-              <button
-                type="button"
-                className="rounded-full border border-border/60 px-3 py-1 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground transition hover:border-border/80 hover:text-foreground"
-                onClick={() => setShowSummaryCandidates((prev) => !prev)}
-              >
-                {showSummaryCandidates ? "Hide decision candidates" : "View decision candidates"}
-              </button>
-            ) : null}
           </div>
           {summary ? (
             <div className="mt-3 space-y-4">
               <div className="space-y-2">
-                <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Map</p>
                 <p className="text-sm font-semibold text-foreground">{summary.summaryHeadline}</p>
                 {summary.sections.length > 0 ? (
                   <div className="grid gap-3 md:grid-cols-2">
                     {summary.sections.map((section) => (
-                      <div key={section.key} className="space-y-1 rounded-lg border border-border/50 bg-muted/10 p-3">
+                      <div key={section.key} className="space-y-2 rounded-lg border border-border/50 bg-muted/10 p-3">
                         <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
                           {section.title.toUpperCase()}
                         </p>
@@ -340,49 +319,16 @@ const PdfDecisionIntake = forwardRef<PdfDecisionIntakeHandle, PdfDecisionIntakeP
                   <p className="text-[11px] text-muted-foreground">Upload a PDF to generate a local summary.</p>
                 )}
               </div>
-              {showSummaryCandidates ? (
-                <div className="space-y-3">
-                  <div className="flex items-center justify-between gap-2">
-                    <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Decisions</p>
-                    <span className="text-[10px] text-muted-foreground">
-                      {filteredCandidates.length} candidates
+              {summary.tags.length > 0 ? (
+                <div className="flex flex-wrap gap-2">
+                  {summary.tags.map((tag) => (
+                    <span
+                      key={tag}
+                      className="rounded-full border border-border/60 bg-white/70 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground shadow-sm dark:bg-white/10"
+                    >
+                      {tag}
                     </span>
-                  </div>
-                  <div className="space-y-2">
-                    {summaryInlineSections.map((section) =>
-                      section.supporting.length > 0 ? (
-                        <div key={section.key} className="space-y-2">
-                          <div className="flex items-center justify-between gap-2">
-                            <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
-                              {section.title}
-                            </p>
-                            <span className="text-[10px] text-muted-foreground">
-                              {section.supporting.length} shown
-                            </span>
-                          </div>
-                          <div className="space-y-2">
-                            {section.supporting.map((candidate) => {
-                              const isAdded = addedIds.has(candidate.id);
-                              return (
-                                <KeyDecisionRow
-                                  key={candidate.id}
-                                  candidate={candidate}
-                                  isAdded={isAdded}
-                                  categoryOptions={DECISION_CATEGORIES}
-                                  pdfUrl={pdfUrl}
-                                  onAdd={handleAdd}
-                                  onDismiss={handleDismiss}
-                                  onCategoryChange={(id, category) => updateCandidate(id, { category })}
-                                  onMetricChange={(id, key, value) => updateSlider(id, key, value)}
-                                  onStrengthChange={(id, strength) => updateCandidate(id, { strength })}
-                                />
-                              );
-                            })}
-                          </div>
-                        </div>
-                      ) : null,
-                    )}
-                  </div>
+                  ))}
                 </div>
               ) : null}
             </div>
@@ -396,11 +342,10 @@ const PdfDecisionIntake = forwardRef<PdfDecisionIntakeHandle, PdfDecisionIntakeP
         <div className="flex flex-wrap items-center justify-between gap-2">
           <div className="space-y-2">
             <p className="text-sm font-semibold text-foreground">
-              Supporting Items <span className="text-muted-foreground">({filteredCandidates.length})</span>
+              Key Decisions <span className="text-muted-foreground">({filteredCandidates.length})</span>
             </p>
             <p className="text-[11px] text-muted-foreground">
-              Review and score extracted statements to see where commitments, risk, and momentum concentrate—then add
-              the ones that matter to your session.
+              Key decision candidates that support the summary above.
             </p>
             <DecisionLegend />
           </div>
@@ -436,7 +381,7 @@ const PdfDecisionIntake = forwardRef<PdfDecisionIntakeHandle, PdfDecisionIntakeP
 
         {visibleCandidates.length === 0 ? (
           <div className="rounded-lg border border-dashed border-border/60 bg-muted/10 px-4 py-4 text-[11px] text-muted-foreground">
-            Upload a PDF to see supporting items.
+            Upload a PDF to see key decision candidates.
           </div>
         ) : (
           <div className="space-y-2">

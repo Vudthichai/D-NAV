@@ -57,8 +57,60 @@ export default function KeyDecisionRow({
     if (!Number.isFinite(value)) return "0";
     return value.toFixed(1).replace(/\.0$/, "");
   };
-  const cleanDecisionText = (value: string) =>
-    value.replace(/^(?:the\s+)?company\s+commits?\s+to\s+/i, "").trim();
+  const normalizeWhitespace = (value: string) => value.replace(/\s+/g, " ").trim();
+  const ensureSentenceEnd = (value: string) => (/[.!?]$/.test(value) ? value : `${value}.`);
+  const normalizeCandidateText = (value: string) => {
+    const original = normalizeWhitespace(value);
+    let text = original;
+    let prefix = "";
+
+    const setPrefix = (nextPrefix: string) => {
+      if (!prefix) prefix = nextPrefix;
+    };
+
+    if (/^(?:the\s+)?company\s+commits?\s+to\b/i.test(text)) {
+      text = text.replace(/^(?:the\s+)?company\s+commits?\s+to\s+/i, "");
+      setPrefix("Plan to ");
+    }
+    if (/^(?:we|the\s+company|company|management|the\s+team|board)\s+expects?\s+to\b/i.test(text)) {
+      text = text.replace(/^(?:we|the\s+company|company|management|the\s+team|board)\s+expects?\s+to\s+/i, "");
+      setPrefix("Plan to ");
+    }
+    if (/^(?:we|the\s+company|company|management|the\s+team|board)\s+expects?\b/i.test(text)) {
+      text = text.replace(/^(?:we|the\s+company|company|management|the\s+team|board)\s+expects?\s+/i, "");
+      setPrefix("Plan to ");
+    }
+    if (/^outlook[:\\s-]*/i.test(text)) {
+      text = text.replace(/^outlook[:\\s-]*/i, "");
+      setPrefix("Plan to ");
+    }
+    if (/^(?:we|the\s+company|company|management|the\s+team|board)\s+continues?\s+to\b/i.test(text)) {
+      text = text.replace(/^(?:we|the\s+company|company|management|the\s+team|board)\s+continues?\s+to\s+/i, "");
+      setPrefix("Continue ");
+    }
+    if (/^(?:we|the\s+company|company|management|the\s+team|board)\s+(?:begins?|starts?)\s+to\b/i.test(text)) {
+      text = text.replace(
+        /^(?:we|the\s+company|company|management|the\s+team|board)\s+(?:begins?|starts?)\s+to\s+/i,
+        "",
+      );
+      setPrefix("Begin ");
+    }
+    if (/^(?:we|the\s+company|company|management|the\s+team|board)\s+will\b/i.test(text)) {
+      text = text.replace(/^(?:we|the\s+company|company|management|the\s+team|board)\s+will\s+/i, "");
+      setPrefix("Plan to ");
+    }
+
+    text = text.replace(/^plans?\s+to\s+expect\s+/i, "Plan to target ");
+    text = text.replace(/^plans?\s+to\s+/i, "Plan to ");
+    text = text.replace(/^expect(?:s)?\s+/i, "target ");
+    text = text.replace(/^(?:the\s+)?company\s+/i, "");
+
+    const base = text.trim();
+    if (!base) return original;
+    const loweredBase = prefix ? base.charAt(0).toLowerCase() + base.slice(1) : base;
+    const normalized = `${prefix}${loweredBase}`.trim();
+    return ensureSentenceEnd(normalized.charAt(0).toUpperCase() + normalized.slice(1));
+  };
   const findTimeframe = (value?: string) => {
     if (!value) return null;
     const patterns = [
@@ -78,68 +130,66 @@ export default function KeyDecisionRow({
   };
   const timeframe = findTimeframe(candidate.evidence.full ?? candidate.decision);
   const metadata = [candidate.category, pageLabel, timeframe].filter(Boolean).join(" · ");
+  const normalizedDecision = normalizeCandidateText(candidate.decision);
+  const verbatimDecision = candidate.evidence.full ?? candidate.decision;
 
   return (
     <div className="rounded-xl border border-border/60 bg-white/70 px-5 py-5 text-xs text-muted-foreground shadow-sm dark:bg-white/10">
       <div className="flex flex-col gap-5">
         <div className="rounded-lg border border-border/50 border-l-4 border-l-primary/30 bg-muted/5 px-4 py-4">
           <div className="flex flex-wrap items-center gap-2 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
-            <span className={cn("rounded-full border px-2 py-0.5", statusBadgeClass)}>{statusLabel}</span>
+            <span className={cn("rounded-full border px-2 py-0.5", statusBadgeClass)}>{statusLabel.toUpperCase()}</span>
             <span>{metadata}</span>
           </div>
           <p className="mt-2 line-clamp-3 text-base font-semibold leading-relaxed text-foreground sm:text-lg">
-            {cleanDecisionText(candidate.decision)}
+            {normalizedDecision}
           </p>
         </div>
 
         <div className="flex flex-wrap items-center justify-between gap-4">
           <div className="flex flex-wrap items-center gap-2 text-[11px] text-muted-foreground">
             <div className="flex items-center gap-1 rounded-full border border-border/60 bg-muted/10 p-0.5">
-              <button
-                type="button"
-                onClick={() => onStrengthChange(candidate.id, "committed")}
-                className={cn(
-                  "rounded-full px-3 py-1 text-[10px] font-semibold uppercase tracking-wide transition",
-                  candidate.strength === "committed"
-                    ? "border border-foreground bg-foreground text-background shadow-sm"
-                    : "border border-transparent text-muted-foreground hover:text-foreground",
-                )}
-                aria-pressed={candidate.strength === "committed"}
-              >
-                COMMITTED
-              </button>
-              <button
-                type="button"
-                onClick={() => onStrengthChange(candidate.id, "indicative")}
-                className={cn(
-                  "rounded-full px-3 py-1 text-[10px] font-semibold uppercase tracking-wide transition",
-                  candidate.strength === "indicative"
-                    ? "border border-foreground bg-foreground text-background shadow-sm"
-                    : "border border-transparent text-muted-foreground hover:text-foreground",
-                )}
-                aria-pressed={candidate.strength === "indicative"}
-              >
-                INDICATIVE
-              </button>
               <Popover>
                 <PopoverTrigger asChild>
                   <button
                     type="button"
-                    className="grid h-6 w-6 place-items-center rounded-full border border-border/60 text-[11px] font-semibold text-muted-foreground transition hover:text-foreground"
-                    aria-label="Committed versus indicative definitions"
+                    className="rounded-full border border-border/60 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground transition hover:text-foreground"
+                    aria-label="Update candidate status"
                   >
-                    ?
+                    Update status
                   </button>
                 </PopoverTrigger>
                 <PopoverContent align="start" className="w-56 rounded-xl border border-border/60 bg-background/95 p-3 text-xs">
-                  <p className="font-semibold text-foreground">Committed</p>
-                  <p className="text-[11px] text-muted-foreground">
-                    Explicit promise, plan, or irreversible direction.
+                  <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+                    Status
                   </p>
-                  <p className="mt-2 font-semibold text-foreground">Indicative</p>
-                  <p className="text-[11px] text-muted-foreground">
-                    Signal, expectation, or forecast &mdash; less binding.
-                  </p>
+                  <div className="mt-2 space-y-2">
+                    {(["committed", "indicative"] as const).map((strength) => (
+                      <button
+                        key={strength}
+                        type="button"
+                        onClick={() => onStrengthChange(candidate.id, strength)}
+                        className={cn(
+                          "w-full rounded-lg border px-3 py-2 text-left text-[11px] font-semibold uppercase tracking-wide transition",
+                          strength === candidate.strength
+                            ? "border-foreground bg-foreground text-background"
+                            : "border-border/60 text-muted-foreground hover:border-border/80 hover:text-foreground",
+                        )}
+                      >
+                        {strength}
+                      </button>
+                    ))}
+                  </div>
+                  <div className="mt-3 space-y-2 text-[11px] text-muted-foreground">
+                    <p>
+                      <span className="font-semibold text-foreground">Committed:</span> explicit promise, plan, or
+                      irreversible direction.
+                    </p>
+                    <p>
+                      <span className="font-semibold text-foreground">Indicative:</span> signal, expectation, or forecast
+                      — less binding.
+                    </p>
+                  </div>
                 </PopoverContent>
               </Popover>
             </div>
@@ -168,6 +218,22 @@ export default function KeyDecisionRow({
                 View PDF
               </a>
             ) : null}
+            <Popover>
+              <PopoverTrigger asChild>
+                <button
+                  type="button"
+                  className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground transition hover:text-foreground"
+                >
+                  Verbatim
+                </button>
+              </PopoverTrigger>
+              <PopoverContent align="start" className="w-80 rounded-xl border border-border/60 bg-background/95 p-3 text-xs">
+                <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+                  Verbatim from PDF
+                </p>
+                <p className="mt-2 text-[11px] text-foreground">{verbatimDecision}</p>
+              </PopoverContent>
+            </Popover>
           </div>
           <div className="flex flex-wrap items-center gap-2 lg:justify-end">
             <Button
