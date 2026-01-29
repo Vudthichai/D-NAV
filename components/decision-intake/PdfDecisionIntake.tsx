@@ -3,7 +3,7 @@
 import { type ChangeEvent, forwardRef, useCallback, useImperativeHandle, useMemo, useState } from "react";
 import { cn } from "@/lib/utils";
 import { extractPdfText } from "@/lib/pdf/extractPdfText";
-import { extractDecisionCandidatesLocal, type DecisionCandidate, DECISION_CATEGORIES } from "@/lib/intake/decisionExtractLocal";
+import { extractDecisionCandidatesLocal, type DecisionCandidate } from "@/lib/intake/decisionExtractLocal";
 import type { LocalSummary } from "@/lib/intake/summaryLocal";
 import KeyDecisionRow from "@/components/decision-intake/KeyDecisionRow";
 
@@ -117,13 +117,6 @@ const PdfDecisionIntake = forwardRef<PdfDecisionIntakeHandle, PdfDecisionIntakeP
       }
     },
     [onCandidateUpdate],
-  );
-
-  const updateCandidate = useCallback(
-    (id: string, updates: Partial<DecisionCandidate>) => {
-      applyCandidateUpdates(id, (candidate) => ({ ...candidate, ...updates }));
-    },
-    [applyCandidateUpdates],
   );
 
   const updateSlider = useCallback(
@@ -306,11 +299,9 @@ const PdfDecisionIntake = forwardRef<PdfDecisionIntakeHandle, PdfDecisionIntakeP
                   key={candidate.id}
                   candidate={candidate}
                   isAdded={isAdded}
-                  categoryOptions={DECISION_CATEGORIES}
                   pdfUrl={pdfUrl}
                   onAdd={handleAdd}
                   onDismiss={handleDismiss}
-                  onCategoryChange={(id, category) => updateCandidate(id, { category })}
                   onMetricChange={(id, key, value) => updateSlider(id, key, value)}
                 />
               );
