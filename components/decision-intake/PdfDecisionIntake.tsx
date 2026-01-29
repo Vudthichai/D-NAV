@@ -6,7 +6,6 @@ import { extractPdfText } from "@/lib/pdf/extractPdfText";
 import { extractDecisionCandidatesLocal, type DecisionCandidate, DECISION_CATEGORIES } from "@/lib/intake/decisionExtractLocal";
 import type { LocalSummary } from "@/lib/intake/summaryLocal";
 import KeyDecisionRow from "@/components/decision-intake/KeyDecisionRow";
-import DecisionLegend from "@/components/decision-intake/DecisionLegend";
 
 interface PdfDecisionIntakeProps {
   onAddDecision: (candidate: DecisionCandidate, sourceFileName?: string) => void;
@@ -92,7 +91,7 @@ const PdfDecisionIntake = forwardRef<PdfDecisionIntakeHandle, PdfDecisionIntakeP
       setSummary(extraction.summary);
       setCandidates(extraction.candidates);
       if (extraction.candidates.length === 0) {
-        setExtractError("No clear commitments detected. Try a different PDF.");
+        setExtractError("No clear decisions detected. Try a different PDF.");
       }
     } catch (error) {
       console.error("Failed to read PDF.", error);
@@ -201,7 +200,7 @@ const PdfDecisionIntake = forwardRef<PdfDecisionIntakeHandle, PdfDecisionIntakeP
       <div className="space-y-1">
         <h2 className="text-base font-semibold text-foreground">Decision Intake</h2>
         <p className="text-xs text-muted-foreground">
-          Local-first extraction for high-signal commitments. Edit, score, and add decisions directly into your session.
+          Local-first extraction for high-signal decisions. Edit, score, and add decisions directly into your session.
         </p>
       </div>
 
@@ -269,7 +268,6 @@ const PdfDecisionIntake = forwardRef<PdfDecisionIntakeHandle, PdfDecisionIntakeP
               Key Decisions <span className="text-muted-foreground">({filteredCandidates.length})</span>
             </p>
             <p className="text-[11px] text-muted-foreground">Key decision candidates extracted from the document.</p>
-            <DecisionLegend />
           </div>
           <div className="flex flex-wrap items-center gap-2">
             <button
@@ -300,7 +298,7 @@ const PdfDecisionIntake = forwardRef<PdfDecisionIntakeHandle, PdfDecisionIntakeP
             Upload a PDF to see key decision candidates.
           </div>
         ) : (
-          <div className="space-y-2">
+          <div className="space-y-1">
             {visibleCandidates.map((candidate) => {
               const isAdded = addedIds.has(candidate.id);
               return (
