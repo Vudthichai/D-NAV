@@ -2,6 +2,7 @@ import type { DecisionCandidate } from "./decisionExtractLocal";
 import { assessDecisionLikeness } from "./decisionLikeness";
 import { isBoilerplate, isTableLike, splitSentences } from "./decisionScoring";
 import type { SectionedPage } from "./sectionSplit";
+import { classifyMapCategory, MAP_CATEGORY_CONFIG, type MapCategoryKey } from "./decisionMap";
 
 interface DecisionStatement {
   id: string;
@@ -9,18 +10,9 @@ interface DecisionStatement {
   source: string;
 }
 
-export type SummarySectionKey = "happened" | "done" | "bet" | "next";
-
-export interface SummarySection {
-  key: SummarySectionKey;
-  title: string;
-  mapSentence: string;
-  supporting: DecisionCandidate[];
-}
-
 export interface LocalSummary {
   summaryHeadline: string;
-  sections: SummarySection[];
+  map: Record<MapCategoryKey, string>;
   tags: string[];
 }
 
@@ -39,13 +31,6 @@ const STOPWORDS = new Set([
   "into",
   "their",
 ]);
-
-const SECTION_CONFIG: Array<{ key: SummarySectionKey; title: string }> = [
-  { key: "happened", title: "What happened" },
-  { key: "done", title: "What was done" },
-  { key: "bet", title: "What’s being bet on" },
-  { key: "next", title: "What changes next" },
-];
 
 const buildThemes = (candidates: DecisionCandidate[]): string[] => {
   const counts = new Map<string, number>();
@@ -104,23 +89,6 @@ const hashString = (value: string) => {
   return Math.abs(hash).toString(36);
 };
 
-const classifySection = (text: string): SummarySectionKey => {
-  const lower = text.toLowerCase();
-  if (/\b(completed|launched|delivered|achieved|began|started|deployed|commissioned|expanded|added)\b/.test(lower)) {
-    return "happened";
-  }
-  if (/\b(will|plans|plan|scheduled|begin|start|launch|ramp|deploy|build|expand)\b/.test(lower)) {
-    return "done";
-  }
-  if (/\b(expect|expects|aim|aims|target|intends|intend|prioritize|focus|strategy)\b/.test(lower)) {
-    return "bet";
-  }
-  if (/\b(next|by|in\s+\d{4}|in\s+q[1-4]|in\s+h[12]|after|before|within|over)\b/.test(lower)) {
-    return "next";
-  }
-  return "done";
-};
-
 const extractTokens = (text: string): string[] =>
   text
     .toLowerCase()
@@ -128,7 +96,7 @@ const extractTokens = (text: string): string[] =>
     .split(/\s+/)
     .filter((token) => token.length > 3 && !STOPWORDS.has(token));
 
-const buildSectionSummary = (key: SummarySectionKey, statements: DecisionStatement[]) => {
+const buildSectionSummary = (key: MapCategoryKey, statements: DecisionStatement[]) => {
   const tokens = new Map<string, number>();
   statements.forEach((statement) => {
     extractTokens(statement.source).forEach((token) => {
@@ -140,13 +108,13 @@ const buildSectionSummary = (key: SummarySectionKey, statements: DecisionStateme
     .map(([token]) => token)
     .slice(0, 2);
   const topic = [first, second].filter(Boolean).join(" and ");
-  if (key === "happened") {
+  if (key === "whatHappened") {
     return topic ? `Recent shifts center on ${topic}.` : "Recent shifts are concentrated in a few areas.";
   }
-  if (key === "done") {
+  if (key === "whatWasDone") {
     return topic ? `The active push is toward ${topic}.` : "Active execution shows a clear operational push.";
   }
-  if (key === "bet") {
+  if (key === "whatsBeingBetOn") {
     return topic ? `Strategic bets cluster around ${topic}.` : "Strategic bets are starting to take shape.";
   }
   return topic ? `Next changes point to ${topic}.` : "Near-term changes are beginning to surface.";
@@ -189,9 +157,9 @@ export function buildLocalSummary(
     });
   });
 
-  const buckets = new Map<SummarySectionKey, DecisionStatement[]>();
+  const buckets = new Map<MapCategoryKey, DecisionStatement[]>();
   statements.forEach((statement) => {
-    const key = classifySection(statement.source);
+    const key = classifyMapCategory(statement.source);
     const list = buckets.get(key) ?? [];
     list.push(statement);
     buckets.set(key, list);
@@ -199,7 +167,7 @@ export function buildLocalSummary(
 
   const fallbackPool = [...statements];
 
-  const sections: SummarySection[] = SECTION_CONFIG.map(({ key, title }) => {
+  const map = MAP_CATEGORY_CONFIG.reduce((acc, { key }) => {
     const primary = buckets.get(key) ?? [];
     const selected: DecisionStatement[] = [...primary];
     fallbackPool.forEach((statement) => {
@@ -210,22 +178,13 @@ export function buildLocalSummary(
       }
     });
     const ensured = selected.slice(0, Math.max(2, Math.min(4, selected.length)));
-    const supporting = candidates
-      .filter((candidate) => classifySection(candidate.evidence.full ?? candidate.decision) === key)
-      .sort((a, b) => b.score - a.score)
-      .slice(0, 8);
-
-    return {
-      key,
-      title,
-      mapSentence: buildSectionSummary(key, ensured),
-      supporting,
-    };
-  });
+    acc[key] = buildSectionSummary(key, ensured);
+    return acc;
+  }, {} as Record<MapCategoryKey, string>);
 
   return {
     summaryHeadline,
-    sections,
+    map,
     tags: themes.map((theme) => theme.charAt(0).toUpperCase() + theme.slice(1)),
   };
 }

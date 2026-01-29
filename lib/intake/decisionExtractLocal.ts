@@ -2,6 +2,8 @@ import { assignSections, type PageText, type SectionedPage } from "./sectionSpli
 import { assessDecisionLikeness } from "./decisionLikeness";
 import { scoreSentence, splitSentences } from "./decisionScoring";
 import { buildLocalSummary, type LocalSummary } from "./summaryLocal";
+import { classifyMapCategory, type MapCategoryKey } from "./decisionMap";
+import { normalizeDecisionStatement } from "./decisionNormalization";
 
 export type DecisionCategory =
   | "Operations"
@@ -28,7 +30,11 @@ export interface DecisionCandidate {
   id: string;
   title: string;
   decision: string;
+  statementNormalized: string;
+  statementVerbatim: string;
+  mapCategory: MapCategoryKey;
   category: DecisionCategory;
+  tags: string[];
   statementType: "decision" | "commitment" | "evidence";
   strength: "committed" | "indicative";
   evidence: {
@@ -136,11 +142,17 @@ const buildCandidate = (
 ): DecisionCandidate => {
   const trimmed = sentence.trim();
   const decisionCheck = assessDecisionLikeness(trimmed);
+  const statementVerbatim = trimmed;
+  const statementNormalized = normalizeDecisionStatement(trimmed);
   return {
     id: `local-${page}-${hashString(trimmed)}`,
     title: buildTitle(trimmed),
     decision: decisionCheck.rewritten,
+    statementNormalized,
+    statementVerbatim,
+    mapCategory: classifyMapCategory(trimmed),
     category,
+    tags: [],
     statementType: decisionCheck.kind,
     strength,
     evidence: {

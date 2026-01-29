@@ -9,6 +9,7 @@ import {
   DECISION_CATEGORIES,
 } from "@/lib/intake/decisionExtractLocal";
 import type { LocalSummary } from "@/lib/intake/summaryLocal";
+import { MAP_CATEGORY_CONFIG } from "@/lib/intake/decisionMap";
 import KeyDecisionRow from "@/components/decision-intake/KeyDecisionRow";
 import DecisionLegend from "@/components/decision-intake/DecisionLegend";
 
@@ -31,6 +32,8 @@ const pillClass = (active: boolean) =>
       ? "border-foreground bg-foreground text-background"
       : "border-border/60 bg-transparent text-muted-foreground hover:border-border/80 hover:text-foreground",
   );
+
+const SHOW_SUMMARY_HEADLINE = true;
 
 const PdfDecisionIntake = forwardRef<PdfDecisionIntakeHandle, PdfDecisionIntakeProps>(function PdfDecisionIntake(
   { onAddDecision, onAddDecisions, onCandidateUpdate }: PdfDecisionIntakeProps,
@@ -164,17 +167,15 @@ const PdfDecisionIntake = forwardRef<PdfDecisionIntakeHandle, PdfDecisionIntakeP
     [applyCandidateUpdates],
   );
 
-  const candidateById = useMemo(() => new Map(candidates.map((candidate) => [candidate.id, candidate])), [candidates]);
-
-  const summarySections = useMemo(() => {
-    if (!summary) return [];
-    return summary.sections.map((section) => ({
-      ...section,
-      supporting: section.supporting
-        .map((candidate) => candidateById.get(candidate.id) ?? candidate)
-        .filter(Boolean),
-    }));
-  }, [candidateById, summary]);
+  const mappedSections = useMemo(
+    () =>
+      MAP_CATEGORY_CONFIG.map((section) => ({
+        ...section,
+        summary: summary?.map[section.key] ?? "",
+        candidates: candidates.filter((candidate) => candidate.mapCategory === section.key),
+      })),
+    [candidates, summary],
+  );
 
   const isCandidateVisible = useCallback(
     (candidate: DecisionCandidate) => {
@@ -188,15 +189,15 @@ const PdfDecisionIntake = forwardRef<PdfDecisionIntakeHandle, PdfDecisionIntakeP
 
   const filteredSections = useMemo(
     () =>
-      summarySections.map((section) => ({
+      mappedSections.map((section) => ({
         ...section,
-        supporting: section.supporting.filter((candidate) => isCandidateVisible(candidate)),
+        candidates: section.candidates.filter((candidate) => isCandidateVisible(candidate)),
       })),
-    [isCandidateVisible, summarySections],
+    [isCandidateVisible, mappedSections],
   );
 
   const filteredCandidates = useMemo(
-    () => filteredSections.flatMap((section) => section.supporting),
+    () => filteredSections.flatMap((section) => section.candidates),
     [filteredSections],
   );
 
@@ -214,7 +215,7 @@ const PdfDecisionIntake = forwardRef<PdfDecisionIntakeHandle, PdfDecisionIntakeP
     () =>
       filteredSections.map((section) => ({
         ...section,
-        supporting: section.supporting.filter((candidate) => visibleCandidateIds.has(candidate.id)),
+        candidates: section.candidates.filter((candidate) => visibleCandidateIds.has(candidate.id)),
       })),
     [filteredSections, visibleCandidateIds],
   );
@@ -246,7 +247,7 @@ const PdfDecisionIntake = forwardRef<PdfDecisionIntakeHandle, PdfDecisionIntakeP
   }, [visibleCandidates]);
 
   return (
-    <div className="space-y-4 rounded-2xl border border-border/60 bg-white/80 p-4 shadow-sm dark:bg-white/5">
+    <div className="space-y-6">
       <div className="space-y-1">
         <h2 className="text-base font-semibold text-foreground">Decision Intake</h2>
         <p className="text-xs text-muted-foreground">
@@ -254,7 +255,7 @@ const PdfDecisionIntake = forwardRef<PdfDecisionIntakeHandle, PdfDecisionIntakeP
         </p>
       </div>
 
-      <div className="space-y-4">
+      <div className="space-y-5">
         <div className="dnav-dark-glass-surface rounded-xl border border-border/60 bg-white/70 p-4 shadow-sm dark:bg-white/10">
           <div className="flex flex-wrap items-start justify-between gap-3">
             <div className="space-y-1">
@@ -291,33 +292,32 @@ const PdfDecisionIntake = forwardRef<PdfDecisionIntakeHandle, PdfDecisionIntakeP
           {extractError ? <p className="mt-2 text-[11px] text-rose-500">{extractError}</p> : null}
         </div>
 
-        <div className="dnav-dark-glass-surface rounded-xl border border-border/60 bg-white/70 p-4 shadow-sm dark:bg-white/10">
+        <div className="dnav-dark-glass-surface rounded-xl border border-border/60 bg-white/70 p-5 shadow-sm dark:bg-white/10">
           <div className="flex flex-wrap items-start justify-between gap-2">
             <div>
               <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Document Summary</p>
               <p className="mt-1 text-[11px] text-muted-foreground">
-                Summary maps the document’s narrative for orientation, not a decision list.
+                Orientation map only — the decision candidates live below.
               </p>
             </div>
           </div>
           {summary ? (
-            <div className="mt-3 space-y-4">
-              <div className="space-y-2">
-                <p className="text-sm font-semibold text-foreground">{summary.summaryHeadline}</p>
-                {summary.sections.length > 0 ? (
-                  <div className="grid gap-3 md:grid-cols-2">
-                    {summary.sections.map((section) => (
-                      <div key={section.key} className="space-y-2 rounded-lg border border-border/50 bg-muted/10 p-3">
-                        <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
-                          {section.title.toUpperCase()}
-                        </p>
-                        <p className="text-[11px] text-muted-foreground">{section.mapSentence}</p>
-                      </div>
-                    ))}
+            <div className="mt-4 space-y-4">
+              {SHOW_SUMMARY_HEADLINE && summary.summaryHeadline ? (
+                <p className="text-[12px] font-semibold text-foreground">{summary.summaryHeadline}</p>
+              ) : null}
+              <div className="grid gap-3 md:grid-cols-2">
+                {MAP_CATEGORY_CONFIG.map((section) => (
+                  <div
+                    key={section.key}
+                    className="space-y-2 rounded-lg border border-border/40 bg-muted/5 p-3"
+                  >
+                    <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+                      {section.title}
+                    </p>
+                    <p className="text-[12px] text-foreground">{summary.map[section.key]}</p>
                   </div>
-                ) : (
-                  <p className="text-[11px] text-muted-foreground">Upload a PDF to generate a local summary.</p>
-                )}
+                ))}
               </div>
               {summary.tags.length > 0 ? (
                 <div className="flex flex-wrap gap-2">
@@ -338,14 +338,14 @@ const PdfDecisionIntake = forwardRef<PdfDecisionIntakeHandle, PdfDecisionIntakeP
         </div>
       </div>
 
-      <div className="dnav-dark-glass-surface space-y-3 rounded-xl border border-border/60 bg-white/70 p-4 shadow-sm dark:bg-white/10">
-        <div className="flex flex-wrap items-center justify-between gap-2">
+      <div className="dnav-dark-glass-surface space-y-4 rounded-xl border border-border/60 bg-white/70 p-5 shadow-sm dark:bg-white/10">
+        <div className="flex flex-wrap items-start justify-between gap-3">
           <div className="space-y-2">
             <p className="text-sm font-semibold text-foreground">
               Key Decisions <span className="text-muted-foreground">({filteredCandidates.length})</span>
             </p>
             <p className="text-[11px] text-muted-foreground">
-              Key decision candidates that support the summary above.
+              Key decision candidates that support the map above.
             </p>
             <DecisionLegend />
           </div>
@@ -386,18 +386,18 @@ const PdfDecisionIntake = forwardRef<PdfDecisionIntakeHandle, PdfDecisionIntakeP
         ) : (
           <div className="space-y-2">
             {visibleSections.map((section) =>
-              section.supporting.length > 0 ? (
+              section.candidates.length > 0 ? (
                 <div key={section.key} className="space-y-3">
                   <div className="flex items-center justify-between gap-2">
                     <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
                       {section.title}
                     </p>
                     <span className="text-[10px] text-muted-foreground">
-                      {section.supporting.length} items
+                      {section.candidates.length} items
                     </span>
                   </div>
                   <div className="space-y-2">
-                    {section.supporting.map((candidate) => {
+                    {section.candidates.map((candidate) => {
                       const isAdded = addedIds.has(candidate.id);
                       return (
                         <KeyDecisionRow
@@ -410,13 +410,19 @@ const PdfDecisionIntake = forwardRef<PdfDecisionIntakeHandle, PdfDecisionIntakeP
                           onDismiss={handleDismiss}
                           onCategoryChange={(id, category) => updateCandidate(id, { category })}
                           onMetricChange={(id, key, value) => updateSlider(id, key, value)}
-                          onStrengthChange={(id, strength) => updateCandidate(id, { strength })}
                         />
                       );
                     })}
                   </div>
                 </div>
-              ) : null,
+              ) : (
+                <div key={section.key} className="space-y-2 rounded-lg border border-dashed border-border/50 bg-muted/5 px-4 py-3">
+                  <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+                    {section.title}
+                  </p>
+                  <p className="text-[11px] text-muted-foreground">No candidates in this category yet.</p>
+                </div>
+              ),
             )}
 
             {hasMore ? (
