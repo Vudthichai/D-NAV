@@ -4,6 +4,7 @@ import { cn } from "@/lib/utils";
 import type { DecisionCandidate, DecisionCategory } from "@/lib/intake/decisionExtractLocal";
 import { computeRpsDnav } from "@/lib/intake/decisionMetrics";
 import { Button } from "@/components/ui/button";
+import { GlassyTooltip } from "@/components/ui/GlassyTooltip";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import MetricStepperPill from "@/components/decision-intake/MetricStepperPill";
@@ -27,7 +28,6 @@ interface KeyDecisionRowProps {
   onDismiss: (id: string) => void;
   onCategoryChange: (id: string, category: DecisionCategory) => void;
   onMetricChange: (id: string, key: MetricKey, value: number) => void;
-  onStrengthChange: (id: string, strength: DecisionCandidate["strength"]) => void;
 }
 
 export default function KeyDecisionRow({
@@ -39,7 +39,6 @@ export default function KeyDecisionRow({
   onDismiss,
   onCategoryChange,
   onMetricChange,
-  onStrengthChange,
 }: KeyDecisionRowProps) {
   const pageLabel = candidate.evidence.page ? `Source p.${candidate.evidence.page}` : "Source p.n/a";
   const metrics = computeRpsDnav(candidate.sliders);
@@ -56,60 +55,6 @@ export default function KeyDecisionRow({
   const formatCompact = (value: number) => {
     if (!Number.isFinite(value)) return "0";
     return value.toFixed(1).replace(/\.0$/, "");
-  };
-  const normalizeWhitespace = (value: string) => value.replace(/\s+/g, " ").trim();
-  const ensureSentenceEnd = (value: string) => (/[.!?]$/.test(value) ? value : `${value}.`);
-  const normalizeCandidateText = (value: string) => {
-    const original = normalizeWhitespace(value);
-    let text = original;
-    let prefix = "";
-
-    const setPrefix = (nextPrefix: string) => {
-      if (!prefix) prefix = nextPrefix;
-    };
-
-    if (/^(?:the\s+)?company\s+commits?\s+to\b/i.test(text)) {
-      text = text.replace(/^(?:the\s+)?company\s+commits?\s+to\s+/i, "");
-      setPrefix("Plan to ");
-    }
-    if (/^(?:we|the\s+company|company|management|the\s+team|board)\s+expects?\s+to\b/i.test(text)) {
-      text = text.replace(/^(?:we|the\s+company|company|management|the\s+team|board)\s+expects?\s+to\s+/i, "");
-      setPrefix("Plan to ");
-    }
-    if (/^(?:we|the\s+company|company|management|the\s+team|board)\s+expects?\b/i.test(text)) {
-      text = text.replace(/^(?:we|the\s+company|company|management|the\s+team|board)\s+expects?\s+/i, "");
-      setPrefix("Plan to ");
-    }
-    if (/^outlook[:\\s-]*/i.test(text)) {
-      text = text.replace(/^outlook[:\\s-]*/i, "");
-      setPrefix("Plan to ");
-    }
-    if (/^(?:we|the\s+company|company|management|the\s+team|board)\s+continues?\s+to\b/i.test(text)) {
-      text = text.replace(/^(?:we|the\s+company|company|management|the\s+team|board)\s+continues?\s+to\s+/i, "");
-      setPrefix("Continue ");
-    }
-    if (/^(?:we|the\s+company|company|management|the\s+team|board)\s+(?:begins?|starts?)\s+to\b/i.test(text)) {
-      text = text.replace(
-        /^(?:we|the\s+company|company|management|the\s+team|board)\s+(?:begins?|starts?)\s+to\s+/i,
-        "",
-      );
-      setPrefix("Begin ");
-    }
-    if (/^(?:we|the\s+company|company|management|the\s+team|board)\s+will\b/i.test(text)) {
-      text = text.replace(/^(?:we|the\s+company|company|management|the\s+team|board)\s+will\s+/i, "");
-      setPrefix("Plan to ");
-    }
-
-    text = text.replace(/^plans?\s+to\s+expect\s+/i, "Plan to target ");
-    text = text.replace(/^plans?\s+to\s+/i, "Plan to ");
-    text = text.replace(/^expect(?:s)?\s+/i, "target ");
-    text = text.replace(/^(?:the\s+)?company\s+/i, "");
-
-    const base = text.trim();
-    if (!base) return original;
-    const loweredBase = prefix ? base.charAt(0).toLowerCase() + base.slice(1) : base;
-    const normalized = `${prefix}${loweredBase}`.trim();
-    return ensureSentenceEnd(normalized.charAt(0).toUpperCase() + normalized.slice(1));
   };
   const findTimeframe = (value?: string) => {
     if (!value) return null;
@@ -130,15 +75,29 @@ export default function KeyDecisionRow({
   };
   const timeframe = findTimeframe(candidate.evidence.full ?? candidate.decision);
   const metadata = [candidate.category, pageLabel, timeframe].filter(Boolean).join(" · ");
-  const normalizedDecision = normalizeCandidateText(candidate.decision);
-  const verbatimDecision = candidate.evidence.full ?? candidate.decision;
+  const normalizedDecision = candidate.statementNormalized || candidate.decision;
+  const verbatimDecision = candidate.statementVerbatim || candidate.evidence.full || candidate.decision;
+  const statusTooltip =
+    candidate.strength === "committed"
+      ? "Committed = explicit plan, promise, or irreversible direction."
+      : "Indicative = signal, expectation, or forecast (less binding).";
 
   return (
     <div className="rounded-xl border border-border/60 bg-white/70 px-5 py-5 text-xs text-muted-foreground shadow-sm dark:bg-white/10">
       <div className="flex flex-col gap-5">
         <div className="rounded-lg border border-border/50 border-l-4 border-l-primary/30 bg-muted/5 px-4 py-4">
           <div className="flex flex-wrap items-center gap-2 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
-            <span className={cn("rounded-full border px-2 py-0.5", statusBadgeClass)}>{statusLabel.toUpperCase()}</span>
+            <span className={cn("inline-flex items-center gap-1 rounded-full border px-2 py-0.5", statusBadgeClass)}>
+              {statusLabel.toUpperCase()}
+              <GlassyTooltip content={statusTooltip} side="top">
+                <span
+                  className="inline-flex h-4 w-4 items-center justify-center rounded-full border border-current text-[9px] font-bold"
+                  aria-label={statusTooltip}
+                >
+                  i
+                </span>
+              </GlassyTooltip>
+            </span>
             <span>{metadata}</span>
           </div>
           <p className="mt-2 line-clamp-3 text-base font-semibold leading-relaxed text-foreground sm:text-lg">
@@ -148,51 +107,6 @@ export default function KeyDecisionRow({
 
         <div className="flex flex-wrap items-center justify-between gap-4">
           <div className="flex flex-wrap items-center gap-2 text-[11px] text-muted-foreground">
-            <div className="flex items-center gap-1 rounded-full border border-border/60 bg-muted/10 p-0.5">
-              <Popover>
-                <PopoverTrigger asChild>
-                  <button
-                    type="button"
-                    className="rounded-full border border-border/60 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground transition hover:text-foreground"
-                    aria-label="Update candidate status"
-                  >
-                    Update status
-                  </button>
-                </PopoverTrigger>
-                <PopoverContent align="start" className="w-56 rounded-xl border border-border/60 bg-background/95 p-3 text-xs">
-                  <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
-                    Status
-                  </p>
-                  <div className="mt-2 space-y-2">
-                    {(["committed", "indicative"] as const).map((strength) => (
-                      <button
-                        key={strength}
-                        type="button"
-                        onClick={() => onStrengthChange(candidate.id, strength)}
-                        className={cn(
-                          "w-full rounded-lg border px-3 py-2 text-left text-[11px] font-semibold uppercase tracking-wide transition",
-                          strength === candidate.strength
-                            ? "border-foreground bg-foreground text-background"
-                            : "border-border/60 text-muted-foreground hover:border-border/80 hover:text-foreground",
-                        )}
-                      >
-                        {strength}
-                      </button>
-                    ))}
-                  </div>
-                  <div className="mt-3 space-y-2 text-[11px] text-muted-foreground">
-                    <p>
-                      <span className="font-semibold text-foreground">Committed:</span> explicit promise, plan, or
-                      irreversible direction.
-                    </p>
-                    <p>
-                      <span className="font-semibold text-foreground">Indicative:</span> signal, expectation, or forecast
-                      — less binding.
-                    </p>
-                  </div>
-                </PopoverContent>
-              </Popover>
-            </div>
             <Select
               value={candidate.category}
               onValueChange={(value) => onCategoryChange(candidate.id, value as DecisionCategory)}

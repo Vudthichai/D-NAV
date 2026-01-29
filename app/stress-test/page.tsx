@@ -822,8 +822,8 @@ export default function StressTestPage() {
               </div>
             ) : null}
 
-            <div className="mt-8 border-t border-border/60 pt-6">
-              <div className="rounded-3xl bg-muted/5 p-2">
+            <div className="mt-10 border-t border-border/60 bg-muted/5 pt-8">
+              <div className="rounded-3xl bg-white/70 p-3 shadow-sm dark:bg-white/10">
                 <PdfDecisionIntake
                   ref={intakeRef}
                   onAddDecision={handleAddToSession}
