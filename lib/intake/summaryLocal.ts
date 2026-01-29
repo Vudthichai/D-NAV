@@ -12,6 +12,7 @@ interface DecisionStatement {
 
 export interface LocalSummary {
   summary?: string;
+  narrativeSummary: string;
   summaryHeadline: string;
   map: Record<MapCategoryKey, string>;
   tags: string[];
@@ -32,6 +33,121 @@ const STOPWORDS = new Set([
   "into",
   "their",
 ]);
+
+const NARRATIVE_MIN_CHARS = 350;
+const NARRATIVE_MAX_CHARS = 550;
+
+const PRIORITY_PHRASES = [
+  "we expect",
+  "will",
+  "aim",
+  "plan",
+  "scheduled",
+  "begin ramping",
+  "launch",
+  "on track",
+  "completed",
+  "continues to",
+  "in 2025",
+];
+
+const SIGNAL_KEYWORDS = [
+  "powerwall",
+  "megapack",
+  "energy",
+  "storage",
+  "autonomy",
+  "fsd",
+  "robotaxi",
+  "optimus",
+  "manufacturing",
+  "factory",
+  "ramp",
+  "production",
+  "capacity",
+  "compute",
+  "capex",
+  "cogs",
+  "cost",
+  "margin",
+  "battery",
+  "4680",
+  "supply",
+];
+
+const trimToLength = (text: string, maxChars: number) => {
+  if (text.length <= maxChars) return text;
+  const clipped = text.slice(0, maxChars);
+  const lastSentenceEnd = Math.max(clipped.lastIndexOf("."), clipped.lastIndexOf("!"), clipped.lastIndexOf("?"));
+  if (lastSentenceEnd >= NARRATIVE_MIN_CHARS) {
+    return clipped.slice(0, lastSentenceEnd + 1);
+  }
+  const lastSpace = clipped.lastIndexOf(" ");
+  return `${clipped.slice(0, Math.max(0, lastSpace))}…`.trim();
+};
+
+const scoreNarrativeSentence = (sentence: string) => {
+  const lower = sentence.toLowerCase();
+  let score = 0;
+  PRIORITY_PHRASES.forEach((phrase) => {
+    if (lower.includes(phrase)) score += 4;
+  });
+  SIGNAL_KEYWORDS.forEach((keyword) => {
+    if (lower.includes(keyword)) score += 2;
+  });
+  if (/\b20(2[4-9]|3[0-2])\b/.test(lower)) score += 2;
+  if (sentence.length >= 60 && sentence.length <= 220) score += 1;
+  const decisionCheck = assessDecisionLikeness(sentence);
+  score += Math.min(4, Math.max(0, decisionCheck.score));
+  return score;
+};
+
+const buildNarrativeSummary = (pages: SectionedPage[]) => {
+  const scored: Array<{ sentence: string; score: number; page: number; index: number }> = [];
+  let globalIndex = 0;
+
+  pages.forEach((page) => {
+    if (page.isLowSignal) return;
+    splitSentences(page.text).forEach((sentence) => {
+      const trimmed = sentence.trim();
+      globalIndex += 1;
+      if (!trimmed) return;
+      if (isBoilerplate(trimmed) || isTableLike(trimmed)) return;
+      const score = scoreNarrativeSentence(trimmed);
+      if (score < 5) return;
+      scored.push({ sentence: trimmed, score, page: page.page, index: globalIndex });
+    });
+  });
+
+  const topCandidates = scored.sort((a, b) => b.score - a.score).slice(0, 8);
+  const ordered = [...topCandidates].sort((a, b) => (a.page - b.page) || (a.index - b.index));
+
+  const selected: string[] = [];
+  let totalLength = 0;
+  ordered.forEach((candidate) => {
+    if (selected.length >= 4) return;
+    if (totalLength >= NARRATIVE_MAX_CHARS) return;
+    selected.push(candidate.sentence);
+    totalLength += candidate.sentence.length + 1;
+  });
+
+  if (selected.length === 0) {
+    return "This document outlines operational priorities, capacity ramps, and near-term product plans.";
+  }
+
+  const summaryText = selected.join(" ").replace(/\s+/g, " ").trim();
+  if (summaryText.length < NARRATIVE_MIN_CHARS && topCandidates.length > selected.length) {
+    topCandidates
+      .filter((candidate) => !selected.includes(candidate.sentence))
+      .some((candidate) => {
+        if (selected.length >= 4) return true;
+        selected.push(candidate.sentence);
+        return false;
+      });
+  }
+
+  return trimToLength(selected.join(" ").replace(/\s+/g, " ").trim(), NARRATIVE_MAX_CHARS);
+};
 
 const buildThemes = (candidates: DecisionCandidate[]): string[] => {
   const counts = new Map<string, number>();
@@ -129,6 +245,7 @@ export function buildLocalSummary(
   const docLabel = docName.replace(/\.pdf$/i, "").trim();
   const themes = buildThemes(candidates);
   const highlights = pickHighlightSentences(pages, candidates);
+  const narrativeSummary = buildNarrativeSummary(pages);
 
   const introTheme = themes.slice(0, 2).join(" and ");
   const introBase = docLabel
@@ -184,6 +301,8 @@ export function buildLocalSummary(
   }, {} as Record<MapCategoryKey, string>);
 
   return {
+    summary: narrativeSummary,
+    narrativeSummary,
     summaryHeadline,
     map,
     tags: themes.map((theme) => theme.charAt(0).toUpperCase() + theme.slice(1)),
