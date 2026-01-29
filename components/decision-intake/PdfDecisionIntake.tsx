@@ -33,7 +33,29 @@ const pillClass = (active: boolean) =>
       : "border-border/60 bg-transparent text-muted-foreground hover:border-border/80 hover:text-foreground",
   );
 
-const SHOW_SUMMARY_HEADLINE = true;
+const SUMMARY_MAX_CHARS = 450;
+const SUMMARY_MIN_CHARS = 350;
+
+const trimToLength = (text: string, maxChars: number) => {
+  if (text.length <= maxChars) return text;
+  const clipped = text.slice(0, maxChars);
+  const lastSentenceEnd = Math.max(clipped.lastIndexOf("."), clipped.lastIndexOf("!"), clipped.lastIndexOf("?"));
+  if (lastSentenceEnd >= SUMMARY_MIN_CHARS) {
+    return clipped.slice(0, lastSentenceEnd + 1);
+  }
+  const lastSpace = clipped.lastIndexOf(" ");
+  return `${clipped.slice(0, Math.max(0, lastSpace))}…`.trim();
+};
+
+const buildNarrativeSummary = (summary: LocalSummary) => {
+  const fallbackText = MAP_CATEGORY_CONFIG.map((section) => summary.map[section.key])
+    .filter(Boolean)
+    .join(" ")
+    .replace(/\s+/g, " ")
+    .trim();
+  if (!fallbackText) return "";
+  return trimToLength(fallbackText, SUMMARY_MAX_CHARS);
+};
 
 const PdfDecisionIntake = forwardRef<PdfDecisionIntakeHandle, PdfDecisionIntakeProps>(function PdfDecisionIntake(
   { onAddDecision, onAddDecisions, onCandidateUpdate }: PdfDecisionIntakeProps,
@@ -246,6 +268,8 @@ const PdfDecisionIntake = forwardRef<PdfDecisionIntakeHandle, PdfDecisionIntakeP
     setDismissedIds((prev) => new Set([...prev, ...visibleCandidates.map((candidate) => candidate.id)]));
   }, [visibleCandidates]);
 
+  const narrativeSummary = summary ? summary.summary ?? buildNarrativeSummary(summary) : "";
+
   return (
     <div className="space-y-6">
       <div className="space-y-1">
@@ -302,38 +326,18 @@ const PdfDecisionIntake = forwardRef<PdfDecisionIntakeHandle, PdfDecisionIntakeP
             </div>
           </div>
           {summary ? (
-            <div className="mt-4 space-y-4">
-              {SHOW_SUMMARY_HEADLINE && summary.summaryHeadline ? (
-                <p className="text-[12px] font-semibold text-foreground">{summary.summaryHeadline}</p>
+            <div className="mt-4 space-y-2 rounded-lg border border-border/40 bg-muted/5 p-4">
+              {summary.summaryHeadline && summary.summaryHeadline.length <= 120 ? (
+                <p className="text-[11px] font-semibold text-foreground">TL;DR: {summary.summaryHeadline}</p>
               ) : null}
-              <div className="grid gap-3 md:grid-cols-2">
-                {MAP_CATEGORY_CONFIG.map((section) => (
-                  <div
-                    key={section.key}
-                    className="space-y-2 rounded-lg border border-border/40 bg-muted/5 p-3"
-                  >
-                    <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
-                      {section.title}
-                    </p>
-                    <p className="text-[12px] text-foreground">{summary.map[section.key]}</p>
-                  </div>
-                ))}
-              </div>
-              {summary.tags.length > 0 ? (
-                <div className="flex flex-wrap gap-2">
-                  {summary.tags.map((tag) => (
-                    <span
-                      key={tag}
-                      className="rounded-full border border-border/60 bg-white/70 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground shadow-sm dark:bg-white/10"
-                    >
-                      {tag}
-                    </span>
-                  ))}
-                </div>
-              ) : null}
+              {narrativeSummary ? (
+                <p className="text-[12px] leading-relaxed text-foreground/90">{narrativeSummary}</p>
+              ) : (
+                <p className="text-[12px] text-muted-foreground">No summary available yet.</p>
+              )}
             </div>
           ) : (
-            <p className="mt-2 text-[11px] text-muted-foreground">Summary populates after extraction.</p>
+            <p className="mt-2 text-[11px] text-muted-foreground">No summary available yet.</p>
           )}
         </div>
       </div>
