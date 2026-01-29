@@ -22,7 +22,6 @@ interface DecisionRowCompactProps {
   onDismiss: (id: string) => void;
   onCategoryChange: (id: string, category: DecisionCategory) => void;
   onMetricChange: (id: string, key: MetricKey, value: number) => void;
-  onStrengthChange: (id: string, strength: DecisionCandidate["strength"]) => void;
 }
 
 export default function DecisionRowCompact({
@@ -33,7 +32,6 @@ export default function DecisionRowCompact({
   onDismiss,
   onCategoryChange,
   onMetricChange,
-  onStrengthChange,
 }: DecisionRowCompactProps) {
   const pageLabel = candidate.evidence.page ? `p.${candidate.evidence.page}` : "p.n/a";
 
@@ -47,35 +45,7 @@ export default function DecisionRowCompact({
               {candidate.decision}
             </p>
           </div>
-          <div className="flex w-[380px] shrink-0 items-center justify-end gap-2 whitespace-nowrap">
-            <div className="flex items-center gap-1 rounded-full border border-border/60 bg-muted/10 p-0.5">
-              <button
-                type="button"
-                onClick={() => onStrengthChange(candidate.id, "committed")}
-                className={cn(
-                  "rounded-full px-3 py-1 text-[10px] font-semibold uppercase tracking-wide transition",
-                  candidate.strength === "committed"
-                    ? "border border-foreground bg-foreground text-background shadow-sm"
-                    : "border border-transparent text-muted-foreground hover:text-foreground",
-                )}
-                aria-pressed={candidate.strength === "committed"}
-              >
-                Committed
-              </button>
-              <button
-                type="button"
-                onClick={() => onStrengthChange(candidate.id, "indicative")}
-                className={cn(
-                  "rounded-full border px-3 py-1 text-[10px] font-semibold uppercase tracking-wide transition",
-                  candidate.strength === "indicative"
-                    ? "border-foreground bg-transparent text-foreground"
-                    : "border-transparent text-muted-foreground hover:text-foreground",
-                )}
-                aria-pressed={candidate.strength === "indicative"}
-              >
-                Indicative
-              </button>
-            </div>
+          <div className="flex w-[300px] shrink-0 items-center justify-end gap-2 whitespace-nowrap">
             <select
               value={candidate.category}
               onChange={(event) => onCategoryChange(candidate.id, event.target.value as DecisionCategory)}
