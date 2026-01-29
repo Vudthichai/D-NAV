@@ -11,6 +11,7 @@ interface DecisionStatement {
 }
 
 export interface LocalSummary {
+  summary?: string;
   summaryHeadline: string;
   map: Record<MapCategoryKey, string>;
   tags: string[];
