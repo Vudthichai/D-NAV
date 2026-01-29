@@ -2,11 +2,10 @@
 
 import { type KeyboardEvent, useCallback, useState } from "react";
 import { cn } from "@/lib/utils";
-import type { DecisionCandidate, DecisionCategory } from "@/lib/intake/decisionExtractLocal";
+import type { DecisionCandidate } from "@/lib/intake/decisionExtractLocal";
 import { computeRpsDnav } from "@/lib/intake/decisionMetrics";
 import { Button } from "@/components/ui/button";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import MetricStepperPill from "@/components/decision-intake/MetricStepperPill";
 
 const METRICS = [
@@ -21,23 +20,19 @@ type MetricKey = (typeof METRICS)[number]["key"];
 
 interface KeyDecisionRowProps {
   candidate: DecisionCandidate;
-  categoryOptions: DecisionCategory[];
   isAdded: boolean;
   pdfUrl?: string | null;
   onAdd: (candidate: DecisionCandidate) => void;
   onDismiss: (id: string) => void;
-  onCategoryChange: (id: string, category: DecisionCategory) => void;
   onMetricChange: (id: string, key: MetricKey, value: number) => void;
 }
 
 export default function KeyDecisionRow({
   candidate,
-  categoryOptions,
   isAdded,
   pdfUrl,
   onAdd,
   onDismiss,
-  onCategoryChange,
   onMetricChange,
 }: KeyDecisionRowProps) {
   const [isExpanded, setIsExpanded] = useState(false);
@@ -70,8 +65,7 @@ export default function KeyDecisionRow({
     return null;
   };
   const timeframe = findTimeframe(candidate.evidence.full ?? candidate.decision);
-  const categoryLabel = candidate.category || "Uncategorized";
-  const metadata = [categoryLabel, pageLabel, timeframe].filter(Boolean).join(" · ");
+  const metadata = [pageLabel, timeframe].filter(Boolean).join(" · ");
   const normalizedDecision = candidate.statementNormalized || candidate.decision;
   const verbatimDecision = candidate.statementVerbatim || candidate.evidence.full || candidate.decision;
   const toggleExpanded = useCallback(() => {
@@ -123,21 +117,6 @@ export default function KeyDecisionRow({
         <div className="border-t border-border/50 px-3 py-3" onClick={(event) => event.stopPropagation()}>
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div className="flex flex-wrap items-center gap-2 text-[11px] text-muted-foreground">
-              <Select
-                value={candidate.category}
-                onValueChange={(value) => onCategoryChange(candidate.id, value as DecisionCategory)}
-              >
-                <SelectTrigger size="sm" className="h-7 rounded-full border-border/60 bg-background/70 px-3 text-[11px]">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent align="start">
-                  {categoryOptions.map((option) => (
-                    <SelectItem key={option} value={option}>
-                      {option}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
               {pdfUrl ? (
                 <a
                   href={pdfUrl}
