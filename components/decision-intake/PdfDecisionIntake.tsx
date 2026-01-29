@@ -3,13 +3,8 @@
 import { type ChangeEvent, forwardRef, useCallback, useImperativeHandle, useMemo, useState } from "react";
 import { cn } from "@/lib/utils";
 import { extractPdfText } from "@/lib/pdf/extractPdfText";
-import {
-  extractDecisionCandidatesLocal,
-  type DecisionCandidate,
-  DECISION_CATEGORIES,
-} from "@/lib/intake/decisionExtractLocal";
+import { extractDecisionCandidatesLocal, type DecisionCandidate, DECISION_CATEGORIES } from "@/lib/intake/decisionExtractLocal";
 import type { LocalSummary } from "@/lib/intake/summaryLocal";
-import { MAP_CATEGORY_CONFIG } from "@/lib/intake/decisionMap";
 import KeyDecisionRow from "@/components/decision-intake/KeyDecisionRow";
 import DecisionLegend from "@/components/decision-intake/DecisionLegend";
 
@@ -24,38 +19,6 @@ export interface PdfDecisionIntakeHandle {
 }
 
 type SliderKey = keyof DecisionCandidate["sliders"];
-
-const pillClass = (active: boolean) =>
-  cn(
-    "rounded-full border px-3 py-1 text-[10px] font-semibold uppercase tracking-wide transition",
-    active
-      ? "border-foreground bg-foreground text-background"
-      : "border-border/60 bg-transparent text-muted-foreground hover:border-border/80 hover:text-foreground",
-  );
-
-const SUMMARY_MAX_CHARS = 450;
-const SUMMARY_MIN_CHARS = 350;
-
-const trimToLength = (text: string, maxChars: number) => {
-  if (text.length <= maxChars) return text;
-  const clipped = text.slice(0, maxChars);
-  const lastSentenceEnd = Math.max(clipped.lastIndexOf("."), clipped.lastIndexOf("!"), clipped.lastIndexOf("?"));
-  if (lastSentenceEnd >= SUMMARY_MIN_CHARS) {
-    return clipped.slice(0, lastSentenceEnd + 1);
-  }
-  const lastSpace = clipped.lastIndexOf(" ");
-  return `${clipped.slice(0, Math.max(0, lastSpace))}…`.trim();
-};
-
-const buildNarrativeSummary = (summary: LocalSummary) => {
-  const fallbackText = MAP_CATEGORY_CONFIG.map((section) => summary.map[section.key])
-    .filter(Boolean)
-    .join(" ")
-    .replace(/\s+/g, " ")
-    .trim();
-  if (!fallbackText) return "";
-  return trimToLength(fallbackText, SUMMARY_MAX_CHARS);
-};
 
 const PdfDecisionIntake = forwardRef<PdfDecisionIntakeHandle, PdfDecisionIntakeProps>(function PdfDecisionIntake(
   { onAddDecision, onAddDecisions, onCandidateUpdate }: PdfDecisionIntakeProps,
@@ -73,8 +36,6 @@ const PdfDecisionIntake = forwardRef<PdfDecisionIntakeHandle, PdfDecisionIntakeP
   const [dismissedIds, setDismissedIds] = useState<Set<string>>(new Set());
   const [addedIds, setAddedIds] = useState<Set<string>>(new Set());
   const [showAll, setShowAll] = useState(false);
-  const [committedOnly, setCommittedOnly] = useState(false);
-  const [hideTables, setHideTables] = useState(true);
   const [pdfUrl, setPdfUrl] = useState<string | null>(null);
   const resetState = useCallback(() => {
     setPagesRead(0);
@@ -131,7 +92,7 @@ const PdfDecisionIntake = forwardRef<PdfDecisionIntakeHandle, PdfDecisionIntakeP
       setSummary(extraction.summary);
       setCandidates(extraction.candidates);
       if (extraction.candidates.length === 0) {
-        setExtractError("No clear commitments detected. Try a different PDF or expand the filters.");
+        setExtractError("No clear commitments detected. Try a different PDF.");
       }
     } catch (error) {
       console.error("Failed to read PDF.", error);
@@ -189,57 +150,22 @@ const PdfDecisionIntake = forwardRef<PdfDecisionIntakeHandle, PdfDecisionIntakeP
     [applyCandidateUpdates],
   );
 
-  const mappedSections = useMemo(
-    () =>
-      MAP_CATEGORY_CONFIG.map((section) => ({
-        ...section,
-        summary: summary?.map[section.key] ?? "",
-        candidates: candidates.filter((candidate) => candidate.mapCategory === section.key),
-      })),
-    [candidates, summary],
-  );
-
   const isCandidateVisible = useCallback(
     (candidate: DecisionCandidate) => {
       if (dismissedIds.has(candidate.id)) return false;
-      if (committedOnly && candidate.strength !== "committed") return false;
-      if (hideTables && candidate.flags.isTableLike) return false;
       return true;
     },
-    [dismissedIds, committedOnly, hideTables],
-  );
-
-  const filteredSections = useMemo(
-    () =>
-      mappedSections.map((section) => ({
-        ...section,
-        candidates: section.candidates.filter((candidate) => isCandidateVisible(candidate)),
-      })),
-    [isCandidateVisible, mappedSections],
+    [dismissedIds],
   );
 
   const filteredCandidates = useMemo(
-    () => filteredSections.flatMap((section) => section.candidates),
-    [filteredSections],
+    () => candidates.filter((candidate) => isCandidateVisible(candidate)),
+    [candidates, isCandidateVisible],
   );
 
   const visibleCandidates = useMemo(
     () => (showAll ? filteredCandidates : filteredCandidates.slice(0, 15)),
     [filteredCandidates, showAll],
-  );
-
-  const visibleCandidateIds = useMemo(
-    () => new Set(visibleCandidates.map((candidate) => candidate.id)),
-    [visibleCandidates],
-  );
-
-  const visibleSections = useMemo(
-    () =>
-      filteredSections.map((section) => ({
-        ...section,
-        candidates: section.candidates.filter((candidate) => visibleCandidateIds.has(candidate.id)),
-      })),
-    [filteredSections, visibleCandidateIds],
   );
 
   const hasMore = filteredCandidates.length > visibleCandidates.length;
@@ -268,7 +194,7 @@ const PdfDecisionIntake = forwardRef<PdfDecisionIntakeHandle, PdfDecisionIntakeP
     setDismissedIds((prev) => new Set([...prev, ...visibleCandidates.map((candidate) => candidate.id)]));
   }, [visibleCandidates]);
 
-  const narrativeSummary = summary ? summary.summary ?? buildNarrativeSummary(summary) : "";
+  const narrativeSummary = summary?.narrativeSummary ?? summary?.summary ?? "";
 
   return (
     <div className="space-y-6">
@@ -320,16 +246,10 @@ const PdfDecisionIntake = forwardRef<PdfDecisionIntakeHandle, PdfDecisionIntakeP
           <div className="flex flex-wrap items-start justify-between gap-2">
             <div>
               <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Document Summary</p>
-              <p className="mt-1 text-[11px] text-muted-foreground">
-                Orientation map only — the decision candidates live below.
-              </p>
             </div>
           </div>
           {summary ? (
             <div className="mt-4 space-y-2 rounded-lg border border-border/40 bg-muted/5 p-4">
-              {summary.summaryHeadline && summary.summaryHeadline.length <= 120 ? (
-                <p className="text-[11px] font-semibold text-foreground">TL;DR: {summary.summaryHeadline}</p>
-              ) : null}
               {narrativeSummary ? (
                 <p className="text-[12px] leading-relaxed text-foreground/90">{narrativeSummary}</p>
               ) : (
@@ -348,18 +268,10 @@ const PdfDecisionIntake = forwardRef<PdfDecisionIntakeHandle, PdfDecisionIntakeP
             <p className="text-sm font-semibold text-foreground">
               Key Decisions <span className="text-muted-foreground">({filteredCandidates.length})</span>
             </p>
-            <p className="text-[11px] text-muted-foreground">
-              Key decision candidates that support the map above.
-            </p>
+            <p className="text-[11px] text-muted-foreground">Key decision candidates extracted from the document.</p>
             <DecisionLegend />
           </div>
           <div className="flex flex-wrap items-center gap-2">
-            <button type="button" className={pillClass(committedOnly)} onClick={() => setCommittedOnly((prev) => !prev)}>
-              Committed only
-            </button>
-            <button type="button" className={pillClass(hideTables)} onClick={() => setHideTables((prev) => !prev)}>
-              Hide tables
-            </button>
             <button
               type="button"
               className={cn(
@@ -389,45 +301,22 @@ const PdfDecisionIntake = forwardRef<PdfDecisionIntakeHandle, PdfDecisionIntakeP
           </div>
         ) : (
           <div className="space-y-2">
-            {visibleSections.map((section) =>
-              section.candidates.length > 0 ? (
-                <div key={section.key} className="space-y-3">
-                  <div className="flex items-center justify-between gap-2">
-                    <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
-                      {section.title}
-                    </p>
-                    <span className="text-[10px] text-muted-foreground">
-                      {section.candidates.length} items
-                    </span>
-                  </div>
-                  <div className="space-y-2">
-                    {section.candidates.map((candidate) => {
-                      const isAdded = addedIds.has(candidate.id);
-                      return (
-                        <KeyDecisionRow
-                          key={candidate.id}
-                          candidate={candidate}
-                          isAdded={isAdded}
-                          categoryOptions={DECISION_CATEGORIES}
-                          pdfUrl={pdfUrl}
-                          onAdd={handleAdd}
-                          onDismiss={handleDismiss}
-                          onCategoryChange={(id, category) => updateCandidate(id, { category })}
-                          onMetricChange={(id, key, value) => updateSlider(id, key, value)}
-                        />
-                      );
-                    })}
-                  </div>
-                </div>
-              ) : (
-                <div key={section.key} className="space-y-2 rounded-lg border border-dashed border-border/50 bg-muted/5 px-4 py-3">
-                  <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
-                    {section.title}
-                  </p>
-                  <p className="text-[11px] text-muted-foreground">No candidates in this category yet.</p>
-                </div>
-              ),
-            )}
+            {visibleCandidates.map((candidate) => {
+              const isAdded = addedIds.has(candidate.id);
+              return (
+                <KeyDecisionRow
+                  key={candidate.id}
+                  candidate={candidate}
+                  isAdded={isAdded}
+                  categoryOptions={DECISION_CATEGORIES}
+                  pdfUrl={pdfUrl}
+                  onAdd={handleAdd}
+                  onDismiss={handleDismiss}
+                  onCategoryChange={(id, category) => updateCandidate(id, { category })}
+                  onMetricChange={(id, key, value) => updateSlider(id, key, value)}
+                />
+              );
+            })}
 
             {hasMore ? (
               <div className="flex justify-center">
