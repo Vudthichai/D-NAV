@@ -32,6 +32,7 @@ export interface DecisionCandidate {
   decision: string;
   statementNormalized: string;
   statementVerbatim: string;
+  page?: number;
   mapCategory: MapCategoryKey;
   category: DecisionCategory;
   tags: string[];
@@ -193,6 +194,7 @@ const buildCandidate = (
     decision: decisionCheck.rewritten,
     statementNormalized,
     statementVerbatim,
+    page,
     mapCategory: classifyMapCategory(trimmed),
     category,
     tags: [],

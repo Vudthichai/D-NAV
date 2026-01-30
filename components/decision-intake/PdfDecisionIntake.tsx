@@ -197,6 +197,7 @@ const PdfDecisionIntake = forwardRef<PdfDecisionIntakeHandle, PdfDecisionIntakeP
   }, [visibleCandidates]);
 
   const narrativeSummary = summary?.narrativeSummary ?? summary?.summary ?? "";
+  const getPdfPageUrl = useCallback((pdfUrl: string, page?: number) => (page ? `${pdfUrl}#page=${page}` : pdfUrl), []);
 
   return (
     <div className="space-y-6">
@@ -328,12 +329,14 @@ const PdfDecisionIntake = forwardRef<PdfDecisionIntakeHandle, PdfDecisionIntakeP
           <div className="space-y-1">
             {visibleCandidates.map((candidate) => {
               const isAdded = addedIds.has(candidate.id);
+              const candidatePage = candidate.page ?? candidate.evidence.page;
+              const pdfPageUrl = pdfUrl ? getPdfPageUrl(pdfUrl, candidatePage) : null;
               return (
                 <KeyDecisionRow
                   key={candidate.id}
                   candidate={candidate}
                   isAdded={isAdded}
-                  pdfUrl={pdfUrl}
+                  pdfUrl={pdfPageUrl}
                   onAdd={handleAdd}
                   onDismiss={handleDismiss}
                   onMetricChange={(id, key, value) => updateSlider(id, key, value)}
