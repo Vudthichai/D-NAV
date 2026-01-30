@@ -39,6 +39,10 @@ export default function KeyDecisionRow({
   const textareaRef = useRef<HTMLTextAreaElement | null>(null);
   const candidatePage = candidate.page ?? candidate.evidence.page;
   const pageLabel = candidatePage ? `p${candidatePage}` : "p.n/a";
+  const candidateCategory = [candidate.category, candidate.categoryGuess]
+    .map((value) => value?.trim())
+    .find((value) => value);
+  const categoryLabel = candidateCategory || "Uncategorized";
   const findTimeframe = (value?: string) => {
     if (!value) return null;
     const patterns = [
@@ -57,7 +61,7 @@ export default function KeyDecisionRow({
     return null;
   };
   const timeframe = findTimeframe(candidate.evidence.full ?? candidate.decision);
-  const metadata = [pageLabel, timeframe].filter(Boolean).join(" · ");
+  const metadata = [categoryLabel, pageLabel, timeframe].filter(Boolean).join(" • ");
   const decisionText = candidate.decision;
   const handleDecisionChange = useCallback(
     (event: ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
@@ -83,7 +87,7 @@ export default function KeyDecisionRow({
   return (
     <div className="rounded-lg border border-neutral-200 bg-white text-xs text-muted-foreground shadow-sm transition-colors hover:border-neutral-300 hover:bg-neutral-50 dark:border-neutral-800 dark:bg-neutral-900/40 dark:hover:border-neutral-700 dark:hover:bg-neutral-900/55">
       <div className="space-y-2 px-3 py-3">
-        <div className="min-w-0 space-y-1">
+        <div className="min-w-0 space-y-2">
           {useTextarea ? (
             <textarea
               ref={textareaRef}

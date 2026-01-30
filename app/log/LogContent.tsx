@@ -249,15 +249,27 @@ export default function LogContent() {
     setImportStatus(null);
   };
 
-  const REQUIRED_HEADERS: Record<string, keyof DecisionRow> = {
+  const HEADER_ALIASES: Record<string, keyof DecisionRow> = {
     date: "date",
+    timestamp: "date",
     "decision name": "decisionName",
+    "decision text": "decisionName",
+    decision: "decisionName",
     category: "category",
+    dept: "category",
+    department: "category",
+    group: "category",
     impact: "impact",
+    i: "impact",
     cost: "cost",
+    c: "cost",
     risk: "risk",
+    r: "risk",
     urgency: "urgency",
+    u: "urgency",
     confidence: "confidence",
+    cnf: "confidence",
+    conf: "confidence",
   };
 
   const OPTIONAL_HEADERS = new Set([
@@ -274,15 +286,45 @@ export default function LogContent() {
     "notes",
     "ticker",
     "year",
+    "sourcefile",
+    "source file",
+    "source",
+    "file",
+    "page",
+    "p",
   ]);
 
-  const normalizeHeader = (key: string = "") => key.trim().toLowerCase();
+  const REQUIRED_FIELDS: Array<keyof DecisionRow> = [
+    "decisionName",
+    "impact",
+    "cost",
+    "risk",
+    "urgency",
+    "confidence",
+  ];
+
+  const FIELD_LABELS: Record<keyof DecisionRow, string> = {
+    date: "Date",
+    decisionName: "Decision",
+    category: "Category",
+    impact: "Impact",
+    cost: "Cost",
+    risk: "Risk",
+    urgency: "Urgency",
+    confidence: "Confidence",
+  };
+
+  const normalizeHeader = (key: string = "") =>
+    key.trim().toLowerCase().replace(/[_-]+/g, " ").replace(/\s+/g, " ");
+
+  const resolveHeaderKey = (header: string) => HEADER_ALIASES[normalizeHeader(header)] ?? null;
 
   const validateHeaders = (headers: string[]) => {
-    const normalized = headers.map(normalizeHeader);
-    const missing = Object.keys(REQUIRED_HEADERS).filter((required) => !normalized.includes(required));
+    const present = new Set(headers.map(resolveHeaderKey).filter(Boolean));
+    const missing = REQUIRED_FIELDS.filter((field) => !present.has(field));
     if (missing.length) {
-      throw new Error(`Missing required column${missing.length > 1 ? "s" : ""}: ${missing.join(", ")}`);
+      const labels = missing.map((field) => FIELD_LABELS[field]);
+      throw new Error(`Missing required column${labels.length > 1 ? "s" : ""}: ${labels.join(", ")}`);
     }
   };
 
@@ -407,7 +449,7 @@ export default function LogContent() {
     const name = String(record.decisionName ?? "").trim();
     if (!name) return null;
 
-    const category = String(record.category ?? "General").trim() || "General";
+    const category = String(record.category ?? "").trim() || "Uncategorized";
     const impact = parseNumeric(record.impact);
     const cost = parseNumeric(record.cost);
     const risk = parseNumeric(record.risk);
@@ -514,12 +556,9 @@ export default function LogContent() {
     validateHeaders(rows[0]);
     const headerMap = rows[0].map((header) => {
       const normalized = normalizeHeader(header);
-      if (REQUIRED_HEADERS[normalized]) {
-        return REQUIRED_HEADERS[normalized];
-      }
-      if (OPTIONAL_HEADERS.has(normalized)) {
-        return null;
-      }
+      const key = resolveHeaderKey(header);
+      if (key) return key;
+      if (OPTIONAL_HEADERS.has(normalized)) return null;
       return null;
     });
     return rows
@@ -538,26 +577,32 @@ export default function LogContent() {
   };
 
   const parseSheetRecords = (sheet: XLSX.Sheet): ParsedRecord[] => {
-    const headerRow = XLSX.utils.sheet_to_json<string[]>(sheet, { header: 1 }) as unknown as string[][];
+    const headerRow = XLSX.utils.sheet_to_json<string[]>(sheet, { header: 1, defval: "" }) as unknown as string[][];
     const headers = (headerRow[0] || []).map(String);
     validateHeaders(headers);
 
-    const raw = XLSX.utils.sheet_to_json<Record<string, unknown>>(sheet, { defval: "" });
-    if (!raw.length) return [];
-
-    return raw.map((row) => {
-      const record: ParsedRecord = {};
-      Object.entries(row).forEach(([key, value]) => {
-        const normalized = normalizeHeader(key);
-        const mappedKey = REQUIRED_HEADERS[normalized];
-        if (mappedKey) {
-          const normalizedValue =
-            typeof value === "number" || typeof value === "string" ? value : null;
-          record[mappedKey] = normalizedValue;
-        }
-      });
-      return record;
+    if (headerRow.length <= 1) return [];
+    const headerMap = headers.map((header) => {
+      const normalized = normalizeHeader(header);
+      const key = resolveHeaderKey(header);
+      if (key) return key;
+      if (OPTIONAL_HEADERS.has(normalized)) return null;
+      return null;
     });
+
+    return headerRow
+      .slice(1)
+      .filter((row) => row.some((cell) => String(cell || "").trim().length > 0))
+      .map((row) => {
+        const record: ParsedRecord = {};
+        row.forEach((cell, idx) => {
+          const key = headerMap[idx];
+          if (key) {
+            record[key] = cell;
+          }
+        });
+        return record;
+      });
   };
 
   const buildDecisionKey = (entry: Pick<DecisionEntry, "name" | "ts">) => {
