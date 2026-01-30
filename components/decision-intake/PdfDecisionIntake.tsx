@@ -246,7 +246,6 @@ const PdfDecisionIntake = forwardRef<PdfDecisionIntakeHandle, PdfDecisionIntakeP
             {isExtracting ? <span className="font-semibold text-foreground">Extracting decisions…</span> : null}
             {pageCount > 0 ? <span>Pages total: {pageCount}</span> : null}
           </div>
-          <p className="mt-2 text-[11px] text-emerald-600">Offline extraction. No API calls.</p>
           {extractError ? <p className="mt-2 text-[11px] text-rose-500">{extractError}</p> : null}
         </div>
 
@@ -277,7 +276,16 @@ const PdfDecisionIntake = forwardRef<PdfDecisionIntakeHandle, PdfDecisionIntakeP
               Extracted Decisions (Decision Candidates Only){" "}
               <span className="text-muted-foreground">({filteredCandidates.length})</span>
             </p>
-            <p className="text-[11px] text-muted-foreground">Key decision candidates extracted from the document.</p>
+            <div className="max-w-xl space-y-1 text-sm text-muted-foreground">
+              <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+                How to use these decisions
+              </p>
+              <p>
+                These are potential decisions surfaced from your document. Review them, edit the wording if needed, and
+                rate what matters. If you’re unsure where to start, this is the point — D-NAV helps turn documents into
+                decisions.
+              </p>
+            </div>
           </div>
           <div className="flex flex-wrap items-center gap-2">
             <button
