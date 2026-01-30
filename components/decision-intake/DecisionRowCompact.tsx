@@ -32,19 +32,17 @@ export default function DecisionRowCompact({
   const pageLabel = candidate.evidence.page ? `p.${candidate.evidence.page}` : "p.n/a";
 
   return (
-    <div className="rounded-xl border border-border/60 bg-white/70 px-4 py-4 text-xs text-muted-foreground shadow-sm dark:bg-white/10">
-      <div className="flex flex-col gap-3">
-        <div className="flex items-start justify-between gap-4">
-          <div className="min-w-0 flex-1 space-y-1">
-            <span className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Decision</span>
-            <p className="line-clamp-2 text-sm font-semibold leading-snug text-foreground">
-              {candidate.decision}
-            </p>
-          </div>
-          <div className="flex w-[260px] shrink-0 items-center justify-end gap-2 whitespace-nowrap">
-            <span className="rounded-full border border-border/60 bg-muted/20 px-2 py-1 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
-              {pageLabel}
-            </span>
+    <div className="rounded-lg border border-neutral-200 bg-white px-4 py-4 text-xs text-muted-foreground shadow-sm transition-colors hover:border-neutral-300 hover:bg-neutral-50 dark:border-neutral-800 dark:bg-neutral-900/40 dark:hover:border-neutral-700 dark:hover:bg-neutral-900/55">
+      <div className="space-y-2">
+        <div className="min-w-0 space-y-1">
+          <span className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Decision</span>
+          <p className="line-clamp-2 text-sm sm:text-[15px] font-medium leading-relaxed text-neutral-900 dark:text-neutral-100">
+            {candidate.decision}
+          </p>
+          <span className="text-xs text-neutral-500 dark:text-neutral-400">{pageLabel}</span>
+        </div>
+        <div className="flex flex-wrap items-center justify-between gap-3 border-t border-border/50 pt-3">
+          <div className="flex flex-wrap items-center gap-2">
             <button
               type="button"
               className={cn(
@@ -67,16 +65,16 @@ export default function DecisionRowCompact({
               ×
             </button>
           </div>
-        </div>
-        <div className="flex flex-nowrap items-center gap-2 overflow-x-auto pb-1">
-          {METRICS.map((metric) => (
-            <MetricStepperPill
-              key={metric.key}
-              label={metric.label}
-              value={candidate.sliders[metric.key]}
-              onChange={(value) => onMetricChange(candidate.id, metric.key, value)}
-            />
-          ))}
+          <div className="flex flex-nowrap items-center gap-2 overflow-x-auto pb-1">
+            {METRICS.map((metric) => (
+              <MetricStepperPill
+                key={metric.key}
+                label={metric.label}
+                value={candidate.sliders[metric.key]}
+                onChange={(value) => onMetricChange(candidate.id, metric.key, value)}
+              />
+            ))}
+          </div>
         </div>
       </div>
     </div>
