@@ -197,7 +197,10 @@ const PdfDecisionIntake = forwardRef<PdfDecisionIntakeHandle, PdfDecisionIntakeP
   }, [visibleCandidates]);
 
   const narrativeSummary = summary?.narrativeSummary ?? summary?.summary ?? "";
-  const getPdfPageUrl = useCallback((pdfUrl: string, page?: number) => (page ? `${pdfUrl}#page=${page}` : pdfUrl), []);
+  const getPdfPageUrl = useCallback((pdfUrl: string, page?: number) => {
+    const resolvedPage = page && page > 0 ? page : 1;
+    return `${pdfUrl}#page=${resolvedPage}`;
+  }, []);
 
   return (
     <div className="space-y-6">
@@ -293,11 +296,24 @@ const PdfDecisionIntake = forwardRef<PdfDecisionIntakeHandle, PdfDecisionIntakeP
                 rate.
               </p>
               <p className="mt-2 text-[10px] text-muted-foreground">
-                1) Edit wording &nbsp; 2) Rate Impact/Cost/Risk/Urgency/Confidence &nbsp; 3) Add to session
+                1) Edit wording &nbsp; 2) Score Impact/Cost/Risk/Urgency/Confidence &nbsp; 3) Add to session
               </p>
             </div>
           </div>
           <div className="flex flex-wrap items-center gap-2">
+            {pdfUrl ? (
+              <a
+                href={getPdfPageUrl(pdfUrl, 1)}
+                target="_blank"
+                rel="noreferrer"
+                className={cn(
+                  "rounded-full border px-3 py-1 text-[10px] font-semibold uppercase tracking-wide transition",
+                  "border-border/60 bg-foreground/5 text-foreground hover:bg-foreground/10",
+                )}
+              >
+                View PDF
+              </a>
+            ) : null}
             <button
               type="button"
               className={cn(
