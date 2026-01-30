@@ -6,6 +6,7 @@ export interface SessionDecision {
   decisionTitle: string;
   decisionDetail?: string;
   category: string;
+  categoryGuess?: string;
   impact: number;
   cost: number;
   risk: number;
@@ -43,11 +44,14 @@ export const buildSessionDecisionFromCandidate = (
 ): SessionDecision => {
   const title = candidate.title.trim() || existing?.decisionTitle || "Untitled decision";
   const metrics = computeRpsDnav(candidate.sliders);
+  const normalizedCategory = candidate.category?.trim() || existing?.category || "Uncategorized";
+  const categoryGuess = candidate.categoryGuess ?? candidate.category ?? existing?.categoryGuess;
   return {
     id: existing?.id ?? getSessionDecisionId(candidate.id),
     decisionTitle: title,
     decisionDetail: cleanDecisionText(candidate.decision),
-    category: candidate.category || "Strategy",
+    category: normalizedCategory,
+    categoryGuess,
     impact: candidate.sliders.impact,
     cost: candidate.sliders.cost,
     risk: candidate.sliders.risk,

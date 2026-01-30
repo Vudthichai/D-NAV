@@ -63,6 +63,7 @@ export default function StressTestPage() {
   });
   const calculatorRef = useRef<StressTestCalculatorHandle>(null);
   const intakeRef = useRef<PdfDecisionIntakeHandle>(null);
+  const sessionCreatedAtRef = useRef<number>(Date.now());
   const [isSessionAnalysisOpen, setIsSessionAnalysisOpen] = useState(false);
   const sessionAnalysisRef = useRef<HTMLDivElement>(null);
   const [editingDecision, setEditingDecision] = useState<SessionDecision | null>(null);
@@ -105,6 +106,7 @@ export default function StressTestPage() {
       decisionTitle: title,
       decisionDetail: "",
       category: decision.category,
+      categoryGuess: decision.category,
       impact: decision.impact,
       cost: decision.cost,
       risk: decision.risk,
@@ -336,7 +338,9 @@ export default function StressTestPage() {
   const handleExportSessionCsv = useCallback(() => {
     if (typeof window === "undefined") return;
     const headers = [
+      "Date",
       "Decision",
+      "Category",
       "Impact",
       "Cost",
       "Risk",
@@ -350,8 +354,17 @@ export default function StressTestPage() {
       const escaped = text.replace(/"/g, '""');
       return /[",\n]/.test(escaped) ? `"${escaped}"` : escaped;
     };
+    const formatCsvDate = (timestamp?: number) => {
+      if (!timestamp || !Number.isFinite(timestamp)) return "";
+      const date = new Date(timestamp);
+      if (Number.isNaN(date.getTime())) return "";
+      return date.toISOString().slice(0, 10);
+    };
+    const sessionDate = formatCsvDate(sessionCreatedAtRef.current);
     const rows = sessionDecisions.map((decision) => [
+      formatCsvDate(decision.createdAt) || sessionDate,
       decision.decisionTitle,
+      decision.category?.trim() || decision.categoryGuess?.trim() || "Uncategorized",
       decision.impact,
       decision.cost,
       decision.risk,
@@ -599,8 +612,9 @@ export default function StressTestPage() {
                     <p className="text-[11px] text-muted-foreground">
                       These are live decisions captured in-the-moment for review — before outcomes rewrite the story.
                     </p>
-                    <div className="grid grid-cols-[minmax(180px,1.6fr)_repeat(5,minmax(48px,0.5fr))_repeat(3,minmax(40px,0.4fr))_minmax(56px,0.5fr)_minmax(64px,0.6fr)] items-center gap-2 rounded-lg border border-border/40 bg-muted/20 px-3 py-1 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+                    <div className="grid grid-cols-[minmax(180px,1.6fr)_minmax(120px,0.8fr)_repeat(5,minmax(48px,0.5fr))_repeat(3,minmax(40px,0.4fr))_minmax(56px,0.5fr)_minmax(64px,0.6fr)] items-center gap-2 rounded-lg border border-border/40 bg-muted/20 px-3 py-1 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
                       <span>Decision</span>
+                      <span>Category</span>
                       <span className="text-center">Impact</span>
                       <span className="text-center">Cost</span>
                       <span className="text-center">Risk</span>
@@ -616,7 +630,7 @@ export default function StressTestPage() {
                       <div
                         key={decision.id}
                         id={`decision-row-${decision.id}`}
-                        className="grid cursor-pointer grid-cols-[minmax(180px,1.6fr)_repeat(5,minmax(48px,0.5fr))_repeat(3,minmax(40px,0.4fr))_minmax(56px,0.5fr)_minmax(64px,0.6fr)] items-center gap-2 rounded-lg border border-border/40 bg-muted/10 px-3 py-1 text-[11px] text-muted-foreground transition hover:border-border/70 hover:bg-muted/20"
+                        className="grid cursor-pointer grid-cols-[minmax(180px,1.6fr)_minmax(120px,0.8fr)_repeat(5,minmax(48px,0.5fr))_repeat(3,minmax(40px,0.4fr))_minmax(56px,0.5fr)_minmax(64px,0.6fr)] items-center gap-2 rounded-lg border border-border/40 bg-muted/10 px-3 py-1 text-[11px] text-muted-foreground transition hover:border-border/70 hover:bg-muted/20"
                         onClick={() => handleOpenEditDialog(decision)}
                       >
                         <div className="min-w-0">
@@ -631,8 +645,10 @@ export default function StressTestPage() {
                               </span>
                             ) : null}
                           </div>
-                          <p className="truncate text-[10px] text-muted-foreground">{decision.category}</p>
                         </div>
+                        <span className="truncate text-[10px] text-muted-foreground">
+                          {decision.category?.trim() || decision.categoryGuess?.trim() || "—"}
+                        </span>
                         <span className="text-center tabular-nums">{formatCompact(decision.impact)}</span>
                         <span className="text-center tabular-nums">{formatCompact(decision.cost)}</span>
                         <span className="text-center tabular-nums">{formatCompact(decision.risk)}</span>

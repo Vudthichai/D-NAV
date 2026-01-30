@@ -35,6 +35,7 @@ export interface DecisionCandidate {
   page?: number;
   mapCategory: MapCategoryKey;
   category: DecisionCategory;
+  categoryGuess?: DecisionCategory;
   tags: string[];
   statementType: "decision" | "commitment" | "evidence";
   strength: "committed" | "indicative";
@@ -197,6 +198,7 @@ const buildCandidate = (
     page,
     mapCategory: classifyMapCategory(trimmed),
     category,
+    categoryGuess: category,
     tags: [],
     statementType: decisionCheck.kind,
     strength,
