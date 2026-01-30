@@ -685,7 +685,7 @@ export default function StressTestPage() {
             {isSessionAnalysisOpen ? (
               <div
                 ref={sessionAnalysisRef}
-                className="dnav-dark-glass-surface space-y-4 rounded-2xl rounded-xl border border-transparent border-amber-200/60 bg-amber-50/70 p-4 shadow-sm dark:border-border/60 dark:bg-white/10 dark:ring-1 dark:ring-orange-500/30"
+                className="dnav-dark-glass-surface space-y-4 rounded-2xl rounded-xl border border-transparent border-amber-200/60 border-l-4 border-l-orange-500/70 bg-amber-50/70 p-4 shadow-sm dark:border-border/60 dark:bg-white/10 dark:ring-1 dark:ring-orange-500/30"
               >
                 <div className="flex flex-wrap items-start justify-between gap-3">
                   <div className="space-y-1">
