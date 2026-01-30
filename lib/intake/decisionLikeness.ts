@@ -12,6 +12,7 @@ export interface DecisionLikenessResult {
     hasPrioritization: boolean;
     hasTime: boolean;
     isInformational: boolean;
+    isOutcomeOnly: boolean;
   };
 }
 
@@ -22,6 +23,7 @@ const COMMITMENT_PATTERNS = [
   /\baims? to\b/i,
   /\bintends? to\b/i,
   /\bcommits? to\b/i,
+  /\bcontinues? to\b/i,
   /\bscheduled\b/i,
   /\bremain on track\b/i,
   /\btarget(?:s|ing)?\b/i,
@@ -29,6 +31,15 @@ const COMMITMENT_PATTERNS = [
   /\bstart(?:s|ing)?\b/i,
   /\blaunch(?:es|ing)?\b/i,
   /\bramp(?:s|ing)?\b/i,
+  /\bdeploy(?:s|ing)?\b/i,
+  /\ballocate(?:s|d|ing)?\b/i,
+  /\binvest(?:s|ed|ing)?\b/i,
+  /\bprioritiz(?:e|ing|es)\b/i,
+  /\bcommit(?:s|ted|ting)?\b/i,
+  /\bprepare(?:s|d|ing)?\b/i,
+  /\bcommission(?:s|ed|ing)?\b/i,
+  /\bexpand(?:s|ed|ing)?\b/i,
+  /\bpursue(?:s|d|ing)?\b/i,
 ];
 
 const ACTION_PATTERNS = [
@@ -114,6 +125,53 @@ const INFORMATIONAL_PATTERNS = [
   /\bresulted\b/i,
   /\bwas best[-\s]?selling\b/i,
   /\brecord\b/i,
+];
+
+const AGENCY_PATTERNS = [
+  /\bwill\b/i,
+  /\bexpects?\b/i,
+  /\bplans?\b/i,
+  /\bcontinues?\b/i,
+  /\bremain on track\b/i,
+  /\bbegin(?:s|ning)?\b/i,
+  /\blaunch(?:es|ing)?\b/i,
+  /\bdeploy(?:s|ing)?\b/i,
+  /\ballocate(?:s|d|ing)?\b/i,
+  /\binvest(?:s|ed|ing)?\b/i,
+  /\bprioritiz(?:e|ing|es)\b/i,
+  /\bcommit(?:s|ted|ting)?\b/i,
+  /\btarget(?:s|ing)?\b/i,
+  /\bprepare(?:s|d|ing)?\b/i,
+  /\bcommission(?:s|ed|ing)?\b/i,
+  /\bexpand(?:s|ed|ing)?\b/i,
+  /\bpursue(?:s|d|ing)?\b/i,
+];
+
+const OUTCOME_ONLY_PATTERNS = [
+  /\bachieved\b/i,
+  /\bdelivered\b/i,
+  /\brecord\b/i,
+  /\bincreased\b/i,
+  /\bdecreased\b/i,
+  /\bwas\b/i,
+  /\bwere\b/i,
+  /\bgrew\b/i,
+  /\bmargin\b/i,
+  /\brevenue\b/i,
+  /\beps\b/i,
+  /\bcash flow\b/i,
+];
+
+const CAPTION_PATTERNS = [
+  /\bsource:\b/i,
+  /\badditional information\b/i,
+  /\bwebcast\b/i,
+  /\bother highlights\b/i,
+  /\bttm\b/i,
+  /\bacea\b/i,
+  /\bautonews\b/i,
+  /\blight[-\s]?duty\b/i,
+  /\bcumulative miles\b/i,
 ];
 
 const ACTOR_REGEX = /^(?:the\s+)?(company|management|board|team|we|tesla)\b[,:-]?\s*/i;
@@ -223,6 +281,19 @@ const buildStatementRewrite = (text: string, kind: StatementKind) => {
 
 const matchesAny = (value: string, patterns: RegExp[]) => patterns.some((pattern) => pattern.test(value));
 
+const looksLikeFragment = (text: string) => {
+  const cleaned = text.trim();
+  if (!cleaned) return false;
+  const tokens = cleaned.split(/\s+/).filter(Boolean);
+  const alphaOnly = cleaned.replace(/[^a-z]/gi, "");
+  if (alphaOnly && cleaned === cleaned.toUpperCase() && tokens.length <= 6) return true;
+  if (tokens.length <= 3 && cleaned.length <= 28 && !matchesAny(cleaned, AGENCY_PATTERNS)) return true;
+  if (/\([^)]+\)\s*\/\s*\([^)]+\)/.test(cleaned)) return true;
+  const digitCount = (cleaned.match(/\d/g) ?? []).length;
+  if (digitCount >= 4 && digitCount / Math.max(1, cleaned.length) > 0.06) return true;
+  return false;
+};
+
 export const classifyStatementKind = (text: string): StatementKind => {
   const cleaned = normalizeWhitespace(text);
   const hasCommitment = matchesAny(cleaned, COMMITMENT_PATTERNS);
@@ -246,8 +317,13 @@ export const assessDecisionLikeness = (text: string): DecisionLikenessResult => 
   const hasPrioritization = matchesAny(cleaned, PRIORITIZATION_PATTERNS);
   const hasTime = matchesAny(cleaned, TIME_PATTERNS);
   const isInformational = matchesAny(cleaned, INFORMATIONAL_PATTERNS);
+  const hasAgency = matchesAny(cleaned, AGENCY_PATTERNS);
+  const hasConstraint = matchesAny(cleaned, CONSTRAINT_PATTERNS) || hasTime;
+  const isCaptionLike = matchesAny(cleaned, CAPTION_PATTERNS) || looksLikeFragment(cleaned);
+  const isOutcomeOnly = matchesAny(cleaned, OUTCOME_ONLY_PATTERNS) && !hasAgency;
   const kind = classifyStatementKind(cleaned);
-  const hasDecisionSignal = hasCommitment || hasAllocation || hasPrioritization || hasAction;
+  const hasDecisionSignal =
+    hasAgency && (hasConstraint || hasCommitment || hasAllocation || hasPrioritization || hasAction);
 
   let score = 0;
   if (hasCommitment) score += 3;
@@ -256,12 +332,14 @@ export const assessDecisionLikeness = (text: string): DecisionLikenessResult => 
   if (hasAction) score += 1;
   if (hasTime) score += 1;
   if (isInformational && !hasDecisionSignal) score -= 3;
+  if (isOutcomeOnly) score -= 4;
+  if (isCaptionLike) score -= 6;
   if (!hasDecisionSignal && hasTime) score -= 1;
 
   const rewritten = buildStatementRewrite(cleaned, kind);
   return {
     score,
-    isDecision: hasDecisionSignal && score >= 3,
+    isDecision: hasDecisionSignal && score >= 3 && !isOutcomeOnly && !isCaptionLike,
     kind,
     rewritten,
     evidenceText: cleaned,
@@ -271,6 +349,7 @@ export const assessDecisionLikeness = (text: string): DecisionLikenessResult => 
       hasPrioritization,
       hasTime,
       isInformational,
+      isOutcomeOnly,
     },
   };
 };

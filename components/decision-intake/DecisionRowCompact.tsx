@@ -1,36 +1,32 @@
 "use client";
 
 import { cn } from "@/lib/utils";
-import type { DecisionCandidate, DecisionCategory } from "@/lib/intake/decisionExtractLocal";
+import type { DecisionCandidate } from "@/lib/intake/decisionExtractLocal";
 import MetricStepperPill from "@/components/decision-intake/MetricStepperPill";
 
 const METRICS = [
-  { key: "impact", label: "I" },
-  { key: "cost", label: "C" },
-  { key: "risk", label: "R" },
-  { key: "urgency", label: "U" },
-  { key: "confidence", label: "CF" },
+  { key: "impact", label: "Impact" },
+  { key: "cost", label: "Cost" },
+  { key: "risk", label: "Risk" },
+  { key: "urgency", label: "Urgency" },
+  { key: "confidence", label: "Confidence" },
 ] as const;
 
 type MetricKey = (typeof METRICS)[number]["key"];
 
 interface DecisionRowCompactProps {
   candidate: DecisionCandidate;
-  categoryOptions: DecisionCategory[];
   isAdded: boolean;
   onAdd: (candidate: DecisionCandidate) => void;
   onDismiss: (id: string) => void;
-  onCategoryChange: (id: string, category: DecisionCategory) => void;
   onMetricChange: (id: string, key: MetricKey, value: number) => void;
 }
 
 export default function DecisionRowCompact({
   candidate,
-  categoryOptions,
   isAdded,
   onAdd,
   onDismiss,
-  onCategoryChange,
   onMetricChange,
 }: DecisionRowCompactProps) {
   const pageLabel = candidate.evidence.page ? `p.${candidate.evidence.page}` : "p.n/a";
@@ -45,18 +41,7 @@ export default function DecisionRowCompact({
               {candidate.decision}
             </p>
           </div>
-          <div className="flex w-[300px] shrink-0 items-center justify-end gap-2 whitespace-nowrap">
-            <select
-              value={candidate.category}
-              onChange={(event) => onCategoryChange(candidate.id, event.target.value as DecisionCategory)}
-              className="h-8 rounded-full border border-border/60 bg-background/70 px-2 text-[10px] font-semibold text-foreground shadow-sm transition focus:border-primary/60 focus:ring-2 focus:ring-primary/30"
-            >
-              {categoryOptions.map((option) => (
-                <option key={option} value={option}>
-                  {option}
-                </option>
-              ))}
-            </select>
+          <div className="flex w-[260px] shrink-0 items-center justify-end gap-2 whitespace-nowrap">
             <span className="rounded-full border border-border/60 bg-muted/20 px-2 py-1 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
               {pageLabel}
             </span>
