@@ -207,8 +207,8 @@ const PdfDecisionIntake = forwardRef<PdfDecisionIntakeHandle, PdfDecisionIntakeP
         </p>
       </div>
 
-      <div className="grid gap-4 md:grid-cols-[280px_1fr]">
-        <div className="dnav-dark-glass-surface rounded-xl border border-border/60 bg-white/70 p-4 shadow-sm dark:bg-white/10">
+      <div className="grid grid-cols-1 gap-4 md:grid-cols-12">
+        <div className="dnav-dark-glass-surface rounded-xl border border-border/60 bg-white/70 p-4 shadow-sm dark:bg-white/10 md:col-span-4">
           <div className="flex flex-wrap items-start justify-between gap-3">
             <div className="space-y-1">
               <p className="text-sm font-semibold text-foreground">Upload PDF</p>
@@ -240,16 +240,23 @@ const PdfDecisionIntake = forwardRef<PdfDecisionIntakeHandle, PdfDecisionIntakeP
             />
           </div>
           <div className="mt-3 flex flex-wrap items-center gap-3 text-[11px] text-muted-foreground">
-            <span>Pages read: {pagesRead}</span>
-            <span>Total chars: {totalChars.toLocaleString()}</span>
             {isReading ? <span className="font-semibold text-foreground">Reading PDF…</span> : null}
             {isExtracting ? <span className="font-semibold text-foreground">Extracting decisions…</span> : null}
-            {pageCount > 0 ? <span>Pages total: {pageCount}</span> : null}
           </div>
+          <details className="mt-2 text-[11px] text-muted-foreground">
+            <summary className="cursor-pointer text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+              Document stats
+            </summary>
+            <div className="mt-2 flex flex-wrap gap-3">
+              <span>Pages read: {pagesRead}</span>
+              <span>Total chars: {totalChars.toLocaleString()}</span>
+              {pageCount > 0 ? <span>Pages total: {pageCount}</span> : null}
+            </div>
+          </details>
           {extractError ? <p className="mt-2 text-[11px] text-rose-500">{extractError}</p> : null}
         </div>
 
-        <div className="dnav-dark-glass-surface rounded-xl border border-border/60 bg-white/70 p-5 shadow-sm dark:bg-white/10">
+        <div className="dnav-dark-glass-surface rounded-xl border border-border/60 bg-white/70 p-5 shadow-sm dark:bg-white/10 md:col-span-8">
           <div className="flex flex-wrap items-start justify-between gap-2">
             <div>
               <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Document Summary</p>
@@ -276,14 +283,16 @@ const PdfDecisionIntake = forwardRef<PdfDecisionIntakeHandle, PdfDecisionIntakeP
               Extracted Decisions (Decision Candidates Only){" "}
               <span className="text-muted-foreground">({filteredCandidates.length})</span>
             </p>
-            <div className="max-w-xl space-y-1 text-sm text-muted-foreground">
-              <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+            <div className="mt-3 w-full rounded-lg border bg-muted/40 p-3 text-sm text-muted-foreground dark:border-white/10 dark:bg-white/5">
+              <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
                 How to use these decisions
               </p>
-              <p>
-                These are potential decisions surfaced from your document. Review them, edit the wording if needed, and
-                rate what matters. If you’re unsure where to start, this is the point — D-NAV helps turn documents into
-                decisions.
+              <p className="mt-1 text-[12px]">
+                Don’t know where to start? Upload a memo or report. D-NAV surfaces decision candidates you can edit and
+                rate.
+              </p>
+              <p className="mt-2 text-[10px] text-muted-foreground">
+                1) Edit wording &nbsp; 2) Rate Impact/Cost/Risk/Urgency/Confidence &nbsp; 3) Add to session
               </p>
             </div>
           </div>
