@@ -75,6 +75,15 @@ const BOILERPLATE_PATTERNS = [
   /no obligation to update/i,
   /safe harbor/i,
   /undue reliance/i,
+  /\bsource:\b/i,
+  /\badditional information\b/i,
+  /\bwebcast\b/i,
+  /\bother highlights\b/i,
+  /\bttm\b/i,
+  /\bacea\b/i,
+  /\bautonews\b/i,
+  /\blight[-\s]?duty\b/i,
+  /\bcumulative miles\b/i,
 ];
 
 const CATEGORY_KEYWORDS: Record<DecisionCategory, RegExp[]> = {
@@ -92,12 +101,20 @@ const normalize = (value: string): string => value.toLowerCase();
 
 export const isTableLike = (sentence: string): boolean => {
   const normalized = normalize(sentence);
+  const trimmed = sentence.trim();
   if (/in millions|in thousands|unaudited/i.test(normalized)) return true;
   if (/\b\d{4}\b.*\b\d{4}\b/.test(normalized) && /\b\d+\b/.test(normalized)) return true;
   if (/\$\d|\b\d{1,3}%\b/.test(normalized)) return true;
+  if (/\([^)]+\)\s*\/\s*\([^)]+\)/.test(normalized)) return true;
   const digitCount = (normalized.match(/\d/g) ?? []).length;
-  if (digitCount >= 6 && digitCount / Math.max(1, normalized.length) > 0.08) return true;
+  if (digitCount >= 4 && digitCount / Math.max(1, normalized.length) > 0.06) return true;
   if (/\|/.test(normalized)) return true;
+  const tokens = normalized.split(/\s+/).filter(Boolean);
+  const alphaOnly = trimmed.replace(/[^a-z]/gi, "");
+  if (alphaOnly && trimmed === trimmed.toUpperCase() && tokens.length <= 6) return true;
+  if (tokens.length <= 3 && normalized.length <= 28 && !/\b(will|plan|expect|launch|deploy|invest|target|begin|expand|continue|remain)\b/i.test(sentence)) {
+    return true;
+  }
   return false;
 };
 

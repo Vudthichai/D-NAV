@@ -243,7 +243,7 @@ const PdfDecisionIntake = forwardRef<PdfDecisionIntakeHandle, PdfDecisionIntakeP
           {summary ? (
             <div className="mt-4 space-y-2 rounded-lg border border-border/40 bg-muted/5 p-4">
               {narrativeSummary ? (
-                <p className="text-[12px] leading-relaxed text-foreground/90">{narrativeSummary}</p>
+                <p className="text-[12px] font-semibold leading-relaxed text-foreground/90">{narrativeSummary}</p>
               ) : (
                 <p className="text-[12px] text-muted-foreground">No summary available yet.</p>
               )}
@@ -258,7 +258,8 @@ const PdfDecisionIntake = forwardRef<PdfDecisionIntakeHandle, PdfDecisionIntakeP
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div className="space-y-2">
             <p className="text-sm font-semibold text-foreground">
-              Key Decisions <span className="text-muted-foreground">({filteredCandidates.length})</span>
+              Extracted Decisions (Decision Candidates Only){" "}
+              <span className="text-muted-foreground">({filteredCandidates.length})</span>
             </p>
             <p className="text-[11px] text-muted-foreground">Key decision candidates extracted from the document.</p>
           </div>

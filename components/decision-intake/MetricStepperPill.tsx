@@ -3,7 +3,7 @@
 import { cn } from "@/lib/utils";
 
 interface MetricStepperPillProps {
-  label: "I" | "C" | "R" | "U" | "CF";
+  label: string;
   value: number;
   onChange: (value: number) => void;
   min?: number;
@@ -39,17 +39,17 @@ export default function MetricStepperPill({
   return (
     <div
       className={cn(
-        "flex items-center gap-2 rounded-full border px-3 py-2 text-xs text-foreground shadow-sm",
+        "flex items-center gap-1.5 rounded-full border px-2 py-1 text-[11px] text-foreground",
         intensity,
       )}
     >
-      <span className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">{label}</span>
+      <span className="text-[10px] font-semibold text-muted-foreground">{label}</span>
       <button
         type="button"
         onClick={handleDecrease}
         disabled={!canDecrease}
         className={cn(
-          "grid h-8 w-8 place-items-center rounded-full border text-[13px] font-semibold transition",
+          "grid h-6 w-6 place-items-center rounded-full border text-[12px] font-semibold transition",
           canDecrease
             ? "border-border/60 bg-background/70 text-foreground hover:bg-foreground/10 active:scale-95"
             : "border-border/40 bg-muted/20 text-muted-foreground",
@@ -58,13 +58,13 @@ export default function MetricStepperPill({
       >
         −
       </button>
-      <span className="min-w-[24px] text-center text-[13px] font-semibold text-foreground">{value}</span>
+      <span className="min-w-[18px] text-center text-[11px] font-semibold text-foreground">{value}</span>
       <button
         type="button"
         onClick={handleIncrease}
         disabled={!canIncrease}
         className={cn(
-          "grid h-8 w-8 place-items-center rounded-full border text-[13px] font-semibold transition",
+          "grid h-6 w-6 place-items-center rounded-full border text-[12px] font-semibold transition",
           canIncrease
             ? "border-border/60 bg-background/70 text-foreground hover:bg-foreground/10 active:scale-95"
             : "border-border/40 bg-muted/20 text-muted-foreground",

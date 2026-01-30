@@ -75,6 +75,7 @@ export interface LocalExtractResult {
       tableLike: number;
       lowSignalScore: number;
       belowScoreThreshold: number;
+      outcomeOnly: number;
       nonDecision: number;
     };
   };
@@ -121,13 +122,43 @@ const jaccard = (a: string[], b: string[]): number => {
   return union.size === 0 ? 0 : intersection.size / union.size;
 };
 
+const INTENT_GROUPS: Array<{ key: string; patterns: RegExp[] }> = [
+  { key: "energy-storage", patterns: [/\benergy storage\b/i, /\bmegapack\b/i, /\bpowerwall\b/i, /\bmegafactory\b/i] },
+  { key: "ai-compute", patterns: [/\bai training\b/i, /\btraining compute\b/i, /\bdojo\b/i, /\bsupercomputer\b/i] },
+  { key: "autonomy", patterns: [/\bautonomy\b/i, /\bfsd\b/i, /\brobotaxi\b/i, /\bcybercab\b/i] },
+  { key: "manufacturing-ramp", patterns: [/\bmanufactur(?:ing|e)\b/i, /\bproduction\b/i, /\bplant\b/i, /\bfactory\b/i, /\bramp\b/i] },
+  { key: "deployment", patterns: [/\bdeploy\b/i, /\bdeployment\b/i, /\brollout\b/i, /\blaunch\b/i] },
+  { key: "charging", patterns: [/\bsupercharger\b/i, /\bcharging\b/i] },
+  { key: "lithium", patterns: [/\blithium\b/i, /\brefinery\b/i] },
+  { key: "semi", patterns: [/\bsemi\b/i, /\btruck\b/i] },
+  { key: "affordable-vehicle", patterns: [/\baffordable\b/i, /\blow[-\s]?cost\b/i, /\bnext[-\s]?gen\b/i, /\bplatform\b/i] },
+];
+
+const intentKeyFor = (text: string): string | null => {
+  for (const group of INTENT_GROUPS) {
+    if (group.patterns.some((pattern) => pattern.test(text))) {
+      return group.key;
+    }
+  }
+  return null;
+};
+
 const dedupeCandidates = (candidates: DecisionCandidate[]): DecisionCandidate[] => {
   const kept: DecisionCandidate[] = [];
   candidates
     .sort((a, b) => b.score - a.score)
     .forEach((candidate) => {
       const tokens = normalizeTokens(candidate.decision);
-      const duplicateIndex = kept.findIndex((existing) => jaccard(tokens, normalizeTokens(existing.decision)) > 0.82);
+      const candidateIntent = intentKeyFor(candidate.decision);
+      const duplicateIndex = kept.findIndex((existing) => {
+        const similarity = jaccard(tokens, normalizeTokens(existing.decision));
+        if (similarity > 0.82) return true;
+        const existingIntent = intentKeyFor(existing.decision);
+        if (candidateIntent && existingIntent && candidateIntent === existingIntent) {
+          return similarity > 0.5;
+        }
+        return false;
+      });
       if (duplicateIndex === -1) {
         kept.push(candidate);
         return;
@@ -191,7 +222,7 @@ export function extractDecisionCandidatesLocal(
 ): LocalExtractResult {
   const maxPerPage = options.maxPerPage ?? 6;
   const minScore = options.minScore ?? 4;
-  const minLowSignalScore = options.minLowSignalScore ?? 8;
+  const minLowSignalScore = options.minLowSignalScore ?? 9;
 
   const sectioned = assignSections(pages);
   const candidates: DecisionCandidate[] = [];
@@ -203,6 +234,7 @@ export function extractDecisionCandidatesLocal(
       tableLike: 0,
       lowSignalScore: 0,
       belowScoreThreshold: 0,
+      outcomeOnly: 0,
       nonDecision: 0,
     },
   };
@@ -238,7 +270,11 @@ export function extractDecisionCandidatesLocal(
         const decisionCheck = assessDecisionLikeness(trimmed);
         if (!decisionCheck.isDecision) {
           filteringStats.filteredOut += 1;
-          filteringStats.reasons.nonDecision += 1;
+          if (decisionCheck.signals.isOutcomeOnly) {
+            filteringStats.reasons.outcomeOnly += 1;
+          } else {
+            filteringStats.reasons.nonDecision += 1;
+          }
           return null;
         }
         const strength = scoreResult.hasCommitment && scoreResult.hasTimeAnchor ? "committed" : "indicative";
@@ -267,7 +303,7 @@ export function extractDecisionCandidatesLocal(
           filteringStats.reasons.boilerplate + filteringStats.reasons.tableLike
         }, low-signal/score: ${
           filteringStats.reasons.lowSignalScore + filteringStats.reasons.belowScoreThreshold
-        }, non-decision: ${filteringStats.reasons.nonDecision}).`
+        }, outcome-only: ${filteringStats.reasons.outcomeOnly}, non-decision: ${filteringStats.reasons.nonDecision}).`
       : "Filtered out 0 sentences.";
 
   return {

@@ -34,144 +34,102 @@ const STOPWORDS = new Set([
   "their",
 ]);
 
-const SUMMARY_SIGNALS = {
-  constraints: [
-    { re: /\bmargin\b|\bprofitability\b|\bcost\b|\bcogs\b/i, phrase: "margin and cost pressure" },
-    { re: /\bmacro\b|\bdemand\b|\binflation\b|\binterest rate\b|\bvolatility\b|\bfx\b/i, phrase: "macro and demand volatility" },
-    { re: /\bliquidity\b|\bcash\b|\bbalance sheet\b|\bfunding\b|\bcapital discipline\b/i, phrase: "liquidity and capital discipline" },
-    { re: /\bsupply\b|\blogistics\b|\bcommodity\b|\bavailability\b|\bconstraint\b/i, phrase: "supply chain constraints" },
-    { re: /\bregulator\b|\bregulatory\b|\bcompliance\b/i, phrase: "regulatory constraints" },
+const KEYWORD_PATTERNS = {
+  marginPressure: [/\bmargin pressure\b/i, /\bmargin headwind\b/i, /\bmargin compression\b/i, /\bmargin\b/i],
+  costReduction: [/\bcost reduction\b/i, /\breduce costs?\b/i, /\bcost discipline\b/i, /\bcost savings\b/i],
+  liquidity: [/\bliquidity\b/i, /\bcash flow\b/i, /\bfree cash flow\b/i, /\bcash balance\b/i],
+  capex: [/\bcapex\b/i, /\bcapital expenditure\b/i, /\bcapital spend\b/i, /\bcapex efficiency\b/i],
+  manufacturingReadiness: [
+    /\bmanufacturing readiness\b/i,
+    /\bproduction readiness\b/i,
+    /\bfactory readiness\b/i,
+    /\bline readiness\b/i,
+    /\bmanufacturing ramp\b/i,
   ],
-  investments: [
-    { re: /\bcapex\b|\bcapital expenditure\b|\binvest(?:ing|ment)?\b/i, phrase: "capital investment and cost focus" },
-    { re: /\bcapacity\b|\bfactory\b|\bplant\b|\bfacility\b|\bline\b|\bmanufacturing\b/i, phrase: "capacity expansion and manufacturing buildout" },
-    { re: /\bproduct\b|\bplatform\b|\broadmap\b|\blaunch\b|\bprogram\b/i, phrase: "product and platform execution" },
-    { re: /\bsoftware\b|\bai\b|\bautonomy\b|\bautomation\b|\bcompute\b/i, phrase: "software, automation, and technology development" },
-    { re: /\benergy\b|\bstorage\b|\binfrastructure\b|\bgrid\b/i, phrase: "infrastructure and energy deployment" },
-    { re: /\bpricing\b|\bmarket\b|\bgo-to-market\b|\bchannel\b|\bdistribution\b/i, phrase: "market expansion and go-to-market moves" },
-    { re: /\bhire\b|\bhiring\b|\bheadcount\b|\btalent\b/i, phrase: "talent and organizational build" },
+  affordableVehicles: [
+    /\baffordable vehicles?\b/i,
+    /\blow[-\s]?cost (vehicle|model)\b/i,
+    /\bnext[-\s]?gen( vehicle|platform)?\b/i,
   ],
-  scale: [
-    { re: /\bramp\b|\bscale\b|\bvolume\b|\bthroughput\b/i, phrase: "scale-up execution across operations" },
-    { re: /\bproduction\b|\bmanufacturing\b|\bfactory\b|\bplant\b/i, phrase: "manufacturing and production execution" },
-    { re: /\bdeliver(?:y|ies)\b|\bdeployment\b|\binstall\b/i, phrase: "delivery and deployment execution" },
-    { re: /\befficiency\b|\bquality\b|\boperations\b/i, phrase: "operational efficiency gains" },
-  ],
+  energyStorage: [/\benergy storage\b/i, /\bmegapack\b/i, /\bpowerwall\b/i, /\benergy business\b/i],
+  megafactory: [/\bmegafactory\b/i, /\bmega factory\b/i],
+  aiTrainingCompute: [/\bai training compute\b/i, /\btraining compute\b/i, /\bai compute\b/i, /\bdojo\b/i, /\bsupercomputer\b/i],
+  autonomy: [/\bautonomy\b/i, /\bautonomous\b/i, /\bself[-\s]?driving\b/i, /\bfsd\b/i],
+  robotaxi: [/\brobotaxi\b/i, /\bcybercab\b/i],
+  lithium: [/\blithium\b/i, /\brefinery\b/i, /\blithium refinery\b/i],
+  semi: [/\btesla semi\b/i, /\bsemi\b/i],
+  supercharger: [/\bsupercharger\b/i, /\bcharging network\b/i, /\bcharging expansion\b/i],
+  vehicleGrowth: [/\bvehicle\b/i, /\bautomotive\b/i, /\bdeliveries\b/i, /\bproduction\b/i, /\bramp\b/i],
 };
 
-const NEAR_TERM_PATTERNS = [
-  /\bthis year\b/i,
-  /\bthis quarter\b/i,
-  /\bQ[1-4]\b/i,
-  /\bnext quarter\b/i,
-  /\bH[12]\b/i,
-];
-
-const LONG_TERM_PATTERNS = [
-  /\b2026\b/i,
-  /\b2027\b/i,
-  /\b2028\b/i,
-  /\b2029\b/i,
-  /\b2030\b/i,
-  /\blong[-\s]?term\b/i,
-  /\bmulti[-\s]?year\b/i,
-  /\bdecade\b/i,
-];
-
-const YEAR_PATTERN = /\b20\d{2}\b/g;
-
-const joinPhrases = (phrases: string[], fallback: string) => (phrases.length ? phrases.join(" and ") : fallback);
-
-const collectSentences = (pages: SectionedPage[]): string[] => {
-  const sentences: string[] = [];
-  pages.forEach((page) => {
-    if (page.isLowSignal) return;
-    splitSentences(page.text).forEach((sentence) => {
-      const trimmed = sentence.trim();
-      if (!trimmed) return;
-      if (isBoilerplate(trimmed) || isTableLike(trimmed)) return;
-      sentences.push(trimmed);
-    });
-  });
-  return sentences;
+const formatList = (items: string[]) => {
+  if (items.length <= 1) return items[0] ?? "";
+  if (items.length === 2) return `${items[0]} and ${items[1]}`;
+  return `${items.slice(0, -1).join(", ")}, and ${items[items.length - 1]}`;
 };
 
-const mostCommonYear = (sentences: string[]): number | null => {
-  const counts = new Map<number, number>();
-  sentences.forEach((sentence) => {
-    const matches = sentence.match(YEAR_PATTERN);
-    matches?.forEach((value) => {
-      const year = Number(value);
-      if (!Number.isNaN(year)) {
-        counts.set(year, (counts.get(year) ?? 0) + 1);
-      }
-    });
-  });
-  const [year] = [...counts.entries()].sort((a, b) => b[1] - a[1])[0] ?? [];
-  return year ?? null;
-};
-
-const collectSignalPhrases = (
-  sentences: string[],
-  signals: Array<{ re: RegExp; phrase: string }>,
-  max = 2,
-): string[] => {
-  const counts = new Map<string, number>();
-  sentences.forEach((sentence) => {
-    signals.forEach(({ re, phrase }) => {
-      if (!re.test(sentence)) return;
-      counts.set(phrase, (counts.get(phrase) ?? 0) + 1);
-    });
-  });
-  return [...counts.entries()]
-    .sort((a, b) => b[1] - a[1])
-    .map(([phrase]) => phrase)
-    .slice(0, max);
-};
-
-const buildNarrativeSummary = (pages: SectionedPage[], docLabel: string) => {
-  const sentences = collectSentences(pages);
-  if (sentences.length === 0) {
-    return "This document frames the period as one of focused execution while balancing constraints, outlining where effort is concentrated and how near-term delivery links to the longer strategic arc.";
-  }
-
-  const year = mostCommonYear(sentences);
-  const periodLabel = year ? `${year}` : "the period";
-  const nextYearLabel = year ? `${year + 1}` : "the next year";
+const buildNarrativeSummary = (pages: SectionedPage[], candidates: DecisionCandidate[], docLabel: string) => {
   const subject = docLabel ? docLabel : "The document";
+  const fullText = pages.map((page) => page.text).join(" ");
+  const candidateText = candidates.map((candidate) => candidate.decision).join(" ");
+  const corpus = `${fullText} ${candidateText}`;
+  const hasSignal = (patterns: RegExp[]) => patterns.some((pattern) => pattern.test(corpus));
 
-  const constraints = collectSignalPhrases(sentences, SUMMARY_SIGNALS.constraints, 2);
-  const investments = collectSignalPhrases(sentences, SUMMARY_SIGNALS.investments, 2);
-  const scaleSignals = collectSignalPhrases(sentences, SUMMARY_SIGNALS.scale, 1);
+  const constraintParts = [];
+  if (hasSignal(KEYWORD_PATTERNS.marginPressure)) constraintParts.push("margin pressure");
+  if (hasSignal(KEYWORD_PATTERNS.costReduction)) constraintParts.push("cost reduction");
+  if (hasSignal(KEYWORD_PATTERNS.liquidity)) constraintParts.push("liquidity discipline");
+  const constraintPhrase = constraintParts.length ? formatList(constraintParts) : "execution constraints";
 
-  const nearTermSentences = sentences.filter((sentence) => NEAR_TERM_PATTERNS.some((pattern) => pattern.test(sentence)));
-  const longTermSentences = sentences.filter((sentence) => LONG_TERM_PATTERNS.some((pattern) => pattern.test(sentence)));
+  const capitalParts = [];
+  if (hasSignal(KEYWORD_PATTERNS.manufacturingReadiness)) capitalParts.push("manufacturing readiness");
+  if (hasSignal(KEYWORD_PATTERNS.energyStorage) || hasSignal(KEYWORD_PATTERNS.megafactory)) {
+    capitalParts.push("energy capacity buildout");
+  }
+  if (hasSignal(KEYWORD_PATTERNS.aiTrainingCompute)) capitalParts.push("AI training infrastructure");
 
-  const nearTermThemes = collectSignalPhrases(
-    nearTermSentences.length ? nearTermSentences : sentences,
-    SUMMARY_SIGNALS.investments,
-    2,
-  );
-  const longTermThemes = collectSignalPhrases(
-    longTermSentences.length ? longTermSentences : sentences,
-    SUMMARY_SIGNALS.scale,
-    1,
-  );
+  const postureParts = [];
+  if (hasSignal(KEYWORD_PATTERNS.costReduction)) postureParts.push("cost reduction");
+  if (hasSignal(KEYWORD_PATTERNS.capex)) postureParts.push("capex efficiency");
+  if (hasSignal(KEYWORD_PATTERNS.liquidity)) postureParts.push("liquidity management");
 
-  const constraintPhrase = joinPhrases(constraints, "operational and financial constraints");
-  const investmentPhrase = joinPhrases(investments, "capacity expansion and product execution");
-  const scalePhrase = joinPhrases(scaleSignals, "core operational execution");
-  const nearTermPhrase = joinPhrases(nearTermThemes, investmentPhrase);
-  const longTermPhrase = joinPhrases(longTermThemes, "the next growth curve and platform build");
+  const forwardParts = [];
+  if (hasSignal(KEYWORD_PATTERNS.energyStorage) || hasSignal(KEYWORD_PATTERNS.megafactory)) forwardParts.push("energy growth");
+  if (
+    hasSignal(KEYWORD_PATTERNS.affordableVehicles) ||
+    hasSignal(KEYWORD_PATTERNS.manufacturingReadiness) ||
+    hasSignal(KEYWORD_PATTERNS.vehicleGrowth)
+  ) {
+    forwardParts.push("vehicle growth resuming");
+  }
+  if (hasSignal(KEYWORD_PATTERNS.autonomy)) forwardParts.push("autonomy as the long-arc driver");
+
+  const plannedSteps = [];
+  if (hasSignal(KEYWORD_PATTERNS.robotaxi)) plannedSteps.push("robotaxi/cybercab steps");
+  if (hasSignal(KEYWORD_PATTERNS.lithium)) plannedSteps.push("lithium refinery work");
+  if (hasSignal(KEYWORD_PATTERNS.semi)) plannedSteps.push("Semi ramp");
+  if (hasSignal(KEYWORD_PATTERNS.supercharger)) plannedSteps.push("supercharger expansion");
 
   const sentencesOut: string[] = [];
-  sentencesOut.push(`${subject} frames ${periodLabel} as a period of execution under ${constraintPhrase}.`);
-  sentencesOut.push(`Capital and effort were directed toward ${investmentPhrase}, with leadership attention on operational delivery.`);
-  sentencesOut.push(`What is already working at scale is the momentum in ${scalePhrase}, without relying on headline metrics.`);
+  sentencesOut.push(`${subject} frames execution under ${constraintPhrase}, emphasizing disciplined tradeoffs.`);
   sentencesOut.push(
-    `Near-term execution centers on ${nearTermPhrase}, while the longer-term arc emphasizes ${longTermPhrase}.`,
+    capitalParts.length
+      ? `Capital direction centers on ${formatList(capitalParts)}.`
+      : "Capital direction is left implicit beyond ongoing execution focus.",
   );
-  sentencesOut.push(`Looking into ${nextYearLabel}, the narrative bridges toward scaling these priorities into the next phase.`);
+  sentencesOut.push(
+    postureParts.length
+      ? `Operational posture emphasizes ${formatList(postureParts)}.`
+      : "Operational posture is described as disciplined execution without explicit cost or liquidity signals.",
+  );
+  sentencesOut.push(
+    forwardParts.length
+      ? `The forward arc points to ${formatList(forwardParts)}.`
+      : "The forward arc is noted without explicit growth sequencing.",
+  );
+  if (plannedSteps.length) {
+    sentencesOut.push(`Planned steps flagged include ${formatList(plannedSteps)}.`);
+  }
 
   return sentencesOut.slice(0, 5).join(" ");
 };
@@ -272,7 +230,7 @@ export function buildLocalSummary(
   const docLabel = docName.replace(/\.pdf$/i, "").trim();
   const themes = buildThemes(candidates);
   const highlights = pickHighlightSentences(pages, candidates);
-  const narrativeSummary = buildNarrativeSummary(pages, docLabel);
+  const narrativeSummary = buildNarrativeSummary(pages, candidates, docLabel);
 
   const introTheme = themes.slice(0, 2).join(" and ");
   const introBase = docLabel

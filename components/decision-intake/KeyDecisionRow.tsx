@@ -5,15 +5,14 @@ import { cn } from "@/lib/utils";
 import type { DecisionCandidate } from "@/lib/intake/decisionExtractLocal";
 import { computeRpsDnav } from "@/lib/intake/decisionMetrics";
 import { Button } from "@/components/ui/button";
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import MetricStepperPill from "@/components/decision-intake/MetricStepperPill";
 
 const METRICS = [
-  { key: "impact", label: "I", name: "Impact" },
-  { key: "cost", label: "C", name: "Cost" },
-  { key: "risk", label: "R", name: "Risk" },
-  { key: "urgency", label: "U", name: "Urgency" },
-  { key: "confidence", label: "CF", name: "Confidence" },
+  { key: "impact", label: "Impact" },
+  { key: "cost", label: "Cost" },
+  { key: "risk", label: "Risk" },
+  { key: "urgency", label: "Urgency" },
+  { key: "confidence", label: "Confidence" },
 ] as const;
 
 type MetricKey = (typeof METRICS)[number]["key"];
@@ -67,7 +66,6 @@ export default function KeyDecisionRow({
   const timeframe = findTimeframe(candidate.evidence.full ?? candidate.decision);
   const metadata = [pageLabel, timeframe].filter(Boolean).join(" · ");
   const normalizedDecision = candidate.statementNormalized || candidate.decision;
-  const verbatimDecision = candidate.statementVerbatim || candidate.evidence.full || candidate.decision;
   const toggleExpanded = useCallback(() => {
     setIsExpanded((prev) => !prev);
   }, []);
@@ -116,7 +114,7 @@ export default function KeyDecisionRow({
       {isExpanded ? (
         <div className="border-t border-border/50 px-3 py-3" onClick={(event) => event.stopPropagation()}>
           <div className="flex flex-wrap items-center justify-between gap-3">
-            <div className="flex flex-wrap items-center gap-2 text-[11px] text-muted-foreground">
+            <div className="flex flex-wrap items-center gap-2">
               {pdfUrl ? (
                 <a
                   href={pdfUrl}
@@ -127,24 +125,6 @@ export default function KeyDecisionRow({
                   View PDF
                 </a>
               ) : null}
-              <Popover>
-                <PopoverTrigger asChild>
-                  <button
-                    type="button"
-                    className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground transition hover:text-foreground"
-                  >
-                    Verbatim
-                  </button>
-                </PopoverTrigger>
-                <PopoverContent align="start" className="w-80 rounded-xl border border-border/60 bg-background/95 p-3 text-xs">
-                  <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
-                    Verbatim from PDF
-                  </p>
-                  <p className="mt-2 text-[11px] text-foreground">{verbatimDecision}</p>
-                </PopoverContent>
-              </Popover>
-            </div>
-            <div className="flex flex-wrap items-center gap-2 lg:justify-end">
               <Button
                 type="button"
                 size="sm"
@@ -169,39 +149,15 @@ export default function KeyDecisionRow({
                 ×
               </button>
             </div>
-          </div>
-
-          <div className="mt-3 flex flex-wrap gap-4">
-            <div className="space-y-1">
-              <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Outcome Load</p>
-              <div className="flex flex-wrap items-center gap-2">
-                {METRICS.slice(0, 3).map((metric) => (
-                  <MetricStepperPill
-                    key={metric.key}
-                    label={metric.label}
-                    value={candidate.sliders[metric.key]}
-                    onChange={(value) => onMetricChange(candidate.id, metric.key, value)}
-                  />
-                ))}
-              </div>
-            </div>
-            <div className="space-y-1">
-              <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
-                Urgency &amp; Confidence
-              </p>
-              <div className="flex flex-wrap items-center gap-2">
-                {METRICS.slice(3).map((metric) => (
-                  <MetricStepperPill
-                    key={metric.key}
-                    label={metric.label}
-                    value={candidate.sliders[metric.key]}
-                    onChange={(value) => onMetricChange(candidate.id, metric.key, value)}
-                  />
-                ))}
-              </div>
-            </div>
-            <div className="space-y-1">
-              <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">RPS + D-NAV</p>
+            <div className="flex flex-wrap items-center gap-2">
+              {METRICS.map((metric) => (
+                <MetricStepperPill
+                  key={metric.key}
+                  label={metric.label}
+                  value={candidate.sliders[metric.key]}
+                  onChange={(value) => onMetricChange(candidate.id, metric.key, value)}
+                />
+              ))}
               <div className="flex flex-wrap items-center gap-2 rounded-md border border-border/60 bg-muted/10 px-2 py-1 text-[11px]">
                 <span className="font-semibold uppercase tracking-wide text-muted-foreground">R</span>
                 <span className="font-semibold text-foreground tabular-nums">{formatSignal(metrics.r)}</span>
