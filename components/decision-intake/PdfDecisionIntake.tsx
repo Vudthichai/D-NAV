@@ -132,6 +132,16 @@ const PdfDecisionIntake = forwardRef<PdfDecisionIntakeHandle, PdfDecisionIntakeP
     [applyCandidateUpdates],
   );
 
+  const updateDecisionText = useCallback(
+    (id: string, value: string) => {
+      applyCandidateUpdates(id, (candidate) => ({
+        ...candidate,
+        decision: value,
+      }));
+    },
+    [applyCandidateUpdates],
+  );
+
   useImperativeHandle(
     ref,
     () => ({
@@ -304,6 +314,7 @@ const PdfDecisionIntake = forwardRef<PdfDecisionIntakeHandle, PdfDecisionIntakeP
                   onAdd={handleAdd}
                   onDismiss={handleDismiss}
                   onMetricChange={(id, key, value) => updateSlider(id, key, value)}
+                  onDecisionChange={updateDecisionText}
                 />
               );
             })}

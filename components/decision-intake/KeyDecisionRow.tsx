@@ -1,9 +1,8 @@
 "use client";
 
-import { type KeyboardEvent, useCallback, useState } from "react";
+import { type ChangeEvent, type KeyboardEvent, useCallback, useEffect, useRef, useState } from "react";
 import { cn } from "@/lib/utils";
 import type { DecisionCandidate } from "@/lib/intake/decisionExtractLocal";
-import { computeRpsDnav } from "@/lib/intake/decisionMetrics";
 import { Button } from "@/components/ui/button";
 import MetricStepperPill from "@/components/decision-intake/MetricStepperPill";
 
@@ -24,6 +23,7 @@ interface KeyDecisionRowProps {
   onAdd: (candidate: DecisionCandidate) => void;
   onDismiss: (id: string) => void;
   onMetricChange: (id: string, key: MetricKey, value: number) => void;
+  onDecisionChange: (id: string, value: string) => void;
 }
 
 export default function KeyDecisionRow({
@@ -33,19 +33,12 @@ export default function KeyDecisionRow({
   onAdd,
   onDismiss,
   onMetricChange,
+  onDecisionChange,
 }: KeyDecisionRowProps) {
   const [isExpanded, setIsExpanded] = useState(false);
+  const [useTextarea, setUseTextarea] = useState(false);
+  const textareaRef = useRef<HTMLTextAreaElement | null>(null);
   const pageLabel = candidate.evidence.page ? `p${candidate.evidence.page}` : "p.n/a";
-  const metrics = computeRpsDnav(candidate.sliders);
-  const formatSignal = (value: number) => {
-    if (!Number.isFinite(value)) return "0";
-    const formatted = value.toFixed(1).replace(/\.0$/, "");
-    return value > 0 ? `+${formatted}` : formatted;
-  };
-  const formatCompact = (value: number) => {
-    if (!Number.isFinite(value)) return "0";
-    return value.toFixed(1).replace(/\.0$/, "");
-  };
   const findTimeframe = (value?: string) => {
     if (!value) return null;
     const patterns = [
@@ -65,7 +58,7 @@ export default function KeyDecisionRow({
   };
   const timeframe = findTimeframe(candidate.evidence.full ?? candidate.decision);
   const metadata = [pageLabel, timeframe].filter(Boolean).join(" · ");
-  const normalizedDecision = candidate.statementNormalized || candidate.decision;
+  const decisionText = candidate.decision;
   const toggleExpanded = useCallback(() => {
     setIsExpanded((prev) => !prev);
   }, []);
@@ -78,6 +71,26 @@ export default function KeyDecisionRow({
     },
     [toggleExpanded],
   );
+  const handleDecisionChange = useCallback(
+    (event: ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
+      onDecisionChange(candidate.id, event.target.value);
+    },
+    [candidate.id, onDecisionChange],
+  );
+  const handleDecisionFocus = useCallback(() => {
+    if (decisionText.length > 120) {
+      setUseTextarea(true);
+    }
+  }, [decisionText.length]);
+  const handleDecisionBlur = useCallback(() => {
+    setUseTextarea(false);
+  }, []);
+
+  useEffect(() => {
+    if (useTextarea) {
+      textareaRef.current?.focus();
+    }
+  }, [useTextarea]);
 
   return (
     <div className="rounded-lg border border-border/60 bg-white/70 text-xs text-muted-foreground shadow-sm dark:bg-white/10">
@@ -90,9 +103,38 @@ export default function KeyDecisionRow({
         onKeyDown={handleKeyDown}
       >
         <div className="min-w-0 flex-1 space-y-1">
-          <p className="line-clamp-2 text-sm font-semibold leading-snug text-foreground sm:text-base">
-            {normalizedDecision}
-          </p>
+          {useTextarea ? (
+            <textarea
+              ref={textareaRef}
+              value={decisionText}
+              placeholder="Edit decision..."
+              rows={3}
+              className="w-full resize-none rounded-md border border-border/60 bg-white/80 px-2 py-1 text-sm font-normal leading-relaxed text-foreground shadow-sm focus:border-primary focus:outline-none dark:bg-white/10"
+              onChange={handleDecisionChange}
+              onFocus={(event) => {
+                event.stopPropagation();
+                handleDecisionFocus();
+              }}
+              onBlur={handleDecisionBlur}
+              onClick={(event) => event.stopPropagation()}
+              onKeyDown={(event) => event.stopPropagation()}
+            />
+          ) : (
+            <input
+              type="text"
+              value={decisionText}
+              placeholder="Edit decision..."
+              className="w-full truncate rounded-md border border-border/60 bg-white/80 px-2 py-1 text-sm font-normal leading-snug text-foreground shadow-sm focus:border-primary focus:outline-none dark:bg-white/10"
+              onChange={handleDecisionChange}
+              onFocus={(event) => {
+                event.stopPropagation();
+                handleDecisionFocus();
+              }}
+              onBlur={handleDecisionBlur}
+              onClick={(event) => event.stopPropagation()}
+              onKeyDown={(event) => event.stopPropagation()}
+            />
+          )}
           <p className="text-[11px] text-muted-foreground">{metadata}</p>
         </div>
         <div className="shrink-0">
@@ -158,16 +200,6 @@ export default function KeyDecisionRow({
                   onChange={(value) => onMetricChange(candidate.id, metric.key, value)}
                 />
               ))}
-              <div className="flex flex-wrap items-center gap-2 rounded-md border border-border/60 bg-muted/10 px-2 py-1 text-[11px]">
-                <span className="font-semibold uppercase tracking-wide text-muted-foreground">R</span>
-                <span className="font-semibold text-foreground tabular-nums">{formatSignal(metrics.r)}</span>
-                <span className="font-semibold uppercase tracking-wide text-muted-foreground">P</span>
-                <span className="font-semibold text-foreground tabular-nums">{formatSignal(metrics.p)}</span>
-                <span className="font-semibold uppercase tracking-wide text-muted-foreground">S</span>
-                <span className="font-semibold text-foreground tabular-nums">{formatSignal(metrics.s)}</span>
-                <span className="ml-1 font-semibold uppercase tracking-wide text-muted-foreground">D-NAV</span>
-                <span className="font-semibold text-foreground tabular-nums">{formatCompact(metrics.dnav)}</span>
-              </div>
             </div>
           </div>
         </div>
