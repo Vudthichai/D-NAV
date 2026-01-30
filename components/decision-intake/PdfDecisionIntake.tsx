@@ -207,13 +207,19 @@ const PdfDecisionIntake = forwardRef<PdfDecisionIntakeHandle, PdfDecisionIntakeP
         </p>
       </div>
 
-      <div className="space-y-5">
+      <div className="grid gap-4 md:grid-cols-[280px_1fr]">
         <div className="dnav-dark-glass-surface rounded-xl border border-border/60 bg-white/70 p-4 shadow-sm dark:bg-white/10">
           <div className="flex flex-wrap items-start justify-between gap-3">
             <div className="space-y-1">
               <p className="text-sm font-semibold text-foreground">Upload PDF</p>
               <p className="text-[11px] text-muted-foreground">
-                {selectedFileName ? `Selected: ${selectedFileName}` : "Choose a PDF to extract per-page text."}
+                {selectedFileName ? (
+                  <span className="block truncate" title={selectedFileName}>
+                    Selected: {selectedFileName}
+                  </span>
+                ) : (
+                  "Choose a PDF to extract per-page text."
+                )}
               </p>
               {pdfUrl ? (
                 <a
