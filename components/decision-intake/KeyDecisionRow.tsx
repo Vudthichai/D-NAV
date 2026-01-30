@@ -81,16 +81,16 @@ export default function KeyDecisionRow({
   }, [useTextarea]);
 
   return (
-    <div className="rounded-lg border border-border/60 bg-white/70 text-xs text-muted-foreground shadow-sm dark:bg-white/10">
-      <div className="flex items-start justify-between gap-3 px-3 py-2">
-        <div className="min-w-0 flex-1 space-y-1">
+    <div className="rounded-lg border border-neutral-200 bg-white text-xs text-muted-foreground shadow-sm transition-colors hover:border-neutral-300 hover:bg-neutral-50 dark:border-neutral-800 dark:bg-neutral-900/40 dark:hover:border-neutral-700 dark:hover:bg-neutral-900/55">
+      <div className="space-y-2 px-3 py-3">
+        <div className="min-w-0 space-y-1">
           {useTextarea ? (
             <textarea
               ref={textareaRef}
               value={decisionText}
               placeholder="Edit decision..."
               rows={3}
-              className="w-full resize-none rounded-md border border-border/60 bg-white/80 px-2 py-1 text-sm font-normal leading-relaxed text-foreground shadow-sm focus:border-primary focus:outline-none dark:bg-white/10"
+              className="w-full resize-none rounded-md border border-border/60 bg-white/80 px-2 py-1 text-sm sm:text-[15px] font-medium leading-relaxed text-neutral-900 shadow-sm focus:border-primary focus:outline-none dark:bg-white/10 dark:text-neutral-100"
               onChange={handleDecisionChange}
               onFocus={(event) => {
                 event.stopPropagation();
@@ -105,7 +105,7 @@ export default function KeyDecisionRow({
               type="text"
               value={decisionText}
               placeholder="Edit decision..."
-              className="w-full truncate rounded-md border border-border/60 bg-white/80 px-2 py-1 text-sm font-normal leading-snug text-foreground shadow-sm focus:border-primary focus:outline-none dark:bg-white/10"
+              className="w-full truncate rounded-md border border-border/60 bg-white/80 px-2 py-1 text-sm sm:text-[15px] font-medium leading-relaxed text-neutral-900 shadow-sm focus:border-primary focus:outline-none dark:bg-white/10 dark:text-neutral-100"
               onChange={handleDecisionChange}
               onFocus={(event) => {
                 event.stopPropagation();
@@ -116,56 +116,56 @@ export default function KeyDecisionRow({
               onKeyDown={(event) => event.stopPropagation()}
             />
           )}
-          <p className="text-[11px] text-muted-foreground">{metadata}</p>
+          <p className="text-xs text-neutral-500 dark:text-neutral-400">{metadata}</p>
         </div>
-      </div>
 
-      <div className="border-t border-border/50 px-3 py-3">
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <div className="flex flex-wrap items-center gap-2">
-            {pdfUrl ? (
-              <a
-                href={pdfUrl}
-                target="_blank"
-                rel="noreferrer"
-                className="text-[10px] font-semibold uppercase tracking-wide text-primary hover:underline"
+        <div className="border-t border-border/50 pt-3">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div className="flex flex-wrap items-center gap-2">
+              {pdfUrl ? (
+                <a
+                  href={pdfUrl}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="text-[10px] font-semibold uppercase tracking-wide text-primary hover:underline"
+                >
+                  View Source
+                </a>
+              ) : null}
+              <Button
+                type="button"
+                size="sm"
+                variant="outline"
+                className={cn(
+                  "rounded-full text-[10px] font-semibold uppercase tracking-wide",
+                  isAdded
+                    ? "border-emerald-500/40 bg-emerald-500/10 text-emerald-600 hover:bg-emerald-500/15"
+                    : "border-border/60 bg-foreground/5 text-foreground hover:bg-foreground/10",
+                )}
+                onClick={() => onAdd(candidate)}
+                disabled={isAdded}
               >
-                View Source
-              </a>
-            ) : null}
-            <Button
-              type="button"
-              size="sm"
-              variant="outline"
-              className={cn(
-                "rounded-full text-[10px] font-semibold uppercase tracking-wide",
-                isAdded
-                  ? "border-emerald-500/40 bg-emerald-500/10 text-emerald-600 hover:bg-emerald-500/15"
-                  : "border-border/60 bg-foreground/5 text-foreground hover:bg-foreground/10",
-              )}
-              onClick={() => onAdd(candidate)}
-              disabled={isAdded}
-            >
-              {isAdded ? "Added ✓" : "Add to Session"}
-            </Button>
-            <button
-              type="button"
-              className="grid h-7 w-7 place-items-center rounded-full border border-border/60 bg-transparent text-[14px] font-semibold text-muted-foreground transition hover:border-border/80 hover:text-foreground"
-              onClick={() => onDismiss(candidate.id)}
-              aria-label="Dismiss decision"
-            >
-              ×
-            </button>
-          </div>
-          <div className="flex flex-wrap items-center gap-2">
-            {METRICS.map((metric) => (
-              <MetricStepperPill
-                key={metric.key}
-                label={metric.label}
-                value={candidate.sliders[metric.key]}
-                onChange={(value) => onMetricChange(candidate.id, metric.key, value)}
-              />
-            ))}
+                {isAdded ? "Added ✓" : "Add to Session"}
+              </Button>
+              <button
+                type="button"
+                className="grid h-7 w-7 place-items-center rounded-full border border-border/60 bg-transparent text-[14px] font-semibold text-muted-foreground transition hover:border-border/80 hover:text-foreground"
+                onClick={() => onDismiss(candidate.id)}
+                aria-label="Dismiss decision"
+              >
+                ×
+              </button>
+            </div>
+            <div className="flex flex-wrap items-center gap-2">
+              {METRICS.map((metric) => (
+                <MetricStepperPill
+                  key={metric.key}
+                  label={metric.label}
+                  value={candidate.sliders[metric.key]}
+                  onChange={(value) => onMetricChange(candidate.id, metric.key, value)}
+                />
+              ))}
+            </div>
           </div>
         </div>
       </div>
