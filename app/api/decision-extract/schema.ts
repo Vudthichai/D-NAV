@@ -25,6 +25,7 @@ export const decisionCandidateSchema = z.object({
   category: categorySchema,
   decision: z.string().min(1),
   rationale: z.string().min(1),
+  page: z.number().int().positive(),
   constraints: z.object({
     impact: scoreSchema,
     cost: scoreSchema,

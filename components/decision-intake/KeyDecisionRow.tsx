@@ -38,7 +38,8 @@ export default function KeyDecisionRow({
   const [isExpanded, setIsExpanded] = useState(false);
   const [useTextarea, setUseTextarea] = useState(false);
   const textareaRef = useRef<HTMLTextAreaElement | null>(null);
-  const pageLabel = candidate.evidence.page ? `p${candidate.evidence.page}` : "p.n/a";
+  const candidatePage = candidate.page ?? candidate.evidence.page;
+  const pageLabel = candidatePage ? `p${candidatePage}` : "p.n/a";
   const findTimeframe = (value?: string) => {
     if (!value) return null;
     const patterns = [

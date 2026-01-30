@@ -402,6 +402,7 @@ const extractCandidatesLocal = (
         category: inferCategory(quote),
         decision,
         rationale: buildRationale(strength),
+        page: page.page,
         constraints: buildDefaultConstraints(quote),
         evidence: { page: page.page, quote },
         tags: inferTags(quote),
@@ -467,6 +468,7 @@ const mergeCandidates = (a: DecisionCandidate, b: DecisionCandidate) => {
     decision: preferred.decision || fallback.decision,
     rationale: preferred.rationale || fallback.rationale,
     category: preferred.category || fallback.category,
+    page: evidence.page,
     evidence,
     tags,
   };
@@ -556,6 +558,7 @@ const normalizeCandidate = (
     category,
     decision,
     rationale,
+    page,
     constraints,
     evidence: {
       page,
@@ -610,6 +613,7 @@ const buildRefinePrompt = (
   "category": "Operations | Finance | Product | Hiring | Legal | Strategy | Sales/Go-to-market | Other",
   "decision": "string",
   "rationale": "string",
+  "page": 1,
   "constraints": {
     "impact": { "score": 1-10, "evidence": "string" },
     "cost": { "score": 1-10, "evidence": "string" },
