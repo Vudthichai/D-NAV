@@ -736,9 +736,10 @@ export default function StressTestPage() {
                           <span>Session Insight</span>
                         </>
                       }
+                      accent={<div className="absolute left-0 top-0 h-full w-1 rounded-l-md bg-orange-500/70" />}
                       labelClassName="flex items-center gap-2 text-muted-foreground"
                       bodyClassName="text-foreground"
-                      className="dnav-dark-glass-surface dnav-insight-callout dnav-session-insight-callout dark:ring-1 dark:ring-orange-400/15 rounded-lg border border-transparent"
+                      className="relative dnav-dark-glass-surface dnav-insight-callout dnav-session-insight-callout rounded-lg border border-transparent pl-5 dark:ring-1 dark:ring-orange-400/15"
                     >
                       <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
                         <div className="space-y-1">
