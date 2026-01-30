@@ -685,7 +685,7 @@ export default function StressTestPage() {
             {isSessionAnalysisOpen ? (
               <div
                 ref={sessionAnalysisRef}
-                className="dnav-dark-glass-surface space-y-4 rounded-2xl border border-amber-200/60 bg-amber-50/70 p-4 shadow-sm dark:border-border/60 dark:bg-white/10 dark:ring-1 dark:ring-orange-500/30"
+                className="dnav-dark-glass-surface space-y-4 rounded-2xl rounded-xl border border-transparent border-amber-200/60 bg-amber-50/70 p-4 shadow-sm dark:border-border/60 dark:bg-white/10 dark:ring-1 dark:ring-orange-500/30"
               >
                 <div className="flex flex-wrap items-start justify-between gap-3">
                   <div className="space-y-1">
@@ -738,7 +738,7 @@ export default function StressTestPage() {
                       }
                       labelClassName="flex items-center gap-2 text-muted-foreground"
                       bodyClassName="text-foreground"
-                      className="dnav-dark-glass-surface dnav-insight-callout dnav-session-insight-callout dark:ring-1 dark:ring-orange-500/15"
+                      className="dnav-dark-glass-surface dnav-insight-callout dnav-session-insight-callout dark:ring-1 dark:ring-orange-400/15 rounded-lg border border-transparent"
                     >
                       <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
                         <div className="space-y-1">
