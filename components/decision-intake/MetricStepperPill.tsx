@@ -39,7 +39,7 @@ export default function MetricStepperPill({
   return (
     <div
       className={cn(
-        "flex items-center gap-1.5 rounded-full border px-2 py-1 text-[11px] text-foreground",
+        "flex items-center gap-1.5 rounded-full border px-2 py-1 text-[11px] text-foreground dark:border-white/20 dark:ring-1 dark:ring-white/20",
         intensity,
       )}
     >
@@ -49,7 +49,7 @@ export default function MetricStepperPill({
         onClick={handleDecrease}
         disabled={!canDecrease}
         className={cn(
-          "grid h-6 w-6 place-items-center rounded-full border text-[12px] font-semibold transition",
+          "grid h-6 w-6 place-items-center rounded-full border text-[12px] font-semibold transition dark:border-white/20 dark:ring-1 dark:ring-white/20",
           canDecrease
             ? "border-border/60 bg-background/70 text-foreground hover:bg-foreground/10 active:scale-95"
             : "border-border/40 bg-muted/20 text-muted-foreground",
@@ -64,7 +64,7 @@ export default function MetricStepperPill({
         onClick={handleIncrease}
         disabled={!canIncrease}
         className={cn(
-          "grid h-6 w-6 place-items-center rounded-full border text-[12px] font-semibold transition",
+          "grid h-6 w-6 place-items-center rounded-full border text-[12px] font-semibold transition dark:border-white/20 dark:ring-1 dark:ring-white/20",
           canIncrease
             ? "border-border/60 bg-background/70 text-foreground hover:bg-foreground/10 active:scale-95"
             : "border-border/40 bg-muted/20 text-muted-foreground",
